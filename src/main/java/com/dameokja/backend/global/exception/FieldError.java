@@ -4,10 +4,10 @@ public record FieldError(
         String location,
         String field,
         String code,
-        String message
+        String detail
 ) {
 
-    public static FieldError of(String location, String field, String code, String message) {
-        return new FieldError(location, field, code, message);
+    public static FieldError of(String location, String field, String code, String detail) {
+        return new FieldError(location, field, code, detail);
     }
 }
