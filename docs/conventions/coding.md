@@ -10,12 +10,12 @@
 | 기준 | 권장 | 상한(초과 시 분리) | 근거 |
 |---|---|---|---|
 | 한 줄 길이 | - | 100자 (`package`·`import` 제외) | [G2] |
-| 메서드 길이 | 20줄 이하 | 30줄 | 권장 [B1-3], 상한 「팀」 |
-| 메서드 파라미터 수 | 3개 이하 | 4개 (넘으면 객체로 묶음) | 권장 [B1-3], 상한 [B2] |
-| 중첩 깊이 (if·for·try) | 2단계 이하 | 3단계 (넘으면 early return·메서드 추출) | 권장 [B1-3], 해법 [R1], 상한 「팀」 |
-| 클래스(파일) 길이 | 200줄 이하 | 300줄 (넘으면 책임 분리) | 방향 [B1-10], 숫자 「팀」 |
+| 메서드 길이 | 20줄 이하 | 30줄 | 방향 [F3], 숫자 「팀」 |
+| 메서드 파라미터 수 | 3개 이하 | 4개 (넘으면 객체로 묶음) | 방향 [S1], 숫자 「팀」 |
+| 중첩 깊이 (if·for·try) | - | 3단계 (넘으면 early return·메서드 추출) | 측정 [C4], 해법 [R1], 숫자 「팀」 |
+| 클래스(파일) 길이 | 200줄 이하 | 300줄 (넘으면 책임 분리) | 방향 [C3], 숫자 「팀」 |
 
-- **「팀」 상한의 이유**: 외부 자료는 "작게"라는 방향만 주고 강제용 숫자를 주지 않는다. 도구 기본값(Checkstyle 메서드 150줄[C1], 파일 2000줄[C3])은 리뷰 기준으로는 너무 느슨하다. 그래서 권장값에 1.5배 여유를 둔 값을 상한으로 정했다. 상한은 CI로 검사한다.
+- **「팀」 숫자의 이유**: 외부 자료는 "작게"라는 방향만 주고 강제용 숫자를 정해 주지 않는다. 도구 기본값(Checkstyle 메서드 150줄[C1], 파일 2000줄[C3], 파라미터 7개[C5])은 리뷰 기준으로는 너무 느슨하다. 그래서 길이는 권장값에 1.5배 여유를 둔 값을 상한으로, 파라미터는 권장 3개에 하나 여유를 둔 4개를, 중첩은 3단계를 상한으로 정했다. 상한은 CI로 검사한다.
 - 상한을 넘기는 경우(생성된 코드, 분기 자체가 명세인 매핑 등)는 `@SuppressWarnings("checkstyle:<검사명>")`를 붙이고 PR 「크기 예외」에 사유를 적는다.
 
 ### 줄 수 세는 법
@@ -37,14 +37,14 @@ return userRepository.findById(userId)
 
 ## 가독성
 
-- **이름**: 의도가 드러나게 짓는다. 메서드는 동사로 시작하고(`findActiveByUserId`, `updateProfile`), `data`·`info`·`temp` 같은 모호한 이름과 임의 약어를 쓰지 않는다. [B1-2] 대소문자는 클래스 UpperCamelCase, 메서드·변수 lowerCamelCase, 상수 UPPER_SNAKE_CASE. [G4]
-- **한 메서드 한 가지 일**: 조회·검증·변경·저장이 섞이면 추출한다. [B1-3]
+- **이름**: 의도가 드러나게 짓는다. 메서드는 동사로 시작하고(`findActiveByUserId`, `updateProfile`), `data`·`info`·`temp` 같은 모호한 이름과 임의 약어를 쓰지 않는다. [O2][GE3] 대소문자는 클래스 UpperCamelCase, 메서드·변수 lowerCamelCase, 상수 UPPER_SNAKE_CASE. [G4]
+- **한 메서드 한 가지 일**: 무엇을 하는지 읽어서 파악해야 하는 코드 조각은 그 "무엇"을 이름으로 한 메서드로 추출한다. [F3]
 - **조건문**: 실패 조건은 early return·예외로 먼저 끝낸다(guard clause). [R1]
 - **매직 넘버 금지**: 의미 있는 숫자는 상수나 enum으로 이름을 붙인다. 이름 없는 숫자는 의도를 알 수 없고 바꿀 때 모두 찾아야 하기 때문이다. [C2] 단, `@Column(length = 20)` 같은 매핑 값은 스키마 명세 자체라 허용한다. 「팀」
 - **Optional**: 반환 타입으로만 쓰고, `get()` 대신 `orElseThrow(...)`·`map`·`orElse`를 쓴다. [J1]
 - **Stream**: 연산 인자 안에서 부수효과(외부 리스트에 add 등)를 만들지 않는다. 필요하면 for문을 쓴다. [J2]
-- **Entity 변경**: setter를 열지 않고 의도가 드러나는 메서드(`updateProfile`)로 바꾼다. 아무 곳에서나 값이 바뀌면 불변식을 지킬 수 없기 때문이다. [B2-17]
-- **주석**: 코드로 드러나는 "무엇"은 쓰지 않고 "왜"만 쓴다. [B1-4]
+- **Entity 변경**: setter를 열지 않고 의도가 드러나는 메서드(`updateProfile`)로 바꾼다. 아무 곳에서나 값이 바뀌면 불변식을 지킬 수 없기 때문이다. [O3]
+- **주석**: 코드로 드러나는 "무엇"은 쓰지 않고 "왜"만 쓴다. [GE3]
 - **예외**: 비즈니스 예외는 `CustomException` + 도메인별 `ExceptionCode`로 던지고, `catch` 후 무시하지 않는다. 응답 형식을 `GlobalExceptionHandler` 한 곳에서 일관되게 만들기 위해서다. [S3] 「팀」(PR #4에서 합의된 구조)
 
 ## 명세와 TDD
@@ -68,7 +68,7 @@ return userRepository.findById(userId)
 ## Lombok·JPA
 
 - Entity: `@Getter`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`. JPA 명세가 public 또는 protected 기본 생성자를 요구하고, protected로 두면 외부에서 불완전한 객체를 만들 수 없다. [P1]
-- Entity에 `@Setter`·`@Data`를 쓰지 않는다. `@Data`는 setter와 모든 필드 기반 `equals`/`hashCode`를 함께 만든다. [L1][B2-17]
+- Entity에 `@Setter`·`@Data`를 쓰지 않는다. `@Data`는 setter와 모든 필드 기반 `equals`/`hashCode`를 함께 만든다. [L1][O3]
 - 연관관계는 `@ManyToOne(fetch = FetchType.LAZY)`로 명시한다. JPA 기본값은 EAGER이고, Hibernate는 모든 연관관계를 LAZY로 두고 필요할 때 fetch join하도록 권장한다. EAGER는 N+1 쿼리를 만들기 쉽다. [P2][H2]
 - 의존성 주입: `@RequiredArgsConstructor` + `private final` 필드(생성자 주입). 의존성이 불변이 되고 null이 아님이 보장된다. [S1]
 
@@ -86,7 +86,7 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 
 ## 근거
 
-확인일 2026-09-17. 책은 판·장 번호로 표기한다.
+확인일 2026-09-18. 모든 출처는 링크를 열어 내용을 확인했다.
 
 | 표시 | 출처 | 이 문서에서 가져온 내용 |
 |---|---|---|
@@ -97,15 +97,18 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 | C1 | [Checkstyle MethodLength](https://checkstyle.sourceforge.io/checks/sizes/methodlength.html) | 줄 단위 측정, `countEmpty=false`, 기본 150줄 |
 | C2 | [Checkstyle MagicNumber](https://checkstyle.sourceforge.io/checks/coding/magicnumber.html) | 상수로 정의되지 않은 숫자 검사 |
 | C3 | [Checkstyle FileLength](https://checkstyle.sourceforge.io/checks/sizes/filelength.html) | 파일 전체 줄 수, 기본 2000줄 |
-| B1-n | Robert C. Martin, 『Clean Code』 n장 (2 의미 있는 이름, 3 함수, 4 주석, 10 클래스) | 함수는 작게(20줄을 넘기 드묾), 인자는 적게(3개 이상은 피함), 들여쓰기 1~2단계, 한 가지 일, 주석은 의도, 클래스는 작게 |
-| B2 | Joshua Bloch, 『Effective Java』 3판 Item 51 | 파라미터는 4개 이하를 목표로 한다 |
-| B2-17 | Joshua Bloch, 『Effective Java』 3판 Item 17 | 변경 가능성을 최소화한다 |
+| C4 | [Checkstyle NestedIfDepth](https://checkstyle.sourceforge.io/checks/coding/nestedifdepth.html) | if 중첩 깊이 검사, 기본 `max=1`(if 안의 if까지 허용). `max=2`면 3단계까지 허용 |
+| C5 | [Checkstyle ParameterNumber](https://checkstyle.sourceforge.io/checks/sizes/parameternumber.html) | 파라미터 수 검사, 기본 `max=7`, `@Override` 메서드 제외 옵션 |
+| F3 | [Martin Fowler — FunctionLength](https://martinfowler.com/bliki/FunctionLength.html) (2016) | 무엇을 하는지 파악하는 데 노력이 드는 코드는 그 "무엇"을 이름으로 한 함수로 추출. 의도와 구현의 분리 |
+| GE3 | [Google Engineering Practices — What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | 좋은 이름은 무엇인지·무엇을 하는지 충분히 전달. 주석은 코드가 왜 있는지 설명하고 무엇을 하는지는 설명하지 않음 |
+| O2 | [Oracle — Java Code Conventions: Naming](https://www.oracle.com/java/technologies/javase/codeconventions-namingconventions.html) | 메서드는 동사, 변수 이름은 짧지만 의도가 드러나게 |
+| O3 | [Oracle Java Tutorials — A Strategy for Defining Immutable Objects](https://docs.oracle.com/javase/tutorial/essential/concurrency/imstrat.html) | 필드를 바꾸는 setter 메서드를 제공하지 않음 |
 | R1 | [Refactoring 카탈로그 — Replace Nested Conditional with Guard Clauses](https://refactoring.com/catalog/replaceNestedConditionalWithGuardClauses.html) | 중첩 조건 대신 guard clause |
 | J1 | [Java SE 25 `Optional`](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/Optional.html) | 주로 메서드 반환 타입용, `get()`보다 `orElseThrow()` 권장 |
 | J2 | [Java SE 25 `java.util.stream` — Side-effects](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/stream/package-summary.html#SideEffects) | 연산 인자의 부수효과는 일반적으로 권장하지 않음 |
 | F1 | [Martin Fowler — Test Driven Development](https://martinfowler.com/bliki/TestDrivenDevelopment.html) | 테스트 작성 → 통과할 때까지 구현 → 리팩터링 |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) | 미래에 필요할 것 같은 기능은 지금 만들지 않는다 |
-| S1 | [Spring Framework — Constructor-based or setter-based DI?](https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html) | Spring 팀은 생성자 주입을 권장 |
+| S1 | [Spring Framework — Constructor-based or setter-based DI?](https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html) | Spring 팀은 생성자 주입을 권장. 생성자 인자가 많으면 클래스 책임이 너무 많다는 신호 |
 | S2 | [Spring Boot — Testing Spring Boot Applications](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html) | 실제 서블릿 환경에서는 서버 트랜잭션이 롤백되지 않음 |
 | S3 | [Spring Framework — Controller Advice](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-advice.html) | `@ControllerAdvice`로 여러 컨트롤러의 예외 처리를 한 곳에서 |
 | T1 | [Testcontainers — Reusable Containers](https://java.testcontainers.org/features/reuse/) | 실험 기능, 테스트 후 컨테이너가 멈추지 않음, CI에 부적합 |

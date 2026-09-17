@@ -37,7 +37,7 @@ com.dameokja.backend
 
 ## 근거
 
-확인일 2026-09-17.
+확인일 2026-09-18. 모든 출처는 링크를 열어 내용을 확인했다.
 
 | 표시 | 출처 | 이 문서에서 가져온 내용 |
 |---|---|---|
@@ -45,6 +45,6 @@ com.dameokja.backend
 | S2 | [Spring Framework — JDBC Batch Operations](https://docs.spring.io/spring-framework/reference/data-access/jdbc/advanced.html) | 배치로 묶으면 DB 왕복 횟수가 줄어듦 |
 | F1 | [Martin Fowler — PresentationDomainDataLayering](https://martinfowler.com/bliki/PresentationDomainDataLayering.html) (2015) | 계층이 커지면 최상위를 도메인 모듈로 나누고 내부를 계층화 |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) (2015) | 미래에 필요할 것 같은 기능은 지금 만들지 않음 |
-| F3 | Robert C. Martin, 『Clean Architecture』 22장 The Clean Architecture | 의존성은 안쪽(업무 규칙)으로만 향한다 |
+| F3 | [Robert C. Martin — The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) (2012) | 소스 코드 의존성은 안쪽으로만 향한다(The Dependency Rule) |
 | A1 | [Alistair Cockburn — Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/) (2005) | 애플리케이션을 실행 장치·DB와 분리해 개발·테스트 |
 | H1 | [Hibernate ORM 6.6 User Guide — 13.2.1 Batch inserts](https://docs.hibernate.org/orm/6.6/userguide/html_single/Hibernate_User_Guide.html) | IDENTITY 생성은 insert 배치를 비활성화 |
