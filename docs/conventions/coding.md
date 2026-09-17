@@ -24,8 +24,8 @@ return userRepository.findById(userId)
 ```
 
 - 한 줄에 문장 하나만 쓴다. 줄 수를 줄이려고 문장을 한 줄에 몰아 쓰지 않는다. [G1]
-- 단순 위임 한 문장짜리 메서드는 한 줄 선언을 허용한다. (예: `RepositoryAdapter`의 `@Override public User save(User user) { return repository.save(user); }`) — 팀 예외, 현재 코드 기준
-- 한 줄은 120자 이하로 한다. — 팀 값. Google 스타일은 100자[G2]지만 기존 코드에 100자 초과 줄이 있어 120자로 정했다.
+- 단순 위임 한 문장짜리 메서드는 100자 이내일 때만 한 줄 선언을 허용한다. 넘으면 일반 메서드처럼 줄바꿈한다.
+- 한 줄은 **100자 이하**로 한다. `package`·`import` 줄은 제외한다. [G2]
 - 상한을 넘기는 경우(생성된 코드, 분기 자체가 명세인 매핑 등)는 PR 「크기 예외」에 사유를 적는다.
 - 크기 숫자(20/30줄, 200/300줄 등)는 팀 합의값이다. 참고로 Checkstyle `MethodLength` 기본값은 150줄로 리뷰 기준으로는 느슨하다. [C1]
 
@@ -52,7 +52,7 @@ return userRepository.findById(userId)
 | C1 | [Checkstyle MethodLength](https://checkstyle.sourceforge.io/checks/sizes/methodlength.html) | 메서드 줄 수 검사, `countEmpty`(빈 줄·주석 제외 옵션), 기본 `max=150` |
 | C2 | [Checkstyle MagicNumber](https://checkstyle.sourceforge.io/checks/coding/magicnumber.html) | 매직 넘버 검사 |
 | G1 | [Google Java Style Guide 4.3](https://google.github.io/styleguide/javaguide.html#s4.3-one-statement-per-line) | 한 줄에 문장 하나 |
-| G2 | [Google Java Style Guide 4.4](https://google.github.io/styleguide/javaguide.html#s4.4-column-limit) | 열 제한 100자 |
+| G2 | [Google Java Style Guide 4.4](https://google.github.io/styleguide/javaguide.html#s4.4-column-limit) | 한 줄 최대 100자, `package`·`import` 등은 예외 |
 | G3 | [Google Java Style Guide 4.5.1](https://google.github.io/styleguide/javaguide.html#s4.5.1-line-wrapping-where-to-break) | `.` 등 연산자 앞에서 줄바꿈 |
 | G4 | [Google Java Style Guide 5.2](https://google.github.io/styleguide/javaguide.html#s5.2-specific-identifier-names) | 식별자 이름 규칙 |
 | J1 | [Java SE 25 `Optional` API Note](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/Optional.html) | 주로 메서드 반환 타입용, `get()`보다 `orElseThrow()` 권장 |
