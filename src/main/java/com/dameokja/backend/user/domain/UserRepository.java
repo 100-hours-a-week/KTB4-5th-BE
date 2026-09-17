@@ -7,4 +7,5 @@ public interface UserRepository {
     Optional<User> findById(Long id);
     boolean existsByNickname(String nickname);
     boolean existsByLoginId(String loginId);
+    Optional<User> findByIdForUpdate(Long id);
 }

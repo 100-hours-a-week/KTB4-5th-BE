@@ -10,4 +10,5 @@ public interface RefrigeratorMemberJpaRepository extends JpaRepository<Refrigera
 
     @Transactional
     long deleteAllByRefrigeratorId(Long refrigeratorId);
+    java.util.List<RefrigeratorMember> findByUserIdAndRole(Long userId, com.dameokja.backend.refrigerator.domain.RefrigeratorMemberRole role);
 }

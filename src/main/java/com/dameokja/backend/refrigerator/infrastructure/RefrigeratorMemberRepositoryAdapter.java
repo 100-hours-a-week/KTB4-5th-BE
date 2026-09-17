@@ -19,4 +19,7 @@ public class RefrigeratorMemberRepositoryAdapter implements RefrigeratorMemberRe
     @Override public long deleteAllByRefrigeratorId(Long refrigeratorId) {
         return repository.deleteAllByRefrigeratorId(refrigeratorId);
     }
+    @Override public java.util.List<RefrigeratorMember> findOwnedByUserId(Long userId) {
+        return repository.findByUserIdAndRole(userId, com.dameokja.backend.refrigerator.domain.RefrigeratorMemberRole.OWNER);
+    }
 }

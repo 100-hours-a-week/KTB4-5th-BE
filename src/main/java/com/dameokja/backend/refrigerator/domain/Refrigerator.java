@@ -37,4 +37,17 @@ public class Refrigerator extends BaseEntity {
     public void rename(String name) { this.name = name; }
 
     public void delete(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public int currentExpiredCount(String month) {
+        if (!month.equals(expiredCountMonth)) {
+            expiredCountMonth = month;
+            expiredCount = 0;
+        }
+        return expiredCount;
+    }
+
+    public int increaseExpiredCount(String month, int increment) {
+        if (increment <= 0) throw new RefrigeratorException(RefrigeratorExceptionCode.INVALID_INCREMENT);
+        expiredCount = Math.addExact(currentExpiredCount(month), increment);
+        return expiredCount;
+    }
 }
