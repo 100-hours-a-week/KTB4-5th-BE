@@ -2,7 +2,7 @@
 
 ## 상태와 범위
 
-`feature/user-refrigerator-services`에서 PR 1을 기반으로 작성했다. PR 생성·push는 하지 않는다. 서비스는 실행 가능한 메서드 계약만 있으며 현재 UnsupportedOperationException을 발생시키는 미구현 상태다. 아래 예외는 선언·응답 변환 테스트에 적용했으며 실제 서비스 적용은 후속 GREEN 단계의 작업이다.
+`feature/user-refrigerator-services`에서 PR 1을 기반으로 구현했다. Controller 없이 회원가입·본인 프로필·냉장고 인가/조회·월별 집계·탈퇴 서비스를 제공한다. RED 단계의 스텁은 제거했고 아래 예외는 실제 서비스 경로에 적용했다. PR 1 병합 전에는 해당 feature 브랜치를 대상으로 차이만 검토하고, PR 1 squash 병합 후 PR 2 커밋만 dev 위로 재배치한다.
 
 ## 예외 구조와 기준
 
@@ -10,7 +10,7 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 
 400: 입력 규칙 위반, 403: 접근 금지·탈퇴 회원, 404: 대상 미존재, 409: 중복 충돌, 410: 논리 삭제된 냉장고. 알려진 중복 제약만 409로 번역하고 다른 DB 오류·예기치 않은 장애는 기존 GLOBAL-500-001을 유지한다. 내부 SQL·예외 메시지를 응답에 노출하지 않는다.
 
-| 예외 | HTTP / 코드 | 사용자 메시지 | 적용 기준·예정 위치 |
+| 예외 | HTTP / 코드 | 사용자 메시지 | 적용 기준·위치 |
 |---|---|---|---|
 | UserExceptionCode.NICKNAME_REQUIRED | USER-400-001 | 닉네임을 입력해 주세요. | 가입·프로필 수정 / null, 빈 문자열, 공백만 있는 닉네임 |
 | UserExceptionCode.NICKNAME_LENGTH_INVALID | USER-400-002 | 닉네임은 2~10자로 입력해 주세요. | 가입·프로필 수정 / 2~10자 범위 위반 |
@@ -40,10 +40,25 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 
 서비스 호출 바깥에 테스트 트랜잭션을 두지 않는다. 실제 서비스 트랜잭션 종료 후 JDBC로 결과를 검증한다. 준비 데이터는 별도 트랜잭션에 저장한다. 테스트마다 세 테이블을 정리하며 일회용 MySQL 8.4.8 컨테이너를 사용한다. 동시성 테스트는 서로 다른 스레드/트랜잭션으로 실행하고 중복 조회 경합은 barrier로 재현한다. 실패 주입은 spy 또는 임시 DB trigger를 사용한다.
 
-`Clock`은 테스트 설정으로 고정한다. 기본 이미지 키는 테스트 설정 `app.user.default-profile-image-key=profiles/default.png`로 주입한다. 실제 배포 이미지 키는 운영 설정에서 지정해야 한다. 닉네임 중복은 현재 DB의 대소문자 구분 정책을 유지하며 금칙어 검색만 대소문자를 무시한다. 증가량은 int 양수이고 실제 만료 이벤트의 중복 집계 방지는 이 인터페이스의 범위 밖이다.
+`Clock`은 테스트 설정으로 고정한다. 기본 이미지 키는 테스트 설정 `app.user.default-profile-image-key=profiles/default.png`로 주입한다. 기본 이미지 키는 `profiles/default.png`이며 실제 배포 시 `app.user.default-profile-image-key`로 변경할 수 있다. 이미지 파일 자체 업로드는 범위 밖이다. 닉네임 중복은 현재 DB의 대소문자 구분 정책을 유지하며 금칙어 검색만 대소문자를 무시한다. 증가량은 int 양수이고 실제 만료 이벤트의 중복 집계 방지는 이 인터페이스의 범위 밖이다.
 
 실행: `JAVA_HOME=/Library/Java/JavaVirtualMachines/openjdk-25.jdk/Contents/Home ./gradlew test --tests '*DomainExceptionResponseTest' --tests '*ServiceTest'`
 
 ## RED 실행 결과
 
 2026-09-17 JDK 25 / MySQL 8.4.8, `./gradlew test`: 총 127건 중 40건 통과(PR 1 기존 24건 + 예외 응답 16건), 서비스 미구현에 따른 87건 실패. 컴파일·컨텍스트·DB 초기화 오류는 해결했다. 현재 서비스에는 UnsupportedOperationException 스텁만 있으며 업무 로직과 예외 변환 적용은 아직 구현하지 않았다. 따라서 빌드는 의도적으로 RED 상태이며 완성된 기능으로 취급하지 않는다. PR 생성·push하지 않았다.
+
+## 구현과 트랜잭션
+
+- UserService는 TransactionTemplate로 가입·수정·탈퇴를 각각 원자 처리한다. 가입과 수정의 중복 변환은 트랜잭션 밖에서 실행하여 커밋 시 flush에서 발생하는 유니크 오류도 처리한다. 일반 사용자 요청은 이 서비스를 진입점으로 사용한다.
+- NicknamePolicy는 제공된 CSV를 시작 시 한 번 읽고 BOM·헤더를 제거한다. 첫 번째 열을 Locale.ROOT 기준 소문자로 바꿔 부분 일치 검색한다. 공백은 자동 제거하지 않고 형식 위반으로 처리한다.
+- RefrigeratorAccessService: validateReadAccess / validateWriteAccess. ACTIVE 회원·미삭제 냉장고·일치하는 활성 참여를 검사한다. OWNER/MEMBER 모두 허용한다. actorId는 향후 인증 계층에서 전달하며 클라이언트가 정한 값으로 대체하지 않는다.
+- RefrigeratorService: getRefrigerator. 이름 변경 기능은 노출하지 않는다.
+- ExpiredCountService: getExpiredCount / increaseExpiredCount(userId, refrigeratorId, increment). 읽기도 필요하면 DB를 갱신하므로 쓰기 트랜잭션이다. 냉장고 행 잠금으로 월 초기화·증가를 직렬화하고 잠금을 얻은 후 서울 연월을 계산한다. 인가 실패 시 초기화하지 않는다.
+- 프로필 변경과 탈퇴는 회원 행 잠금을 공유하여 오래된 프로필 변경이 WITHDRAWN을 덮어쓰지 못하게 한다.
+- 탈퇴는 소유 관계를 조회하여 냉장고 논리 삭제와 전체 참여 삭제를 수행한다. nickname은 10자 치환값으로 변경하고 로그인 정보·비밀번호 변경 시각은 제거한다. 반복 탈퇴는 원래 시각을 보존한다.
+- 냉장고 가입·탈퇴 등 연계 동작과 예외 응답을 확인하며 재고 만료 감지/중복 이벤트 제거 및 인증·Controller는 추가하지 않는다.
+
+## GREEN 검증
+
+RED의 87개 실패를 구현 후 해소했다. 최초 GREEN 실행은 전체 127개 통과. 이후 프로필 수정·탈퇴 동시 실행 회귀 테스트를 추가하고 탈퇴 테스트 7개가 통과했다. Spring Repository의 실패 주입 예외는 InvalidDataAccessApiUsageException으로 변환되므로 테스트는 래핑 예외와 원인 예외를 모두 확인한다. 실제 데이터 롤백 검증은 그대로 유지했다.

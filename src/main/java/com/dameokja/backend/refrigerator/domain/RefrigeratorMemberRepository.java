@@ -7,4 +7,5 @@ public interface RefrigeratorMemberRepository {
     Optional<RefrigeratorMember> findById(Long id);
     Optional<RefrigeratorMember> findActiveByUserId(Long userId);
     long deleteAllByRefrigeratorId(Long refrigeratorId);
+    java.util.List<RefrigeratorMember> findOwnedByUserId(Long userId);
 }

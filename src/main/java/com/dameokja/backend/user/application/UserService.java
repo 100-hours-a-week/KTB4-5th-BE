@@ -9,6 +9,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.*;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -78,7 +79,21 @@ public class UserService {
     }
 
     public void withdraw(Long actorId, Long userId) {
-        throw new UnsupportedOperationException("PR2 TDD: not implemented");
+        requireSelf(actorId, userId);
+        transactions.executeWithoutResult(status -> {
+            User user = users.findByIdForUpdate(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
+            if (user.getStatus() == UserStatus.WITHDRAWN) return;
+            LocalDateTime time = now();
+            for (RefrigeratorMember membership : members.findOwnedByUserId(userId)) {
+                Refrigerator refrigerator = refrigerators.findByIdForUpdate(membership.getRefrigerator().getId()).orElseThrow();
+                refrigerator.delete(time);
+                members.deleteAllByRefrigeratorId(refrigerator.getId());
+            }
+            String replacement;
+            do { replacement = "w" + UUID.randomUUID().toString().replace("-", "").substring(0, 9); }
+            while (users.existsByNickname(replacement));
+            user.withdraw(replacement, time);
+        });
     }
 
     private User active(Long userId) {

@@ -78,7 +78,7 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
             throw new IllegalStateException("simulated membership deletion failure");
         }).when(memberRepository).deleteAllByRefrigeratorId(fixture.refrigeratorId());
         assertThatThrownBy(() -> service.withdraw(fixture.userId(), fixture.userId()))
-                .isInstanceOf(IllegalStateException.class).hasMessage("simulated membership deletion failure");
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class).hasRootCauseInstanceOf(IllegalStateException.class).hasMessage("simulated membership deletion failure");
         assertThat(users.findById(fixture.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(users.findById(fixture.userId()).orElseThrow().getDeletedAt()).isNull();
         assertThat(refrigerators.findById(fixture.refrigeratorId()).orElseThrow().getDeletedAt()).isNull();
@@ -99,5 +99,23 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
         } finally {
             jdbc.execute("DROP TRIGGER IF EXISTS fail_refrigerator_update");
         }
+    }
+    @Test void concurrentProfileUpdateCannotReactivateWithdrawnUser() throws Exception {
+        Fixture fixture = ownerFixture("User1");
+        var results = concurrently(java.util.List.of(
+                () -> service.updateProfile(fixture.userId(), fixture.userId(),
+                        new UpdateProfileCommand("User2", ProfileImageChange.replace("new.png"))),
+                () -> { service.withdraw(fixture.userId(), fixture.userId()); return "withdrawn"; }));
+        assertThat(results.get(1)).isEqualTo("withdrawn");
+        if (results.get(0) instanceof UserException error) {
+            assertThat(error.getExceptionCode()).isEqualTo(UserExceptionCode.USER_NOT_ACTIVE);
+        } else {
+            assertThat(results.get(0)).isInstanceOf(UserProfile.class);
+        }
+        User found = users.findById(fixture.userId()).orElseThrow();
+        assertThat(found.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        assertThat(found.getDeletedAt()).isNotNull();
+        assertThat(found.getNickname()).isNotIn("User1", "User2");
+        assertThat(rows("refrigerator_members")).isZero();
     }
 }

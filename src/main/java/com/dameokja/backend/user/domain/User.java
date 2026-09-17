@@ -56,4 +56,12 @@ public class User extends BaseEntity {
         this.profileImageKey = profileImageKey;
     }
 
+    public void withdraw(String replacementNickname, LocalDateTime time) {
+        this.nickname = replacementNickname;
+        this.status = UserStatus.WITHDRAWN;
+        this.deletedAt = time;
+        this.loginId = null;
+        this.passwordHash = null;
+        this.passwordChangedAt = null;
+    }
 }
