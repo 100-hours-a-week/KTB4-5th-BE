@@ -1,4 +1,4 @@
-# PR 2 서비스 테스트 및 예외 계약 (RED 단계)
+# PR 2 서비스 테스트 및 예외 계약
 
 ## 상태와 범위
 
@@ -62,3 +62,7 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 ## GREEN 검증
 
 RED의 87개 실패를 구현 후 해소했다. 최초 GREEN 실행은 전체 127개 통과. 이후 프로필 수정·탈퇴 동시 실행 회귀 테스트를 추가하고 탈퇴 테스트 7개가 통과했다. Spring Repository의 실패 주입 예외는 InvalidDataAccessApiUsageException으로 변환되므로 테스트는 래핑 예외와 원인 예외를 모두 확인한다. 실제 데이터 롤백 검증은 그대로 유지했다.
+
+최종 전체 실행: 128건 통과, 실패·오류·스킵 0건. 금칙어 CSV의 CRLF만 LF로 정규화했으며 헤더 포함 4,241행의 파싱 결과가 원본과 동일함을 확인했다.
+
+예외 배치: 도메인별 업무 오류는 각 domain 패키지에 두고 공통 응답은 global에 둔다. 기존 ExceptionCode가 HttpStatus를 요구하므로 엄격한 프레임워크 독립 도메인은 아니다. HTTP 매핑 분리는 이번 PR 범위에 포함하지 않았다.
