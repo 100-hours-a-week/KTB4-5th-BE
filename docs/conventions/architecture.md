@@ -28,11 +28,12 @@ com.dameokja.backend
 - 저장소 인터페이스는 `domain`에 두고, `infrastructure`의 Adapter가 Spring Data JPA에 위임해 구현한다. 서비스 로직이 JPA에 직접 묶이지 않아 저장 기술과 분리해 테스트할 수 있다. [A1]
 - JPA Entity 하나에 데이터와 변경 메서드를 함께 둔다. Entity와 별도로 도메인 객체를 만들지 않는다. 「팀」 둘을 분리하면 매핑 코드가 늘어나는데, 현재 요구에서는 그 비용을 정당화할 이유가 없다. [F2]
 - 다른 도메인의 `infrastructure`를 직접 참조하지 않는다. [F3]
-- 객체 참조로 매핑할 때는 `@ManyToOne(fetch = LAZY)`로 명시한다. 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
+- **다른 Entity는 ID(`Long`)가 아니라 객체로 참조한다.** `@ManyToOne(fetch = LAZY)` + `@JoinColumn`으로 매핑한다. 다른 도메인 Entity도 같다(예: `RefrigeratorMember → User`, `Ingredient → Refrigerator`). 「팀」 JPA를 쓰는 이유가 연관관계 매핑이므로, 객체로 참조해야 `member.getUser()` 같은 탐색과 JPQL fetch join을 쓸 수 있다. [P2][H2] LAZY 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
+- 목록 조회에서 연관 객체를 함께 쓰면 fetch join으로 한 번에 가져와 N+1 쿼리를 막는다. [H2]
 
 ## 미합의
 
-도메인 간 Service 호출 방식(직접 호출 vs 전용 인터페이스), 다른 Entity를 객체로 참조할지 ID(`Long`)로만 참조할지, 양방향 연관관계 사용 여부는 정하지 않았다. 현재 코드에는 두 방식이 모두 있다(`RefrigeratorMember → User`는 객체 참조, 작업 중인 `Ingredient`는 `Long refrigeratorId`). 필요해지면 합의 후 근거와 함께 기록한다.
+도메인 간 Service 호출 방식(직접 호출 vs 전용 인터페이스)과 양방향 연관관계 사용 여부는 정하지 않았다. 필요해지면 합의 후 근거와 함께 기록한다.
 
 ## 근거
 
@@ -46,4 +47,6 @@ com.dameokja.backend
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) (2015) | 미래에 필요할 것 같은 기능은 지금 만들지 않음 |
 | F3 | [Robert C. Martin — The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) (2012) | 소스 코드 의존성은 안쪽으로만 향한다(The Dependency Rule) |
 | A1 | [Alistair Cockburn — Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/) (2005) | 애플리케이션을 실행 장치·DB와 분리해 개발·테스트 |
+| P2 | [Jakarta Persistence `@ManyToOne`](https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/manytoone) | 다대일 연관관계 매핑, `fetch` 기본값 EAGER |
+| H2 | [Hibernate ORM 5.2 User Guide — Fetching](https://docs.hibernate.org/orm/5.2/userguide/html_single/chapters/fetching/Fetching.html) | 연관관계는 LAZY로 두고 쿼리에서 동적으로 fetch, EAGER는 N+1 위험 |
 | H1 | [Hibernate ORM 6.6 User Guide — 13.2.1 Batch inserts](https://docs.hibernate.org/orm/6.6/userguide/html_single/Hibernate_User_Guide.html) | IDENTITY 생성은 insert 배치를 비활성화 |

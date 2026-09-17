@@ -69,7 +69,7 @@ return userRepository.findById(userId)
 
 - Entity: `@Getter`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`. JPA 명세가 public 또는 protected 기본 생성자를 요구하고, protected로 두면 외부에서 불완전한 객체를 만들 수 없다. [P1]
 - Entity에 `@Setter`·`@Data`를 쓰지 않는다. `@Data`는 setter와 모든 필드 기반 `equals`/`hashCode`를 함께 만든다. [L1][O3]
-- 객체 참조 연관관계는 `@ManyToOne(fetch = FetchType.LAZY)`로 명시한다. JPA 기본값은 EAGER이고, Hibernate는 모든 연관관계를 LAZY로 두고 필요할 때 fetch join하도록 권장한다. EAGER는 N+1 쿼리를 만들기 쉽다. [P2][H2]
+- 연관관계는 객체로 참조하고([아키텍처](architecture.md#현재-코드-구조-따른다)) `@ManyToOne(fetch = FetchType.LAZY)`로 명시한다. JPA 기본값은 EAGER이고, Hibernate는 모든 연관관계를 LAZY로 두고 필요할 때 fetch join하도록 권장한다. EAGER는 N+1 쿼리를 만들기 쉽다. [P2][H2]
 - 의존성 주입: `@RequiredArgsConstructor` + `private final` 필드(생성자 주입). 의존성이 불변이 되고 null이 아님이 보장된다. [S1]
 
 ## 자동 검사
