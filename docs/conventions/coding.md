@@ -15,7 +15,7 @@
 
 - **PR에 올라간 코드의 물리적 줄 수**로 센다. 도구 기준과 같게 논리 문장 수가 아니라 줄 단위로 센다. [C1]
 - 메서드: 여는 `{` 다음 줄부터 닫는 `}` 이전 줄까지. 빈 줄·주석만 있는 줄·어노테이션·시그니처는 제외한다. (Checkstyle `countEmpty=false`와 같은 방식) [C1]
-- 클래스: `package`·`import`를 제외한 파일 전체 줄 수(빈 줄 포함).
+- 클래스: 파일 전체 줄 수(`package`·`import`·빈 줄 포함). Checkstyle `FileLength`와 같은 방식이다. [C3]
 - 체이닝을 줄바꿈하면 줄마다 센다. `.` 앞에서 끊는다. [G3] 아래는 **2줄**이다.
 
 ```java
@@ -50,6 +50,7 @@ return userRepository.findById(userId)
 | 표시 | 출처 | 해당 내용 |
 |---|---|---|
 | C1 | [Checkstyle MethodLength](https://checkstyle.sourceforge.io/checks/sizes/methodlength.html) | 메서드 줄 수 검사, `countEmpty`(빈 줄·주석 제외 옵션), 기본 `max=150` |
+| C3 | [Checkstyle FileLength](https://checkstyle.sourceforge.io/checks/sizes/filelength.html) | 파일 전체 줄 수 검사 |
 | C2 | [Checkstyle MagicNumber](https://checkstyle.sourceforge.io/checks/coding/magicnumber.html) | 매직 넘버 검사 |
 | G1 | [Google Java Style Guide 4.3](https://google.github.io/styleguide/javaguide.html#s4.3-one-statement-per-line) | 한 줄에 문장 하나 |
 | G2 | [Google Java Style Guide 4.4](https://google.github.io/styleguide/javaguide.html#s4.4-column-limit) | 한 줄 최대 100자, `package`·`import` 등은 예외 |
