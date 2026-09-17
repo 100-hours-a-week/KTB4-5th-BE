@@ -1,11 +1,20 @@
 package com.dameokja.backend.refrigerator.application;
 
+import com.dameokja.backend.refrigerator.domain.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-/** Executable API contract for the RED test phase; business implementation follows. */
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class RefrigeratorService {
+    private final RefrigeratorAccessService access;
+    private final RefrigeratorRepository refrigerators;
+
     public RefrigeratorView getRefrigerator(Long userId, Long refrigeratorId) {
-        throw new UnsupportedOperationException("PR2 TDD: not implemented");
+        access.validateReadAccess(userId, refrigeratorId);
+        Refrigerator refrigerator = refrigerators.findById(refrigeratorId).orElseThrow();
+        return new RefrigeratorView(refrigerator.getId(), refrigerator.getName());
     }
 }
