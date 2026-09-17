@@ -13,7 +13,6 @@ public enum UserExceptionCode implements ExceptionCode {
     NICKNAME_FORMAT_INVALID(HttpStatus.BAD_REQUEST, "USER-400-003", "닉네임은 영문과 숫자를 각각 하나 이상 포함해야 합니다."),
     NICKNAME_PROHIBITED(HttpStatus.BAD_REQUEST, "USER-400-004", "사용할 수 없는 닉네임입니다."),
     PROFILE_IMAGE_INVALID(HttpStatus.BAD_REQUEST, "USER-400-005", "프로필 이미지 변경 요청이 올바르지 않습니다."),
-    ACCESS_DENIED(HttpStatus.FORBIDDEN, "USER-403-001", "본인 정보만 조회하거나 변경할 수 있습니다."),
     USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "USER-403-002", "탈퇴한 회원은 이용할 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER-404-001", "회원을 찾을 수 없습니다."),
     NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "USER-409-001", "이미 사용 중인 닉네임입니다."),

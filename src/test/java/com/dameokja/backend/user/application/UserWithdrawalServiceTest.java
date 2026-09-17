@@ -23,7 +23,7 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
         Fixture other = ownerFixture("User2");
         join(users.findById(other.userId()).orElseThrow(), refrigerators.findById(target.refrigeratorId()).orElseThrow(), false, false);
         jdbc.update("UPDATE users SET login_id='login1', password_hash=?, password_changed_at=NOW() WHERE user_id=?", "x".repeat(60), target.userId());
-        service.withdraw(target.userId(), target.userId());
+        service.withdraw(target.userId());
         User user = users.findById(target.userId()).orElseThrow();
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
         assertThat(user.getDeletedAt()).isEqualTo(java.time.LocalDateTime.of(2026, 9, 17, 12, 0));
@@ -38,33 +38,25 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
         assertThat(members.findActiveByUserId(other.userId())).isPresent();
         assertThat(rows("users")).isEqualTo(2);
         assertThat(rows("refrigerators")).isEqualTo(2);
-        assertUserError(UserExceptionCode.USER_NOT_ACTIVE, () -> service.getProfile(target.userId(), target.userId()));
+        assertUserError(UserExceptionCode.USER_NOT_ACTIVE, () -> service.getProfile(target.userId()));
         assertUserError(UserExceptionCode.USER_NOT_ACTIVE, () -> refrigeratorService.getRefrigerator(target.userId(), target.refrigeratorId()));
         assertUserError(UserExceptionCode.USER_NOT_ACTIVE, () -> counts.getExpiredCount(target.userId(), target.refrigeratorId()));
     }
 
     @Test void repeatedWithdrawalPreservesOriginalWithdrawalTime() {
         Fixture fixture = ownerFixture("User1");
-        service.withdraw(fixture.userId(), fixture.userId());
+        service.withdraw(fixture.userId());
         User before = users.findById(fixture.userId()).orElseThrow();
         clock.set("2026-09-18T03:00:00Z");
-        assertThatCode(() -> service.withdraw(fixture.userId(), fixture.userId())).doesNotThrowAnyException();
+        assertThatCode(() -> service.withdraw(fixture.userId())).doesNotThrowAnyException();
         User after = users.findById(fixture.userId()).orElseThrow();
         assertThat(after.getDeletedAt()).isEqualTo(before.getDeletedAt());
         assertThat(after.getNickname()).isEqualTo(before.getNickname());
         assertThat(rows("refrigerator_members")).isZero();
     }
 
-    @Test void refusesWithdrawalOfAnotherUser() {
-        Fixture first = ownerFixture("User1");
-        Fixture other = ownerFixture("User2");
-        assertUserError(UserExceptionCode.ACCESS_DENIED, () -> service.withdraw(first.userId(), other.userId()));
-        assertThat(users.findById(other.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(rows("refrigerator_members")).isEqualTo(2);
-    }
-
     @Test void refusesNonexistentUser() {
-        assertUserError(UserExceptionCode.USER_NOT_FOUND, () -> service.withdraw(Long.MAX_VALUE, Long.MAX_VALUE));
+        assertUserError(UserExceptionCode.USER_NOT_FOUND, () -> service.withdraw(Long.MAX_VALUE));
         assertEmptyDatabase();
     }
 
@@ -77,7 +69,7 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
             entityManager.flush();
             throw new IllegalStateException("simulated membership deletion failure");
         }).when(memberRepository).deleteAllByRefrigeratorId(fixture.refrigeratorId());
-        assertThatThrownBy(() -> service.withdraw(fixture.userId(), fixture.userId()))
+        assertThatThrownBy(() -> service.withdraw(fixture.userId()))
                 .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class).hasRootCauseInstanceOf(IllegalStateException.class).hasMessage("simulated membership deletion failure");
         assertThat(users.findById(fixture.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(users.findById(fixture.userId()).orElseThrow().getDeletedAt()).isNull();
@@ -90,7 +82,7 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
         // Disposable test DB only. Failure injection does not dictate service repository call order.
         jdbc.execute("CREATE TRIGGER fail_refrigerator_update BEFORE UPDATE ON refrigerators FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced refrigerator deletion failure'");
         try {
-            assertThatThrownBy(() -> service.withdraw(fixture.userId(), fixture.userId()))
+            assertThatThrownBy(() -> service.withdraw(fixture.userId()))
                     .hasStackTraceContaining("forced refrigerator deletion failure");
             assertThat(users.findById(fixture.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
             assertThat(users.findById(fixture.userId()).orElseThrow().getDeletedAt()).isNull();
@@ -103,9 +95,9 @@ class UserWithdrawalServiceTest extends ServiceIntegrationTest {
     @Test void concurrentProfileUpdateCannotReactivateWithdrawnUser() throws Exception {
         Fixture fixture = ownerFixture("User1");
         var results = concurrently(java.util.List.of(
-                () -> service.updateProfile(fixture.userId(), fixture.userId(),
+                () -> service.updateProfile(fixture.userId(),
                         new UpdateProfileCommand("User2", ProfileImageChange.replace("new.png"))),
-                () -> { service.withdraw(fixture.userId(), fixture.userId()); return "withdrawn"; }));
+                () -> { service.withdraw(fixture.userId()); return "withdrawn"; }));
         assertThat(results.get(1)).isEqualTo("withdrawn");
         if (results.get(0) instanceof UserException error) {
             assertThat(error.getExceptionCode()).isEqualTo(UserExceptionCode.USER_NOT_ACTIVE);

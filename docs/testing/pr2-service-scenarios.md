@@ -17,7 +17,6 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 | UserExceptionCode.NICKNAME_FORMAT_INVALID | USER-400-003 | 닉네임은 영문과 숫자를 각각 하나 이상 포함해야 합니다. | 가입·프로필 수정 / ASCII 영문·숫자 외 문자 또는 영문·숫자 중 하나가 없음. 공백은 자동 제거하지 않고 거부 |
 | UserExceptionCode.NICKNAME_PROHIBITED | USER-400-004 | 사용할 수 없는 닉네임입니다. | 가입·프로필 수정 / slang.csv 첫 열과 대소문자 무시 부분 일치. BOM·헤더 제외 |
 | UserExceptionCode.PROFILE_IMAGE_INVALID | USER-400-005 | 프로필 이미지 변경 요청이 올바르지 않습니다. | 프로필 수정 / 명시적 REPLACE의 이미지 키가 null·빈 값·공백 |
-| UserExceptionCode.ACCESS_DENIED | USER-403-001 | 본인 정보만 조회하거나 변경할 수 있습니다. | 회원 조회·수정·탈퇴 / actorId와 대상 userId 불일치 |
 | UserExceptionCode.USER_NOT_ACTIVE | USER-403-002 | 탈퇴한 회원은 이용할 수 없습니다. | 회원 조회·수정, 냉장고 인가·조회, 집계 조회·증가 / WITHDRAWN 회원. 반복 탈퇴는 예외 없이 종료 |
 | UserExceptionCode.USER_NOT_FOUND | USER-404-001 | 회원을 찾을 수 없습니다. | 회원 조회·수정·탈퇴 및 냉장고 접근 / 회원 미존재 |
 | UserExceptionCode.NICKNAME_DUPLICATE | USER-409-001 | 이미 사용 중인 닉네임입니다. | 가입·닉네임 변경 / 사전 중복 및 DB uk_users_nickname 경합. 기존 닉네임 유지 시 검사 생략 |
@@ -33,8 +32,8 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 - UserRegistrationServiceTest: 닉네임 길이 경계, 필수값·형식·금칙어 실패, CSV 헤더 제외, 닉네임·로그인 중복, 가입 시 개인 냉장고와 OWNER 활성 참여, 서울 월 경계, 후속 저장 실패 전체 롤백, 동시 가입 중복 변환.
 - UserProfileServiceTest: 본인 조회·수정, 인증정보 제외 DTO, 기존 닉네임 중복 검사 생략, 변경 닉네임 규칙·중복 검사, 이미지 KEEP/REPLACE/DELETE·미전달 유지, 변경 실패 시 부분 반영 금지, 회원명 변경 시 냉장고명 유지, 동시 닉네임 변경 경합.
 - ExpiredCountServiceTest: 양수 여러 건 증가, 0·음수 예외 및 데이터 보존, 현재 월 조회·증가, 월 변경 시 DB 초기화, 서울 월말·연말, OWNER/MEMBER 접근, 권한 거부 시 초기화 금지, 동시 증가 및 조회 초기화와 증가 경합, 다른 냉장고 보존.
-- UserWithdrawalServiceTest: WITHDRAWN·deleted_at·인증정보 제거·닉네임 치환, 소유 냉장고 논리 삭제·참여 전체 물리 삭제, 타인 데이터 보존, 반복 탈퇴, 타인 탈퇴 거부, 미존재 회원, 냉장고 UPDATE 실패와 참여 삭제 후 실패의 전체 롤백, 탈퇴 후 접근 차단.
-- DomainExceptionResponseTest: 14개 사용자 예외의 HTTP 상태·고정 에러 코드·한글 메시지 검증, 미분류 DB 장애·예기치 않은 오류의 500 응답과 내부 정보 비노출.
+- UserWithdrawalServiceTest: WITHDRAWN·deleted_at·인증정보 제거·닉네임 치환, 소유 냉장고 논리 삭제·참여 전체 물리 삭제, 타인 데이터 보존, 반복 탈퇴,  미존재 회원, 냉장고 UPDATE 실패와 참여 삭제 후 실패의 전체 롤백, 탈퇴 후 접근 차단.
+- DomainExceptionResponseTest: 13개 사용자 예외의 HTTP 상태·고정 에러 코드·한글 메시지 검증, 미분류 DB 장애·예기치 않은 오류의 500 응답과 내부 정보 비노출.
 
 ## 테스트 방식
 
@@ -52,7 +51,7 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 
 - UserService는 TransactionTemplate로 가입·수정·탈퇴를 각각 원자 처리한다. 가입과 수정의 중복 변환은 트랜잭션 밖에서 실행하여 커밋 시 flush에서 발생하는 유니크 오류도 처리한다. 일반 사용자 요청은 이 서비스를 진입점으로 사용한다.
 - NicknamePolicy는 제공된 CSV를 시작 시 한 번 읽고 BOM·헤더를 제거한다. 첫 번째 열을 Locale.ROOT 기준 소문자로 바꿔 부분 일치 검색한다. 공백은 자동 제거하지 않고 형식 위반으로 처리한다.
-- RefrigeratorAccessService: validateReadAccess / validateWriteAccess. ACTIVE 회원·미삭제 냉장고·일치하는 활성 참여를 검사한다. OWNER/MEMBER 모두 허용한다. actorId는 향후 인증 계층에서 전달하며 클라이언트가 정한 값으로 대체하지 않는다.
+- RefrigeratorAccessService: validateReadAccess / validateWriteAccess. ACTIVE 회원·미삭제 냉장고·일치하는 활성 참여를 검사한다. OWNER/MEMBER 모두 허용한다. userId는 향후 인증 계층에서 전달하며 클라이언트가 정한 값으로 대체하지 않는다.
 - RefrigeratorService: getRefrigerator. 이름 변경 기능은 노출하지 않는다.
 - ExpiredCountService: getExpiredCount / increaseExpiredCount(userId, refrigeratorId, increment). 읽기도 필요하면 DB를 갱신하므로 쓰기 트랜잭션이다. 냉장고 행 잠금으로 월 초기화·증가를 직렬화하고 잠금을 얻은 후 서울 연월을 계산한다. 인가 실패 시 초기화하지 않는다.
 - 프로필 변경과 탈퇴는 회원 행 잠금을 공유하여 오래된 프로필 변경이 WITHDRAWN을 덮어쓰지 못하게 한다.
@@ -63,6 +62,15 @@ UserException / RefrigeratorException은 global.exception.CustomException을 상
 
 RED의 87개 실패를 구현 후 해소했다. 최초 GREEN 실행은 전체 127개 통과. 이후 프로필 수정·탈퇴 동시 실행 회귀 테스트를 추가하고 탈퇴 테스트 7개가 통과했다. Spring Repository의 실패 주입 예외는 InvalidDataAccessApiUsageException으로 변환되므로 테스트는 래핑 예외와 원인 예외를 모두 확인한다. 실제 데이터 롤백 검증은 그대로 유지했다.
 
-최종 전체 실행: 128건 통과, 실패·오류·스킵 0건. 금칙어 CSV의 CRLF만 LF로 정규화했으며 헤더 포함 4,241행의 파싱 결과가 원본과 동일함을 확인했다.
+단일 ID 변경 전 전체 실행: 128건 통과, 실패·오류·스킵 0건. 금칙어 CSV의 CRLF만 LF로 정규화했으며 헤더 포함 4,241행의 파싱 결과가 원본과 동일함을 확인했다.
 
 예외 배치: 도메인별 업무 오류는 각 domain 패키지에 두고 공통 응답은 global에 둔다. 기존 ExceptionCode가 HttpStatus를 요구하므로 엄격한 프레임워크 독립 도메인은 아니다. HTTP 매핑 분리는 이번 PR 범위에 포함하지 않았다.
+
+## 본인 정보 API 계약 수정
+
+- `getProfile(userId)`, `updateProfile(userId, command)`, `withdraw(userId)`는 인증 계층이 확인한 단일 사용자 ID만 받는다. 클라이언트가 지정하는 별도의 대상 ID는 받지 않는다.
+- 두 ID 비교 로직과 미사용 USER-403-001 예외·응답 테스트를 제거했다. 존재 여부·ACTIVE 상태 검증은 유지한다. 기존 나머지 에러 코드는 재번호하지 않는다.
+- 조회 테스트는 다른 회원이 있어도 전달된 사용자만 반환하는지, 수정 테스트는 다른 회원의 데이터를 보존하는지 확인한다. 탈퇴 테스트의 타인 냉장고·참여 보존 검증도 유지한다.
+- Controller 구현 시 인증된 사용자 ID만 서비스에 전달하는 경계 검증을 추가해야 한다. 냉장고 인가는 userId와 refrigeratorId 두 값을 계속 사용한다.
+
+단일 ID 변경 후 전체 검증: 125건 통과, 실패·오류·스킵 0건. ID 불일치 3건 및 미사용 예외 응답 1건을 제거하고, 대상 사용자만 수정하는 시나리오 1건으로 보완했다.

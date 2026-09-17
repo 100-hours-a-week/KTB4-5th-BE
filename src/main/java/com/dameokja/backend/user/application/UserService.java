@@ -8,11 +8,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.*;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
 public class UserService {
+    // getProfile/updateProfile/withdraw accept only the authenticated user's ID.
+    // The authentication boundary must not forward a client-selected target ID.
     private final UserRepository users;
     private final RefrigeratorRepository refrigerators;
     private final RefrigeratorMemberRepository members;
@@ -55,13 +56,11 @@ public class UserService {
         }
     }
 
-    public UserProfile getProfile(Long actorId, Long userId) {
-        requireSelf(actorId, userId);
+    public UserProfile getProfile(Long userId) {
         return transactions.execute(status -> profile(active(userId)));
     }
 
-    public UserProfile updateProfile(Long actorId, Long userId, UpdateProfileCommand command) {
-        requireSelf(actorId, userId);
+    public UserProfile updateProfile(Long userId, UpdateProfileCommand command) {
         try {
             return transactions.execute(status -> {
                 User user = users.findByIdForUpdate(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
@@ -78,8 +77,7 @@ public class UserService {
         }
     }
 
-    public void withdraw(Long actorId, Long userId) {
-        requireSelf(actorId, userId);
+    public void withdraw(Long userId) {
         transactions.executeWithoutResult(status -> {
             User user = users.findByIdForUpdate(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
             if (user.getStatus() == UserStatus.WITHDRAWN) return;
@@ -100,11 +98,6 @@ public class UserService {
         User user = users.findById(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
         if (user.getStatus() != UserStatus.ACTIVE) throw new UserException(UserExceptionCode.USER_NOT_ACTIVE);
         return user;
-    }
-
-    private void requireSelf(Long actorId, Long userId) {
-        if (actorId == null || userId == null || !Objects.equals(actorId, userId))
-            throw new UserException(UserExceptionCode.ACCESS_DENIED);
     }
 
     private String resolveImage(String current, ProfileImageChange change) {

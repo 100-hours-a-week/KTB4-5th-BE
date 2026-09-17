@@ -19,7 +19,6 @@ class DomainExceptionResponseTest {
                 Arguments.of(new UserException(UserExceptionCode.NICKNAME_FORMAT_INVALID), 400, "USER-400-003", "닉네임은 영문과 숫자를 각각 하나 이상 포함해야 합니다."),
                 Arguments.of(new UserException(UserExceptionCode.NICKNAME_PROHIBITED), 400, "USER-400-004", "사용할 수 없는 닉네임입니다."),
                 Arguments.of(new UserException(UserExceptionCode.PROFILE_IMAGE_INVALID), 400, "USER-400-005", "프로필 이미지 변경 요청이 올바르지 않습니다."),
-                Arguments.of(new UserException(UserExceptionCode.ACCESS_DENIED), 403, "USER-403-001", "본인 정보만 조회하거나 변경할 수 있습니다."),
                 Arguments.of(new UserException(UserExceptionCode.USER_NOT_ACTIVE), 403, "USER-403-002", "탈퇴한 회원은 이용할 수 없습니다."),
                 Arguments.of(new UserException(UserExceptionCode.USER_NOT_FOUND), 404, "USER-404-001", "회원을 찾을 수 없습니다."),
                 Arguments.of(new UserException(UserExceptionCode.NICKNAME_DUPLICATE), 409, "USER-409-001", "이미 사용 중인 닉네임입니다."),

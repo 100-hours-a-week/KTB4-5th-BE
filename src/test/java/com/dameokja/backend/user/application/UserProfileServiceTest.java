@@ -20,7 +20,8 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
 
     @Test void readsOwnProfileWithoutCredentials() {
         User user = user("User1");
-        UserProfile profile = service.getProfile(user.getId(), user.getId());
+        user("User2");
+        UserProfile profile = service.getProfile(user.getId());
         assertThat(profile.id()).isEqualTo(user.getId());
         assertThat(profile.nickname()).isEqualTo("User1");
         assertThat(profile.profileImageKey()).isEqualTo("profiles/original.png");
@@ -28,15 +29,16 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
                 .doesNotContain("passwordHash", "passwordChangedAt", "loginId");
     }
 
-    @ParameterizedTest @ValueSource(strings = {"read", "update"})
-    void rejectsOtherUsersProfile(String action) {
-        User actor = user("User1");
+    @Test void updatesOnlyTheAuthenticatedUsersProfile() {
+        User authenticated = user("User1");
         User other = user("User2");
-        assertUserError(UserExceptionCode.ACCESS_DENIED, () -> {
-            if (action.equals("read")) service.getProfile(actor.getId(), other.getId());
-            else service.updateProfile(actor.getId(), other.getId(), new UpdateProfileCommand("User3", ProfileImageChange.keep()));
-        });
-        assertThat(users.findById(other.getId()).orElseThrow().getNickname()).isEqualTo("User2");
+        UserProfile result = service.updateProfile(authenticated.getId(),
+                new UpdateProfileCommand("User3", ProfileImageChange.replace("new.png")));
+        assertThat(result.id()).isEqualTo(authenticated.getId());
+        assertThat(users.findById(authenticated.getId()).orElseThrow().getNickname()).isEqualTo("User3");
+        User untouched = users.findById(other.getId()).orElseThrow();
+        assertThat(untouched.getNickname()).isEqualTo("User2");
+        assertThat(untouched.getProfileImageKey()).isEqualTo("profiles/original.png");
     }
 
     @ParameterizedTest @ValueSource(strings = {"withdrawn", "missing"})
@@ -45,14 +47,14 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
         if (state.equals("withdrawn")) jdbc.update("UPDATE users SET status='WITHDRAWN', deleted_at=NOW() WHERE user_id=?", user.getId());
         Long id = state.equals("missing") ? Long.MAX_VALUE : user.getId();
         UserExceptionCode code = state.equals("missing") ? UserExceptionCode.USER_NOT_FOUND : UserExceptionCode.USER_NOT_ACTIVE;
-        assertUserError(code, () -> service.getProfile(id, id));
-        assertUserError(code, () -> service.updateProfile(id, id, new UpdateProfileCommand("User2", ProfileImageChange.keep())));
+        assertUserError(code, () -> service.getProfile(id));
+        assertUserError(code, () -> service.updateProfile(id, new UpdateProfileCommand("User2", ProfileImageChange.keep())));
     }
 
     @Test void unchangedNicknameDoesNotCheckItsOwnUniqueness() {
         User user = user("User1");
         clearInvocations(userRepository);
-        service.updateProfile(user.getId(), user.getId(), new UpdateProfileCommand("User1", ProfileImageChange.replace("profiles/new.png")));
+        service.updateProfile(user.getId(), new UpdateProfileCommand("User1", ProfileImageChange.replace("profiles/new.png")));
         verify(userRepository, never()).existsByNickname(anyString());
         assertThat(users.findById(user.getId()).orElseThrow().getProfileImageKey()).isEqualTo("profiles/new.png");
     }
@@ -66,7 +68,7 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
             case "omitted" -> null;
             default -> ProfileImageChange.keep();
         };
-        service.updateProfile(fixture.userId(), fixture.userId(), new UpdateProfileCommand("User2", change));
+        service.updateProfile(fixture.userId(), new UpdateProfileCommand("User2", change));
         User found = users.findById(fixture.userId()).orElseThrow();
         assertThat(found.getNickname()).isEqualTo("User2");
         assertThat(found.getProfileImageKey()).isEqualTo(switch (action) {
@@ -80,7 +82,7 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
     @ParameterizedTest @MethodSource("com.dameokja.backend.user.application.UserRegistrationServiceTest#invalidNicknames")
     void rejectsInvalidNicknameWithoutPartiallyUpdatingImage(String nickname, UserExceptionCode code) {
         User user = user("User1");
-        assertUserError(code, () -> service.updateProfile(user.getId(), user.getId(),
+        assertUserError(code, () -> service.updateProfile(user.getId(),
                 new UpdateProfileCommand(nickname, ProfileImageChange.replace("profiles/new.png"))));
         User found = users.findById(user.getId()).orElseThrow();
         assertThat(found.getNickname()).isEqualTo("User1");
@@ -90,7 +92,7 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
     @Test void rejectsDuplicateNicknameWithoutPartiallyUpdatingImage() {
         User user = user("User1");
         user("User2");
-        assertUserError(UserExceptionCode.NICKNAME_DUPLICATE, () -> service.updateProfile(user.getId(), user.getId(),
+        assertUserError(UserExceptionCode.NICKNAME_DUPLICATE, () -> service.updateProfile(user.getId(),
                 new UpdateProfileCommand("User2", ProfileImageChange.replace("profiles/new.png"))));
         assertThat(users.findById(user.getId()).orElseThrow().getProfileImageKey()).isEqualTo("profiles/original.png");
     }
@@ -98,7 +100,7 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
     @ParameterizedTest @NullAndEmptySource @ValueSource(strings = {" "})
     void explicitReplacementRequiresAnImageKey(String key) {
         User user = user("User1");
-        assertUserError(UserExceptionCode.PROFILE_IMAGE_INVALID, () -> service.updateProfile(user.getId(), user.getId(),
+        assertUserError(UserExceptionCode.PROFILE_IMAGE_INVALID, () -> service.updateProfile(user.getId(),
                 new UpdateProfileCommand("User1", ProfileImageChange.replace(key))));
         assertThat(users.findById(user.getId()).orElseThrow().getProfileImageKey()).isEqualTo("profiles/original.png");
     }
@@ -113,8 +115,8 @@ class UserProfileServiceTest extends ServiceIntegrationTest {
             return result;
         }).when(userRepository).existsByNickname("User3");
         List<Object> results = concurrently(List.of(
-                () -> service.updateProfile(first.getId(), first.getId(), new UpdateProfileCommand("User3", ProfileImageChange.replace("first.png"))),
-                () -> service.updateProfile(second.getId(), second.getId(), new UpdateProfileCommand("User3", ProfileImageChange.replace("second.png")))));
+                () -> service.updateProfile(first.getId(), new UpdateProfileCommand("User3", ProfileImageChange.replace("first.png"))),
+                () -> service.updateProfile(second.getId(), new UpdateProfileCommand("User3", ProfileImageChange.replace("second.png")))));
         assertThat(results.stream().filter(UserProfile.class::isInstance)).hasSize(1);
         var errors = results.stream().filter(UserException.class::isInstance).map(UserException.class::cast).toList();
         assertThat(errors).hasSize(1);
