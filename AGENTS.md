@@ -9,10 +9,10 @@
 ├── AGENTS.md
 ├── .github/pull_request_template.md   # PR 본문 템플릿
 └── docs/
-    ├── setup.md                        # 버전·환경·DDL·.env
+    ├── setup.md                        # 버전·빌드·DB 설정·DDL
     └── conventions/
-        ├── architecture.md             # 모듈·패키지·기술 선택
-        ├── coding.md                   # 코드 크기·TDD·테스트·DB 규칙
+        ├── architecture.md             # 모듈·패키지 구조·기술 선택
+        ├── coding.md                   # 코드 크기·가독성·TDD·테스트·DB 규칙
         ├── commit.md                   # 브랜치·커밋
         └── pull-request.md             # PR 크기·분리·본문
 ```
@@ -30,7 +30,8 @@
 ## 핵심 규칙 (상세는 각 문서)
 
 - **PR 하나에 목적 하나.** 권장 200줄·10파일, 상한 400줄·20파일. 넘으면 나눈다.
-- **메서드** 권장 20줄, 상한 30줄. **클래스** 권장 200줄, 상한 300줄.
+- **메서드** 권장 20줄, 상한 30줄. **클래스** 권장 200줄, 상한 300줄. 줄바꿈된 체이닝(`.orElseThrow`)도 줄마다 센다.
+- 패키지는 `<domain>/presentation·application·domain·infrastructure` 구조를 따른다. DDD는 도입하지 않는다.
 - 리팩터링·포맷·의존성 변경은 기능 PR과 분리한다. 테스트는 해당 코드와 같은 PR에 넣는다.
 - 커밋은 `<type>(<scope>): <설명>`, 논리 단위로 나눈다.
 - `dev`, `main`으로 강제 push 금지.
