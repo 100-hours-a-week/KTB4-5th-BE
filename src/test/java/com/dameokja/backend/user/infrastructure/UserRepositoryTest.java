@@ -16,10 +16,8 @@ class UserRepositoryTest extends MySqlJpaTest {
         return new User(nickname, "profiles/default.png", loginId, "x".repeat(60), LocalDateTime.of(2026, 9, 17, 0, 0));
     }
 
-    @Test void savesAndFindsTheRequestedUserWithDatabaseDefaults() {
+    @Test void savesAndFindsTheRequestedUser() {
         User first = users.save(user("첫회원", "first"));
-        assertThat(first.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(first.getCookingCount()).isZero();
         User second = users.save(user("다른회원", "second"));
         flushAndClear();
         User found = users.findById(first.getId()).orElseThrow();
@@ -67,7 +65,7 @@ class UserRepositoryTest extends MySqlJpaTest {
         }).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
-    @Test void updatesProfileAndAuditingWithoutOverwritingDefaults() {
+    @Test void updatesProfileAndAuditingWithoutChangingOtherFields() {
         User saved = users.save(user("수정전", "update"));
         flushAndClear();
         User found = users.findById(saved.getId()).orElseThrow();

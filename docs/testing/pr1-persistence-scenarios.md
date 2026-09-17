@@ -13,7 +13,6 @@
 | 로그인 ID 중복 조회 | 중복 확인 메서드가 존재하는 값과 없는 값을 구분함 |
 | 중복 등록 차단 | 닉네임·로그인 ID 중복 저장을 DB가 거부함. 유니크 제약 필요 |
 | 필수 항목 누락 | 입력이 필요한 NOT NULL 컬럼 누락 시 저장 실패 |
-| DB 기본값 적용 | 값을 지정하지 않고 저장 시 ACTIVE, USER, cooking_count=0이 저장·조회됨 |
 | 수정 반영 | 닉네임·프로필 변경 반영, created_at 유지, updated_at 갱신 |
 
 login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또는 애플리케이션 검증 구현 시 검증한다.
@@ -24,7 +23,6 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 |---|---|
 | 정상 등록·조회 | 입력값·ID·감사 필드·집계 연월이 저장되고 대상 ID로 조회됨 |
 | 필수 항목 누락 | 이름·집계 연월 등 기본값 없는 필수 컬럼 누락 시 실패 |
-| DB 기본값 적용 | capacity=100, expired_count=0, deleted_at=NULL 저장·조회 |
 | 이름 수정 | 이름 변경 반영, 수용량·집계값 등 다른 필드 유지 |
 | 논리 삭제 | deleted_at 저장, 냉장고 행 유지 |
 
@@ -36,7 +34,6 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 |---|---|
 | 정상 등록·관계 조회 | 지정한 유저·냉장고와 연결됨 |
 | OWNER 참여 저장 | 명시한 OWNER, is_active=true 저장·조회 |
-| DB 기본값 적용 | 생략 시 MEMBER, is_active=false 저장 |
 | 활성 참여 조회 | user_id + is_active=true 조회가 다른 사용자·비활성 참여 제외 |
 | 활성 참여 없음 | 해당 사용자의 활성 참여가 없으면 빈 결과 |
 | 필수 관계 누락 | 유저 또는 냉장고 누락 시 실패 |
@@ -51,7 +48,7 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 - Testcontainers의 일회용 MySQL 8.4.8을 사용한다. 개발·공유 DB에 연결하지 않는다.
 - 각 테스트는 롤백하고 컨테이너는 JVM 종료 후 Ryuk이 정리한다. 재사용하지 않는다.
 - 저장·수정 후 flush → 영속성 컨텍스트 초기화 → 재조회한다. 제약 위반은 flush까지 확인한다.
-- 기본값은 실제 JPA 생성 경로에서 생략하여 검증한다. 기본값 필드는 Java wrapper/enum으로 두고 Hibernate Generated(INSERT)로 DB 생성값을 받아온다. 참여의 선택 상태·역할은 DynamicInsert와 writable 생성을 함께 사용해 명시값과 DB 기본값을 모두 지원한다.
+- 상수 기본값은 자바 생성자에서 초기화하고 INSERT에 명시한다. Generated 및 DynamicInsert는 사용하지 않는다. DB DEFAULT는 유지하지만 이를 적용받는 별도 시나리오와 단순 상수 초기화 테스트는 제외한다. 정상 저장·조회 시 enum/필드 매핑 및 수정 시 다른 필드 보존은 계속 검증한다.
 - 테스트 DDL은 공용 원본인 `src/main/resources/db/schema.sql`이다. `MySqlDatabaseTest`가 새 MySQL 컨테이너에 전체 DDL을 자동 적용하며, 테스트 전용 스키마 사본은 두지 않는다. 해당 DDL의 유니크·CHECK로 조건부 시나리오도 실행한다. 운영 DB 적용 여부와는 별개다.
 - 공용 DDL은 리소스로 포함하되 개발 DB에 직접 적용하지 않고 application.yml도 변경하지 않는다. 운영에서도 동일 제약 및 자동 증가 PK를 반영해야 한다.
 - 실행: `JAVA_HOME=/Library/Java/JavaVirtualMachines/openjdk-25.jdk/Contents/Home ./gradlew test --tests '*RepositoryTest'`
@@ -64,8 +61,12 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 - 테스트는 도메인 Repository를 주입받아 실제 어댑터·JPA·MySQL 연결을 검증한다.
 - 엔티티를 별도 영속 모델로 복제하지 않는다. participation은 refrigerator 내부에 위치한다.
 
-## 최종 검증 결과
+## 이전 검증 결과 (DB 기본값 사용 버전)
 
 2026-09-17, JDK 25 및 MySQL 8.4.8에서 `./gradlew test` 전체 25건 통과: 유저 7건, 냉장고 5건, 참여 12건, 애플리케이션 기동 1건. 실패·오류·스킵 0건. 공용 전체 DDL 초기화와 매핑 검증이 성공했고, 실행 종료 후 MySQL 및 Ryuk 컨테이너가 남지 않았음을 확인했다.
 
 엔티티별 테스트 선작성 후 미구현 클래스에 의한 컴파일 실패를 확인하고 구현했다. 프레임워크 위임 매핑에 인위적인 실패 구현을 삽입하지 않았다.
+
+## 최종 검증 결과 (생성자 기본값 사용 버전)
+
+2026-09-17, `./gradlew test` 전체 24건 통과: 유저 7건, 냉장고 5건, 참여 11건, 애플리케이션 기동 1건. DB 기본값만 확인하던 참여 테스트 1건을 제거했고 나머지 저장·조회 및 제약 검증은 유지했다. SQL 로그에서 상수 필드가 INSERT에 포함되고 생성 기본값 회수를 위한 SELECT가 제거되었음을 확인했다. PK는 기존 IDENTITY 매핑을 유지한다.

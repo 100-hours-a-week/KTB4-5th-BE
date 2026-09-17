@@ -14,11 +14,9 @@ import static org.assertj.core.api.Assertions.*;
 class RefrigeratorRepositoryTest extends MySqlJpaTest {
     @Autowired RefrigeratorRepository refrigerators;
 
-    @Test void savesAndFindsTheRequestedRefrigeratorWithDatabaseDefaults() {
+    @Test void savesAndFindsTheRequestedRefrigerator() {
         Refrigerator first = refrigerators.save(new Refrigerator("첫냉장고", "2026-09"));
         Refrigerator second = refrigerators.save(new Refrigerator("다른냉장고", "2026-08"));
-        assertThat(first.getCapacity()).isEqualTo((short) 100);
-        assertThat(first.getExpiredCount()).isZero();
         flushAndClear();
         Refrigerator found = refrigerators.findById(first.getId()).orElseThrow();
         assertThat(found.getId()).isNotEqualTo(second.getId());

@@ -40,16 +40,6 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         assertThat(found.getUpdatedAt()).isNotNull();
     }
 
-    @Test void appliesDatabaseDefaultsToUnspecifiedMembershipFields() {
-        RefrigeratorMember saved = members.save(new RefrigeratorMember(user("일반회원"), refrigerator("냉장고")));
-        assertThat(saved.getRole()).isEqualTo(RefrigeratorMemberRole.MEMBER);
-        assertThat(saved.getIsActive()).isFalse();
-        flushAndClear();
-        RefrigeratorMember found = members.findById(saved.getId()).orElseThrow();
-        assertThat(found.getRole()).isEqualTo(RefrigeratorMemberRole.MEMBER);
-        assertThat(found.getIsActive()).isFalse();
-    }
-
     @Test void findsOnlyTheRequestedUsersActiveMembership() {
         User first = user("첫회원");
         User second = user("다른회원");

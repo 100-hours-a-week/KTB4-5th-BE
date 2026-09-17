@@ -5,15 +5,11 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.DynamicInsert;
-import org.hibernate.annotations.Generated;
-import org.hibernate.generator.EventType;
 import java.time.LocalDateTime;
 
 @Getter
 @Entity
 @Table(name = "users")
-@DynamicInsert
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,15 +21,12 @@ public class User extends BaseEntity {
     @Column(name = "profile_image_key", nullable = false, length = 1024)
     private String profileImageKey;
 
-    @Generated(event = EventType.INSERT)
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20, columnDefinition = "varchar(20)")
     private UserStatus status;
-    @Generated(event = EventType.INSERT)
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20, columnDefinition = "varchar(20)")
     private UserRole role;
-    @Generated(event = EventType.INSERT)
     @Column(name = "cooking_count", nullable = false)
     private Integer cookingCount;
 
@@ -49,6 +42,9 @@ public class User extends BaseEntity {
     public User(String nickname, String profileImageKey, String loginId,
                 String passwordHash, LocalDateTime passwordChangedAt) {
         this.nickname = nickname;
+        this.status = UserStatus.ACTIVE;
+        this.role = UserRole.USER;
+        this.cookingCount = 0;
         this.profileImageKey = profileImageKey;
         this.loginId = loginId;
         this.passwordHash = passwordHash;
