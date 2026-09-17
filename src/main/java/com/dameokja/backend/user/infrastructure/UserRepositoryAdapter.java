@@ -15,4 +15,5 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override public Optional<User> findById(Long id) { return repository.findById(id); }
     @Override public boolean existsByNickname(String nickname) { return repository.existsByNickname(nickname); }
     @Override public boolean existsByLoginId(String loginId) { return repository.existsByLoginId(loginId); }
+    @Override public Optional<User> findByIdForUpdate(Long id) { return repository.findByIdForUpdate(id); }
 }

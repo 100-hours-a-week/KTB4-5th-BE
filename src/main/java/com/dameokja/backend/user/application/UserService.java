@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.*;
+import java.util.Objects;
 
 @Service
 public class UserService {
@@ -54,15 +55,55 @@ public class UserService {
     }
 
     public UserProfile getProfile(Long actorId, Long userId) {
-        throw new UnsupportedOperationException("PR2 TDD: not implemented");
+        requireSelf(actorId, userId);
+        return transactions.execute(status -> profile(active(userId)));
     }
 
     public UserProfile updateProfile(Long actorId, Long userId, UpdateProfileCommand command) {
-        throw new UnsupportedOperationException("PR2 TDD: not implemented");
+        requireSelf(actorId, userId);
+        try {
+            return transactions.execute(status -> {
+                User user = users.findByIdForUpdate(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
+                if (user.getStatus() != UserStatus.ACTIVE) throw new UserException(UserExceptionCode.USER_NOT_ACTIVE);
+                nicknames.validate(command.nickname());
+                if (!user.getNickname().equals(command.nickname()) && users.existsByNickname(command.nickname()))
+                    throw new UserException(UserExceptionCode.NICKNAME_DUPLICATE);
+                String image = resolveImage(user.getProfileImageKey(), command.imageChange());
+                user.updateProfile(command.nickname(), image);
+                return profile(user);
+            });
+        } catch (DataIntegrityViolationException error) {
+            throw translateDuplicate(error);
+        }
     }
 
     public void withdraw(Long actorId, Long userId) {
         throw new UnsupportedOperationException("PR2 TDD: not implemented");
+    }
+
+    private User active(Long userId) {
+        User user = users.findById(userId).orElseThrow(() -> new UserException(UserExceptionCode.USER_NOT_FOUND));
+        if (user.getStatus() != UserStatus.ACTIVE) throw new UserException(UserExceptionCode.USER_NOT_ACTIVE);
+        return user;
+    }
+
+    private void requireSelf(Long actorId, Long userId) {
+        if (actorId == null || userId == null || !Objects.equals(actorId, userId))
+            throw new UserException(UserExceptionCode.ACCESS_DENIED);
+    }
+
+    private String resolveImage(String current, ProfileImageChange change) {
+        if (change == null) return current;
+        if (change.action() == null) throw new UserException(UserExceptionCode.PROFILE_IMAGE_INVALID);
+        return switch (change.action()) {
+            case KEEP -> current;
+            case DELETE -> defaultImage;
+            case REPLACE -> {
+                if (change.imageKey() == null || change.imageKey().isBlank() || change.imageKey().length() > 1024)
+                    throw new UserException(UserExceptionCode.PROFILE_IMAGE_INVALID);
+                yield change.imageKey();
+            }
+        };
     }
 
     // Catch outside execute: constraint errors may be raised by the commit-time flush.
