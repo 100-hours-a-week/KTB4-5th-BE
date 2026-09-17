@@ -1,63 +1,76 @@
 # 초기 설정
 
+프로젝트는 생성되어 있다. 아래 값은 `build.gradle`, `gradle-wrapper.properties`, `application.yml`, 테스트 지원 클래스의 **현재 상태**를 기준으로 한다(확인 2026-09-17, PR #4 병합 시점).
+
 ## 확정 사항
 
-| 항목 | 확정값 |
-|---|---|
-| JDK | Eclipse Temurin 25 |
-| IDE | IntelliJ IDEA |
-| Spring Boot | 4.1.1 |
-| 빌드 | Gradle Wrapper 9.7.1, Groovy DSL `build.gradle` |
-| 의존성 관리 | Boot BOM + `io.spring.dependency-management` 1.1.7 (BOM 관리 의존성은 버전 생략) |
-| 설정 파일 | `src/main/resources/application.yaml` |
-| DB | MySQL 8.4 LTS (개발: 로컬 설치 + Workbench) |
-| 테스트 DB | Testcontainers + MySQL 8.4 (Docker 호환 환경 필요) |
-| 초기 DDL | `src/main/resources/db/schema.sql`, 개발 DB에 수동 적용 |
-| JPA | `ddl-auto=validate`, `spring.sql.init.mode=never` |
-| 스키마 도구 | Flyway 미도입 |
+| 항목 | 확정값 | 근거 파일 |
+|---|---|---|
+| JDK | Eclipse Temurin 25 (Gradle toolchain 25) | `build.gradle` |
+| IDE | IntelliJ IDEA | - |
+| Spring Boot | 4.1.1 | `build.gradle` |
+| 빌드 | Gradle Wrapper 9.7.1, Groovy DSL, 단일 모듈 `backend` | `gradle/wrapper/gradle-wrapper.properties`, `settings.gradle` |
+| 의존성 관리 | Boot BOM + `io.spring.dependency-management` 1.1.7 (BOM 관리 의존성은 버전 생략) | `build.gradle` |
+| 주요 의존성 | webmvc, data-jpa, validation, Lombok, mysql-connector-j | `build.gradle` |
+| 패키지 | `com.dameokja.backend` | `BackendApplication.java` |
+| 설정 파일 | `src/main/resources/application.yml` | - |
+| DB | MySQL 8.4 LTS (개발: 로컬 설치 + Workbench) | - |
+| 테스트 DB | Testcontainers `mysql:8.4.8` (Docker 호환 환경 필요, reuse 끔) | `support/MySqlDatabaseTest.java` |
+| DDL | `src/main/resources/db/schema.sql` (상세: [database/README](database/README.md)) | - |
+| 스키마 도구 | Flyway 미도입 | - |
 
 합의한 버전은 "최신 LTS"를 이유로 임의 변경하지 않는다.
 
-## DDL
+## 빌드·실행
 
-- `schema.sql`은 제공된 스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
-- 개발 DB: Workbench로 최초 1회 수동 적용. validate는 테이블을 만들지 않는다.
-- 테스트: 새 컨테이너에 같은 `schema.sql`을 초기화 스크립트로 적용한다. Boot SQL 초기화와 중복 사용하지 않는다.
-
-## .env 설정
-
-```yaml
-spring:
-  config:
-    import: "file:${APP_ENV_FILE:./.env}[.properties]"
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+```bash
+./gradlew build          # 컴파일 + 테스트 (Docker 실행 필요)
+./gradlew test           # 테스트만
+./gradlew bootRun        # 로컬 기동 (DB 환경변수 필요)
 ```
 
-- 프로젝트 루트 `.env`를 YAML import로 읽는다. 별도 dotenv 라이브러리는 쓰지 않는다. 다른 경로는 `APP_ENV_FILE`로 지정한다.
-- `optional:`을 붙이지 않는다. 파일이 없으면 기동에 실패해야 한다.
-- `.env`는 **Java properties 문법**이다: `KEY=value`, `export`·따옴표·인라인 주석 금지.
-- 값은 Spring 설정으로 로딩되며 `System.getenv()`로 읽히지 않는다.
-- `.env`는 Git·JAR·이미지에 넣지 않고, 비밀값 없는 `.env.example`만 공유한다.
-- 테스트는 `spring.config.import`를 빈 값으로 재정의하고 컨테이너 접속정보를 주입한다.
-- 배포 환경도 같은 방식이면 `.env` 상당 파일을 제공하거나 `APP_ENV_FILE`로 경로를 지정한다.
+## DB 접속 설정 (현재)
+
+`application.yml`은 OS 환경변수를 기본값과 함께 읽는다.
+
+| 환경변수 | 기본값 | 비고 |
+|---|---|---|
+| `DB_HOST` | `localhost` | |
+| `DB_PORT` | `3306` | |
+| `DB_NAME` | `dameokja` | |
+| `DB_USERNAME` | `dameokja_dev` | |
+| `DB_PASSWORD` | 없음 | **필수**. IntelliJ Run Configuration 또는 셸 환경변수로 주입 |
+
+- 비밀번호 등 비밀값은 `application.yml`·Git에 넣지 않는다.
+- 현재 `ddl-auto: update`, `show-sql: true`로 개발용 설정이다.
+
+## DDL
+
+- `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
+- 개발 DB: Workbench 또는 `mysql` CLI로 빈 DB에 수동 적용한다.
+- 테스트: 컨테이너에 같은 `schema.sql`을 `withInitScript`로 적용하고, `ddl-auto=validate`, `spring.sql.init.mode=never`로 재정의한다. Boot SQL 초기화와 중복 사용하지 않는다.
+
+## 테스트 DB
+
+- Repository 테스트는 `support.MySqlJpaTest`, 전체 컨텍스트 테스트는 `support.MySqlDatabaseTest`를 상속한다. 컨테이너는 테스트 JVM당 1개이며 종료 시 제거된다.
+- 테스트는 로컬 DB·환경변수 없이 컨테이너 접속정보만 사용한다.
 
 ## 신규 합류
 
-1. 위 버전의 JDK·MySQL을 설치하고 저장소의 Gradle Wrapper를 사용한다.
-2. 개발 DB를 만들고 `schema.sql`을 수동 적용한다.
-3. `.env.example`을 `.env`로 복사해 접속값을 채운다.
-4. 프로젝트 루트에서 기동하고, Docker를 켠 상태로 테스트를 실행한다.
+1. JDK 25, MySQL 8.4, Docker를 설치한다. Gradle은 저장소의 Wrapper를 사용한다.
+2. 개발 DB와 계정을 만들고 `schema.sql`을 수동 적용한다.
+3. `DB_PASSWORD`(필요하면 나머지 `DB_*`)를 Run Configuration에 설정한다.
+4. `./gradlew test`로 테스트, `./gradlew bootRun`으로 기동을 확인한다.
 
-## 구성 후 확인
+## 미합의 (현재 설정과 다른 제안)
 
-- [ ] 합의 버전으로 빌드·기동된다.
-- [ ] `.env`가 Git에 없고, 파일이 없으면 기동이 실패한다.
-- [ ] 빈 DB에 DDL 적용 후 validate가 성공하고, 재시작 시 DDL이 자동 실행되지 않는다.
-- [ ] 테스트는 `.env` 없이 컨테이너 DB만 사용하고, 종료 후 데이터가 남지 않는다.
+아래는 초안에서 제안했지만 코드에 반영되지 않은 항목이다. 적용하려면 합의 후 설정 변경 PR과 함께 이 문서를 수정한다.
 
-> 프로젝트는 아직 생성 전이다. 최초 구성 후 실제 빌드·테스트 명령을 이 문서에 기록한다.
+| 항목 | 현재 | 제안 |
+|---|---|---|
+| 비밀값 주입 | OS 환경변수 + 기본값 | 루트 `.env`를 `spring.config.import`로 읽고, 없으면 기동 실패 + `.env.example` 공유 |
+| `ddl-auto` | `update` | `validate` (스키마는 `schema.sql`이 원본) |
+| DB 시간대 | JDBC `serverTimezone=Asia/Seoul` | 서울/UTC 저장 기준은 날짜 기능 구현 시 합의 |
+| 환경별 설정 | 단일 `application.yml` | profile 분리 여부 미정 |
 
 참고(확인 2026-09-16): [Boot 요구사항](https://docs.spring.io/spring-boot/system-requirements.html), [Boot 외부 설정](https://docs.spring.io/spring-boot/reference/features/external-config.html), [Boot DB 초기화](https://docs.spring.io/spring-boot/how-to/data-initialization.html)
