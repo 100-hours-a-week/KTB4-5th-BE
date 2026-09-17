@@ -5,4 +5,5 @@ import java.util.Optional;
 public interface RefrigeratorRepository {
     Refrigerator save(Refrigerator refrigerator);
     Optional<Refrigerator> findById(Long id);
+    Optional<Refrigerator> findByIdForUpdate(Long id);
 }
