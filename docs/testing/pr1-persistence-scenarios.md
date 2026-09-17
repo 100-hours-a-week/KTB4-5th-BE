@@ -51,9 +51,9 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 - Testcontainers의 일회용 MySQL 8.4.8을 사용한다. 개발·공유 DB에 연결하지 않는다.
 - 각 테스트는 롤백하고 컨테이너는 JVM 종료 후 Ryuk이 정리한다. 재사용하지 않는다.
 - 저장·수정 후 flush → 영속성 컨텍스트 초기화 → 재조회한다. 제약 위반은 flush까지 확인한다.
-- 기본값은 실제 JPA 생성 경로에서 생략하여 검증한다. 기본값 컬럼은 nullable Java wrapper로 두고 Hibernate DynamicInsert로 DB에 위임한다.
-- 테스트 DDL은 기존 미추적 docs/database/schema.sql 중 세 테이블을 그대로 추출한 src/test/resources/db/persistence-schema.sql이다. 테스트에만 별도 제약을 창작하지 않았다. 해당 DDL에는 유니크·CHECK가 이미 있어 조건부 시나리오도 실행한다. 운영 DB 적용 여부와는 별개다.
-- 이 PR은 개발 DB DDL이나 application.yml을 변경하지 않는다. 운영에서도 동일 제약 및 자동 증가 PK를 반영해야 한다.
+- 기본값은 실제 JPA 생성 경로에서 생략하여 검증한다. 기본값 필드는 Java wrapper/enum으로 두고 Hibernate Generated(INSERT)로 DB 생성값을 받아온다. 참여의 선택 상태·역할은 DynamicInsert와 writable 생성을 함께 사용해 명시값과 DB 기본값을 모두 지원한다.
+- 테스트 DDL은 공용 원본인 `src/main/resources/db/schema.sql`이다. `MySqlDatabaseTest`가 새 MySQL 컨테이너에 전체 DDL을 자동 적용하며, 테스트 전용 스키마 사본은 두지 않는다. 해당 DDL의 유니크·CHECK로 조건부 시나리오도 실행한다. 운영 DB 적용 여부와는 별개다.
+- 공용 DDL은 리소스로 포함하되 개발 DB에 직접 적용하지 않고 application.yml도 변경하지 않는다. 운영에서도 동일 제약 및 자동 증가 PK를 반영해야 한다.
 - 실행: `JAVA_HOME=/Library/Java/JavaVirtualMachines/openjdk-25.jdk/Contents/Home ./gradlew test --tests '*RepositoryTest'`
 - 회원가입 원자성, 탈퇴 연계, 접근 인가, 월별 집계 로직은 PR 2 범위다.
 
@@ -63,3 +63,9 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 - infrastructure: JpaRepository를 상속한 인터페이스와 도메인 Repository를 구현한 어댑터.
 - 테스트는 도메인 Repository를 주입받아 실제 어댑터·JPA·MySQL 연결을 검증한다.
 - 엔티티를 별도 영속 모델로 복제하지 않는다. participation은 refrigerator 내부에 위치한다.
+
+## 최종 검증 결과
+
+2026-09-17, JDK 25 및 MySQL 8.4.8에서 `./gradlew test` 전체 25건 통과: 유저 7건, 냉장고 5건, 참여 12건, 애플리케이션 기동 1건. 실패·오류·스킵 0건. 공용 전체 DDL 초기화와 매핑 검증이 성공했고, 실행 종료 후 MySQL 및 Ryuk 컨테이너가 남지 않았음을 확인했다.
+
+엔티티별 테스트 선작성 후 미구현 클래스에 의한 컴파일 실패를 확인하고 구현했다. 프레임워크 위임 매핑에 인위적인 실패 구현을 삽입하지 않았다.
