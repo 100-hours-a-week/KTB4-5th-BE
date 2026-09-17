@@ -28,7 +28,7 @@ com.dameokja.backend
 - 저장소 인터페이스는 `domain`에 두고, `infrastructure`의 Adapter가 Spring Data JPA에 위임해 구현한다. 서비스 로직이 JPA에 직접 묶이지 않아 저장 기술과 분리해 테스트할 수 있다. [A1]
 - JPA Entity 하나에 데이터와 변경 메서드를 함께 둔다. Entity와 별도로 도메인 객체를 만들지 않는다. 「팀」 둘을 분리하면 매핑 코드가 늘어나는데, 현재 요구에서는 그 비용을 정당화할 이유가 없다. [F2]
 - 다른 도메인의 `infrastructure`를 직접 참조하지 않는다. [F3]
-- **다른 Entity는 ID(`Long`)가 아니라 객체로 참조한다.** `@ManyToOne(fetch = LAZY)` + `@JoinColumn`으로 매핑한다. 다른 도메인 Entity도 같다(예: `RefrigeratorMember → User`, `Ingredient → Refrigerator`). 「팀」 JPA를 쓰는 이유가 연관관계 매핑이므로, 객체로 참조해야 `member.getUser()` 같은 탐색과 JPQL fetch join을 쓸 수 있다. [P2][H2] LAZY 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
+- **다른 Entity는 객체로 참조한다.** `@ManyToOne(fetch = LAZY)` + `@JoinColumn`으로 매핑한다. 다른 도메인 Entity도 같다(예: `RefrigeratorMember → User`, `Ingredient → Refrigerator`). 「팀」 JPA를 쓰는 이유가 연관관계 매핑이므로, 객체로 참조해야 `member.getUser()` 같은 탐색과 JPQL fetch join을 쓸 수 있다. [P2][H2] LAZY 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
 - 목록 조회에서 연관 객체를 함께 쓰면 fetch join으로 한 번에 가져와 N+1 쿼리를 막는다. [H2]
 
 ## 미합의
