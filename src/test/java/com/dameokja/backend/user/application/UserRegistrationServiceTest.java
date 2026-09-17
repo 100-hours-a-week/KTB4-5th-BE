@@ -93,7 +93,7 @@ class UserRegistrationServiceTest extends ServiceIntegrationTest {
             throw new IllegalStateException("simulated storage failure");
         }).when(memberRepository).save(any(RefrigeratorMember.class));
         assertThatThrownBy(() -> service.register(command("User1", "login1")))
-                .isInstanceOf(IllegalStateException.class).hasMessage("simulated storage failure");
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class).hasRootCauseInstanceOf(IllegalStateException.class).hasMessage("simulated storage failure");
         assertEmptyDatabase();
     }
 
