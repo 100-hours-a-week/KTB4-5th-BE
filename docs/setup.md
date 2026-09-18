@@ -16,7 +16,7 @@
 | 주요 의존성 | webmvc, data-jpa, validation, Lombok, mysql-connector-j | `build.gradle` |
 | 패키지 | `com.dameokja.backend` | `BackendApplication.java` |
 | 설정 파일 | `src/main/resources/application.yml` | - |
-| DB | MySQL 8.4 LTS (개발: 로컬 설치 + Workbench) — 버그·보안 수정만 받는 장기 지원 [M1] | - |
+| DB | MySQL 8.4 LTS (개발: 각자 로컬 설치) — 버그·보안 수정만 받는 장기 지원 [M1] | - |
 | 테스트 DB | Testcontainers `mysql:8.4.8` (Docker 호환 환경 필요, reuse 끔) — 운영과 같은 DB로 테스트 「팀」, reuse 끔 [T1] | `support/MySqlDatabaseTest.java` |
 | DDL | `src/main/resources/db/schema.sql` (상세: [database/README](database/README.md)) | - |
 | 스키마 도구 | Flyway 미도입 — 스키마 변경 이력이 아직 없음 「팀」 | - |
@@ -31,18 +31,17 @@
 ./gradlew bootRun        # 로컬 기동 (DB 환경변수 필요)
 ```
 
-## DB 접속 설정 (현재)
+## DB 접속 설정
 
-`application.yml`은 OS 환경변수를 기본값과 함께 읽는다. [B3]
+개발 DB는 각자 자기 컴퓨터에 만든다. 이름·계정·비밀번호는 사람마다 다르므로 문서에 값을 적지 않고, 아래 환경변수로 주입한다. `application.yml`이 OS 환경변수를 읽는다. [B3]
 
-| 환경변수 | 기본값 | 비고 |
-|---|---|---|
-| `DB_HOST` | `localhost` | |
-| `DB_PORT` | `3306` | |
-| `DB_NAME` | `dameokja` | |
-| `DB_USERNAME` | `dameokja_dev` | |
-| `DB_PASSWORD` | 없음 | **필수**. IntelliJ Run Configuration 또는 셸 환경변수로 주입 |
+| 환경변수 | 내용 |
+|---|---|
+| `DB_HOST`, `DB_PORT` | 로컬 MySQL 주소 |
+| `DB_NAME` | 직접 만든 빈 DB 이름 |
+| `DB_USERNAME`, `DB_PASSWORD` | 그 DB에 접근할 계정 |
 
+- 값은 IntelliJ Run Configuration 또는 셸 환경변수로 넣는다.
 - 비밀번호 등 비밀값은 `application.yml`·Git에 넣지 않는다. [OW1]
 - 현재 `ddl-auto: update`, `show-sql: true`로 개발용 설정이다.
 
@@ -60,8 +59,8 @@
 ## 신규 합류
 
 1. JDK 25, MySQL 8.4, Docker를 설치한다. Gradle은 저장소의 Wrapper를 사용한다.
-2. 개발 DB와 계정을 만들고 `schema.sql`을 수동 적용한다.
-3. `DB_PASSWORD`(필요하면 나머지 `DB_*`)를 Run Configuration에 설정한다.
+2. 빈 개발 DB와 계정을 만들고 `schema.sql`을 수동 적용한다.
+3. `DB_*` 환경변수에 자기 값을 넣는다.
 4. `./gradlew test`로 테스트, `./gradlew bootRun`으로 기동을 확인한다.
 
 ## 미합의 (현재 설정과 다른 제안)
@@ -70,6 +69,7 @@
 
 | 항목 | 현재 | 제안 |
 |---|---|---|
+| DB 접속 기본값 | `application.yml`에 DB 이름·계정 기본값이 있음 | 기본값을 빼고 모두 환경변수 필수로 (사람마다 값이 달라 기본값이 오히려 혼란) |
 | 비밀값 주입 | OS 환경변수 + 기본값 | 루트 `.env`를 `spring.config.import`로 읽고, 없으면 기동 실패 + `.env.example` 공유 |
 | `ddl-auto` | `update` | `validate` (스키마는 `schema.sql`이 원본) — 스키마 생성 방식은 하나만 [B2] |
 | DB 시간대 | JDBC `serverTimezone=Asia/Seoul` | 서울/UTC 저장 기준은 날짜 기능 구현 시 합의 |
