@@ -8,8 +8,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-// TEMPORARY: trusts a client-supplied header until authentication exists.
-// Must be replaced by a SecurityContext-based resolver before any real deployment.
+// 임시: 인증 구현 전까지 클라이언트가 보낸 헤더값을 그대로 신뢰한다.
+// 실제 배포 전 반드시 SecurityContext 기반 리졸버로 교체해야 한다.
 public class TemporaryLoginUserArgumentResolver implements HandlerMethodArgumentResolver {
 
     static final String USER_ID_HEADER = "X-User-Id";
