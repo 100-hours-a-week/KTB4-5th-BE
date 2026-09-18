@@ -1,0 +1,119 @@
+name: BE v1 CI-CD
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+# 같은 브랜치의 이전 배포가 끝나기 전에 새 배포가 앞서지 않도록 직렬화한다.
+concurrency:
+  group: v1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: 검증 및 이미지 빌드
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.reference.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: 테스트 및 JAR 빌드
+        run: bash ./gradlew --no-daemon test bootJar
+      - name: 이미지 이름
+        id: name
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - name: GHCR 로그인
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: ARM64 이미지 빌드 및 푸시
+        id: docker
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: 배포 이미지 고정
+        id: reference
+        if: github.event_name == 'push'
+        env:
+          IMAGE_NAME: ${{ steps.name.outputs.image }}
+          DIGEST: ${{ steps.docker.outputs.digest }}
+        run: echo "image=$IMAGE_NAME@$DIGEST" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: 배포
+    needs: build
+    if: github.event_name == 'push' && vars.CD_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # GitHub Environments 없이 브랜치별 Repository 설정을 선택한다.
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - name: SSH 배포
+        env:
+          DEPLOY_HOST: ${{ github.ref_name == 'main' && vars.PROD_DEPLOY_HOST || vars.DEV_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
+          COMPOSE_FILE_NAME: ${{ vars.COMPOSE_FILE_NAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ github.ref_name == 'main' && secrets.PROD_SSH_KNOWN_HOSTS || secrets.DEV_SSH_KNOWN_HOSTS }}
+          APP_ENV: ${{ secrets.APP_ENV }}
+          IMAGE: ${{ needs.build.outputs.image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9_./-]+$ ]]
+          [[ "$COMPOSE_PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]]
+          [[ "$COMPOSE_FILE_NAME" =~ ^[a-zA-Z0-9._-]+\.ya?ml$ ]]
+          [[ "$IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$APP_ENV"
+          umask 077
+          key=$(mktemp)
+          hosts=$(mktemp)
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$hosts"
+          printf '%s\n' "$APP_ENV" | ssh -i "$key" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$hosts" -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && bash scripts/deploy-v1.sh backend '$IMAGE' '$COMPOSE_PROJECT' '$COMPOSE_FILE_NAME'"
