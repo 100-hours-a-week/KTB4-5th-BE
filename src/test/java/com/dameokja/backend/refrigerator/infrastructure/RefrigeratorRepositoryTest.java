@@ -2,7 +2,6 @@ package com.dameokja.backend.refrigerator.infrastructure;
 
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
-import com.dameokja.backend.refrigerator.domain.RefrigeratorRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

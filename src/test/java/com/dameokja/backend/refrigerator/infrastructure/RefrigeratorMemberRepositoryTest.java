@@ -47,16 +47,16 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         RefrigeratorMember active = members.save(RefrigeratorMember.owner(first, refrigerator("활성")));
         members.save(RefrigeratorMember.owner(second, refrigerator("타인냉장고")));
         flushAndClear();
-        assertThat(members.findActiveByUserId(first.getId())).get()
+        assertThat(members.findByUserIdAndIsActiveTrue(first.getId())).get()
                 .extracting(RefrigeratorMember::getId).isEqualTo(active.getId());
-        assertThat(members.findActiveByUserId(Long.MAX_VALUE)).isEmpty();
+        assertThat(members.findByUserIdAndIsActiveTrue(Long.MAX_VALUE)).isEmpty();
     }
 
     @Test void returnsEmptyForUserWithOnlyInactiveMemberships() {
         User user = user("비활성회원");
         members.save(new RefrigeratorMember(user, refrigerator("냉장고")));
         flushAndClear();
-        assertThat(members.findActiveByUserId(user.getId())).isEmpty();
+        assertThat(members.findByUserIdAndIsActiveTrue(user.getId())).isEmpty();
     }
 
     @ParameterizedTest @ValueSource(strings = {"user", "refrigerator"})
@@ -113,12 +113,12 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         flushAndClear();
         members.findById(first.getId()).orElseThrow().changeActiveStatus(true);
         flushAndClear();
-        assertThat(members.findActiveByUserId(user.getId())).get()
+        assertThat(members.findByUserIdAndIsActiveTrue(user.getId())).get()
                 .extracting(RefrigeratorMember::getId).isEqualTo(first.getId());
         assertThat(members.findById(second.getId()).orElseThrow().getIsActive()).isFalse();
         members.findById(first.getId()).orElseThrow().changeActiveStatus(false);
         flushAndClear();
-        assertThat(members.findActiveByUserId(user.getId())).isEmpty();
+        assertThat(members.findByUserIdAndIsActiveTrue(user.getId())).isEmpty();
     }
 
     @Test void deletesAllTargetMembershipsWithoutDeletingOtherMembershipsOrParents() {
@@ -135,7 +135,7 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         assertThat(members.findById(a.getId())).isEmpty();
         assertThat(members.findById(b.getId())).isEmpty();
         assertThat(members.findById(kept.getId())).isPresent();
-        assertThat(members.findActiveByUserId(first.getId())).isEmpty();
+        assertThat(members.findByUserIdAndIsActiveTrue(first.getId())).isEmpty();
         assertThat(users.findById(first.getId())).isPresent();
         assertThat(users.findById(second.getId())).isPresent();
         assertThat(refrigerators.findById(target.getId())).isPresent();
