@@ -11,11 +11,11 @@
 |---|---|---|---|
 | 한 줄 길이 | - | 100자 (`package`·`import` 제외) | [G2] |
 | 메서드 길이 | 20줄 이하 | 30줄 | 방향 [F3], 숫자 「팀」 |
-| 메서드 파라미터 수 | 3개 이하 | 4개 (넘으면 객체로 묶음) | 방향 [S1], 숫자 「팀」 |
+| 메서드 파라미터 수 | 3개 이하 | 4개 (넘으면 객체로 묶음) | 방향·상한 근사 [EJ1], 권장 3개는 「팀」 |
 | 중첩 깊이 (if·for·try) | - | 3단계 (넘으면 early return·메서드 추출) | 측정 [C4], 해법 [R1], 숫자 「팀」 |
 | 클래스(파일) 길이 | 200줄 이하 | 300줄 (넘으면 책임 분리) | 방향 [C3], 숫자 「팀」 |
 
-- **「팀」 숫자의 이유**: 외부 자료는 "작게"라는 방향만 주고 강제용 숫자를 정해 주지 않는다. 도구 기본값(Checkstyle 메서드 150줄[C1], 파일 2000줄[C3], 파라미터 7개[C5])은 리뷰 기준으로는 너무 느슨하다. 그래서 길이는 권장값에 1.5배 여유를 둔 값을 상한으로, 파라미터는 권장 3개에 하나 여유를 둔 4개를, 중첩은 3단계를 상한으로 정했다. 상한은 CI로 검사한다.
+- **「팀」 숫자의 이유**: 메서드·클래스 길이(20/30줄, 200/300줄)는 외부 자료 어디에도 구체적 권장값이 없어 팀이 리뷰 기준으로 쓰기 편한 값을 그대로 정했다. 파라미터는 이펙티브 자바[EJ1]가 "4개 이하, 가급적 2개 이하"를 제시해 상한 4개는 그에 맞췄고, 권장 3개는 그 사이값으로 팀이 잡았다. 중첩 깊이의 경우 2단계는 조건 분기 하나조차 못 쓸 만큼 빡빡하고 4단계부터는 가독성이 눈에 띄게 떨어진다고 판단해 팀이 정한 값이다. 상한은 CI로 검사한다.
 - 상한을 넘기는 경우(생성된 코드, 분기 자체가 명세인 매핑 등)는 `@SuppressWarnings("checkstyle:<검사명>")`를 붙이고 PR 「크기 예외」에 사유를 적는다.
 
 ### 줄 수 세는 법
@@ -109,6 +109,7 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 | F1 | [Martin Fowler — Test Driven Development](https://martinfowler.com/bliki/TestDrivenDevelopment.html) | 테스트 작성 → 통과할 때까지 구현 → 리팩터링 |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) | 미래에 필요할 것 같은 기능은 지금 만들지 않는다 |
 | S1 | [Spring Framework — Constructor-based or setter-based DI?](https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html) | Spring 팀은 생성자 주입을 권장. 생성자 인자가 많으면 클래스 책임이 너무 많다는 신호 |
+| EJ1 | Joshua Bloch, *Effective Java* 3rd Edition, Item 51 — Design Method Signatures Carefully | 인자 개수는 4개 이하를 목표로, 가급적 2개 이하로("shoot to keep our argument lists to four parameters and below, preferably two or less") |
 | S2 | [Spring Boot — Testing Spring Boot Applications](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html) | 실제 서블릿 환경에서는 서버 트랜잭션이 롤백되지 않음 |
 | S3 | [Spring Framework — Controller Advice](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-advice.html) | `@ControllerAdvice`로 여러 컨트롤러의 예외 처리를 한 곳에서 |
 | T1 | [Testcontainers — Reusable Containers](https://java.testcontainers.org/features/reuse/) | 실험 기능, 테스트 후 컨테이너가 멈추지 않음, CI에 부적합 |
