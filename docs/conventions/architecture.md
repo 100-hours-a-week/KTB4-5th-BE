@@ -10,9 +10,9 @@
 - 다건 INSERT 성능 문제가 **측정되면** JdbcTemplate 배치를 검토한다. IDENTITY 전략에서는 Hibernate insert 배치가 꺼지고[H1], JdbcTemplate 배치는 DB 왕복을 줄인다[S2]. 측정 전에 도입하지 않는 이유는 [F2].
 - QueryDSL은 복잡한 조회·동적 검색이 실제로 필요할 때 검토하고 초기 의존성에 넣지 않는다. [F2]
 
-## 현재 코드 구조 (따른다)
+## 패키지 구조
 
-PR #4에서 병합된 코드 기준이다. 새 기능은 이 구조를 따르고, 바꾸려면 합의 후 이 문서를 먼저 수정한다.
+새 기능은 이 구조를 따르고, 바꾸려면 합의 후 이 문서를 먼저 수정한다. 기존 `user`·`refrigerator` 도메인에는 저장소 인터페이스 + Adapter 방식이 남아 있으며, 별도 PR에서 정리한다.
 
 ```text
 com.dameokja.backend
@@ -20,12 +20,12 @@ com.dameokja.backend
 └── <domain>/
     ├── presentation/       # Controller, 요청·응답 DTO
     ├── application/        # 유스케이스 Service, 트랜잭션 경계
-    ├── domain/             # Entity, enum, 저장소 인터페이스(<Name>Repository)
-    └── infrastructure/     # <Name>JpaRepository, <Name>RepositoryAdapter
+    ├── domain/             # Entity, enum, 값 객체
+    └── infrastructure/     # <Name>Repository (Spring Data JpaRepository 상속)
 ```
 
-- 참조 방향: `presentation → application → domain ← infrastructure`. `domain`은 다른 계층을 참조하지 않는다. [F3]
-- 저장소 인터페이스는 `domain`에 두고, `infrastructure`의 Adapter가 Spring Data JPA에 위임해 구현한다. 서비스 로직이 JPA에 직접 묶이지 않아 저장 기술과 분리해 테스트할 수 있다. [A1]
+- 참조 방향: `presentation → application → infrastructure`. `domain`(Entity·enum·값 객체)은 다른 계층을 참조하지 않는다. [F3]
+- 저장소는 Spring Data `JpaRepository`를 상속한 인터페이스 하나로 `infrastructure`에 둔다. 별도 인터페이스와 Adapter로 나누지 않는다. 「팀」 저장소가 MySQL 하나뿐이라 위임 메서드만 늘고 얻는 것이 없으며, Spring Data 인터페이스 자체로 테스트 대체가 가능하기 때문이다. 외부 API·캐시가 섞이는 저장소가 생기면 그때 분리를 논의한다. [S3][F2]
 - JPA Entity 하나에 데이터와 변경 메서드를 함께 둔다. Entity와 별도로 도메인 객체를 만들지 않는다. 「팀」 둘을 분리하면 매핑 코드가 늘어나는데, 현재 요구에서는 그 비용을 정당화할 이유가 없다. [F2]
 - 다른 도메인의 `infrastructure`를 직접 참조하지 않는다. [F3]
 - **다른 Entity는 객체로 참조한다.** `@ManyToOne(fetch = LAZY)` + `@JoinColumn`으로 매핑한다. 다른 도메인 Entity도 같다(예: `RefrigeratorMember → User`, `Ingredient → Refrigerator`). 「팀」 JPA를 쓰는 이유가 연관관계 매핑이므로, 객체로 참조해야 `member.getUser()` 같은 탐색과 JPQL fetch join을 쓸 수 있다. [P2][H2] LAZY 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
@@ -43,10 +43,10 @@ com.dameokja.backend
 |---|---|---|
 | S1 | [Spring Boot — Structuring Your Code](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html) | 권장 레이아웃 예시: `customer`, `order` 기능 패키지 안에 Entity·Controller·Service·Repository |
 | S2 | [Spring Framework — JDBC Batch Operations](https://docs.spring.io/spring-framework/reference/data-access/jdbc/advanced.html) | 배치로 묶으면 DB 왕복 횟수가 줄어듦 |
+| S3 | [Spring Data JPA — Defining Repository Interfaces](https://docs.spring.io/spring-data/jpa/reference/repositories/definition.html) | 저장소는 `JpaRepository`를 상속한 인터페이스로 선언 |
 | F1 | [Martin Fowler — PresentationDomainDataLayering](https://martinfowler.com/bliki/PresentationDomainDataLayering.html) (2015) | 계층이 커지면 최상위를 도메인 모듈로 나누고 내부를 계층화 |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) (2015) | 미래에 필요할 것 같은 기능은 지금 만들지 않음 |
 | F3 | [Robert C. Martin — The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) (2012) | 소스 코드 의존성은 안쪽으로만 향한다(The Dependency Rule) |
-| A1 | [Alistair Cockburn — Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/) (2005) | 애플리케이션을 실행 장치·DB와 분리해 개발·테스트 |
 | P2 | [Jakarta Persistence `@ManyToOne`](https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/manytoone) | 다대일 연관관계 매핑, `fetch` 기본값 EAGER |
 | H2 | [Hibernate ORM 5.2 User Guide — Fetching](https://docs.hibernate.org/orm/5.2/userguide/html_single/chapters/fetching/Fetching.html) | 연관관계는 LAZY로 두고 쿼리에서 동적으로 fetch, EAGER는 N+1 위험 |
 | H1 | [Hibernate ORM 6.6 User Guide — 13.2.1 Batch inserts](https://docs.hibernate.org/orm/6.6/userguide/html_single/Hibernate_User_Guide.html) | IDENTITY 생성은 insert 배치를 비활성화 |
