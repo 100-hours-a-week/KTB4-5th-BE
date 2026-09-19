@@ -33,7 +33,6 @@ public class Refrigerator extends BaseEntity {
             columnDefinition = "char(7)")
     private String expiredCountMonth;
 
-    // The application supplies the Seoul month so persistence does not read the system clock.
     public Refrigerator(String name, String expiredCountMonth) {
         this.name = name;
         this.capacity = 100;
