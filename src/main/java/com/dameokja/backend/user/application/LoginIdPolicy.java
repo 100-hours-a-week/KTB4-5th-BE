@@ -7,12 +7,12 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class LoginIdPolicy {
-    private static final UserNamePolicy.ErrorCodes ERROR_CODES = new UserNamePolicy.ErrorCodes(
+    private static final NicknameAndLoginIdValidator.ErrorCodes ERROR_CODES = new NicknameAndLoginIdValidator.ErrorCodes(
             UserExceptionCode.LOGIN_ID_REQUIRED, UserExceptionCode.LOGIN_ID_LENGTH_INVALID,
             UserExceptionCode.LOGIN_ID_FORMAT_INVALID, UserExceptionCode.LOGIN_ID_PROHIBITED);
-    private final UserNamePolicy userNamePolicy;
+    private final NicknameAndLoginIdValidator nicknameAndLoginIdValidator;
 
     public void validate(String loginId) {
-        userNamePolicy.validate(loginId, ERROR_CODES);
+        nicknameAndLoginIdValidator.validate(loginId, ERROR_CODES);
     }
 }

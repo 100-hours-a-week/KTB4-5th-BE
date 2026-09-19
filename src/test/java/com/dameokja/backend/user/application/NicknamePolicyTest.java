@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 class NicknamePolicyTest {
     private final ProhibitedWordChecker prohibitedWordChecker = mock(ProhibitedWordChecker.class);
     private final NicknamePolicy nicknamePolicy =
-            new NicknamePolicy(new UserNamePolicy(prohibitedWordChecker));
+            new NicknamePolicy(new NicknameAndLoginIdValidator(prohibitedWordChecker));
 
     @ParameterizedTest
     @NullAndEmptySource

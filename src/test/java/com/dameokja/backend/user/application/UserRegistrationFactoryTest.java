@@ -18,7 +18,7 @@ import static org.mockito.Mockito.verify;
 class UserRegistrationFactoryTest {
     private final NicknamePolicy nicknamePolicy = mock(NicknamePolicy.class);
     private final LoginIdPolicy loginIdPolicy = new LoginIdPolicy(
-            new UserNamePolicy(mock(ProhibitedWordChecker.class)));
+            new NicknameAndLoginIdValidator(mock(ProhibitedWordChecker.class)));
     private final UserRegistrationFactory userRegistrationFactory =
             new UserRegistrationFactory(nicknamePolicy, loginIdPolicy, "default.png");
     private final LocalDateTime registeredAt = LocalDateTime.of(2026, 9, 30, 23, 59, 59);
