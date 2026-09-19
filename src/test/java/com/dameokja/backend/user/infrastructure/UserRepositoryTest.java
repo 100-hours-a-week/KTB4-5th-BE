@@ -13,7 +13,9 @@ class UserRepositoryTest extends MySqlJpaTest {
     @Autowired UserRepository users;
 
     private User user(String nickname, String loginId) {
-        return new User(nickname, "profiles/default.png", loginId, "x".repeat(60), LocalDateTime.of(2026, 9, 17, 0, 0));
+        UserCredentials userCredentials = new UserCredentials(loginId, "x".repeat(60),
+                LocalDateTime.of(2026, 9, 17, 0, 0));
+        return new User(nickname, "profiles/default.png", userCredentials);
     }
 
     @Test void savesAndFindsTheRequestedUser() {
@@ -60,7 +62,7 @@ class UserRepositoryTest extends MySqlJpaTest {
     void rejectsMissingRequiredInput(String field) {
         assertThatThrownBy(() -> {
             users.save(new User(field.equals("nickname") ? null : "회원이름",
-                    field.equals("profile") ? null : "default.png", null, null, null));
+                    field.equals("profile") ? null : "default.png"));
             entityManager.flush();
         }).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
