@@ -28,6 +28,8 @@ class DomainExceptionResponseTest {
                         400, "USER-400-006", "로그인 아이디는 한글, 영문, 숫자만 사용할 수 있습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_REQUIRED),
                         400, "USER-400-007", "로그인 아이디를 입력해 주세요."),
+                Arguments.of(new CustomException(UserExceptionCode.PASSWORD_REQUIRED),
+                        400, "USER-400-008", "비밀번호를 입력해 주세요."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_ACTIVE),
                         403, "USER-403-002", "탈퇴한 회원은 이용할 수 없습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_FOUND),
