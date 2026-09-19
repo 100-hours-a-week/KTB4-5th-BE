@@ -8,6 +8,8 @@ public abstract class MySqlDatabaseTest {
     // One disposable container per test JVM; Ryuk removes it when the JVM exits. No reuse.
     private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.8")
             .withReuse(false)
+            // Allow failure-injection triggers in the disposable test database only.
+            .withCommand("--log-bin-trust-function-creators=1")
             .withInitScript("db/schema.sql");
 
     @DynamicPropertySource
