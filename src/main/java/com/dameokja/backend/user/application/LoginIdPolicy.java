@@ -7,8 +7,8 @@ final class LoginIdPolicy {
     private LoginIdPolicy() {}
 
     static void validate(String loginId) {
-        if (loginId == null) {
-            return;
+        if (loginId == null || loginId.isBlank()) {
+            throw new CustomException(UserExceptionCode.LOGIN_ID_REQUIRED);
         }
         if (!UserNameCharacters.isValid(loginId)) {
             throw new CustomException(UserExceptionCode.LOGIN_ID_FORMAT_INVALID);
