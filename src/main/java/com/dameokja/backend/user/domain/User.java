@@ -1,7 +1,14 @@
 package com.dameokja.backend.user.domain;
 
 import com.dameokja.backend.global.common.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +19,8 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long id;
 
@@ -39,16 +47,19 @@ public class User extends BaseEntity {
     @Column(name = "password_changed_at")
     private LocalDateTime passwordChangedAt;
 
-    public User(String nickname, String profileImageKey, String loginId,
-                String passwordHash, LocalDateTime passwordChangedAt) {
+    public User(String nickname, String profileImageKey) {
+        this(nickname, profileImageKey, new UserCredentials(null, null, null));
+    }
+
+    public User(String nickname, String profileImageKey, UserCredentials userCredentials) {
         this.nickname = nickname;
         this.status = UserStatus.ACTIVE;
         this.role = UserRole.USER;
         this.cookingCount = 0;
         this.profileImageKey = profileImageKey;
-        this.loginId = loginId;
-        this.passwordHash = passwordHash;
-        this.passwordChangedAt = passwordChangedAt;
+        this.loginId = userCredentials.loginId();
+        this.passwordHash = userCredentials.passwordHash();
+        this.passwordChangedAt = userCredentials.passwordChangedAt();
     }
 
     public void updateProfile(String nickname, String profileImageKey) {
