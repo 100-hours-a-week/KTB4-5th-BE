@@ -27,7 +27,8 @@ class UserConstraintExceptionTranslatorTest {
                 new IllegalStateException(constraintFailure(constraintName)));
         assertThat(UserConstraintExceptionTranslator.translate(databaseException))
                 .isInstanceOfSatisfying(CustomException.class,
-                        exception -> assertThat(exception.getExceptionCode()).isEqualTo(expectedCode));
+                        exception -> assertThat(exception.getExceptionCode())
+                                .isEqualTo(expectedCode));
     }
 
     @ParameterizedTest
