@@ -22,10 +22,10 @@ public class User extends BaseEntity {
     private String profileImageKey;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "status", nullable = false, length = 20)
     private UserStatus status;
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
     @Column(name = "cooking_count", nullable = false)
     private Integer cookingCount;
