@@ -65,17 +65,17 @@ class UserRepositoryTest extends MySqlJpaTest {
         }).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
-    @Test void updatesProfileAndAuditingWithoutChangingOtherFields() {
+    @Test void updatesNicknameAndAuditingWithoutChangingOtherFields() {
         User saved = users.save(user("수정전", "update"));
         flushAndClear();
         User found = users.findById(saved.getId()).orElseThrow();
         LocalDateTime created = found.getCreatedAt();
         LocalDateTime updated = found.getUpdatedAt();
-        found.updateProfile("수정후", "profiles/new.png");
+        found.updateNickname("수정후");
         flushAndClear();
         User result = users.findById(saved.getId()).orElseThrow();
         assertThat(result.getNickname()).isEqualTo("수정후");
-        assertThat(result.getProfileImageKey()).isEqualTo("profiles/new.png");
+        assertThat(result.getProfileImageKey()).isEqualTo("profiles/default.png");
         assertThat(result.getCreatedAt()).isEqualTo(created);
         assertThat(result.getUpdatedAt()).isAfter(updated);
         assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVE);

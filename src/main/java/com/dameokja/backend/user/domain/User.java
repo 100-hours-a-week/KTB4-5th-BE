@@ -51,9 +51,8 @@ public class User extends BaseEntity {
         this.passwordChangedAt = passwordChangedAt;
     }
 
-    public void updateProfile(String nickname, String profileImageKey) {
+    public void updateNickname(String nickname) {
         this.nickname = nickname;
-        this.profileImageKey = profileImageKey;
     }
 
 }
