@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-class UserNamePolicy {
+class NicknameAndLoginIdValidator {
     private static final Pattern ALLOWED_CHARACTERS = Pattern.compile("[\\p{IsHangul}A-Za-z0-9]+");
     private static final int MIN_LENGTH = 2;
     private static final int MAX_LENGTH = 10;

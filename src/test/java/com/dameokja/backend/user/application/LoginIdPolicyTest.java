@@ -18,7 +18,7 @@ import static org.mockito.Mockito.when;
 class LoginIdPolicyTest {
     private final ProhibitedWordChecker prohibitedWordChecker = mock(ProhibitedWordChecker.class);
     private final LoginIdPolicy loginIdPolicy =
-            new LoginIdPolicy(new UserNamePolicy(prohibitedWordChecker));
+            new LoginIdPolicy(new NicknameAndLoginIdValidator(prohibitedWordChecker));
 
     @ParameterizedTest
     @NullAndEmptySource
