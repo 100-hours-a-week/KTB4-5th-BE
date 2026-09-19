@@ -16,9 +16,11 @@ public enum GlobalExceptionCode implements ExceptionCode {
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "GLOBAL-409-001", "멱등키 사용이 충돌합니다."),
     RESULT_EXPIRED(HttpStatus.GONE, "GLOBAL-410-001", "처리 결과가 만료되었습니다."),
     PRECONDITION_FAILED(HttpStatus.PRECONDITION_FAILED, "GLOBAL-412-001", "데이터가 변경되었습니다."),
-    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "GLOBAL-415-001", "지원하지 않는 요청 형식입니다."),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "GLOBAL-415-001",
+            "지원하지 않는 요청 형식입니다."),
     PRECONDITION_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "GLOBAL-428-001", "변경 확인 정보가 필요합니다."),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "GLOBAL-500-001", "서버에서 요청을 처리하지 못했습니다.");
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "GLOBAL-500-001",
+            "서버에서 요청을 처리하지 못했습니다.");
 
     private final HttpStatus status;
     private final String code;
