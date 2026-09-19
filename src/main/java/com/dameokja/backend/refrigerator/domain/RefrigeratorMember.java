@@ -36,7 +36,7 @@ public class RefrigeratorMember extends BaseEntity {
     @Column(name = "is_active", nullable = false, columnDefinition = "tinyint(1)")
     private Boolean isActive;
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "role", nullable = false, length = 20)
     private RefrigeratorMemberRole role;
 
     public RefrigeratorMember(User user, Refrigerator refrigerator) {

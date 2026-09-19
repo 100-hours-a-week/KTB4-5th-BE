@@ -17,6 +17,8 @@
         └── pull-request.md             # PR 크기·분리·본문
 ```
 
+API 명세서(Google Sheets): https://docs.google.com/spreadsheets/d/1GCKBe8YhoNOzQ3taUI94wlg1xR-9Ky_g_RRe93bUe6M/edit?gid=562653807
+
 ## 작업별 필독 문서
 
 | 작업 | 읽을 문서 |
@@ -26,6 +28,7 @@
 | 구현·테스트·코드 리뷰 | [coding.md](docs/conventions/coding.md) |
 | 브랜치·커밋·push | [commit.md](docs/conventions/commit.md) |
 | PR 생성·리뷰 요청 | [pull-request.md](docs/conventions/pull-request.md) |
+| API 응답 포맷·엔드포인트 명세 | [API 명세서](https://docs.google.com/spreadsheets/d/1GCKBe8YhoNOzQ3taUI94wlg1xR-9Ky_g_RRe93bUe6M/edit?gid=562653807) |
 
 ## 핵심 규칙 (상세는 각 문서)
 
