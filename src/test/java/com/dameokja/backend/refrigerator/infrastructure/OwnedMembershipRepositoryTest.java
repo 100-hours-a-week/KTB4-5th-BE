@@ -39,7 +39,7 @@ class OwnedMembershipRepositoryTest extends MySqlJpaTest {
     }
 
     private User user(String nickname) {
-        User user = new User(nickname, "default.png", null, null, null);
+        User user = new User(nickname, "default.png");
         entityManager.persist(user);
         return user;
     }
