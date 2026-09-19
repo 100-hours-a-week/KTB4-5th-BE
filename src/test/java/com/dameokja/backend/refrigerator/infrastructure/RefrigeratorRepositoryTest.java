@@ -1,7 +1,6 @@
 package com.dameokja.backend.refrigerator.infrastructure;
 
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
-import com.dameokja.backend.refrigerator.domain.RefrigeratorRepository;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;

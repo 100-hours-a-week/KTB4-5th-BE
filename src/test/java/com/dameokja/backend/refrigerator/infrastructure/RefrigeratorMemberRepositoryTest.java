@@ -1,9 +1,11 @@
 package com.dameokja.backend.refrigerator.infrastructure;
 
-import com.dameokja.backend.refrigerator.domain.*;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
+import com.dameokja.backend.refrigerator.domain.RefrigeratorMemberRole;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
-import com.dameokja.backend.user.domain.UserRepository;
+import com.dameokja.backend.user.infrastructure.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -59,10 +61,10 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         refrigeratorMemberRepository.save(
                 RefrigeratorMember.owner(secondUser, refrigerator("타인냉장고")));
         flushAndClear();
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(firstUser.getId()))
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(firstUser.getId()))
                 .get()
                 .extracting(RefrigeratorMember::getId).isEqualTo(activeMembership.getId());
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(Long.MAX_VALUE))
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(Long.MAX_VALUE))
                 .isEmpty();
     }
 
@@ -71,7 +73,7 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         User user = user("비활성회원");
         refrigeratorMemberRepository.save(new RefrigeratorMember(user, refrigerator("냉장고")));
         flushAndClear();
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(user.getId()))
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(user.getId()))
                 .isEmpty();
     }
 
@@ -140,14 +142,14 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         refrigeratorMemberRepository.findById(firstMembership.getId())
                 .orElseThrow().changeActiveStatus(true);
         flushAndClear();
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(user.getId())).get()
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(user.getId())).get()
                 .extracting(RefrigeratorMember::getId).isEqualTo(firstMembership.getId());
         assertThat(refrigeratorMemberRepository.findById(secondMembership.getId())
                 .orElseThrow().getIsActive()).isFalse();
         refrigeratorMemberRepository.findById(firstMembership.getId())
                 .orElseThrow().changeActiveStatus(false);
         flushAndClear();
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(user.getId()))
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(user.getId()))
                 .isEmpty();
     }
 
@@ -171,7 +173,7 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
         assertThat(refrigeratorMemberRepository.findById(ownerMembership.getId())).isEmpty();
         assertThat(refrigeratorMemberRepository.findById(memberMembership.getId())).isEmpty();
         assertThat(refrigeratorMemberRepository.findById(preservedMembership.getId())).isPresent();
-        assertThat(refrigeratorMemberRepository.findActiveByUserId(firstUser.getId()))
+        assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(firstUser.getId()))
                 .isEmpty();
         assertThat(userRepository.findById(firstUser.getId())).isPresent();
         assertThat(userRepository.findById(secondUser.getId())).isPresent();
