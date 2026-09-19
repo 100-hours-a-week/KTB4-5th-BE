@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
-public interface RefrigeratorMemberJpaRepository extends JpaRepository<RefrigeratorMember, Long> {
+public interface RefrigeratorMemberRepository extends JpaRepository<RefrigeratorMember, Long> {
     Optional<RefrigeratorMember> findByUserIdAndIsActiveTrue(Long userId);
 
     @Transactional
