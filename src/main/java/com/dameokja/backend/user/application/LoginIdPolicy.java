@@ -1,17 +1,18 @@
 package com.dameokja.backend.user.application;
 
-import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.user.domain.UserExceptionCode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
-final class LoginIdPolicy {
-    private LoginIdPolicy() {}
+@Component
+@RequiredArgsConstructor
+public class LoginIdPolicy {
+    private static final UserNamePolicy.ErrorCodes ERROR_CODES = new UserNamePolicy.ErrorCodes(
+            UserExceptionCode.LOGIN_ID_REQUIRED, UserExceptionCode.LOGIN_ID_LENGTH_INVALID,
+            UserExceptionCode.LOGIN_ID_FORMAT_INVALID, UserExceptionCode.LOGIN_ID_PROHIBITED);
+    private final UserNamePolicy userNamePolicy;
 
-    static void validate(String loginId) {
-        if (loginId == null || loginId.isBlank()) {
-            throw new CustomException(UserExceptionCode.LOGIN_ID_REQUIRED);
-        }
-        if (!UserNameCharacters.isValid(loginId)) {
-            throw new CustomException(UserExceptionCode.LOGIN_ID_FORMAT_INVALID);
-        }
+    public void validate(String loginId) {
+        userNamePolicy.validate(loginId, ERROR_CODES);
     }
 }
