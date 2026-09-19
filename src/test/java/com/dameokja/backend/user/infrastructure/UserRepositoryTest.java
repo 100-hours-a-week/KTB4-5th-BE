@@ -16,8 +16,8 @@ class UserRepositoryTest extends MySqlJpaTest {
     UserRepository userRepository;
 
     private User user(String nickname, String loginId) {
-        return new User(nickname, "profiles/default.png", loginId,
-                "x".repeat(60), LocalDateTime.of(2026, 9, 17, 0, 0));
+        return new User(nickname, "profiles/default.png", new UserCredentials(loginId,
+                "x".repeat(60), LocalDateTime.of(2026, 9, 17, 0, 0)));
     }
 
     @Test
@@ -69,7 +69,7 @@ class UserRepositoryTest extends MySqlJpaTest {
     void rejectsMissingRequiredInput(String invalidField) {
         assertThatThrownBy(() -> {
             userRepository.save(new User(invalidField.equals("nickname") ? null : "회원이름",
-                    invalidField.equals("profile") ? null : "default.png", null, null, null));
+                    invalidField.equals("profile") ? null : "default.png"));
             entityManager.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
     }

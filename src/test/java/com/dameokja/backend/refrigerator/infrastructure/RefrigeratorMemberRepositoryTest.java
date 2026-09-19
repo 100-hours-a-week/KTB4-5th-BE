@@ -24,7 +24,7 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
     RefrigeratorMemberRepository refrigeratorMemberRepository;
 
     private User user(String nickname) {
-        return userRepository.save(new User(nickname, "default.png", null, null, null));
+        return userRepository.save(new User(nickname, "default.png"));
     }
 
     private Refrigerator refrigerator(String name) {
