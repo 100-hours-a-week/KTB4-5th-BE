@@ -2,7 +2,8 @@ package com.dameokja.backend.user.infrastructure;
 
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
-import com.dameokja.backend.user.domain.UserRepository;
+import com.dameokja.backend.user.domain.UserCredentials;
+import com.dameokja.backend.user.infrastructure.UserRepository;
 import com.dameokja.backend.user.domain.UserRole;
 import com.dameokja.backend.user.domain.UserStatus;
 import java.time.LocalDateTime;
@@ -19,7 +20,7 @@ class UserWithdrawalRepositoryTest extends MySqlJpaTest {
     void persistsWithdrawalAndClearsLoginCredentials() {
         LocalDateTime registeredAt = LocalDateTime.of(2026, 9, 17, 12, 0);
         User user = userRepository.save(new User("회원이름", "profiles/custom.png",
-                "login1", "x".repeat(60), registeredAt));
+                new UserCredentials("login1", "x".repeat(60), registeredAt)));
         flushAndClear();
         User savedUser = userRepository.findById(user.getId()).orElseThrow();
         LocalDateTime createdAt = savedUser.getCreatedAt();
