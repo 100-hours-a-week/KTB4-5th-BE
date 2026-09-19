@@ -15,21 +15,27 @@ class NicknameAndLoginIdValidator {
     private static final int MAX_LENGTH = 10;
     private final ProhibitedWordChecker prohibitedWordChecker;
 
-    void validate(String userName, ErrorCodes errorCodes) {
-        if (userName == null || userName.isBlank()) {
-            throw new CustomException(errorCodes.required());
-        }
-        if (userName.length() < MIN_LENGTH || userName.length() > MAX_LENGTH) {
-            throw new CustomException(errorCodes.lengthInvalid());
-        }
-        if (!ALLOWED_CHARACTERS.matcher(userName).matches()) {
-            throw new CustomException(errorCodes.formatInvalid());
-        }
-        if (prohibitedWordChecker.containsProhibitedWord(userName)) {
-            throw new CustomException(errorCodes.prohibited());
+    void validateRequired(String input, UserExceptionCode exceptionCode) {
+        if (input == null || input.isBlank()) {
+            throw new CustomException(exceptionCode);
         }
     }
 
-    record ErrorCodes(UserExceptionCode required, UserExceptionCode lengthInvalid,
-            UserExceptionCode formatInvalid, UserExceptionCode prohibited) {}
+    void validateLength(String input, UserExceptionCode exceptionCode) {
+        if (input.length() < MIN_LENGTH || input.length() > MAX_LENGTH) {
+            throw new CustomException(exceptionCode);
+        }
+    }
+
+    void validateCharacters(String input, UserExceptionCode exceptionCode) {
+        if (!ALLOWED_CHARACTERS.matcher(input).matches()) {
+            throw new CustomException(exceptionCode);
+        }
+    }
+
+    void validateProhibitedWord(String input, UserExceptionCode exceptionCode) {
+        if (prohibitedWordChecker.containsProhibitedWord(input)) {
+            throw new CustomException(exceptionCode);
+        }
+    }
 }
