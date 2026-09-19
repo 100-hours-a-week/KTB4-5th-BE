@@ -4,29 +4,23 @@ import com.dameokja.backend.global.moderation.ProhibitedWordChecker;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 class NicknamePolicyTest {
-    @Mock
-    private ProhibitedWordChecker prohibitedWordChecker;
-
-    @InjectMocks
-    private NicknamePolicy nicknamePolicy;
+    private final ProhibitedWordChecker prohibitedWordChecker = mock(ProhibitedWordChecker.class);
+    private final NicknamePolicy nicknamePolicy =
+            new NicknamePolicy(new UserNamePolicy(prohibitedWordChecker));
 
     @ParameterizedTest
     @NullAndEmptySource
