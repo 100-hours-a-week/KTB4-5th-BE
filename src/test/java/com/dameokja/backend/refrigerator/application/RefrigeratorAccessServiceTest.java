@@ -9,6 +9,7 @@ import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberReposi
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import com.dameokja.backend.user.application.UserAccessService;
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
@@ -84,7 +85,7 @@ class RefrigeratorAccessServiceTest {
         }
         User user = activeUser();
         if (unavailableState.equals("withdrawn")) {
-            user.withdraw("withdrawn1", LocalDateTime.of(2026, 9, 17, 12, 0));
+            ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
             assertDenied(UserExceptionCode.USER_NOT_ACTIVE);
             return;
         }
