@@ -20,32 +20,37 @@ public class IngredientPolicy {
     public IngredientDetails validate(IngredientDetails details, LocalDate today,
             LocalDate previousExpiration) {
         String name = normalizeName(details.name());
-        if (details.category() == null || details.storageType() == null
-                || details.measurement() == null || details.expirationDate() == null) {
-            throw new CustomException(INVALID_INPUT);
-        }
-        LocalDate expiration = details.expirationDate();
+        validateExpirationDate(details.expirationDate(), today, previousExpiration);
+        return new IngredientDetails(name, details.category(), details.storageType(),
+                details.measurement(), details.expirationDate());
+    }
+
+    private void validateExpirationDate(LocalDate expiration, LocalDate today,
+            LocalDate previousExpiration) {
         if (!expiration.equals(previousExpiration)
                 && (expiration.isBefore(today)
                 || expiration.isAfter(today.plusYears(MAX_EXPIRATION_YEARS)))) {
             throw new CustomException(INVALID_INPUT);
         }
-        return new IngredientDetails(name, details.category(), details.storageType(),
-                details.measurement(), expiration);
     }
 
     private String normalizeName(String name) {
-        if (name == null) {
-            throw new CustomException(INVALID_INPUT);
-        }
         String normalized = Normalizer.normalize(name.strip(), Normalizer.Form.NFC);
-        if (normalized.isEmpty() || normalized.length() > MAX_NAME_LENGTH
-                || normalized.codePoints().anyMatch(Character::isISOControl)) {
+        validateNameFormat(normalized);
+        validateProhibitedName(normalized);
+        return normalized;
+    }
+
+    private void validateNameFormat(String name) {
+        if (name.isEmpty() || name.length() > MAX_NAME_LENGTH
+                || name.codePoints().anyMatch(Character::isISOControl)) {
             throw new CustomException(INVALID_INPUT);
         }
-        if (prohibitedWords.containsProhibitedWord(normalized)) {
+    }
+
+    private void validateProhibitedName(String name) {
+        if (prohibitedWords.containsProhibitedWord(name)) {
             throw new CustomException(PROHIBITED_NAME);
         }
-        return normalized;
     }
 }
