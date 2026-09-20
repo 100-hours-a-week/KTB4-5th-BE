@@ -26,6 +26,8 @@ class DomainExceptionResponseTest {
                         400, "USER-400-004", "사용할 수 없는 닉네임입니다."),
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_FORMAT_INVALID),
                         400, "USER-400-006", "로그인 아이디는 한글, 영문, 숫자만 사용할 수 있습니다."),
+                Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_REQUIRED),
+                        400, "USER-400-007", "로그인 아이디를 입력해 주세요."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_ACTIVE),
                         403, "USER-403-002", "탈퇴한 회원은 이용할 수 없습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_FOUND),
@@ -42,8 +44,16 @@ class DomainExceptionResponseTest {
                         410, "REFRIGERATOR-410-001", "삭제된 냉장고입니다."));
     }
 
+    static Stream<Arguments> loginIdErrors() {
+        return Stream.of(
+                Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_LENGTH_INVALID),
+                        400, "USER-400-009", "로그인 아이디는 2~10자로 입력해 주세요."),
+                Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_PROHIBITED),
+                        400, "USER-400-010", "사용할 수 없는 로그인 아이디입니다."));
+    }
+
     @ParameterizedTest
-    @MethodSource("errors")
+    @MethodSource({"errors", "loginIdErrors"})
     void returnsAgreedStatusCodeAndUserFacingMessage(
             CustomException error, int status, String code, String message) {
         var response = globalExceptionHandler.handleCustomException(error);
