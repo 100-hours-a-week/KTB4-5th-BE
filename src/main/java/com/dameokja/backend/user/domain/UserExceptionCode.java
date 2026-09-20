@@ -15,6 +15,7 @@ public enum UserExceptionCode implements ExceptionCode {
     LOGIN_ID_FORMAT_INVALID(HttpStatus.BAD_REQUEST, "USER-400-006",
             "로그인 아이디는 한글, 영문, 숫자만 사용할 수 있습니다."),
     LOGIN_ID_REQUIRED(HttpStatus.BAD_REQUEST, "USER-400-007", "로그인 아이디를 입력해 주세요."),
+    PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "USER-400-008", "비밀번호를 입력해 주세요."),
     LOGIN_ID_LENGTH_INVALID(HttpStatus.BAD_REQUEST, "USER-400-009",
             "로그인 아이디는 2~10자로 입력해 주세요."),
     LOGIN_ID_PROHIBITED(HttpStatus.BAD_REQUEST, "USER-400-010", "사용할 수 없는 로그인 아이디입니다."),
