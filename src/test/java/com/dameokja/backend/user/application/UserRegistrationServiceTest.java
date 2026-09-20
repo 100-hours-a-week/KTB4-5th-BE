@@ -1,7 +1,6 @@
 package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.global.moderation.ProhibitedWordChecker;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
@@ -23,7 +22,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -38,22 +36,21 @@ class UserRegistrationServiceTest {
     @Mock
     private NicknamePolicy nicknamePolicy;
     @Mock
-    private ProhibitedWordChecker prohibitedWordChecker;
+    private LoginIdPolicy loginIdPolicy;
+    @Mock
+    private Clock clock;
     private UserRegistrationService userRegistrationService;
 
     @BeforeEach
     void setUp() {
         useTime("2026-09-17T03:00:00Z");
+        userRegistrationService = new UserRegistrationService(
+                userRepository, refrigeratorLifecycleService,
+                new UserRegistrationFactory(nicknamePolicy, loginIdPolicy, "default.png"), clock);
     }
 
     private void useTime(String instantText) {
-        Clock clock = Clock.fixed(
-                Instant.parse(instantText), ZoneId.of("Asia/Seoul"));
-        userRegistrationService = new UserRegistrationService(
-                userRepository, refrigeratorLifecycleService,
-                new UserRegistrationFactory(nicknamePolicy,
-                        new LoginIdPolicy(new NicknameAndLoginIdValidator(prohibitedWordChecker)),
-                        "default.png"), clock);
+        when(clock.instant()).thenReturn(Instant.parse(instantText));
     }
 
     @ParameterizedTest
@@ -82,14 +79,8 @@ class UserRegistrationServiceTest {
 
     @Test
     void usesOneRegistrationTimeAcrossMonthBoundary() {
-        Clock clock = mock(Clock.class);
         when(clock.instant()).thenReturn(Instant.parse("2026-09-30T14:59:59Z"),
                 Instant.parse("2026-09-30T15:00:00Z"));
-        userRegistrationService = new UserRegistrationService(
-                userRepository, refrigeratorLifecycleService,
-                new UserRegistrationFactory(nicknamePolicy,
-                        new LoginIdPolicy(new NicknameAndLoginIdValidator(prohibitedWordChecker)),
-                        "default.png"), clock);
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         userRegistrationService.register(new RegisterUserCommand("User1", null, "login1", "hash"));

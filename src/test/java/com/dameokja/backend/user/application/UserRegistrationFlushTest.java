@@ -1,7 +1,6 @@
 package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.global.moderation.ProhibitedWordChecker;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
@@ -35,7 +34,7 @@ class UserRegistrationFlushTest {
     @Mock
     private NicknamePolicy nicknamePolicy;
     @Mock
-    private ProhibitedWordChecker prohibitedWordChecker;
+    private LoginIdPolicy loginIdPolicy;
     private UserRegistrationService userRegistrationService;
 
     @BeforeEach
@@ -43,9 +42,7 @@ class UserRegistrationFlushTest {
         Clock clock = Clock.fixed(Instant.parse("2026-09-17T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService,
-                new UserRegistrationFactory(nicknamePolicy,
-                        new LoginIdPolicy(new NicknameAndLoginIdValidator(prohibitedWordChecker)),
-                        "default.png"), clock);
+                new UserRegistrationFactory(nicknamePolicy, loginIdPolicy, "default.png"), clock);
     }
 
     @ParameterizedTest
