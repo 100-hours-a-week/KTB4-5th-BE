@@ -12,7 +12,7 @@
 
 ## 패키지 구조
 
-새 기능은 이 구조를 따르고, 바꾸려면 합의 후 이 문서를 먼저 수정한다. 기존 `user`·`refrigerator` 도메인에는 저장소 인터페이스 + Adapter 방식이 남아 있으며, 별도 PR에서 정리한다.
+새 기능은 이 구조를 따르고, 바꾸려면 합의 후 이 문서를 먼저 수정한다. `user`·`refrigerator`도 `infrastructure`의 Spring Data Repository 하나로 통합했으며, 별도 저장소 인터페이스와 Adapter는 사용하지 않는다.
 
 ```text
 com.dameokja.backend

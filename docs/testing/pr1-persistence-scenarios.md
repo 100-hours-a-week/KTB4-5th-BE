@@ -15,7 +15,7 @@
 | 필수 항목 누락 | 입력이 필요한 NOT NULL 컬럼 누락 시 저장 실패 |
 | 수정 반영 | 닉네임·프로필 변경 반영, created_at 유지, updated_at 갱신 |
 
-login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또는 애플리케이션 검증 구현 시 검증한다.
+DB의 login_id와 password_hash는 nullable이며, 탈퇴 시 두 값을 null로 지운다. v1 일반 가입에서는 LoginIdPolicy와 UserRegistrationFactory가 각각 로그인 ID와 비밀번호 해시의 null·빈 값을 거부한다. DB의 nullable과 가입 입력 필수 조건은 검증 범위가 다르다.
 
 ## 냉장고
 
@@ -26,7 +26,7 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 | 이름 수정 | 이름 변경 반영, 수용량·집계값 등 다른 필드 유지 |
 | 논리 삭제 | deleted_at 저장, 냉장고 행 유지 |
 
-이름은 유니크 대상이 아니다. 월 변경 시 누적 수 0 반환은 PR 2 범위다.
+이름은 유니크 대상이 아니다. 집계 필드와 저장·조회는 유지하지만, 월별 집계 계산과 월 변경 시 초기화는 v1 범위에서 제외한다.
 
 ## 냉장고 참여
 
@@ -46,19 +46,19 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 ## 검증 기준과 실행
 
 - Testcontainers의 일회용 MySQL 8.4.8을 사용한다. 개발·공유 DB에 연결하지 않는다.
-- 각 테스트는 롤백하고 컨테이너는 JVM 종료 후 Ryuk이 정리한다. 재사용하지 않는다.
+- Repository 테스트는 테스트 트랜잭션을 롤백하고 컨테이너는 JVM 종료 후 Ryuk이 정리한다. 재사용하지 않는다.
 - 저장·수정 후 flush → 영속성 컨텍스트 초기화 → 재조회한다. 제약 위반은 flush까지 확인한다.
 - 상수 기본값은 자바 생성자에서 초기화하고 INSERT에 명시한다. Generated 및 DynamicInsert는 사용하지 않는다. DB DEFAULT는 유지하지만 이를 적용받는 별도 시나리오와 단순 상수 초기화 테스트는 제외한다. 정상 저장·조회 시 enum/필드 매핑 및 수정 시 다른 필드 보존은 계속 검증한다.
 - 테스트 DDL은 공용 원본인 `src/main/resources/db/schema.sql`이다. `MySqlDatabaseTest`가 새 MySQL 컨테이너에 전체 DDL을 자동 적용하며, 테스트 전용 스키마 사본은 두지 않는다. 해당 DDL의 유니크·CHECK로 조건부 시나리오도 실행한다. 운영 DB 적용 여부와는 별개다.
 - 공용 DDL은 리소스로 포함하되 개발 DB에 직접 적용하지 않고 application.yml도 변경하지 않는다. 운영에서도 동일 제약 및 자동 증가 PK를 반영해야 한다.
 - 실행: `JAVA_HOME=/Library/Java/JavaVirtualMachines/openjdk-25.jdk/Contents/Home ./gradlew test --tests '*RepositoryTest'`
-- 회원가입 원자성, 탈퇴 연계, 접근 인가, 월별 집계 로직은 PR 2 범위다.
+- 회원가입·탈퇴의 저장소 간 롤백과 동시성은 별도 서비스 통합 테스트에서 검증한다. 서비스 통합 테스트에는 테스트 전체를 감싸는 트랜잭션을 두지 않고, 테스트 전 데이터를 정리해 실제 서비스의 커밋·롤백을 확인한다. 접근 인가는 서비스 단위 테스트에서 검증하며 월별 집계 계산은 v1 범위 밖이다.
 
 ## 구조
 
-- domain: JPA Entity와 업무 목적의 Repository 인터페이스. Spring Data 타입을 인터페이스에 노출하지 않는다.
-- infrastructure: JpaRepository를 상속한 인터페이스와 도메인 Repository를 구현한 어댑터.
-- 테스트는 도메인 Repository를 주입받아 실제 어댑터·JPA·MySQL 연결을 검증한다.
+- domain: JPA Entity, enum, 값 객체.
+- infrastructure: JpaRepository를 상속한 Repository 인터페이스 하나로 통합한다.
+- Repository 테스트는 infrastructure의 Repository를 주입받아 실제 JPA·MySQL 연결을 검증한다.
 - 엔티티를 별도 영속 모델로 복제하지 않는다. participation은 refrigerator 내부에 위치한다.
 
 ## 이전 검증 결과 (DB 기본값 사용 버전)
@@ -67,6 +67,6 @@ login_id와 password_hash는 nullable이다. 동시 존재 규칙은 CHECK 또�
 
 엔티티별 테스트 선작성 후 미구현 클래스에 의한 컴파일 실패를 확인하고 구현했다. 프레임워크 위임 매핑에 인위적인 실패 구현을 삽입하지 않았다.
 
-## 최종 검증 결과 (생성자 기본값 사용 버전)
+## PR 1 당시 검증 결과 (생성자 기본값 사용 버전)
 
 2026-09-17, `./gradlew test` 전체 24건 통과: 유저 7건, 냉장고 5건, 참여 11건, 애플리케이션 기동 1건. DB 기본값만 확인하던 참여 테스트 1건을 제거했고 나머지 저장·조회 및 제약 검증은 유지했다. SQL 로그에서 상수 필드가 INSERT에 포함되고 생성 기본값 회수를 위한 SELECT가 제거되었음을 확인했다. PK는 기존 IDENTITY 매핑을 유지한다.
