@@ -22,7 +22,8 @@ public record IngredientResponse(String ingredientId, String name, IngredientCat
                 .atZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
         return new IngredientResponse(ingredient.getId().toString(), ingredient.getName(),
                 ingredient.getCategory(), ingredient.getStorageType(), measurement.getMeasureType(),
-                measurement.getQuantity(), measurement.getWeightValue(), measurement.getWeightUnit(),
+                measurement.getQuantity(), measurement.getWeightValue(),
+                measurement.getWeightUnit(),
                 ingredient.getExpirationDate(), createdDate, ingredient.getRegistrationSource(),
                 null, status(days), days);
     }

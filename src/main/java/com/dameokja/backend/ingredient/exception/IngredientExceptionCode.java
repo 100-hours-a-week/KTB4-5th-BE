@@ -10,7 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum IngredientExceptionCode implements ExceptionCode {
 
     INVALID_AMOUNT(HttpStatus.BAD_REQUEST, "INGREDIENT-400-001", "재료 허용 수량이 아닙니다."),
-    MIXED_MEASUREMENT(HttpStatus.BAD_REQUEST, "INGREDIENT-400-002", "재료는 개수만 사용하거나 무게만 사용할 수 있습니다."),
+    MIXED_MEASUREMENT(HttpStatus.BAD_REQUEST, "INGREDIENT-400-002",
+            "재료는 개수만 사용하거나 무게만 사용할 수 있습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "INGREDIENT-400-003", "입력 형식이 잘못됐습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "INGREDIENT-404-001", "재고를 찾을 수 없습니다."),
     CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "INGREDIENT-409-001", "냉장고 용량이 가득 찼습니다."),

@@ -29,7 +29,8 @@ public class Measurement {
     @Column(nullable = false, length = 10)
     private WeightUnit weightUnit;
 
-    private Measurement(MeasureType measureType, Short quantity, BigDecimal weightValue, WeightUnit weightUnit) {
+    private Measurement(MeasureType measureType, Short quantity, BigDecimal weightValue,
+            WeightUnit weightUnit) {
         this.measureType = measureType;
         this.quantity = quantity;
         this.weightValue = weightValue;
