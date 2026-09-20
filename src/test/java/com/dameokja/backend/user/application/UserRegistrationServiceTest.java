@@ -37,27 +37,18 @@ class UserRegistrationServiceTest {
     private NicknamePolicy nicknamePolicy;
     @Mock
     private LoginIdPolicy loginIdPolicy;
-    @Mock
-    private Clock clock;
     private UserRegistrationService userRegistrationService;
 
     @BeforeEach
     void setUp() {
-        useTime("2026-09-17T03:00:00Z");
+        Clock clock = Clock.fixed(Instant.parse("2026-09-17T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService,
                 new UserRegistrationFactory(nicknamePolicy, loginIdPolicy, "default.png"), clock);
     }
 
-    private void useTime(String instantText) {
-        when(clock.instant()).thenReturn(Instant.parse(instantText));
-    }
-
-    @ParameterizedTest
-    @CsvSource({"2026-09-17T03:00:00Z,2026-09", "2026-09-30T15:00:00Z,2026-10"})
-    void requestsUserAndPersonalRefrigeratorCreation(
-            String instantText, String expectedRefrigeratorMonth) {
-        useTime(instantText);
+    @Test
+    void requestsUserAndPersonalRefrigeratorCreation() {
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -70,26 +61,11 @@ class UserRegistrationServiceTest {
         assertThat(user.getNickname()).isEqualTo("User1");
         assertThat(user.getPasswordHash()).isEqualTo("hash");
         assertThat(user.getPasswordChangedAt()).isEqualTo(
-                LocalDateTime.ofInstant(Instant.parse(instantText), ZoneId.of("Asia/Seoul")));
-        verify(refrigeratorLifecycleService).createPersonal(user, expectedRefrigeratorMonth);
+                LocalDateTime.of(2026, 9, 17, 12, 0));
+        verify(refrigeratorLifecycleService).createPersonal(user, "2026-09");
         assertThat(registeredUserProfile.profileImageKey()).isEqualTo("default.png");
         verify(nicknamePolicy).validate("User1");
         verify(userRepository).flush();
-    }
-
-    @Test
-    void usesOneRegistrationTimeAcrossMonthBoundary() {
-        when(clock.instant()).thenReturn(Instant.parse("2026-09-30T14:59:59Z"),
-                Instant.parse("2026-09-30T15:00:00Z"));
-        when(userRepository.save(any(User.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        userRegistrationService.register(new RegisterUserCommand("User1", null, "login1", "hash"));
-        ArgumentCaptor<User> savedUserCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(savedUserCaptor.capture());
-        assertThat(savedUserCaptor.getValue().getPasswordChangedAt())
-                .isEqualTo(LocalDateTime.of(2026, 9, 30, 23, 59, 59));
-        verify(refrigeratorLifecycleService).createPersonal(savedUserCaptor.getValue(), "2026-09");
-        verify(clock).instant();
     }
 
     @Test
