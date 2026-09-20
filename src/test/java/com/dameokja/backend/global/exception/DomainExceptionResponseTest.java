@@ -5,6 +5,7 @@ import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.springframework.http.ResponseEntity;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -58,7 +59,8 @@ class DomainExceptionResponseTest {
     @MethodSource({"errors", "loginIdErrors"})
     void returnsAgreedStatusCodeAndUserFacingMessage(
             CustomException error, int status, String code, String message) {
-        var response = globalExceptionHandler.handleCustomException(error);
+        ResponseEntity<ErrorResponse> response =
+                globalExceptionHandler.handleCustomException(error);
         assertThat(response.getStatusCode().value()).isEqualTo(status);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo(code);
@@ -69,7 +71,8 @@ class DomainExceptionResponseTest {
 
     @Test
     void unknownDatabaseFailuresRemainInternalErrorsWithoutLeakingDetails() {
-        var response = globalExceptionHandler.handleDataIntegrityViolation(
+        ResponseEntity<ErrorResponse> response =
+                globalExceptionHandler.handleDataIntegrityViolation(
                 new DataIntegrityViolationException("secret SQL and credentials"));
         assertThat(response.getStatusCode().value()).isEqualTo(500);
         assertThat(response.getBody().code()).isEqualTo("GLOBAL-500-001");
@@ -79,7 +82,8 @@ class DomainExceptionResponseTest {
 
     @Test
     void unexpectedFailuresRemainInternalErrors() {
-        var response = globalExceptionHandler.handleUnexpectedException(
+        ResponseEntity<ErrorResponse> response =
+                globalExceptionHandler.handleUnexpectedException(
                 new IllegalStateException("internal details"));
         assertThat(response.getStatusCode().value()).isEqualTo(500);
         assertThat(response.getBody().code()).isEqualTo("GLOBAL-500-001");
