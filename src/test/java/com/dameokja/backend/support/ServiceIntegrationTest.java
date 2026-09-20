@@ -81,9 +81,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
         return new Fixture(user.getId(), refrigerator.getId());
     }
 
-    protected record Fixture(Long userId, Long refrigeratorId) {
-        public Fixture {}
-    }
+    protected record Fixture(Long userId, Long refrigeratorId) {}
 
     protected int rows(String tableName) {
         if (!Set.of("users", "refrigerators", "refrigerator_members").contains(tableName)) {
