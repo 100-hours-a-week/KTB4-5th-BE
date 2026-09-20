@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,5 +47,11 @@ public class Refrigerator extends BaseEntity {
 
     public void delete(LocalDateTime deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public void countExpiredDeletion(YearMonth month) {
+        String currentMonth = month.toString();
+        expiredCount = currentMonth.equals(expiredCountMonth) ? expiredCount + 1 : 1;
+        expiredCountMonth = currentMonth;
     }
 }

@@ -18,11 +18,17 @@
 com.dameokja.backend
 ├── global/                 # 공통: config, exception, common(BaseEntity), security, util
 └── <domain>/
-    ├── presentation/       # Controller, 요청·응답 DTO
+    ├── presentation/       # Controller
+    │   ├── request/        # 요청 DTO
+    │   └── response/       # 응답 DTO
     ├── application/        # 유스케이스 Service, 트랜잭션 경계
     ├── domain/             # Entity, enum, 값 객체
-    └── infrastructure/     # <Name>Repository (Spring Data JpaRepository 상속)
+    ├── infrastructure/     # <Name>Repository (Spring Data JpaRepository 상속)
+    └── exception/          # 도메인별 ExceptionCode
 ```
+
+- `presentation` 아래는 `request`·`response`로 나눈다. 「팀」 API가 늘면 Controller 한 개와 DTO 수십 개가 한 폴더에 섞여 읽기 어려워지고, 폴더 이름만으로 방향을 알 수 있어야 하기 때문이다.
+- `exception`은 계층이 아니라 그 도메인의 모든 계층이 참조하는 공통 요소다. 「팀」 Entity와 예외 코드가 한 폴더에 섞이면 도메인 모델을 읽을 때 방해된다.
 
 - 참조 방향: `presentation → application → infrastructure`. `domain`(Entity·enum·값 객체)은 다른 계층을 참조하지 않는다. [F3]
 - 저장소는 Spring Data `JpaRepository`를 상속한 인터페이스 하나로 `infrastructure`에 둔다. 별도 인터페이스와 Adapter로 나누지 않는다. 「팀」 저장소가 MySQL 하나뿐이라 위임 메서드만 늘고 얻는 것이 없으며, Spring Data 인터페이스 자체로 테스트 대체가 가능하기 때문이다. 외부 API·캐시가 섞이는 저장소가 생기면 그때 분리를 논의한다. [S3][F2]

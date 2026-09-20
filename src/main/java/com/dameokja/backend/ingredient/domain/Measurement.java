@@ -29,7 +29,8 @@ public class Measurement {
     @Column(nullable = false, length = 10)
     private WeightUnit weightUnit;
 
-    private Measurement(MeasureType measureType, Short quantity, BigDecimal weightValue, WeightUnit weightUnit) {
+    private Measurement(MeasureType measureType, Short quantity, BigDecimal weightValue,
+            WeightUnit weightUnit) {
         this.measureType = measureType;
         this.quantity = quantity;
         this.weightValue = weightValue;
@@ -52,5 +53,18 @@ public class Measurement {
         // 스케일을 맞춰야 "300"과 "300.000"이 이후 합산 비교에서 같은 값으로 취급된다.
         return new Measurement(MeasureType.WEIGHT, null,
                 weightValue.setScale(MeasureType.WEIGHT_SCALE), weightUnit);
+    }
+
+    public Measurement add(Measurement addition) {
+        if (measureType != addition.measureType || weightUnit != addition.weightUnit) {
+            throw new CustomException(IngredientExceptionCode.MIXED_MEASUREMENT);
+        }
+        Integer totalQuantity = quantity == null ? null : quantity + addition.quantity;
+        BigDecimal totalWeight = weightValue == null ? null : weightValue.add(addition.weightValue);
+        try {
+            return of(measureType, totalQuantity, totalWeight, weightUnit);
+        } catch (CustomException exception) {
+            throw new CustomException(IngredientExceptionCode.MERGE_LIMIT_EXCEEDED);
+        }
     }
 }
