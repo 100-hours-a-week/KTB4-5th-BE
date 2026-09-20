@@ -5,9 +5,10 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.mysql.MySQLContainer;
 
 public abstract class MySqlDatabaseTest {
-    // One disposable container per test JVM; Ryuk removes it when the JVM exits. No reuse.
     private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.8")
             .withReuse(false)
+            // 롤백 검증용 실패 유발 트리거를 테스트 DB에서 생성할 수 있도록 허용한다.
+            .withCommand("--log-bin-trust-function-creators=1")
             .withInitScript("db/schema.sql");
 
     @DynamicPropertySource
