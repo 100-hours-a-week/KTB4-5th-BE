@@ -56,4 +56,15 @@ public class Ingredient extends BaseEntity {
         this.registrationSource = registrationSource;
     }
 
+    public void updateDetails(IngredientDetails details) {
+        this.name = details.name();
+        this.category = details.category();
+        this.storageType = details.storageType();
+        this.measurement = details.measurement();
+        this.expirationDate = details.expirationDate();
+    }
+
+    public void mergeMeasurement(Measurement addition) {
+        this.measurement = measurement.add(addition);
+    }
 }

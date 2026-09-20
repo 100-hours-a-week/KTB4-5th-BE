@@ -53,4 +53,17 @@ public class Measurement {
         return new Measurement(MeasureType.WEIGHT, null,
                 weightValue.setScale(MeasureType.WEIGHT_SCALE), weightUnit);
     }
+
+    public Measurement add(Measurement addition) {
+        if (measureType != addition.measureType || weightUnit != addition.weightUnit) {
+            throw new CustomException(IngredientExceptionCode.MIXED_MEASUREMENT);
+        }
+        Integer totalQuantity = quantity == null ? null : quantity + addition.quantity;
+        BigDecimal totalWeight = weightValue == null ? null : weightValue.add(addition.weightValue);
+        try {
+            return of(measureType, totalQuantity, totalWeight, weightUnit);
+        } catch (CustomException exception) {
+            throw new CustomException(IngredientExceptionCode.MERGE_LIMIT_EXCEEDED);
+        }
+    }
 }
