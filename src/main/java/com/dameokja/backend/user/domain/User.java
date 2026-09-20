@@ -1,7 +1,14 @@
 package com.dameokja.backend.user.domain;
 
 import com.dameokja.backend.global.common.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +19,8 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long id;
 
@@ -22,10 +30,10 @@ public class User extends BaseEntity {
     private String profileImageKey;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "status", nullable = false, length = 20)
     private UserStatus status;
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 20, columnDefinition = "varchar(20)")
+    @Column(name = "role", nullable = false, length = 20)
     private UserRole role;
     @Column(name = "cooking_count", nullable = false)
     private Integer cookingCount;
@@ -59,4 +67,12 @@ public class User extends BaseEntity {
         this.profileImageKey = profileImageKey;
     }
 
+    public void withdraw(String replacementNickname, LocalDateTime withdrawnAt) {
+        this.nickname = replacementNickname;
+        this.status = UserStatus.WITHDRAWN;
+        this.deletedAt = withdrawnAt;
+        this.loginId = null;
+        this.passwordHash = null;
+        this.passwordChangedAt = null;
+    }
 }

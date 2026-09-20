@@ -104,7 +104,7 @@ CREATE TABLE ingredients (
     category VARCHAR(20) NOT NULL,
     storage_type VARCHAR(20) NOT NULL DEFAULT 'REFRIGERATED' COMMENT 'REFRIGERATED / FROZEN',
     quantity SMALLINT NULL COMMENT 'COUNT일 때 1~100. WEIGHT일 때 NULL',
-    weight_value DECIMAL(10,3) NULL COMMENT 'WEIGHT일 때 G/ML 기준 총량. COUNT일 때 NULL',
+    weight_value DECIMAL(10,3) NULL COMMENT 'WEIGHT일 때 G/ML 기준 총량, 50000 이하. COUNT일 때 NULL',
     weight_unit VARCHAR(10) NOT NULL DEFAULT 'NONE' COMMENT 'COUNT=NONE, WEIGHT=G 또는 ML. kg/L은 저장 전 환산',
     measure_type VARCHAR(10) NOT NULL DEFAULT 'COUNT' COMMENT 'COUNT / WEIGHT',
     expiration_date DATE NOT NULL COMMENT '해당일 23:59:59까지 유효',
@@ -115,12 +115,12 @@ CREATE TABLE ingredients (
     PRIMARY KEY (ingredient_id),
     KEY ix_ingredients_refrigerator_expiration (refrigerator_id, expiration_date, ingredient_id),
     KEY ix_ingredients_expiration (expiration_date, refrigerator_id),
-    CONSTRAINT ck_ingredients_category CHECK (category IN ('VEGETABLE','FRUIT','MEAT','SEAFOOD','DAIRY','TOFU_BEAN','GRAIN_NOODLE','PROCESSED','SEASONING','BEVERAGE','ETC')),
+    CONSTRAINT ck_ingredients_category CHECK (category IN ('VEGETABLE','FRUIT','MEAT','SEAFOOD','DAIRY','TOFU_BEAN','GRAINS_NOODLE','PROCESSED_FOOD','SEASONING','BEVERAGE','OTHER')),
     CONSTRAINT ck_ingredients_storage CHECK (storage_type IN ('REFRIGERATED','FROZEN')),
     CONSTRAINT ck_ingredients_source CHECK (registration_source IN ('DIRECT','RECEIPT','FOOD_IMAGE')),
     CONSTRAINT ck_ingredients_measure CHECK (
         (measure_type = 'COUNT' AND quantity IS NOT NULL AND quantity BETWEEN 1 AND 100 AND weight_value IS NULL AND weight_unit = 'NONE')
-        OR (measure_type = 'WEIGHT' AND quantity IS NULL AND weight_value IS NOT NULL AND weight_value > 0 AND weight_unit IN ('G','ML'))
+        OR (measure_type = 'WEIGHT' AND quantity IS NULL AND weight_value IS NOT NULL AND weight_value > 0 AND weight_value <= 50000 AND weight_unit IN ('G','ML'))
     ),
     CONSTRAINT fk_ingredients_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;

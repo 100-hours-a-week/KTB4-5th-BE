@@ -44,7 +44,7 @@ return userRepository.findById(userId)
 - **Optional**: 반환 타입으로만 쓰고, `get()` 대신 `orElseThrow(...)`·`map`·`orElse`를 쓴다. [J1]
 - **Stream**: 연산 인자 안에서 부수효과(외부 리스트에 add 등)를 만들지 않는다. 필요하면 for문을 쓴다. [J2]
 - **Entity 변경**: setter를 열지 않고 의도가 드러나는 메서드(`updateProfile`)로 바꾼다. 아무 곳에서나 값이 바뀌면 불변식을 지킬 수 없기 때문이다. [O3]
-- **주석**: 코드로 드러나는 "무엇"은 쓰지 않고 "왜"만 쓴다. [GE3]
+- **주석**: 코드로 드러나는 "무엇"은 쓰지 않고 "왜"만 쓴다. [GE3] 언어는 팀 공용어인 한국어로 쓴다. 「팀」
 - **예외**: 비즈니스 예외는 `CustomException` + 도메인별 `ExceptionCode`로 던지고, `catch` 후 무시하지 않는다. 응답 형식을 `GlobalExceptionHandler` 한 곳에서 일관되게 만들기 위해서다. [S3] 「팀」(PR #4에서 합의된 구조)
 
 ## 명세와 TDD
