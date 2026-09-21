@@ -18,19 +18,20 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Import(AuthWithdrawalIntegrationTest.WithdrawalRollbackService.class)
 class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
     @Autowired AuthService authService;
     @Autowired JwtProvider jwtProvider;
     @Autowired PasswordEncoder passwords;
     @Autowired UserWithdrawalService withdrawals;
     @Autowired RefreshSessionStore refreshSessionStore;
-    @Autowired PlatformTransactionManager transactions;
+    @Autowired WithdrawalRollbackService withdrawalRollbackService;
 
     private User account() {
         return userRepository.saveAndFlush(new User("User1", "profiles/test.png",
@@ -54,10 +55,9 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
         User user = account();
         TokenPair first = authService.login("login1", "password");
         TokenPair second = authService.login("login1", "password");
-        new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            withdrawals.withdraw(user.getId());
-            status.setRollbackOnly();
-        });
+        assertThatThrownBy(() -> withdrawalRollbackService.withdrawAndFail(user.getId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("탈퇴 후 DB 롤백 검증");
         assertThat(userRepository.findById(user.getId()).orElseThrow().getStatus())
                 .isEqualTo(UserStatus.ACTIVE);
         assertStoredRevoked(first);
@@ -120,4 +120,19 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
                         .getExceptionCode())
                         .isEqualTo(SecurityExceptionCode.REFRESH_TOKEN_REVOKED));
     }
+
+    public static class WithdrawalRollbackService {
+        private final UserWithdrawalService userWithdrawalService;
+
+        public WithdrawalRollbackService(UserWithdrawalService userWithdrawalService) {
+            this.userWithdrawalService = userWithdrawalService;
+        }
+
+        @Transactional
+        public void withdrawAndFail(Long userId) {
+            userWithdrawalService.withdraw(userId);
+            throw new IllegalStateException("탈퇴 후 DB 롤백 검증");
+        }
+    }
+
 }
