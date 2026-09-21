@@ -78,8 +78,8 @@ abstract class SecurityWebTestSupport {
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class,
-            CaffeineRefreshSessionStore.class, AuthService.class,
-            CsrfTokenRotator.class, CsrfController.class,
+            CaffeineRefreshSessionStore.class, AuthService.class, AuthCookies.class,
+            CsrfTokenRotator.class, AuthController.class, CsrfController.class,
             GlobalExceptionHandler.class,
             ProtectedController.class})
     static class WebConfiguration {
