@@ -5,6 +5,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import com.dameokja.backend.user.domain.UserStatus;
+import com.dameokja.backend.auth.application.AuthService;
 import org.springframework.stereotype.Service;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +25,20 @@ public class UserWithdrawalService {
     private final UserRepository userRepository;
     private final RefrigeratorLifecycleService refrigeratorLifecycleService;
     private final Clock clock;
+    private final AuthService authService;
 
     public void withdraw(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
         if (user.getStatus() == UserStatus.WITHDRAWN) {
+            authService.revokeAllUserSessions(userId);
             return;
         }
         LocalDateTime withdrawnAt = now();
         refrigeratorLifecycleService.deleteOwned(userId, withdrawnAt);
         user.withdraw(generateReplacementNickname(), withdrawnAt);
+        userRepository.flush();
+        authService.revokeAllUserSessions(userId);
     }
 
     private String generateReplacementNickname() {
