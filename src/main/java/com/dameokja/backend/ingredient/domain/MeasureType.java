@@ -42,6 +42,6 @@ public enum MeasureType {
         return weightValue != null
                 && weightValue.signum() > 0
                 && weightValue.compareTo(MAX_WEIGHT) <= 0
-                && weightValue.stripTrailingZeros().scale() <= WEIGHT_SCALE;
+                && weightValue.stripTrailingZeros().scale() <= 0;
     }
 }
