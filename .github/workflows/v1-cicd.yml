@@ -70,7 +70,11 @@ jobs:
   deploy:
     name: 배포
     needs: build
-    if: github.event_name == 'push' && vars.CD_ENABLED == 'true'
+    # dev는 항상 자동 배포하고, prod(main)는 명시적으로 활성화했을 때만 배포한다.
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref_name == 'dev' ||
+      (github.ref_name == 'main' && vars.CD_ENABLED == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # GitHub Environments 없이 브랜치별 Repository 설정을 선택한다.
