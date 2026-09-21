@@ -21,11 +21,14 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: 15m
   refresh-token-expiration: 2d
+
+auth:
+  cookie:
+    secure: ${AUTH_COOKIE_SECURE:true}
 
 management:
   endpoints:
