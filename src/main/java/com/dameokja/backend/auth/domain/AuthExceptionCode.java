@@ -12,11 +12,11 @@ public enum AuthExceptionCode implements ExceptionCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH-401-001", "아이디·비밀번호가 틀렸습니다."),
     LOGIN_ID_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH-404-001", "존재하지 않는 아이디입니다."),
     LOGIN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-500-001", "서버 오류"),
-    REFRESH_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-400-006", "리프레시 토큰이 유효하지 않습니다."),
-    REFRESH_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-401-006", "리프레시 토큰이 필요합니다."),
-    REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-500-006", "서버 오류"),
-    LOGOUT_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-401-005", "로그인이 필요합니다."),
-    LOGOUT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-500-005", "서버 오류");
+    REFRESH_INVALID(HttpStatus.UNAUTHORIZED, "AUTH-401-002", "리프레시 토큰이 유효하지 않습니다."),
+    REFRESH_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-401-003", "리프레시 토큰이 필요합니다."),
+    REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-500-002", "서버 오류"),
+    LOGOUT_REQUIRED(HttpStatus.UNAUTHORIZED, "AUTH-401-004", "로그인이 필요합니다."),
+    LOGOUT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH-500-003", "서버 오류");
 
     private final HttpStatus status;
     private final String code;
