@@ -1,5 +1,6 @@
 package com.dameokja.backend.auth.integration;
 
+import com.dameokja.backend.global.security.RefreshTokenPayload;
 import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.infrastructure.RefreshSessionStore;
@@ -39,10 +40,10 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void committedWithdrawalRevokesAllStoredSessionsImmediately() {
-        var user = account();
-        var first = authService.login("login1", "password");
-        var second = authService.login("login1", "password");
-        var renewed = authService.refresh(first.refreshToken());
+        User user = account();
+        TokenPair first = authService.login("login1", "password");
+        TokenPair second = authService.login("login1", "password");
+        TokenPair renewed = authService.refresh(first.refreshToken());
         withdrawals.withdraw(user.getId());
         assertStoredRevoked(renewed);
         assertStoredRevoked(second);
@@ -50,9 +51,9 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void databaseRollbackDoesNotRestoreAlreadyRevokedCacheEntries() {
-        var user = account();
-        var first = authService.login("login1", "password");
-        var second = authService.login("login1", "password");
+        User user = account();
+        TokenPair first = authService.login("login1", "password");
+        TokenPair second = authService.login("login1", "password");
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             withdrawals.withdraw(user.getId());
             status.setRollbackOnly();
@@ -65,8 +66,9 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void concurrentLoginAndWithdrawalCannotLeaveAnActiveRefresh() throws Exception {
-        var user = account();
-        var outcomes = concurrently(List.of(() -> authService.login("login1", "password"), () -> {
+        User user = account();
+        List<Object> outcomes =
+                concurrently(List.of(() -> authService.login("login1", "password"), () -> {
             withdrawals.withdraw(user.getId());
             return "withdrawn";
         }));
@@ -80,9 +82,10 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void concurrentRefreshAndWithdrawalCannotResurrectTheSession() throws Exception {
-        var user = account();
-        var login = authService.login("login1", "password");
-        var outcomes = concurrently(List.of(() -> authService.refresh(login.refreshToken()), () -> {
+        User user = account();
+        TokenPair login = authService.login("login1", "password");
+        List<Object> outcomes =
+                concurrently(List.of(() -> authService.refresh(login.refreshToken()), () -> {
             withdrawals.withdraw(user.getId());
             return "withdrawn";
         }));
@@ -98,9 +101,9 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
     @Test
     void usedReplayRevocationSurvivesRefreshTransactionRollback() {
         account();
-        var first = authService.login("login1", "password");
-        var second = authService.login("login1", "password");
-        var renewed = authService.refresh(first.refreshToken());
+        TokenPair first = authService.login("login1", "password");
+        TokenPair second = authService.login("login1", "password");
+        TokenPair renewed = authService.refresh(first.refreshToken());
         assertThatThrownBy(() -> authService.refresh(first.refreshToken()))
                 .isInstanceOfSatisfying(CustomException.class, error -> assertThat(error
                         .getExceptionCode()).isEqualTo(AuthExceptionCode.REFRESH_INVALID));
@@ -109,8 +112,8 @@ class AuthWithdrawalIntegrationTest extends ServiceIntegrationTest {
     }
 
     private void assertStoredRevoked(TokenPair tokens) {
-        var previous = jwtProvider.parseRefreshTokenPayload(tokens.refreshToken());
-        var next = jwtProvider.parseRefreshTokenPayload(
+        RefreshTokenPayload previous = jwtProvider.parseRefreshTokenPayload(tokens.refreshToken());
+        RefreshTokenPayload next = jwtProvider.parseRefreshTokenPayload(
                 jwtProvider.createRefreshToken(previous.userId(), previous.sid()));
         assertThatThrownBy(() -> refreshSessionStore.rotate(previous, next))
                 .isInstanceOfSatisfying(CustomException.class, error -> assertThat(error

@@ -1,5 +1,6 @@
 package com.dameokja.backend.auth.integration;
 
+import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.JwtProvider;
@@ -22,13 +23,13 @@ class AuthIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void authenticatesPersistedCredentialsAndRejectsRefreshAfterWithdrawal() {
-        var user = userRepository.saveAndFlush(new User("User1", "profiles/test.png",
+        User user = userRepository.saveAndFlush(new User("User1", "profiles/test.png",
                 new UserCredentials("login1", passwordEncoder.encode("password"),
                         LocalDateTime.of(2026, 9, 20, 0, 0))));
-        var login = authService.login("login1", "password");
+        TokenPair login = authService.login("login1", "password");
         assertThat(jwtProvider.parseAccessTokenPayload(login.accessToken()).userId())
                 .isEqualTo(user.getId());
-        var refreshed = authService.refresh(login.refreshToken());
+        TokenPair refreshed = authService.refresh(login.refreshToken());
         user.withdraw("withdrawn1", LocalDateTime.of(2026, 9, 20, 1, 0));
         userRepository.saveAndFlush(user);
         assertThatThrownBy(() -> authService.refresh(refreshed.refreshToken()))
