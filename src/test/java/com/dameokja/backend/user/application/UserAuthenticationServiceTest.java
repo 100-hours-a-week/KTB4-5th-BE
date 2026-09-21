@@ -33,7 +33,7 @@ class UserAuthenticationServiceTest {
 
     @Test
     void verifiesPasswordAndReturnsOnlyIdAndRole() {
-        var user = user();
+        User user = user();
         when(repository.findIdByLoginId("user")).thenReturn(Optional.of(1L));
         when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         assertThat(service.authenticate("user", "password"))
