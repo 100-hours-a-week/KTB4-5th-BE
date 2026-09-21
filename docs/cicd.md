@@ -6,6 +6,8 @@
 
 이 저장소의 `APP_ENV` Secret에는 BE와 DB 설정만 등록한다. 배포 시 서버의 `env/backend.env`만 갱신하며 FE 설정은 변경하지 않는다.
 
+비공개 GHCR 이미지는 배포 Job의 단기 `GITHUB_TOKEN`으로 인증해 내려받으며, 별도의 PAT을 등록하지 않는다.
+
 개발 서버는 `/home/ubuntu/app/db/schema.sql`로 빈 MySQL을 초기화하며, 이 파일은 `src/main/resources/db/schema.sql`과 동일하게 유지한다. GitHub Actions는 서버의 SQL 파일을 자동으로 덮어쓰지 않는다.
 
 현재 변경은 로컬 구현이며 실제 CI 실행과 서버 배포 검증은 아직 수행하지 않았다.
