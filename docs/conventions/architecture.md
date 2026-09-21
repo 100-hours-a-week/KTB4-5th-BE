@@ -37,6 +37,24 @@ com.dameokja.backend
 - **다른 Entity는 객체로 참조한다.** `@ManyToOne(fetch = LAZY)` + `@JoinColumn`으로 매핑한다. 다른 도메인 Entity도 같다(예: `RefrigeratorMember → User`, `Ingredient → Refrigerator`). 「팀」 JPA를 쓰는 이유가 연관관계 매핑이므로, 객체로 참조해야 `member.getUser()` 같은 탐색과 JPQL fetch join을 쓸 수 있다. [P2][H2] LAZY 이유는 [코딩 컨벤션](coding.md#lombokjpa) 참고.
 - 목록 조회에서 연관 객체를 함께 쓰면 fetch join으로 한 번에 가져와 N+1 쿼리를 막는다. [H2]
 
+## Swagger API 문서화
+
+Controller의 HTTP 처리 흐름과 Swagger 설명이 한 파일에 섞이지 않도록 아래 구조로 분리한다. 「팀」 긴 Swagger 어노테이션 때문에 실제 요청 처리 코드를 읽기 어려워지는 문제를 막고, API 계약과 실행 코드를 각각 빠르게 확인하기 위해서다.
+
+```text
+<domain>/presentation/
+├── <Domain>Controller.java    # 매핑, 요청 변환, 서비스 호출, 응답 생성
+├── <Domain>Api.java           # Swagger API 계약
+└── <Domain>ApiExamples.java   # 요청·성공 응답 JSON 예시
+```
+
+- `<Domain>Controller`는 `<Domain>Api`를 구현한다. Spring MVC의 매핑·인증·검증 어노테이션은 Controller에 두고, Swagger 어노테이션은 API 인터페이스에 둔다. 「팀」 실행 동작과 문서 설명의 변경 이유를 분리하기 위해서다.
+- `<Domain>Api`에는 `@Tag`, `@Operation`, `@ApiResponses`, `@Parameter`, Swagger의 `@RequestBody`를 사용해 요약·동작·요청·응답을 작성한다. 성공 응답뿐 아니라 명세에 정의된 오류 HTTP 상태와 식별 코드도 기재한다. 「팀」 Swagger만 보고도 클라이언트가 정상·오류 흐름을 확인할 수 있어야 하기 때문이다.
+- `@LoginUser`처럼 서버가 주입하는 값은 `@Parameter(hidden = true)`로 숨긴다. 경로 변수와 요청 본문처럼 클라이언트가 보내는 값만 문서에 노출한다. 「팀」 클라이언트 입력 계약을 실제 요청과 일치시키기 위해서다.
+- 요청 본문은 `@Schema(implementation = <Request>.class)`로 DTO 구조를 연결하고, 대표 요청과 성공 응답에는 실제 명세와 일치하는 `@ExampleObject`를 제공한다. 「팀」 필드 조합과 응답 형태는 타입 목록만으로 파악하기 어렵기 때문이다.
+- JSON 예시는 package-private `final` 클래스인 `<Domain>ApiExamples`의 `static final String` 텍스트 블록으로 분리한다. 생성자는 private으로 막는다. 「팀」 긴 JSON이 API 인터페이스의 흐름을 가리지 않으면서 컴파일 시 상수로 재사용되게 하기 위해서다.
+- API 명세서가 계약의 기준이다. 엔드포인트, 필드, 상태 코드, 식별 코드, 메시지 또는 예시가 바뀌면 API 명세서와 Swagger 코드를 같은 작업에서 동기화한다. 「팀」 두 문서가 서로 다른 계약을 제공하지 않게 하기 위해서다.
+
 ## 미합의
 
 도메인 간 Service 호출 방식(직접 호출 vs 전용 인터페이스)과 양방향 연관관계 사용 여부는 정하지 않았다. 필요해지면 합의 후 근거와 함께 기록한다.

@@ -9,13 +9,12 @@
 
 | 기준 | 권장 | 상한(초과 시 분리) | 근거 |
 |---|---|---|---|
-| 한 줄 길이 | - | 100자 (`package`·`import` 제외) | [G2] |
+| 한 줄 길이 | - | 200자 (`package`·`import` 제외) | 「팀」 |
 | 메서드 길이 | 20줄 이하 | 30줄 | 방향 [F3], 숫자 「팀」 |
-| 메서드 파라미터 수 | 3개 이하 | 4개 (넘으면 객체로 묶음) | 방향·상한 근사 [EJ1], 권장 3개는 「팀」 |
 | 중첩 깊이 (if·for·try) | - | 3단계 (넘으면 early return·메서드 추출) | 측정 [C4], 해법 [R1], 숫자 「팀」 |
 | 클래스(파일) 길이 | 200줄 이하 | 300줄 (넘으면 책임 분리) | 방향 [C3], 숫자 「팀」 |
 
-- **「팀」 숫자의 이유**: 메서드·클래스 길이(20/30줄, 200/300줄)는 외부 자료 어디에도 구체적 권장값이 없어 팀이 리뷰 기준으로 쓰기 편한 값을 그대로 정했다. 파라미터는 이펙티브 자바[EJ1]가 "4개 이하, 가급적 2개 이하"를 제시해 상한 4개는 그에 맞췄고, 권장 3개는 그 사이값으로 팀이 잡았다. 중첩 깊이의 경우 2단계는 조건 분기 하나조차 못 쓸 만큼 빡빡하고 4단계부터는 가독성이 눈에 띄게 떨어진다고 판단해 팀이 정한 값이다. 상한은 CI로 검사한다.
+- **「팀」 숫자의 이유**: 메서드·클래스 길이(20/30줄, 200/300줄)는 외부 자료 어디에도 구체적 권장값이 없어 팀이 리뷰 기준으로 쓰기 편한 값을 그대로 정했다. 한 줄 200자는 긴 Spring 제네릭 타입과 메서드 호출이 과도하게 줄바꿈되어 흐름이 끊기는 문제를 줄이기 위해 정했으며, 읽기 어려운 표현은 상한에 닿기 전에도 의미 단위로 줄바꿈한다. 중첩 깊이의 경우 2단계는 조건 분기 하나조차 못 쓸 만큼 빡빡하고 4단계부터는 가독성이 눈에 띄게 떨어진다고 판단해 팀이 정한 값이다. 상한은 CI로 검사한다.
 - 상한을 넘기는 경우(생성된 코드, 분기 자체가 명세인 매핑 등)는 `@SuppressWarnings("checkstyle:<검사명>")`를 붙이고 PR 「크기 예외」에 사유를 적는다.
 
 ### 줄 수 세는 법
@@ -33,12 +32,13 @@ return userRepository.findById(userId)
 - 클래스: 파일 전체 줄 수(`package`·`import`·빈 줄 포함). [C3]
 - 한 줄에 문장 하나만 쓴다. 줄 수를 줄이려고 여러 문장을 한 줄에 몰아 쓰지 않는다. [G1]
 - 줄바꿈은 `.` 등 연산자 **앞**에서 한다. [G3]
-- 단순 위임 한 문장짜리 메서드는 100자 이내일 때만 한 줄 선언을 허용한다. [G1][G2]
+- 단순 위임 한 문장짜리 메서드는 200자 이내일 때만 한 줄 선언을 허용한다. [G1]「팀」
 
 ## 가독성
 
 - **이름**: 의도가 드러나게 짓는다. 메서드는 동사로 시작하고(`findActiveByUserId`, `updateProfile`), `data`·`info`·`temp` 같은 모호한 이름과 임의 약어를 쓰지 않는다. [O2][GE3] 대소문자는 클래스 UpperCamelCase, 메서드·변수 lowerCamelCase, 상수 UPPER_SNAKE_CASE. [G4]
 - **한 메서드 한 가지 일**: 무엇을 하는지 읽어서 파악해야 하는 코드 조각은 그 "무엇"을 이름으로 한 메서드로 추출한다. [F3]
+- **파라미터**: 개수에 일괄된 상한을 두지 않고 호출부의 가독성과 데이터 응집도로 판단한다. 개수를 줄이기 위해 의미 없는 중첩 DTO·Command를 만들지 않는다. 서로 강하게 연관된 값이 여러 메서드에서 반복되거나 행위 메서드의 책임이 불명확해지면 응집된 객체로 묶을지 검토한다. 「팀」 평평한 DTO·Command가 단순한 데이터 계약을 더 명확하게 보여준다고 판단했다.
 - **조건문**: 실패 조건은 early return·예외로 먼저 끝낸다(guard clause). [R1]
 - **매직 넘버 금지**: 의미 있는 숫자는 상수나 enum으로 이름을 붙인다. 이름 없는 숫자는 의도를 알 수 없고 바꿀 때 모두 찾아야 하기 때문이다. [C2] 단, `@Column(length = 20)` 같은 매핑 값은 스키마 명세 자체라 허용한다. 「팀」
 - **Optional**: 반환 타입으로만 쓰고, `get()` 대신 `orElseThrow(...)`·`map`·`orElse`를 쓴다. [J1]
@@ -74,7 +74,7 @@ return userRepository.findById(userId)
 
 ## 자동 검사
 
-한 줄 길이, 메서드·파일 길이, 파라미터 수, 중첩 깊이, 한 줄 한 문장, 매직 넘버는 PR마다 Checkstyle로 검사한다(`config/checkstyle/checkstyle.xml`, 검사 PR 머지 후 적용). 사람의 기억이 아니라 도구로 지켜야 규칙이 유지되기 때문이다. 「팀」
+한 줄 길이, 메서드·파일 길이, 중첩 깊이, 한 줄 한 문장, 매직 넘버는 PR마다 Checkstyle로 검사한다(`config/checkstyle/checkstyle.xml`, 검사 PR 머지 후 적용). 사람의 기억이 아니라 도구로 지켜야 규칙이 유지되기 때문이다. 「팀」
 
 ```bash
 ./gradlew checkstyleMain checkstyleTest
@@ -98,7 +98,6 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 | C2 | [Checkstyle MagicNumber](https://checkstyle.sourceforge.io/checks/coding/magicnumber.html) | 상수로 정의되지 않은 숫자 검사 |
 | C3 | [Checkstyle FileLength](https://checkstyle.sourceforge.io/checks/sizes/filelength.html) | 파일 전체 줄 수, 기본 2000줄 |
 | C4 | [Checkstyle NestedIfDepth](https://checkstyle.sourceforge.io/checks/coding/nestedifdepth.html) | if 중첩 깊이 검사, 기본 `max=1`(if 안의 if까지 허용). `max=2`면 3단계까지 허용 |
-| C5 | [Checkstyle ParameterNumber](https://checkstyle.sourceforge.io/checks/sizes/parameternumber.html) | 파라미터 수 검사, 기본 `max=7`, `@Override` 메서드 제외 옵션 |
 | F3 | [Martin Fowler — FunctionLength](https://martinfowler.com/bliki/FunctionLength.html) (2016) | 무엇을 하는지 파악하는 데 노력이 드는 코드는 그 "무엇"을 이름으로 한 함수로 추출. 의도와 구현의 분리 |
 | GE3 | [Google Engineering Practices — What to look for in a code review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | 좋은 이름은 무엇인지·무엇을 하는지 충분히 전달. 주석은 코드가 왜 있는지 설명하고 무엇을 하는지는 설명하지 않음 |
 | O2 | [Oracle — Java Code Conventions: Naming](https://www.oracle.com/java/technologies/javase/codeconventions-namingconventions.html) | 메서드는 동사, 변수 이름은 짧지만 의도가 드러나게 |
@@ -109,7 +108,6 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 | F1 | [Martin Fowler — Test Driven Development](https://martinfowler.com/bliki/TestDrivenDevelopment.html) | 테스트 작성 → 통과할 때까지 구현 → 리팩터링 |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) | 미래에 필요할 것 같은 기능은 지금 만들지 않는다 |
 | S1 | [Spring Framework — Constructor-based or setter-based DI?](https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html) | Spring 팀은 생성자 주입을 권장. 생성자 인자가 많으면 클래스 책임이 너무 많다는 신호 |
-| EJ1 | Joshua Bloch, *Effective Java* 3rd Edition, Item 51 — Design Method Signatures Carefully | 인자 개수는 4개 이하를 목표로, 가급적 2개 이하로("shoot to keep our argument lists to four parameters and below, preferably two or less") |
 | S2 | [Spring Boot — Testing Spring Boot Applications](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html) | 실제 서블릿 환경에서는 서버 트랜잭션이 롤백되지 않음 |
 | S3 | [Spring Framework — Controller Advice](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-advice.html) | `@ControllerAdvice`로 여러 컨트롤러의 예외 처리를 한 곳에서 |
 | T1 | [Testcontainers — Reusable Containers](https://java.testcontainers.org/features/reuse/) | 실험 기능, 테스트 후 컨테이너가 멈추지 않음, CI에 부적합 |
