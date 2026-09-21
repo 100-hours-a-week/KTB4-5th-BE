@@ -6,6 +6,7 @@ import com.dameokja.backend.refrigerator.domain.RefrigeratorMemberRole;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.infrastructure.UserRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -48,7 +49,7 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
     void loginIdsExcludeDeletedRefrigeratorEvenWhenMembershipIsActive() {
         User first = user("로그인회원");
         Refrigerator deleted = refrigerator("삭제됨");
-        deleted.delete(java.time.LocalDateTime.now());
+        deleted.delete(LocalDateTime.now());
         refrigeratorMemberRepository.save(RefrigeratorMember.owner(first, deleted));
         flushAndClear();
         assertThat(refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(first.getId()))
