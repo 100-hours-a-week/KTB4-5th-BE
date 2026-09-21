@@ -27,6 +27,14 @@ public interface RefrigeratorMemberRepository extends JpaRepository<Refrigerator
 
     List<RefrigeratorMember> findByUserIdAndRole(Long userId, RefrigeratorMemberRole role);
 
+    @Query("""
+            select m.refrigerator.id from RefrigeratorMember m
+            where m.user.id = :userId and m.isActive = true
+                and m.refrigerator.deletedAt is null
+            order by m.refrigerator.id
+            """)
+    List<Long> findActiveRefrigeratorIdsByUserId(@Param("userId") Long userId);
+
     @Transactional
     long deleteAllByRefrigeratorId(Long refrigeratorId);
 }
