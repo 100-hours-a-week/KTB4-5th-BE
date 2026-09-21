@@ -17,6 +17,10 @@ public class IngredientPolicy {
     private static final int MAX_EXPIRATION_YEARS = 4;
     private final ProhibitedWordChecker prohibitedWords;
 
+    public IngredientDetails validateForCreate(IngredientDetails details, LocalDate today) {
+        return validate(details, today, null);
+    }
+
     public IngredientDetails validate(IngredientDetails details, LocalDate today,
             LocalDate previousExpiration) {
         String name = normalizeName(details.name());
