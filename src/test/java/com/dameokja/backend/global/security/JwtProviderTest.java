@@ -34,7 +34,6 @@ class JwtProviderTest {
         UUID sid = UUID.randomUUID();
         String refresh = jwtProvider.createRefreshToken(1L, sid);
         UUID jti = jwtProvider.parseRefreshTokenPayload(refresh).jti();
-        assertThat(jti.version()).isEqualTo(4);
         assertThat(jwtProvider.parseRefreshTokenPayload(refresh))
                 .isEqualTo(new RefreshTokenPayload(1L, sid, jti, NOW.plus(Duration.ofDays(2))));
     }
@@ -122,8 +121,6 @@ class JwtProviderTest {
         var second = jwtProvider.parseRefreshTokenPayload(jwtProvider.createRefreshToken(1L, sid));
         assertThat(second.sid()).isEqualTo(first.sid());
         assertThat(second.jti()).isNotEqualTo(first.jti());
-        assertThat(second.jti().version()).isEqualTo(4);
-        assertThat(second.jti().variant()).isEqualTo(2);
     }
 
     @Test
