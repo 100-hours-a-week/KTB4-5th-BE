@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,6 +21,10 @@ public class RefrigeratorAccessService {
     private final UserAccessService userAccessService;
     private final RefrigeratorRepository refrigeratorRepository;
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
+
+    public List<Long> findActiveRefrigeratorIds(Long userId) {
+        return refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(userId);
+    }
 
     public void validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
