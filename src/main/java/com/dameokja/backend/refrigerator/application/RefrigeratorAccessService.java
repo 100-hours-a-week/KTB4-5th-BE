@@ -43,8 +43,7 @@ public class RefrigeratorAccessService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Refrigerator lockForWrite(Long userId, Long refrigeratorId) {
         Refrigerator refrigerator = refrigeratorRepository.findByIdForUpdate(refrigeratorId)
-                .orElseThrow(() -> new CustomException(
-                        RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND));
         if (refrigerator.getDeletedAt() != null) {
             throw new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
         }
