@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,7 @@ class JwtAuthenticationFilterTest {
         when(userAuthenticationService.findActive(1L))
                 .thenReturn(new AuthenticatedUser(1L, UserRole.USER));
         jwtAuthenticationFilter.doFilter(request, response, chain);
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication.getPrincipal()).isEqualTo(new AuthPrincipal(1L));
         assertThat(authentication.getAuthorities()).extracting("authority")
                 .containsExactly("ROLE_USER");
