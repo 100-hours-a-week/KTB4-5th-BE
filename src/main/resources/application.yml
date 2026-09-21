@@ -26,3 +26,13 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: 15m
   refresh-token-expiration: 2d
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+  endpoint:
+    health:
+      show-details: never
