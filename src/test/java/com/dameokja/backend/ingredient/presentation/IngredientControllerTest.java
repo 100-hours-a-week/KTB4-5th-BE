@@ -1,0 +1,70 @@
+package com.dameokja.backend.ingredient.presentation;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import com.dameokja.backend.global.response.SuccessResponse;
+import com.dameokja.backend.ingredient.application.IngredientCreateService;
+import com.dameokja.backend.ingredient.application.IngredientDetailResult;
+import com.dameokja.backend.ingredient.application.IngredientDetailService;
+import com.dameokja.backend.ingredient.application.IngredientEtag;
+import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.IngredientDetails;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.Measurement;
+import com.dameokja.backend.ingredient.domain.RegistrationSource;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@ExtendWith(MockitoExtension.class)
+class IngredientControllerTest {
+    @Mock private IngredientCreateService ingredientCreateService;
+    @Mock private IngredientDetailService ingredientDetailService;
+
+    @Test
+    void returnsDetailWithStrongEtag() {
+        Ingredient ingredient = ingredient();
+        LocalDate businessDate = LocalDate.of(2026, 9, 16);
+        when(ingredientDetailService.getDetail(2L, 1L))
+                .thenReturn(new IngredientDetailResult(ingredient, businessDate));
+        IngredientController controller = new IngredientController(
+                ingredientCreateService, ingredientDetailService);
+
+        ResponseEntity<SuccessResponse<IngredientResponse>> response =
+                controller.getDetail(2L, 1L);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
+        assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-003");
+        assertThat(response.getBody().data().status()).isEqualTo("EXPIRED");
+        assertThat(response.getBody().data().daysUntilExpiration()).isEqualTo(-1);
+    }
+
+    private Ingredient ingredient() {
+        Refrigerator refrigerator = new Refrigerator("냉장고", "2026-09");
+        ReflectionTestUtils.setField(refrigerator, "id", 10L);
+        IngredientDetails details = new IngredientDetails(
+                "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
+                Measurement.of(MeasureType.WEIGHT, null, new BigDecimal("300"), WeightUnit.G),
+                LocalDate.of(2026, 9, 15));
+        Ingredient ingredient = new Ingredient(refrigerator, details, RegistrationSource.RECEIPT);
+        ReflectionTestUtils.setField(ingredient, "id", 1L);
+        ReflectionTestUtils.setField(ingredient, "createdAt",
+                LocalDateTime.of(2026, 9, 1, 0, 0));
+        ReflectionTestUtils.setField(ingredient, "updatedAt",
+                LocalDateTime.of(2026, 9, 16, 0, 0));
+        return ingredient;
+    }
+}

@@ -8,10 +8,10 @@ import java.util.List;
 
 public record IngredientCreateRequest(
         @NotEmpty @Size(max = 20)
-        List<@Valid IngredientCreateItemRequest> items
+        List<@Valid IngredientCreateItem> items
 ) {
 
     public List<IngredientCreateCommand> toCommands() {
-        return items.stream().map(IngredientCreateItemRequest::toCommand).toList();
+        return items.stream().map(IngredientCreateItem::toCommand).toList();
     }
 }

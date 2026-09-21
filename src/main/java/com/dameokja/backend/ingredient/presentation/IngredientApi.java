@@ -2,10 +2,12 @@ package com.dameokja.backend.ingredient.presentation;
 
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_RESPONSE;
+import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.DETAIL_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -18,8 +20,37 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 
-@Tag(name = "재고 등록", description = "냉장고 재고 등록 API")
+@Tag(name = "재고", description = "냉장고 재고 API")
 public interface IngredientApi {
+
+    @Operation(
+            summary = "재고 상세 조회",
+            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "재고 상세 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = DETAIL_RESPONSE)
+                    )
+            ),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(
+                    name = "ingredientId",
+                    in = ParameterIn.PATH,
+                    description = "조회할 재고 ID",
+                    required = true,
+                    example = "1"
+            )
+            Long ingredientId);
 
     @Operation(
             summary = "재고 일괄 등록",
