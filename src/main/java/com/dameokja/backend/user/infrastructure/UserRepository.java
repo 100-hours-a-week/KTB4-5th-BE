@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByNickname(String nickname);
     boolean existsByLoginId(String loginId);
+    @Query("select u.id from User u where u.loginId = :loginId")
+    Optional<Long> findIdByLoginId(@Param("loginId") String loginId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from User e where e.id = :id")
