@@ -1,8 +1,6 @@
 package com.dameokja.backend.global.security;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.user.application.AuthenticatedUser;
-import com.dameokja.backend.user.application.UserAuthenticationService;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -19,11 +17,8 @@ import static org.mockito.Mockito.*;
 class JwtAuthenticationFilterTest {
     private final JwtProvider jwtProvider = mock(JwtProvider.class);
     private final SecurityErrorHandler securityErrorHandler = mock(SecurityErrorHandler.class);
-    private final UserAuthenticationService userAuthenticationService =
-            mock(UserAuthenticationService.class);
     private final JwtAuthenticationFilter jwtAuthenticationFilter =
-            new JwtAuthenticationFilter(jwtProvider, securityErrorHandler,
-                    userAuthenticationService);
+            new JwtAuthenticationFilter(jwtProvider, securityErrorHandler);
     private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/me");
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final FilterChain filterChain = mock(FilterChain.class);
@@ -33,24 +28,35 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void missingCookiePassesWithoutAuthentication() throws Exception {
+        request.setCookies(new Cookie("refreshToken", "refresh"));
         jwtAuthenticationFilter.doFilter(request, response, filterChain);
         verify(filterChain).doFilter(request, response);
-        verifyNoInteractions(jwtProvider, userAuthenticationService, securityErrorHandler);
+        verifyNoInteractions(jwtProvider, securityErrorHandler);
     }
 
     @Test
-    void currentRoleAndUserIdPopulateSecurityContext() throws Exception {
+    void tokenRoleAndUserIdPopulateSecurityContext() throws Exception {
         request.setCookies(new Cookie("accessToken", "token"));
         when(jwtProvider.parseAccessTokenPayload("token"))
                 .thenReturn(new AccessTokenPayload(1L, UserRole.ADMIN));
-        when(userAuthenticationService.findActive(1L))
-                .thenReturn(new AuthenticatedUser(1L, UserRole.USER));
         jwtAuthenticationFilter.doFilter(request, response, filterChain);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication.getPrincipal()).isEqualTo(new AuthPrincipal(1L));
         assertThat(authentication.getAuthorities()).extracting("authority")
-                .containsExactly("ROLE_USER");
+                .containsExactly("ROLE_ADMIN");
         verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void emptyAccessCookieIsValidatedAndRejected() throws Exception {
+        request.setCookies(new Cookie("accessToken", ""));
+        when(jwtProvider.parseAccessTokenPayload(""))
+                .thenThrow(new CustomException(SecurityExceptionCode.ACCESS_TOKEN_INVALID));
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        verify(jwtProvider).parseAccessTokenPayload("");
+        verify(securityErrorHandler).write(request, response,
+                SecurityExceptionCode.ACCESS_TOKEN_INVALID);
+        verifyNoInteractions(filterChain);
     }
 
     @Test
@@ -61,7 +67,7 @@ class JwtAuthenticationFilterTest {
         jwtAuthenticationFilter.doFilter(request, response, filterChain);
         verify(securityErrorHandler).write(request, response,
                 SecurityExceptionCode.ACCESS_TOKEN_INVALID);
-        verifyNoInteractions(filterChain, userAuthenticationService);
+        verifyNoInteractions(filterChain);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 }

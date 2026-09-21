@@ -1,12 +1,10 @@
 package com.dameokja.backend.global.security;
 
-import com.dameokja.backend.user.application.AuthenticatedUser;
 import jakarta.servlet.http.Cookie;
 import org.springframework.security.core.context.SecurityContext;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
-import com.dameokja.backend.user.application.UserAuthenticationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,7 +27,6 @@ import org.springframework.web.util.WebUtils;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
-    private final UserAuthenticationService userAuthenticationService;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -44,13 +41,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
+    private String extractAccessToken(HttpServletRequest request) {
+        Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
+        return accessTokenCookie == null ? null : accessTokenCookie.getValue();
+    }
+
     private boolean authenticateRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try {
-            Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
-            if (accessTokenCookie != null) {
-                authenticate(jwtProvider.parseAccessTokenPayload(accessTokenCookie.getValue()),
-                        request);
+            String accessToken = extractAccessToken(request);
+            if (accessToken != null) {
+                authenticate(jwtProvider.parseAccessTokenPayload(accessToken), request);
             }
             return true;
         } catch (CustomException exception) {
@@ -72,10 +73,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(AccessTokenPayload accessTokenPayload, HttpServletRequest request) {
-        AuthenticatedUser authenticatedUser =
-                userAuthenticationService.findActive(accessTokenPayload.userId());
         SimpleGrantedAuthority grantedAuthority =
-                new SimpleGrantedAuthority("ROLE_" + authenticatedUser.role().name());
+                new SimpleGrantedAuthority("ROLE_" + accessTokenPayload.role().name());
         UsernamePasswordAuthenticationToken authentication =
                 UsernamePasswordAuthenticationToken.authenticated(
                 new AuthPrincipal(accessTokenPayload.userId()), null, List.of(grantedAuthority));
