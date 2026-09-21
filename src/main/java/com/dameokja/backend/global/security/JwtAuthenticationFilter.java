@@ -1,5 +1,9 @@
 package com.dameokja.backend.global.security;
 
+import com.dameokja.backend.user.application.AuthenticatedUser;
+import jakarta.servlet.http.Cookie;
+import org.springframework.security.core.context.SecurityContext;
+
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.user.application.UserAuthenticationService;
@@ -23,7 +27,7 @@ import org.springframework.web.util.WebUtils;
 @Slf4j
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private final JwtProvider tokenProvider;
+    private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
     private final UserAuthenticationService userAuthenticationService;
 
@@ -43,9 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean authenticateRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try {
-            var accessTokenCookie = WebUtils.getCookie(request, "accessToken");
+            Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
             if (accessTokenCookie != null) {
-                authenticate(tokenProvider.parseAccessTokenPayload(accessTokenCookie.getValue()),
+                authenticate(jwtProvider.parseAccessTokenPayload(accessTokenCookie.getValue()),
                         request);
             }
             return true;
@@ -68,12 +72,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(AccessTokenPayload accessTokenPayload, HttpServletRequest request) {
-        var authenticatedUser = userAuthenticationService.findActive(accessTokenPayload.userId());
-        var authority = new SimpleGrantedAuthority("ROLE_" + authenticatedUser.role().name());
-        var authentication = UsernamePasswordAuthenticationToken.authenticated(
-                new AuthPrincipal(accessTokenPayload.userId()), null, List.of(authority));
+        AuthenticatedUser authenticatedUser =
+                userAuthenticationService.findActive(accessTokenPayload.userId());
+        SimpleGrantedAuthority grantedAuthority =
+                new SimpleGrantedAuthority("ROLE_" + authenticatedUser.role().name());
+        UsernamePasswordAuthenticationToken authentication =
+                UsernamePasswordAuthenticationToken.authenticated(
+                new AuthPrincipal(accessTokenPayload.userId()), null, List.of(grantedAuthority));
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        var securityContext = SecurityContextHolder.createEmptyContext();
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(authentication);
         SecurityContextHolder.setContext(securityContext);
     }

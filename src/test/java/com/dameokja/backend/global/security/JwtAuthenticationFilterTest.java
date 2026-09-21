@@ -26,15 +26,15 @@ class JwtAuthenticationFilterTest {
                     userAuthenticationService);
     private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/me");
     private final MockHttpServletResponse response = new MockHttpServletResponse();
-    private final FilterChain chain = mock(FilterChain.class);
+    private final FilterChain filterChain = mock(FilterChain.class);
 
     @AfterEach
     void clearContext() { SecurityContextHolder.clearContext(); }
 
     @Test
     void missingCookiePassesWithoutAuthentication() throws Exception {
-        jwtAuthenticationFilter.doFilter(request, response, chain);
-        verify(chain).doFilter(request, response);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        verify(filterChain).doFilter(request, response);
         verifyNoInteractions(jwtProvider, userAuthenticationService, securityErrorHandler);
     }
 
@@ -45,12 +45,12 @@ class JwtAuthenticationFilterTest {
                 .thenReturn(new AccessTokenPayload(1L, UserRole.ADMIN));
         when(userAuthenticationService.findActive(1L))
                 .thenReturn(new AuthenticatedUser(1L, UserRole.USER));
-        jwtAuthenticationFilter.doFilter(request, response, chain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication.getPrincipal()).isEqualTo(new AuthPrincipal(1L));
         assertThat(authentication.getAuthorities()).extracting("authority")
                 .containsExactly("ROLE_USER");
-        verify(chain).doFilter(request, response);
+        verify(filterChain).doFilter(request, response);
     }
 
     @Test
@@ -58,10 +58,10 @@ class JwtAuthenticationFilterTest {
         request.setCookies(new Cookie("accessToken", "bad"));
         when(jwtProvider.parseAccessTokenPayload("bad"))
                 .thenThrow(new CustomException(SecurityExceptionCode.ACCESS_TOKEN_INVALID));
-        jwtAuthenticationFilter.doFilter(request, response, chain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
         verify(securityErrorHandler).write(request, response,
                 SecurityExceptionCode.ACCESS_TOKEN_INVALID);
-        verifyNoInteractions(chain, userAuthenticationService);
+        verifyNoInteractions(filterChain, userAuthenticationService);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 }
