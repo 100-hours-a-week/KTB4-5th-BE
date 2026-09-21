@@ -27,7 +27,6 @@ public record IngredientResponse(
         LocalDate expirationDate,
         LocalDate createdDate,
         RegistrationSource registrationSource,
-        String imageUrl,
         String status,
         long daysUntilExpiration) {
 
@@ -57,7 +56,6 @@ public record IngredientResponse(
                 ingredient.getExpirationDate(),
                 createdDate,
                 ingredient.getRegistrationSource(),
-                null,
                 ingredientStatus,
                 days);
     }
