@@ -1,5 +1,7 @@
 package com.dameokja.backend.auth.infrastructure;
 
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutorService;
 import com.dameokja.backend.auth.domain.RefreshSessionStatus;
 import com.dameokja.backend.auth.domain.RefreshTokenStatus;
 import com.dameokja.backend.global.exception.CustomException;
@@ -29,11 +31,11 @@ class RefreshConcurrencyTest {
 
     @Test
     void simultaneousRefreshAllowsOneRotationThenRevokesEveryDevice() throws Exception {
-        var first = token(UUID.randomUUID());
-        var other = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
+        RefreshTokenPayload other = token(UUID.randomUUID());
         refreshSessionStore.create(first);
         refreshSessionStore.create(other);
-        var outcomes = concurrently(() -> rotate(first), () -> rotate(first));
+        List<String> outcomes = concurrently(() -> rotate(first), () -> rotate(first));
         assertThat(outcomes).containsExactlyInAnyOrder("ROTATED", "REFRESH_TOKEN_REUSED");
         assertAllRevoked();
         assertThat(snapshot(refreshSessionStore, 1L).tokens().get(first.jti()).status())
@@ -42,7 +44,7 @@ class RefreshConcurrencyTest {
 
     @Test
     void simultaneousRotationAndUserRevocationCannotLeaveAnActiveToken() throws Exception {
-        var first = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
         refreshSessionStore.create(first);
         concurrently(() -> rotate(first), () -> {
             refreshSessionStore.revokeAll(1L);
@@ -53,7 +55,7 @@ class RefreshConcurrencyTest {
 
     @Test
     void simultaneousRotationAndLogoutCannotResurrectTheSession() throws Exception {
-        var first = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
         refreshSessionStore.create(first);
         concurrently(() -> rotate(first), () -> {
             refreshSessionStore.revoke(first);
@@ -64,9 +66,9 @@ class RefreshConcurrencyTest {
 
     @Test
     void logoutWithUsedTokenRevokesTheReplacementButPreservesAnotherDevice() {
-        var first = token(UUID.randomUUID());
-        var replacement = token(first.sid());
-        var other = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
+        RefreshTokenPayload replacement = token(first.sid());
+        RefreshTokenPayload other = token(UUID.randomUUID());
         refreshSessionStore.create(first);
         refreshSessionStore.create(other);
         refreshSessionStore.rotate(first, replacement);
@@ -79,8 +81,8 @@ class RefreshConcurrencyTest {
 
     @Test
     void logoutBeforeRotationPreventsReplacementCreation() {
-        var first = token(UUID.randomUUID());
-        var replacement = token(first.sid());
+        RefreshTokenPayload first = token(UUID.randomUUID());
+        RefreshTokenPayload replacement = token(first.sid());
         refreshSessionStore.create(first);
         refreshSessionStore.revoke(first);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> refreshSessionStore.rotate(first,
@@ -102,13 +104,13 @@ class RefreshConcurrencyTest {
 
     private List<String> concurrently(Callable<String> first, Callable<String> second)
             throws Exception {
-        var start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var firstRequestFuture = executor.submit(() -> {
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<String> firstRequestFuture = executor.submit(() -> {
                 start.await();
                 return first.call();
             });
-            var secondRequestFuture = executor.submit(() -> {
+            Future<String> secondRequestFuture = executor.submit(() -> {
                 start.await();
                 return second.call();
             });
@@ -119,7 +121,7 @@ class RefreshConcurrencyTest {
     }
 
     private void assertAllRevoked() {
-        var state = snapshot(refreshSessionStore, 1L);
+        UserRefreshSessions state = snapshot(refreshSessionStore, 1L);
         assertThat(state.tokens().values())
                 .noneMatch(tokenRecord -> tokenRecord.status() == RefreshTokenStatus.ACTIVE);
         assertThat(state.sessions().values())

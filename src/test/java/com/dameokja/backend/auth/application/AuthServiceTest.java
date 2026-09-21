@@ -48,13 +48,13 @@ class AuthServiceTest {
 
     @Test
     void loginCreatesIndependentSessionsAndRefreshReloadsRole() {
-        var first = service.login("user", "password");
-        var second = service.login("user", "password");
+        TokenPair first = service.login("user", "password");
+        TokenPair second = service.login("user", "password");
         assertThat(jwtProvider.parseRefreshTokenPayload(first.refreshToken()).sid())
                 .isNotEqualTo(jwtProvider.parseRefreshTokenPayload(second.refreshToken()).sid());
         when(userAuthenticationService.findActiveForUpdate(1L))
                 .thenReturn(new AuthenticatedUser(1L, UserRole.ADMIN));
-        var refreshed = service.refresh(first.refreshToken());
+        TokenPair refreshed = service.refresh(first.refreshToken());
         assertThat(jwtProvider.parseAccessTokenPayload(refreshed.accessToken()).role())
                 .isEqualTo(UserRole.ADMIN);
         service.logout(refreshed.refreshToken());
@@ -63,7 +63,7 @@ class AuthServiceTest {
 
     @Test
     void inactiveUserCannotRefreshAndSessionIsRevoked() {
-        var tokens = service.login("user", "password");
+        TokenPair tokens = service.login("user", "password");
         when(userAuthenticationService.findActiveForUpdate(1L))
                 .thenThrow(new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE));
         assertCode(() -> service.refresh(tokens.refreshToken()),
@@ -84,16 +84,16 @@ class AuthServiceTest {
 
     @Test
     void storageFailuresNeverReturnTokens() {
-        var unavailable = mock(RefreshSessionStore.class);
+        RefreshSessionStore unavailable = mock(RefreshSessionStore.class);
         doThrow(new IllegalStateException("storage unavailable")).when(unavailable).create(any());
-        var failing = new AuthService(userAuthenticationService, jwtProvider, unavailable);
+        AuthService failing = new AuthService(userAuthenticationService, jwtProvider, unavailable);
         assertThatThrownBy(() -> failing.login("user", "password"))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void logoutIsIdempotentAndExistingAccessRemainsValid() {
-        var tokens = service.login("user", "password");
+        TokenPair tokens = service.login("user", "password");
         service.logout(tokens.refreshToken());
         service.logout(tokens.refreshToken());
         service.logout(null);
