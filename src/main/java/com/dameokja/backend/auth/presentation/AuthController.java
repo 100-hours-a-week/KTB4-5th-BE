@@ -37,5 +37,26 @@ public class AuthController {
         return SuccessResponse.of("AUTH-200-001", "로그인 성공", new LoginData(activeRefrigeratorIds));
     }
 
+    @PostMapping("/token-renewals")
+    public SuccessResponse<RenewalData> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
+        TokenPair tokenPair = authService.refresh(refreshToken);
+        authCookies.write(response, tokenPair);
+        return SuccessResponse.of("AUTH-200-006", "인증정보 갱신 성공",
+                new RenewalData(tokenPair.userId().toString()));
+    }
+
+    @DeleteMapping("/sessions")
+    public SuccessResponse<Void> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletRequest request, HttpServletResponse response) {
+        authService.logout(refreshToken);
+        csrfTokenRotator.rotate(request, response);
+        authCookies.clear(response);
+        return SuccessResponse.of("AUTH-200-005", "로그아웃 성공", null);
+    }
+
     public record LoginData(List<String> activeRefrigeratorIds) {}
+    public record RenewalData(String userId) {}
 }

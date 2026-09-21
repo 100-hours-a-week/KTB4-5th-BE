@@ -1,5 +1,6 @@
 package com.dameokja.backend.auth.presentation;
 
+import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
@@ -10,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -72,4 +74,33 @@ class AuthContractWebTest extends SecurityWebTestSupport {
                 .andExpect(jsonPath("$.code").value("AUTH-404-001"));
     }
 
+    @Test
+    void missingRefreshUsesSpecifiedUnauthorizedCode() throws Exception {
+        Cookie csrf = csrf();
+        mockMvc.perform(post("/api/v1/auth/token-renewals").cookie(csrf)
+                        .header("X-XSRF-TOKEN", csrf.getValue()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH-401-003"));
+    }
+
+    @Test
+    void renewalAndLogoutReturnSpecifiedSuccessData() throws Exception {
+        TokenPair tokens = authService.login("user1", "password1");
+        Cookie csrf = csrf();
+        MockHttpServletResponse renewed = mockMvc.perform(post("/api/v1/auth/token-renewals")
+                        .cookie(csrf, new Cookie("refreshToken", tokens.refreshToken()))
+                        .header("X-XSRF-TOKEN", csrf.getValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("AUTH-200-006"))
+                .andExpect(jsonPath("$.data.userId").value("7"))
+                .andReturn().getResponse();
+        mockMvc.perform(delete("/api/v1/auth/sessions")
+                        .cookie(csrf, renewed.getCookie("accessToken"),
+                                renewed.getCookie("refreshToken"))
+                        .header("X-XSRF-TOKEN", csrf.getValue()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        {"code":"AUTH-200-005","message":"로그아웃 성공","data":null}
+                        """));
+    }
 }
