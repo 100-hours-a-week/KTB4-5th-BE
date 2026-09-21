@@ -1,6 +1,5 @@
 package com.dameokja.backend.global.security;
 
-import com.dameokja.backend.user.application.UserAuthenticationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +21,6 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
-    private final UserAuthenticationService userAuthenticationService;
 
     @Bean
     public static PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
@@ -38,8 +36,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtProvider, securityErrorHandler,
-                userAuthenticationService);
+        return new JwtAuthenticationFilter(jwtProvider, securityErrorHandler);
     }
 
     @Bean
