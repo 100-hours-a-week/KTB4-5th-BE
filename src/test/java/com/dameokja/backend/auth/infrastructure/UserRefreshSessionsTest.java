@@ -22,9 +22,9 @@ class UserRefreshSessionsTest {
 
     @Test
     void replayRevokesEverySessionAndPreservesUsedEvidence() {
-        var first = token(UUID.randomUUID());
-        var second = token(first.sid());
-        var other = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
+        RefreshTokenPayload second = token(first.sid());
+        RefreshTokenPayload other = token(UUID.randomUUID());
         userRefreshSessions.create(first);
         userRefreshSessions.create(other);
         userRefreshSessions.rotate(first, second);
@@ -44,9 +44,9 @@ class UserRefreshSessionsTest {
 
     @Test
     void logoutWithPreviousTokenRevokesOnlyItsSession() {
-        var first = token(UUID.randomUUID());
-        var second = token(first.sid());
-        var other = token(UUID.randomUUID());
+        RefreshTokenPayload first = token(UUID.randomUUID());
+        RefreshTokenPayload second = token(first.sid());
+        RefreshTokenPayload other = token(UUID.randomUUID());
         userRefreshSessions.create(first);
         userRefreshSessions.create(other);
         userRefreshSessions.rotate(first, second);
