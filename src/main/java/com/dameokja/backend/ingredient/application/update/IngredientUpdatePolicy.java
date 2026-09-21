@@ -46,11 +46,11 @@ public class IngredientUpdatePolicy {
         validateWeightUnit(fields.weightUnit(), current.getWeightUnit());
         if (current.getMeasureType() == MeasureType.COUNT) {
             validateUnusedField(fields.weightValue());
-            Integer quantity = requiredValue(fields.quantity(), current.getQuantity().intValue());
+            Integer quantity = requiredMeasurementValue(fields.quantity(), current.getQuantity().intValue());
             return Measurement.of(MeasureType.COUNT, quantity, null, WeightUnit.NONE);
         }
         validateUnusedField(fields.quantity());
-        BigDecimal weightValue = requiredValue(fields.weightValue(), current.getWeightValue());
+        BigDecimal weightValue = requiredMeasurementValue(fields.weightValue(), current.getWeightValue());
         return Measurement.of(MeasureType.WEIGHT, null, weightValue, current.getWeightUnit());
     }
 
@@ -75,6 +75,13 @@ public class IngredientUpdatePolicy {
             throw new CustomException(IngredientExceptionCode.INVALID_INPUT);
         }
         return field.value();
+    }
+
+    private <T> T requiredMeasurementValue(UpdateField<T> field, T currentValue) {
+        if (field.provided() && field.value() == null) {
+            throw new CustomException(IngredientExceptionCode.INVALID_AMOUNT);
+        }
+        return requiredValue(field, currentValue);
     }
 
     private CustomException translateException(CustomException exception) {
