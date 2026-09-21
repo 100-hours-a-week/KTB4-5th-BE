@@ -1,4 +1,6 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.create;
+
+import com.dameokja.backend.ingredient.application.IngredientPolicy;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.moderation.ProhibitedWordChecker;

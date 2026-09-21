@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.ingredient.application.IngredientCreateService;
-import com.dameokja.backend.ingredient.application.IngredientDetailResult;
-import com.dameokja.backend.ingredient.application.IngredientDetailService;
-import com.dameokja.backend.ingredient.application.IngredientEtag;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
+import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
+import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
+import com.dameokja.backend.ingredient.application.update.IngredientEtag;
+import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
+import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
@@ -17,6 +19,7 @@ import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
+import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,6 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class IngredientControllerTest {
     @Mock private IngredientCreateService ingredientCreateService;
     @Mock private IngredientDetailService ingredientDetailService;
+    @Mock private IngredientUpdateService ingredientUpdateService;
 
     @Test
     void returnsDetailWithStrongEtag() {
@@ -40,7 +44,7 @@ class IngredientControllerTest {
         when(ingredientDetailService.getDetail(2L, 1L))
                 .thenReturn(new IngredientDetailResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
-                ingredientCreateService, ingredientDetailService);
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.getDetail(2L, 1L);
@@ -50,6 +54,27 @@ class IngredientControllerTest {
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-003");
         assertThat(response.getBody().data().status()).isEqualTo("EXPIRED");
         assertThat(response.getBody().data().daysUntilExpiration()).isEqualTo(-1);
+    }
+
+    @Test
+    void returnsUpdatedDetailWithNewStrongEtag() {
+        Ingredient ingredient = ingredient();
+        IngredientUpdateRequest request = new IngredientUpdateRequest();
+        request.setWeightValue(new BigDecimal("250"));
+        LocalDate businessDate = LocalDate.of(2026, 9, 16);
+        when(ingredientUpdateService.update(2L, 1L, "\"before\"", request.toFields()))
+                .thenReturn(new IngredientUpdateResult(ingredient, businessDate));
+        IngredientController controller = new IngredientController(
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService);
+
+        ResponseEntity<SuccessResponse<IngredientResponse>> response =
+                controller.update(2L, 1L, "\"before\"", request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
+        assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-004");
+        assertThat(response.getBody().data().registrationSource())
+                .isEqualTo(RegistrationSource.RECEIPT);
     }
 
     private Ingredient ingredient() {

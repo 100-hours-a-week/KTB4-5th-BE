@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.create;
 
 import java.util.List;
 

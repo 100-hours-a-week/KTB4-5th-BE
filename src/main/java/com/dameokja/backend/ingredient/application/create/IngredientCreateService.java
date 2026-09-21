@@ -1,7 +1,8 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.create;
 
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.CAPACITY_EXCEEDED;
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.ingredient.application.IngredientPolicy;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.Measurement;

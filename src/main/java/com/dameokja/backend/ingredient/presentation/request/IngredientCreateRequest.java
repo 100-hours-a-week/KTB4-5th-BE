@@ -1,6 +1,6 @@
 package com.dameokja.backend.ingredient.presentation.request;
 
-import com.dameokja.backend.ingredient.application.IngredientCreateCommand;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
