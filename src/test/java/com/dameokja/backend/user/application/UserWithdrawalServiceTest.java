@@ -27,6 +27,8 @@ class UserWithdrawalServiceTest extends UserWithdrawalUnitTest {
         assertThat(user.getPasswordChangedAt()).isNull();
         assertThat(user.getDeletedAt()).isEqualTo(LocalDateTime.of(2026, 9, 17, 12, 0));
         verify(refrigeratorLifecycleService).deleteOwned(1L, user.getDeletedAt());
+        verify(userRepository).flush();
+        verify(authService).revokeAllUserSessions(1L);
     }
 
     @Test

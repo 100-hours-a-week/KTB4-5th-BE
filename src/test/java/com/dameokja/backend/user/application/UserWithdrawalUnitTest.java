@@ -24,6 +24,8 @@ abstract class UserWithdrawalUnitTest {
     protected UserRepository userRepository;
     @Mock
     protected RefrigeratorLifecycleService refrigeratorLifecycleService;
+    @Mock
+    protected com.dameokja.backend.auth.application.AuthService authService;
     protected UserWithdrawalService userWithdrawalService;
 
     @BeforeEach
@@ -34,7 +36,7 @@ abstract class UserWithdrawalUnitTest {
     protected void useTime(String instantText) {
         Clock clock = Clock.fixed(Instant.parse(instantText), ZoneId.of("Asia/Seoul"));
         userWithdrawalService = new UserWithdrawalService(
-                userRepository, refrigeratorLifecycleService, clock);
+                userRepository, refrigeratorLifecycleService, clock, authService);
     }
 
     protected User existingUser() {
