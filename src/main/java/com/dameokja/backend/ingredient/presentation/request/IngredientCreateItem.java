@@ -15,7 +15,7 @@ import jakarta.validation.constraints.Null;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record IngredientCreateItemRequest(
+public record IngredientCreateItem(
         @NotBlank String name, @NotNull IngredientCategory category, @NotNull StorageType storageType,
         @NotNull MeasureType measureType, BigDecimal quantity, BigDecimal weightValue, @NotNull WeightUnit weightUnit,
         @NotNull LocalDate expirationDate, @NotNull RegistrationSource registrationSource, @Null String imageUploadId
