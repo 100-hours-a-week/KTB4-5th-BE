@@ -26,11 +26,11 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void rotationRetainsUsedRecordAndUpdatesSessionWithoutExtendingOldExpiry() {
-        var first = token(1, UUID.randomUUID(), 60);
-        var second = token(1, first.sid(), 120);
+        RefreshTokenPayload first = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(1, first.sid(), 120);
         refreshSessionStore.create(first);
         refreshSessionStore.rotate(first, second);
-        var state = snapshot(refreshSessionStore, 1L);
+        UserRefreshSessions state = snapshot(refreshSessionStore, 1L);
         assertThat(state.tokens().get(first.jti()).status()).isEqualTo(RefreshTokenStatus.USED);
         assertThat(state.tokens().get(first.jti()).expiresAt()).isEqualTo(first.expiresAt());
         assertThat(state.tokens().get(second.jti()).status()).isEqualTo(RefreshTokenStatus.ACTIVE);
@@ -41,10 +41,10 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void usedReplayRevokesEverySessionOfThatUserButNotOtherUsers() {
-        var first = token(1, UUID.randomUUID(), 60);
-        var second = token(1, first.sid(), 120);
-        var otherDevice = token(1, UUID.randomUUID(), 90);
-        var otherUser = token(2, UUID.randomUUID(), 90);
+        RefreshTokenPayload first = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(1, first.sid(), 120);
+        RefreshTokenPayload otherDevice = token(1, UUID.randomUUID(), 90);
+        RefreshTokenPayload otherUser = token(2, UUID.randomUUID(), 90);
         refreshSessionStore.create(first);
         refreshSessionStore.create(otherDevice);
         refreshSessionStore.create(otherUser);
@@ -59,14 +59,14 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void logoutRevokesOnlyOneSessionAndKeepsUsedEvidenceAndSessionIndex() {
-        var first = token(1, UUID.randomUUID(), 60);
-        var second = token(1, first.sid(), 120);
-        var other = token(1, UUID.randomUUID(), 90);
+        RefreshTokenPayload first = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(1, first.sid(), 120);
+        RefreshTokenPayload other = token(1, UUID.randomUUID(), 90);
         refreshSessionStore.create(first);
         refreshSessionStore.create(other);
         refreshSessionStore.rotate(first, second);
         refreshSessionStore.revoke(second);
-        var state = snapshot(refreshSessionStore, 1L);
+        UserRefreshSessions state = snapshot(refreshSessionStore, 1L);
         assertThat(state.tokens().get(first.jti()).status()).isEqualTo(RefreshTokenStatus.USED);
         assertThat(state.tokens().get(second.jti()).status()).isEqualTo(RefreshTokenStatus.REVOKED);
         assertThat(state.sessions().get(first.sid()).status())
@@ -79,9 +79,9 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void usedReplayAfterLogoutStillRevokesOtherSessions() {
-        var first = token(1, UUID.randomUUID(), 60);
-        var second = token(1, first.sid(), 120);
-        var other = token(1, UUID.randomUUID(), 90);
+        RefreshTokenPayload first = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(1, first.sid(), 120);
+        RefreshTokenPayload other = token(1, UUID.randomUUID(), 90);
         refreshSessionStore.create(first);
         refreshSessionStore.create(other);
         refreshSessionStore.rotate(first, second);
@@ -93,12 +93,12 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void unknownOrMismatchedTokenDoesNotRevokeValidSessions() {
-        var active = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload active = token(1, UUID.randomUUID(), 60);
         refreshSessionStore.create(active);
         assertCode(() -> refreshSessionStore.rotate(token(1, active.sid(), 60), token(1,
                 active.sid(), 120)),
                 SecurityExceptionCode.REFRESH_TOKEN_INVALID);
-        var mismatch = new RefreshTokenPayload(
+        RefreshTokenPayload mismatch = new RefreshTokenPayload(
                 1L, UUID.randomUUID(), active.jti(), active.expiresAt());
         assertCode(() -> refreshSessionStore.rotate(mismatch, token(1, mismatch.sid(), 120)),
                 SecurityExceptionCode.REFRESH_TOKEN_INVALID);
@@ -107,14 +107,14 @@ class CaffeineRefreshSessionStoreTest {
 
     @Test
     void revokeAllPreservesRecordsAndLaterNewLoginRemainsIndependent() {
-        var first = token(1, UUID.randomUUID(), 60);
-        var second = token(1, UUID.randomUUID(), 120);
+        RefreshTokenPayload first = token(1, UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(1, UUID.randomUUID(), 120);
         refreshSessionStore.create(first);
         refreshSessionStore.create(second);
         refreshSessionStore.revokeAll(1L);
         assertRevoked(1L);
         assertThat(snapshot(refreshSessionStore, 1L).expiresAt()).isEqualTo(second.expiresAt());
-        var later = token(1, UUID.randomUUID(), 150);
+        RefreshTokenPayload later = token(1, UUID.randomUUID(), 150);
         refreshSessionStore.create(later);
         refreshSessionStore.rotate(later, token(1, later.sid(), 180));
         assertThat(snapshot(refreshSessionStore, 1L).sessions().get(first.sid()).status())
@@ -122,7 +122,7 @@ class CaffeineRefreshSessionStoreTest {
     }
 
     private void assertRevoked(Long userId) {
-        var state = snapshot(refreshSessionStore, userId);
+        UserRefreshSessions state = snapshot(refreshSessionStore, userId);
         assertThat(state.sessions().values())
                 .allMatch(sessionRecord -> sessionRecord.status() == RefreshSessionStatus.REVOKED);
         assertThat(state.tokens().values())

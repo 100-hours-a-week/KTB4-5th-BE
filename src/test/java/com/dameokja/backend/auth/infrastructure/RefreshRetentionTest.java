@@ -28,9 +28,9 @@ class RefreshRetentionTest {
 
     @Test
     void expiredUsedReplayDoesNotRevokeOtherSessionsAndOnlyExpiredRecordsArePruned() {
-        var first = token(UUID.randomUUID(), 60);
-        var second = token(first.sid(), 120);
-        var other = token(UUID.randomUUID(), 180);
+        RefreshTokenPayload first = token(UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(first.sid(), 120);
+        RefreshTokenPayload other = token(UUID.randomUUID(), 180);
         refreshSessionStore.create(first);
         refreshSessionStore.rotate(first, second);
         refreshSessionStore.create(other);
@@ -39,7 +39,7 @@ class RefreshRetentionTest {
                 .isInstanceOfSatisfying(CustomException.class, error -> assertThat(error
                         .getExceptionCode())
                         .isEqualTo(SecurityExceptionCode.REFRESH_TOKEN_EXPIRED));
-        var state = snapshot(refreshSessionStore, 1L);
+        UserRefreshSessions state = snapshot(refreshSessionStore, 1L);
         assertThat(state.tokens()).doesNotContainKey(first.jti()).containsKeys(second.jti());
         assertThat(state.sessionIds()).containsExactlyInAnyOrder(first.sid(), other.sid());
         assertThat(state.tokens().get(other.jti()).status()).isEqualTo(RefreshTokenStatus.ACTIVE);
@@ -52,8 +52,8 @@ class RefreshRetentionTest {
 
     @Test
     void revocationDoesNotExtendRetentionAndSessionKeepsLatestOriginalExpiry() {
-        var first = token(UUID.randomUUID(), 120);
-        var shorter = token(first.sid(), 90);
+        RefreshTokenPayload first = token(UUID.randomUUID(), 120);
+        RefreshTokenPayload shorter = token(first.sid(), 90);
         refreshSessionStore.create(first);
         refreshSessionStore.rotate(first, shorter);
         assertThat(snapshot(refreshSessionStore, 1L).expiresAt()).isEqualTo(first.expiresAt());
@@ -61,7 +61,7 @@ class RefreshRetentionTest {
         refreshSessionStore.revoke(shorter);
         assertThat(snapshot(refreshSessionStore, 1L).expiresAt()).isEqualTo(first.expiresAt());
         clock.now = shorter.expiresAt();
-        var state = snapshot(refreshSessionStore, 1L);
+        UserRefreshSessions state = snapshot(refreshSessionStore, 1L);
         assertThat(state.tokens()).containsOnlyKeys(first.jti());
         assertThat(state.tokens().get(first.jti()).status()).isEqualTo(RefreshTokenStatus.USED);
         assertThat(state.sessions().get(first.sid()).status())
@@ -72,8 +72,8 @@ class RefreshRetentionTest {
 
     @Test
     void readsAndRevokeAllNeverExtendUserIndexLifetime() {
-        var first = token(UUID.randomUUID(), 60);
-        var second = token(UUID.randomUUID(), 120);
+        RefreshTokenPayload first = token(UUID.randomUUID(), 60);
+        RefreshTokenPayload second = token(UUID.randomUUID(), 120);
         refreshSessionStore.create(first);
         refreshSessionStore.create(second);
         clock.now = start.plusSeconds(30);
