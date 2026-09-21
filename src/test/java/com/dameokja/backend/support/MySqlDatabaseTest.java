@@ -14,6 +14,8 @@ public abstract class MySqlDatabaseTest {
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();
+        registry.add("jwt.secret", () -> java.util.Base64.getEncoder()
+                .encodeToString(new byte[32]));
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.sql.init.mode", () -> "never");
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
