@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.detail;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import java.time.LocalDate;

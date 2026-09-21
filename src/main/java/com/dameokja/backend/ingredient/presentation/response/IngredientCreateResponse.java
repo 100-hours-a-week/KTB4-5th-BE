@@ -1,7 +1,7 @@
 package com.dameokja.backend.ingredient.presentation.response;
 
-import com.dameokja.backend.ingredient.application.IngredientWriteResult;
-import com.dameokja.backend.ingredient.application.IngredientWriteItem;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;

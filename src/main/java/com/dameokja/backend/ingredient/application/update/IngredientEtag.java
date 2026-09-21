@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.update;
 
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_INPUT;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.STALE_VERSION;

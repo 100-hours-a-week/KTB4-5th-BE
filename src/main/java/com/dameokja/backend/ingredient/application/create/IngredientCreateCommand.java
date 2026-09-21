@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.create;
 
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.MeasureType;

@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application;
+package com.dameokja.backend.ingredient.application.detail;
 
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.NOT_FOUND;
 

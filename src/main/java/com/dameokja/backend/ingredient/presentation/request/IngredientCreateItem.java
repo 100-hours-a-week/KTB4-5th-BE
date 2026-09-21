@@ -3,7 +3,7 @@ package com.dameokja.backend.ingredient.presentation.request;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_INPUT;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.ingredient.application.IngredientCreateCommand;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;

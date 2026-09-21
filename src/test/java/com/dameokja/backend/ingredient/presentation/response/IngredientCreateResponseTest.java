@@ -2,8 +2,8 @@ package com.dameokja.backend.ingredient.presentation.response;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.dameokja.backend.ingredient.application.IngredientWriteItem;
-import com.dameokja.backend.ingredient.application.IngredientWriteResult;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;

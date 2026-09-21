@@ -54,6 +54,40 @@ final class IngredientApiExamples {
             }
             """;
 
+    static final String UPDATE_REQUEST = """
+            {
+              "name": "두부",
+              "category": "TOFU_BEAN",
+              "storageType": "REFRIGERATED",
+              "quantity": null,
+              "weightValue": "250.000",
+              "weightUnit": "G",
+              "expirationDate": "2026-09-15"
+            }
+            """;
+
+    static final String UPDATE_RESPONSE = """
+            {
+              "code": "INGREDIENT-200-004",
+              "message": "재고 수정 성공",
+              "data": {
+                "ingredientId": "1",
+                "name": "두부",
+                "category": "TOFU_BEAN",
+                "storageType": "REFRIGERATED",
+                "measureType": "WEIGHT",
+                "quantity": null,
+                "weightValue": "250.000",
+                "weightUnit": "G",
+                "expirationDate": "2026-09-15",
+                "createdDate": "2026-09-01",
+                "registrationSource": "RECEIPT",
+                "status": "EXPIRED",
+                "daysUntilExpiration": -1
+              }
+            }
+            """;
+
     static final String CREATE_RESPONSE = """
             {
               "code": "INGREDIENT-201-001",
