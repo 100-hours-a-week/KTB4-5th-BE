@@ -119,7 +119,7 @@ public interface AuthApi {
                     responseCode = "403",
                     description = "CSRF 토큰이 없거나 올바르지 않음 (COMMON-403-CSRF-001)"
             ),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (AUTH-500-003)")
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     SuccessResponse<Void> logout(
             @Parameter(

@@ -41,8 +41,6 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
                 && "/api/v1/auth/sessions".equals(request.getRequestURI())) {
             if (exceptionCode == SecurityExceptionCode.AUTHENTICATION_REQUIRED) {
                 exceptionCode = AuthExceptionCode.LOGOUT_REQUIRED;
-            } else if (exceptionCode.getStatus().is5xxServerError()) {
-                exceptionCode = AuthExceptionCode.LOGOUT_FAILED;
             }
         }
         response.setStatus(exceptionCode.getStatus().value());
