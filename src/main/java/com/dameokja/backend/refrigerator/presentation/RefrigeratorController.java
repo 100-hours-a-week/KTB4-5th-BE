@@ -21,7 +21,7 @@ public class RefrigeratorController implements RefrigeratorApi {
     private final RefrigeratorService refrigeratorService;
 
     @Override
-    @GetMapping("/refrigerators")
+    @GetMapping("/refrigerators/current")
     public ResponseEntity<SuccessResponse<List<RefrigeratorResponse>>> getActiveRefrigerators(
             @LoginUser Long userId) {
         List<RefrigeratorResponse> response = refrigeratorService.getActiveRefrigerators(userId).stream()
