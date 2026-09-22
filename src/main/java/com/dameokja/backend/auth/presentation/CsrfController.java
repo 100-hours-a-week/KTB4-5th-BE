@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class CsrfController implements CsrfApi {
     @Override
-    @GetMapping("/api/v1/csrf")
+    @GetMapping("/api/v1/auth/csrf")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void csrf(CsrfToken csrfToken) {
         csrfToken.getToken();

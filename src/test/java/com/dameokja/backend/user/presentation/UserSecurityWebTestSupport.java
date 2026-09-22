@@ -52,7 +52,7 @@ abstract class UserSecurityWebTestSupport {
 
     Cookie csrf() throws Exception {
         return mockMvc
-                .perform(get("/api/v1/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+                .perform(get("/api/v1/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN");
     }
 
     @TestConfiguration(proxyBeanMethods = false)
