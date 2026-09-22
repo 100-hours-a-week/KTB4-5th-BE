@@ -37,6 +37,9 @@ push:
   auth-encryption:
     key: ${PUSH_AUTH_ENCRYPTION_KEY}
     key-version: ${PUSH_AUTH_ENCRYPTION_KEY_VERSION}
+  vapid:
+    public-key: ${PUSH_VAPID_PUBLIC_KEY}
+    key-version: ${PUSH_VAPID_KEY_VERSION}
 
 management:
   endpoints:
