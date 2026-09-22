@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.ExceptionCode;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import java.lang.reflect.Method;
 import java.time.Clock;
@@ -37,7 +39,7 @@ class LoginUserArgumentResolverTest {
 
     @Test
     void rejectsMissingAuthorizationHeader() throws Exception {
-        assertCode(new MockHttpServletRequest(), SecurityExceptionCode.AUTHENTICATION_REQUIRED);
+        assertCode(new MockHttpServletRequest(), GlobalExceptionCode.UNAUTHORIZED);
     }
 
     @Test
@@ -48,7 +50,7 @@ class LoginUserArgumentResolverTest {
         assertCode(request, SecurityExceptionCode.ACCESS_TOKEN_INVALID);
     }
 
-    private void assertCode(MockHttpServletRequest request, SecurityExceptionCode code)
+    private void assertCode(MockHttpServletRequest request, ExceptionCode code)
             throws Exception {
         assertThatThrownBy(() -> resolver.resolveArgument(loginUserParameter(), null,
                 new ServletWebRequest(request), null)).isInstanceOf(CustomException.class)

@@ -43,7 +43,7 @@ public interface AuthApi {
             @ApiResponse(
                     responseCode = "403",
                     description = "CSRF 토큰이 없거나 올바르지 않음 (COMMON-403-CSRF-001), "
-                            + "이용할 수 없는 계정 (USER_NOT_ACTIVE)"
+                            + "탈퇴한 회원 (USER-403-001)"
             ),
             @ApiResponse(responseCode = "404", description = "존재하지 않는 아이디 (AUTH-404-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
@@ -82,8 +82,9 @@ public interface AuthApi {
             @ApiResponse(
                     responseCode = "403",
                     description = "CSRF 토큰이 없거나 올바르지 않음 (COMMON-403-CSRF-001), "
-                            + "이용할 수 없는 계정 (USER_NOT_ACTIVE)"
+                            + "탈퇴한 회원 (USER-403-001)"
             ),
+            @ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음 (USER-404-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     SuccessResponse<RenewalData> refresh(
@@ -112,7 +113,7 @@ public interface AuthApi {
             ),
             @ApiResponse(
                     responseCode = "401",
-                    description = "로그인이 필요함 (AUTH-401-004), 인증 토큰이 만료·유효하지 않음 "
+                    description = "로그인이 필요함 (GLOBAL-401-001), 인증 토큰이 만료·유효하지 않음 "
                             + "(ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"
             ),
             @ApiResponse(

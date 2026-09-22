@@ -10,6 +10,7 @@ public enum GlobalExceptionCode implements ExceptionCode {
 
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "GLOBAL-400-001", "요청 형식이 올바르지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "GLOBAL-401-001", "로그인이 필요합니다."),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "GLOBAL-403-001", "접근 권한이 없습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "GLOBAL-404-001", "대상을 찾을 수 없습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "GLOBAL-405-001", "지원하지 않는 메서드입니다."),
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "GLOBAL-406-001", "지원하지 않는 응답 형식입니다."),

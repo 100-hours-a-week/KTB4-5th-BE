@@ -114,7 +114,7 @@ class AuthLifecycleWebTest extends SecurityWebTestSupport {
         mockMvc.perform(delete("/api/v1/auth/sessions").cookie(csrf, refresh)
                         .header("X-XSRF-TOKEN", csrf.getValue()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTH-401-004"));
+                .andExpect(jsonPath("$.code").value("GLOBAL-401-001"));
         clock.advance(Duration.ofMinutes(15));
         mockMvc.perform(delete("/api/v1/auth/sessions")
                         .cookie(csrf, refresh, login.getCookie("accessToken"))
