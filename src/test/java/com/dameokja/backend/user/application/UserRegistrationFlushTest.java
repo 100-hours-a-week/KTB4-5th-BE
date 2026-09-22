@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,7 +43,8 @@ class UserRegistrationFlushTest {
         Clock clock = Clock.fixed(Instant.parse("2026-09-17T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService,
-                new UserRegistrationFactory(nicknamePolicy, loginIdPolicy, "default.png"), clock);
+                new UserRegistrationFactory("default.png"), clock,
+                nicknamePolicy, loginIdPolicy, new PasswordPolicy(), new BCryptPasswordEncoder());
     }
 
     @ParameterizedTest
@@ -74,7 +76,7 @@ class UserRegistrationFlushTest {
     }
 
     private void register() {
-        userRegistrationService.register(new RegisterUserCommand("User2", null, "login1", "hash"));
+        userRegistrationService.register(new RegisterUserCommand("User2", null, "login1", "pass1234"));
     }
 
     @Test

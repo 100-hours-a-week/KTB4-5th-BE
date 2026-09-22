@@ -7,7 +7,7 @@ import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberReposi
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.RegisterUserCommand;
-import com.dameokja.backend.user.application.UserProfile;
+import com.dameokja.backend.user.application.RegistrationResult;
 import com.dameokja.backend.user.application.UserRegistrationService;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
@@ -37,7 +37,7 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
     RefrigeratorMemberRepository refrigeratorMemberRepository;
 
     private RegisterUserCommand command(String nickname, String loginId) {
-        return new RegisterUserCommand(nickname, "profiles/default.png", loginId, "x".repeat(60));
+        return new RegisterUserCommand(nickname, "profiles/default.png", loginId, "pass1234");
     }
 
     @ParameterizedTest
@@ -79,7 +79,7 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
                 () -> userRegistrationService.register(command(
                         duplicateField.equals("nickname") ? "User1" : "User2",
                         duplicateField.equals("loginId") ? "login1" : "login2"))));
-        assertThat(concurrentResults.stream().filter(UserProfile.class::isInstance))
+        assertThat(concurrentResults.stream().filter(RegistrationResult.class::isInstance))
                 .withFailMessage("Concurrent results: %s", concurrentResults).hasSize(1);
         List<CustomException> registrationExceptions = concurrentResults.stream()
                 .filter(CustomException.class::isInstance)
