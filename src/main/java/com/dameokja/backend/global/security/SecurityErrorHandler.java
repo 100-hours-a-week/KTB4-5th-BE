@@ -1,8 +1,8 @@
 package com.dameokja.backend.global.security;
 
 import com.dameokja.backend.global.exception.ErrorResponse;
-import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.exception.ExceptionCode;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -24,25 +24,18 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException exception) throws IOException {
-        write(request, response, SecurityExceptionCode.AUTHENTICATION_REQUIRED);
+        write(response, GlobalExceptionCode.UNAUTHORIZED);
     }
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
             AccessDeniedException exception) throws IOException {
-        write(request, response, exception instanceof CsrfException
-                ? SecurityExceptionCode.CSRF_TOKEN_INVALID : SecurityExceptionCode.ACCESS_DENIED);
+        write(response, exception instanceof CsrfException
+                ? SecurityExceptionCode.CSRF_TOKEN_INVALID : GlobalExceptionCode.FORBIDDEN);
     }
 
-    public void write(HttpServletRequest request, HttpServletResponse response,
-            ExceptionCode exceptionCode)
+    public void write(HttpServletResponse response, ExceptionCode exceptionCode)
             throws IOException {
-        if ("DELETE".equals(request.getMethod())
-                && "/api/v1/auth/sessions".equals(request.getRequestURI())) {
-            if (exceptionCode == SecurityExceptionCode.AUTHENTICATION_REQUIRED) {
-                exceptionCode = AuthExceptionCode.LOGOUT_REQUIRED;
-            }
-        }
         response.setStatus(exceptionCode.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

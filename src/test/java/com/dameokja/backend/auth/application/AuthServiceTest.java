@@ -6,9 +6,9 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.ExceptionCode;
 import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.user.application.AuthenticatedUser;
 import com.dameokja.backend.user.application.UserAuthenticationService;
+import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import java.time.Clock;
 import java.time.Duration;
@@ -65,9 +65,22 @@ class AuthServiceTest {
     void inactiveUserCannotRefreshAndSessionIsRevoked() {
         TokenPair tokens = service.login("user", "password");
         when(userAuthenticationService.findActiveForUpdate(1L))
-                .thenThrow(new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE));
+                .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
         assertCode(() -> service.refresh(tokens.refreshToken()),
-                SecurityExceptionCode.USER_NOT_ACTIVE);
+                UserExceptionCode.USER_NOT_ACTIVE);
+        doReturn(new AuthenticatedUser(1L, UserRole.USER))
+                .when(userAuthenticationService).findActiveForUpdate(1L);
+        assertCode(() -> service.refresh(tokens.refreshToken()),
+                AuthExceptionCode.REFRESH_INVALID);
+    }
+
+    @Test
+    void missingUserCannotRefreshAndSessionIsRevoked() {
+        TokenPair tokens = service.login("user", "password");
+        when(userAuthenticationService.findActiveForUpdate(1L))
+                .thenThrow(new CustomException(UserExceptionCode.USER_NOT_FOUND));
+        assertCode(() -> service.refresh(tokens.refreshToken()),
+                UserExceptionCode.USER_NOT_FOUND);
         doReturn(new AuthenticatedUser(1L, UserRole.USER))
                 .when(userAuthenticationService).findActiveForUpdate(1L);
         assertCode(() -> service.refresh(tokens.refreshToken()),

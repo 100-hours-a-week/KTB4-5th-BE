@@ -54,8 +54,7 @@ class JwtAuthenticationFilterTest {
                 .thenThrow(new CustomException(SecurityExceptionCode.ACCESS_TOKEN_INVALID));
         jwtAuthenticationFilter.doFilter(request, response, filterChain);
         verify(jwtProvider).parseAccessTokenPayload("");
-        verify(securityErrorHandler).write(request, response,
-                SecurityExceptionCode.ACCESS_TOKEN_INVALID);
+        verify(securityErrorHandler).write(response, SecurityExceptionCode.ACCESS_TOKEN_INVALID);
         verifyNoInteractions(filterChain);
     }
 
@@ -65,8 +64,7 @@ class JwtAuthenticationFilterTest {
         when(jwtProvider.parseAccessTokenPayload("bad"))
                 .thenThrow(new CustomException(SecurityExceptionCode.ACCESS_TOKEN_INVALID));
         jwtAuthenticationFilter.doFilter(request, response, filterChain);
-        verify(securityErrorHandler).write(request, response,
-                SecurityExceptionCode.ACCESS_TOKEN_INVALID);
+        verify(securityErrorHandler).write(response, SecurityExceptionCode.ACCESS_TOKEN_INVALID);
         verifyNoInteractions(filterChain);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }

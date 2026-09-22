@@ -2,8 +2,8 @@ package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.auth.domain.AuthExceptionCode;
-import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.nio.charset.StandardCharsets;
@@ -46,20 +46,20 @@ public class UserAuthenticationService {
 
     public AuthenticatedUser findActive(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE));
+                .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
         return activeUser(user);
     }
 
     @Transactional
     public AuthenticatedUser findActiveForUpdate(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE));
+                .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
         return activeUser(user);
     }
 
     private AuthenticatedUser activeUser(User user) {
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE);
+            throw new CustomException(UserExceptionCode.USER_NOT_ACTIVE);
         }
         return new AuthenticatedUser(user.getId(), user.getRole());
     }

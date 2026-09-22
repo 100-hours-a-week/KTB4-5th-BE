@@ -5,8 +5,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.user.application.AuthenticatedUser;
+import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ class JwtFilterFailureWebTest extends SecurityWebTestSupport {
     @Test
     void validTokenAuthenticatesWithoutUserLookup() throws Exception {
         when(userAuthenticationService.findActive(7L))
-                .thenThrow(new CustomException(SecurityExceptionCode.USER_NOT_ACTIVE));
+                .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
         mockMvc.perform(get("/api/test/me").cookie(access())).andExpect(status().isOk())
                 .andExpect(content().string("7"));
         verifyNoInteractions(userAuthenticationService);
@@ -86,7 +86,7 @@ class JwtFilterFailureWebTest extends SecurityWebTestSupport {
         doThrow(new BadCredentialsException("bad credentials"))
                 .when(tokenValidator).parseAccessTokenPayload(anyString());
         mockMvc.perform(get("/api/test/me").cookie(access())).andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("GLOBAL-401-001"));
     }
 
     @Test
@@ -94,7 +94,7 @@ class JwtFilterFailureWebTest extends SecurityWebTestSupport {
         doThrow(new AccessDeniedException("denied"))
                 .when(tokenValidator).parseAccessTokenPayload(anyString());
         mockMvc.perform(get("/api/test/me").cookie(access())).andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("GLOBAL-403-001"));
     }
 
     @Test

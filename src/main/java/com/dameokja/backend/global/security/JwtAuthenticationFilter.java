@@ -56,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         } catch (CustomException exception) {
             SecurityContextHolder.clearContext();
-            securityErrorHandler.write(request, response, exception.getExceptionCode());
+            securityErrorHandler.write(response, exception.getExceptionCode());
         } catch (AuthenticationException exception) {
             SecurityContextHolder.clearContext();
             securityErrorHandler.commence(request, response, exception);
@@ -66,8 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();
             log.error("JWT 인증 처리 실패: {}", exception.getClass().getName());
-            securityErrorHandler.write(request, response,
-                    GlobalExceptionCode.INTERNAL_SERVER_ERROR);
+            securityErrorHandler.write(response, GlobalExceptionCode.INTERNAL_SERVER_ERROR);
         }
         return false;
     }

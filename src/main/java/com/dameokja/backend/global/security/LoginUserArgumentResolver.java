@@ -1,6 +1,7 @@
 package com.dameokja.backend.global.security;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -28,7 +29,7 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
             NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         String authorization = webRequest.getHeader(HttpHeaders.AUTHORIZATION);
         if (authorization == null || authorization.isBlank()) {
-            throw new CustomException(SecurityExceptionCode.AUTHENTICATION_REQUIRED);
+            throw new CustomException(GlobalExceptionCode.UNAUTHORIZED);
         }
         if (!authorization.startsWith(BEARER_PREFIX)
                 || authorization.length() == BEARER_PREFIX.length()) {

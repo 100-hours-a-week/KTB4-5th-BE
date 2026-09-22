@@ -2,10 +2,10 @@ package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.ExceptionCode;
-import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserCredentials;
+import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -52,13 +52,17 @@ class UserAuthenticationServiceTest {
     }
 
     @Test
-    void missingAndWithdrawnUsersCannotRenewAuthentication() {
+    void missingUserCannotRenewAuthentication() {
         when(repository.findById(1L)).thenReturn(Optional.empty());
-        assertCode(() -> service.findActive(1L), SecurityExceptionCode.USER_NOT_ACTIVE);
+        assertCode(() -> service.findActive(1L), UserExceptionCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void withdrawnUserCannotRenewAuthentication() {
         User user = user();
         user.withdraw("withdrawn", LocalDateTime.now());
         when(repository.findById(1L)).thenReturn(Optional.of(user));
-        assertCode(() -> service.findActive(1L), SecurityExceptionCode.USER_NOT_ACTIVE);
+        assertCode(() -> service.findActive(1L), UserExceptionCode.USER_NOT_ACTIVE);
     }
 
     @Test
@@ -69,7 +73,7 @@ class UserAuthenticationServiceTest {
         when(repository.findIdByLoginId("user")).thenReturn(Optional.of(1L));
         when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         assertCode(() -> service.authenticate("user", "password"),
-                SecurityExceptionCode.USER_NOT_ACTIVE);
+                UserExceptionCode.USER_NOT_ACTIVE);
     }
 
     private void assertCode(Runnable action, ExceptionCode code) {

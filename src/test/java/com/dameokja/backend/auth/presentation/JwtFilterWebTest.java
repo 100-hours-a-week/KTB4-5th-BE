@@ -21,7 +21,7 @@ class JwtFilterWebTest extends SecurityWebTestSupport {
     @Test
     void missingAccessRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/test/me")).andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.code").value("GLOBAL-401-001"));
     }
 
     @Test

@@ -4,10 +4,10 @@ import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserCredentials;
+import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +35,21 @@ class AuthIntegrationTest extends ServiceIntegrationTest {
         assertThatThrownBy(() -> authService.refresh(refreshed.refreshToken()))
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getExceptionCode())
-                .isEqualTo(SecurityExceptionCode.USER_NOT_ACTIVE);
+                .isEqualTo(UserExceptionCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
+    void rejectsRefreshAfterUserIsDeleted() {
+        User user = userRepository.saveAndFlush(new User("User2", "profiles/test.png",
+                new UserCredentials("login2", passwordEncoder.encode("password"),
+                        LocalDateTime.of(2026, 9, 20, 0, 0))));
+        TokenPair login = authService.login("login2", "password");
+        TokenPair refreshed = authService.refresh(login.refreshToken());
+        userRepository.delete(user);
+        userRepository.flush();
+        assertThatThrownBy(() -> authService.refresh(refreshed.refreshToken()))
+                .isInstanceOf(CustomException.class)
+                .extracting(error -> ((CustomException) error).getExceptionCode())
+                .isEqualTo(UserExceptionCode.USER_NOT_FOUND);
     }
 }
