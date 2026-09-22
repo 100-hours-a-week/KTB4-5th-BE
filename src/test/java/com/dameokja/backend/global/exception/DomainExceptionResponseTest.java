@@ -24,7 +24,7 @@ class DomainExceptionResponseTest {
                 Arguments.of(new CustomException(UserExceptionCode.NICKNAME_FORMAT_INVALID),
                         400, "USER-400-003", "닉네임은 한글, 영문, 숫자만 사용할 수 있습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.NICKNAME_PROHIBITED),
-                        400, "USER-400-004", "사용할 수 없는 닉네임입니다."),
+                        422, "USER-422-001", "사용할 수 없는 닉네임입니다."),
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_FORMAT_INVALID),
                         400, "USER-400-006", "로그인 아이디는 한글, 영문, 숫자만 사용할 수 있습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_REQUIRED),
@@ -52,7 +52,7 @@ class DomainExceptionResponseTest {
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_LENGTH_INVALID),
                         400, "USER-400-009", "로그인 아이디는 2~10자로 입력해 주세요."),
                 Arguments.of(new CustomException(UserExceptionCode.LOGIN_ID_PROHIBITED),
-                        400, "USER-400-010", "사용할 수 없는 로그인 아이디입니다."));
+                        422, "USER-422-002", "사용할 수 없는 로그인 아이디입니다."));
     }
 
     @ParameterizedTest
