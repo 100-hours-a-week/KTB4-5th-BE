@@ -13,7 +13,7 @@ public interface CsrfApi {
     @Operation(
             summary = "CSRF 토큰 발급",
             description = "CSRF 토큰을 쿠키(XSRF-TOKEN)로 발급합니다. 로그인·회원가입·로그아웃 등 "
-                    + "상태를 변경하는 요청 전에 먼저 호출해 토큰을 받아야 합니다. "
+                    + "상태를 변경하는 요청에는 유효한 CSRF 토큰이 필요하며, 아직 없다면 이 API로 먼저 발급받습니다. "
                     + "응답 본문은 없으며, 이후 요청에는 발급받은 토큰을 X-XSRF-TOKEN 헤더에 담아 보냅니다."
     )
     @ApiResponses({
