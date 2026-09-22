@@ -92,6 +92,7 @@ class AuthContractWebTest extends SecurityWebTestSupport {
                         .header("X-XSRF-TOKEN", csrf.getValue()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("AUTH-200-006"))
+                .andExpect(jsonPath("$.message").value("인증정보 갱신 성공"))
                 .andExpect(jsonPath("$.data.userId").value("7"))
                 .andReturn().getResponse();
         mockMvc.perform(delete("/api/v1/auth/sessions")
