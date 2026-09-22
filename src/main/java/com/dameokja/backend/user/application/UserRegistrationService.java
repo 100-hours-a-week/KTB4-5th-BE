@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,26 +24,33 @@ public class UserRegistrationService {
     private final UserRegistrationFactory userRegistrationFactory;
     private final Clock clock;
 
-    public UserProfile register(RegisterUserCommand registerUserCommand) {
+    private final NicknamePolicy nicknamePolicy;
+    private final LoginIdPolicy loginIdPolicy;
+    private final PasswordPolicy passwordPolicy;
+    private final PasswordEncoder passwordEncoder;
+
+    public RegistrationResult register(RegisterUserCommand registerUserCommand) {
         LocalDateTime registeredAt = now();
-        User newUser = userRegistrationFactory.create(registerUserCommand, registeredAt);
+        String nickname = validateInput(registerUserCommand);
+        String passwordHash = passwordEncoder.encode(registerUserCommand.password());
+        User newUser = userRegistrationFactory.create(registerUserCommand, nickname, passwordHash, registeredAt);
         try {
-            validateUniqueAccount(registerUserCommand);
+            validateUniqueAccount(nickname, registerUserCommand.loginId());
             User user = userRepository.save(newUser);
-            refrigeratorLifecycleService.createPersonal(
+            Long refrigeratorId = refrigeratorLifecycleService.createPersonal(
                     user, YearMonth.from(registeredAt).toString());
             userRepository.flush();
-            return profile(user);
+            return new RegistrationResult(user.getId(), refrigeratorId);
         } catch (DataIntegrityViolationException dataIntegrityViolationException) {
             throw UserConstraintExceptionTranslator.translate(dataIntegrityViolationException);
         }
     }
 
-    private void validateUniqueAccount(RegisterUserCommand registerUserCommand) {
-        if (userRepository.existsByNickname(registerUserCommand.nickname())) {
+    private void validateUniqueAccount(String nickname, String loginId) {
+        if (userRepository.existsByNickname(nickname)) {
             throw new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
         }
-        if (userRepository.existsByLoginId(registerUserCommand.loginId())) {
+        if (userRepository.existsByLoginId(loginId)) {
             throw new CustomException(UserExceptionCode.LOGIN_ID_DUPLICATE);
         }
     }
@@ -51,7 +59,15 @@ public class UserRegistrationService {
         return LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Seoul"));
     }
 
-    private UserProfile profile(User user) {
-        return new UserProfile(user.getId(), user.getNickname(), user.getProfileImageKey());
+    private String validateInput(RegisterUserCommand command) {
+        loginIdPolicy.validate(command.loginId());
+        String nickname = command.nickname();
+        if (nickname == null || nickname.codePoints().allMatch(
+                codePoint -> Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint))) {
+            nickname = command.loginId();
+        }
+        nicknamePolicy.validate(nickname);
+        passwordPolicy.validate(command.password());
+        return nickname;
     }
 }
