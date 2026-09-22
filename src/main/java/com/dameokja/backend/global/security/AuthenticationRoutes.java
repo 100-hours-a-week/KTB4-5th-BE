@@ -8,7 +8,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 public final class AuthenticationRoutes {
     public static final RequestMatcher PUBLIC = new OrRequestMatcher(
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/sessions"),
-            PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/signup"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/users"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/token-renewals"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/csrf"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/swagger-ui.html"),
