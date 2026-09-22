@@ -18,10 +18,11 @@ public class RefrigeratorLifecycleService {
     private final RefrigeratorRepository refrigeratorRepository;
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
 
-    public void createPersonal(User user, String expiredCountMonth) {
+    public Long createPersonal(User user, String expiredCountMonth) {
         Refrigerator refrigerator = refrigeratorRepository.save(
                 new Refrigerator(user.getNickname(), expiredCountMonth));
         refrigeratorMemberRepository.save(RefrigeratorMember.owner(user, refrigerator));
+        return refrigerator.getId();
     }
 
     public void deleteOwned(Long userId, LocalDateTime deletedAt) {
