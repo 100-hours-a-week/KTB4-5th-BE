@@ -36,8 +36,9 @@ public class UserDevice extends BaseEntity {
     private String endpoint;
     @Column(name = "p256dh_key", nullable = false, length = 128)
     private String p256dhKey;
+    // 스키마의 BLOB(TINYBLOB 아님) 타입과 맞추기 위한 명시이며 실제 크기 제한이 아니다.
     @Lob
-    @Column(name = "auth_secret_encrypted", nullable = false, length = 65535)
+    @Column(name = "auth_secret_encrypted", nullable = false, columnDefinition = "BLOB")
     private byte[] authSecretEncrypted;
     @Column(name = "encryption_key_version", nullable = false, length = 64)
     private String encryptionKeyVersion;
