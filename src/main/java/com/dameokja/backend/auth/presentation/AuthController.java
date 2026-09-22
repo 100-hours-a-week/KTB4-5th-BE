@@ -19,12 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class AuthController implements AuthApi {
     private final AuthService authService;
     private final AuthCookies authCookies;
     private final CsrfTokenRotator csrfTokenRotator;
     private final RefrigeratorAccessService refrigeratorAccessService;
 
+    @Override
     @PostMapping("/sessions")
     public SuccessResponse<LoginData> login(@Valid @RequestBody LoginRequest credentials,
             HttpServletRequest request, HttpServletResponse response) {
@@ -37,6 +38,7 @@ public class AuthController {
         return SuccessResponse.of("AUTH-200-001", "로그인 성공", new LoginData(activeRefrigeratorIds));
     }
 
+    @Override
     @PostMapping("/token-renewals")
     public SuccessResponse<RenewalData> refresh(
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
@@ -47,6 +49,7 @@ public class AuthController {
                 new RenewalData(tokenPair.userId().toString()));
     }
 
+    @Override
     @DeleteMapping("/sessions")
     public SuccessResponse<Void> logout(
             @CookieValue(name = "refreshToken", required = false) String refreshToken,
