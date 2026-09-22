@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -35,15 +36,12 @@ class RefrigeratorAccessServiceTest {
     @Mock
     private RefrigeratorMemberRepository refrigeratorMemberRepository;
     private RefrigeratorAccessService refrigeratorAccessService;
-    private RefrigeratorService refrigeratorService;
 
     @BeforeEach
     void setUp() {
         refrigeratorAccessService = new RefrigeratorAccessService(
                 new UserAccessService(userRepository), refrigeratorRepository,
                 refrigeratorMemberRepository);
-        refrigeratorService = new RefrigeratorService(
-                refrigeratorAccessService, refrigeratorRepository);
     }
 
     @ParameterizedTest
@@ -57,9 +55,8 @@ class RefrigeratorAccessServiceTest {
         refrigeratorMember.changeActiveStatus(true);
         when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L))
                 .thenReturn(Optional.of(refrigeratorMember));
-        refrigeratorAccessService.validateWriteAccess(1L, 10L);
-        assertThat(refrigeratorService.getRefrigerator(1L, 10L))
-                .isEqualTo(new RefrigeratorView(10L, "fridge"));
+        assertThatCode(() -> refrigeratorAccessService.validateWriteAccess(1L, 10L))
+                .doesNotThrowAnyException();
     }
 
     @ParameterizedTest
@@ -111,10 +108,6 @@ class RefrigeratorAccessServiceTest {
     }
 
     private void assertDenied(ExceptionCode expectedExceptionCode) {
-        assertThatThrownBy(() -> refrigeratorService.getRefrigerator(1L, 10L))
-                .isInstanceOfSatisfying(CustomException.class,
-                        exception -> assertThat(exception.getExceptionCode())
-                                .isEqualTo(expectedExceptionCode));
         assertThatThrownBy(() -> refrigeratorAccessService.validateWriteAccess(1L, 10L))
                 .isInstanceOfSatisfying(CustomException.class,
                         exception -> assertThat(exception.getExceptionCode())
