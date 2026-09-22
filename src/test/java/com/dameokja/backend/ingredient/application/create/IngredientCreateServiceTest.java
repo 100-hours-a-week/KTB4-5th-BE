@@ -65,7 +65,7 @@ class IngredientCreateServiceTest {
     @Test
     void mergesAutomaticallyAndReturnsMeasurementChanges() {
         Ingredient existing = candidate(60);
-        var result = service.create(1L, 10L, List.of(command(40)));
+        IngredientWriteResult result = service.create(1L, 10L, List.of(command(40)));
 
         IngredientWriteItem mergedItem = result.items().getFirst();
         assertThat(result.mergedCount()).isEqualTo(1);

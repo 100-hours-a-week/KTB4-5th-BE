@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.UUID;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +64,7 @@ class JwtProviderTest {
 
     @Test
     void rejectsMissingAndInvalidClaims() {
-        var key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
         String missing = Jwts.builder().subject("1").claim("type", "access")
                 .signWith(key).compact();
         assertCode(() -> jwtProvider.parseAccessTokenPayload(missing),
@@ -84,13 +85,13 @@ class JwtProviderTest {
 
     @Test
     void rejectsDifferentSigningKeyAndUnsupportedAlgorithm() {
-        var other = Keys.hmacShaKeyFor(new byte[32]);
+        SecretKey other = Keys.hmacShaKeyFor(new byte[32]);
         String forged = Jwts.builder().subject("1").claim("type", "access")
                 .claim("role", "USER").issuedAt(Date.from(NOW))
                 .expiration(Date.from(NOW.plusSeconds(60))).signWith(other).compact();
         assertCode(() -> jwtProvider.parseAccessTokenPayload(forged),
                 SecurityExceptionCode.ACCESS_TOKEN_INVALID);
-        var strongerKey = Keys.hmacShaKeyFor(new byte[64]);
+        SecretKey strongerKey = Keys.hmacShaKeyFor(new byte[64]);
         String algorithm = Jwts.builder().subject("1").claim("type", "access")
                 .claim("role", "USER").issuedAt(Date.from(NOW))
                 .expiration(Date.from(NOW.plusSeconds(60))).signWith(strongerKey).compact();
@@ -100,7 +101,7 @@ class JwtProviderTest {
 
     @Test
     void rejectsUnknownRolesAndMalformedRefreshClaims() {
-        var key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
         String invalidRole = Jwts.builder().subject("1").claim("type", "access")
                 .claim("role", "UNKNOWN").issuedAt(Date.from(NOW))
                 .expiration(Date.from(NOW.plusSeconds(60))).signWith(key).compact();
@@ -117,8 +118,8 @@ class JwtProviderTest {
     @Test
     void refreshCreatesFreshUuidV4WithoutChangingSession() {
         UUID sid = UUID.randomUUID();
-        var first = jwtProvider.parseRefreshTokenPayload(jwtProvider.createRefreshToken(1L, sid));
-        var second = jwtProvider.parseRefreshTokenPayload(jwtProvider.createRefreshToken(1L, sid));
+        RefreshTokenPayload first = jwtProvider.parseRefreshTokenPayload(jwtProvider.createRefreshToken(1L, sid));
+        RefreshTokenPayload second = jwtProvider.parseRefreshTokenPayload(jwtProvider.createRefreshToken(1L, sid));
         assertThat(second.sid()).isEqualTo(first.sid());
         assertThat(second.jti()).isNotEqualTo(first.jti());
     }
@@ -132,7 +133,7 @@ class JwtProviderTest {
 
     @Test
     void userIdCustomClaimDoesNotReplaceRequiredSubject() {
-        var key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET));
         String missingSubject = Jwts.builder().claim("userId", 1L).claim("type", "access")
                 .claim("role", "USER").issuedAt(Date.from(NOW))
                 .expiration(Date.from(NOW.plusSeconds(60))).signWith(key).compact();
