@@ -91,7 +91,8 @@ class AuthContractWebTest extends SecurityWebTestSupport {
                         .cookie(csrf, new Cookie("refreshToken", tokens.refreshToken()))
                         .header("X-XSRF-TOKEN", csrf.getValue()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("AUTH-200-006"))
+                .andExpect(jsonPath("$.code").value("AUTH-200-003"))
+                .andExpect(jsonPath("$.message").value("인증정보 갱신 성공"))
                 .andExpect(jsonPath("$.data.userId").value("7"))
                 .andReturn().getResponse();
         mockMvc.perform(delete("/api/v1/auth/sessions")
@@ -100,7 +101,7 @@ class AuthContractWebTest extends SecurityWebTestSupport {
                         .header("X-XSRF-TOKEN", csrf.getValue()))
                 .andExpect(status().isOk())
                 .andExpect(content().json("""
-                        {"code":"AUTH-200-005","message":"로그아웃 성공","data":null}
+                        {"code":"AUTH-200-002","message":"로그아웃 성공","data":null}
                         """));
     }
 }
