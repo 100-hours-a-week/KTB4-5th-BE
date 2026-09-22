@@ -67,4 +67,42 @@ public class Measurement {
             throw new CustomException(IngredientExceptionCode.MERGE_LIMIT_EXCEEDED);
         }
     }
+
+    public boolean subtract(Measurement amount) {
+        validateSameMeasurement(amount);
+        if (measureType == MeasureType.COUNT) {
+            return subtractQuantity(amount.quantity);
+        }
+        return subtractWeight(amount.weightValue);
+    }
+
+    private void validateSameMeasurement(Measurement deduction) {
+        if (measureType != deduction.measureType || weightUnit != deduction.weightUnit) {
+            throw new CustomException(IngredientExceptionCode.MIXED_MEASUREMENT);
+        }
+    }
+
+    private boolean subtractQuantity(Short amount) {
+        int remaining = quantity - amount;
+        if (remaining < 0) {
+            throw new CustomException(IngredientExceptionCode.INVALID_AMOUNT);
+        }
+        if (remaining == 0) {
+            return true;
+        }
+        quantity = (short) remaining;
+        return false;
+    }
+
+    private boolean subtractWeight(BigDecimal amount) {
+        BigDecimal remaining = weightValue.subtract(amount);
+        if (remaining.signum() < 0) {
+            throw new CustomException(IngredientExceptionCode.INVALID_AMOUNT);
+        }
+        if (remaining.signum() == 0) {
+            return true;
+        }
+        weightValue = remaining;
+        return false;
+    }
 }

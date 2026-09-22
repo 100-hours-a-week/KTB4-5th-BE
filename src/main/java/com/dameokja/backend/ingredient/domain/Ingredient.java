@@ -67,4 +67,8 @@ public class Ingredient extends BaseEntity {
     public void mergeMeasurement(Measurement addition) {
         this.measurement = measurement.add(addition);
     }
+
+    public boolean expire(Measurement expiredAmount) {
+        return measurement.subtract(expiredAmount);
+    }
 }

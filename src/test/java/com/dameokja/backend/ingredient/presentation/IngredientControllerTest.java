@@ -7,6 +7,7 @@ import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
+import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
@@ -36,6 +37,7 @@ class IngredientControllerTest {
     @Mock private IngredientCreateService ingredientCreateService;
     @Mock private IngredientDetailService ingredientDetailService;
     @Mock private IngredientUpdateService ingredientUpdateService;
+    @Mock private IngredientExpireService ingredientExpireService;
 
     @Test
     void returnsDetailWithStrongEtag() {
@@ -44,7 +46,7 @@ class IngredientControllerTest {
         when(ingredientDetailService.getDetail(2L, 1L))
                 .thenReturn(new IngredientDetailResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
-                ingredientCreateService, ingredientDetailService, ingredientUpdateService);
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.getDetail(2L, 1L);
@@ -65,7 +67,7 @@ class IngredientControllerTest {
         when(ingredientUpdateService.update(2L, 1L, "\"before\"", request.toFields()))
                 .thenReturn(new IngredientUpdateResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
-                ingredientCreateService, ingredientDetailService, ingredientUpdateService);
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.update(2L, 1L, "\"before\"", request);
