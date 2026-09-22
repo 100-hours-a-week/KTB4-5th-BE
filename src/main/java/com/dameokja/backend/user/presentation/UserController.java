@@ -8,6 +8,7 @@ import com.dameokja.backend.user.application.UserSignupService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,10 +35,12 @@ public class UserController implements UserApi {
             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         SignupResult result = userSignupService.signup(request.loginId(), request.password(),
                 request.nickname());
-        var activeRefrigeratorIds = result.activeRefrigeratorIds().stream().map(String::valueOf).toList();
+        List<String> activeRefrigeratorIds =
+                result.activeRefrigeratorIds().stream().map(String::valueOf).toList();
         csrfTokenRotator.rotate(httpRequest, httpResponse);
         authCookies.write(httpResponse, result.tokenPair());
-        var body = SuccessResponse.of(SIGNUP_CODE, SIGNUP_MESSAGE, new SignupResponse(activeRefrigeratorIds));
+        SuccessResponse<SignupResponse> body =
+                SuccessResponse.of(SIGNUP_CODE, SIGNUP_MESSAGE, new SignupResponse(activeRefrigeratorIds));
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 }
