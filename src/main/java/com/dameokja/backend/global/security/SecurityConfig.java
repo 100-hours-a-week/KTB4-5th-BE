@@ -33,7 +33,7 @@ public class SecurityConfig {
     @Bean
     public CookieCsrfTokenRepository csrfTokenRepository(
             @Value("${auth.cookie.secure:true}") boolean secure) {
-        var csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfTokenRepository.setCookiePath("/");
         csrfTokenRepository.setCookieCustomizer(cookie -> cookie.secure(secure).sameSite("Lax"));
         return csrfTokenRepository;
@@ -48,7 +48,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("Content-Type", "If-Match", "X-XSRF-TOKEN"));
         configuration.setExposedHeaders(List.of("ETag"));
         configuration.setAllowCredentials(true);
-        var source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -61,7 +61,8 @@ public class SecurityConfig {
     @Bean
     public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(
             JwtAuthenticationFilter jwtAuthenticationFilter) {
-        var registration = new FilterRegistrationBean<>(jwtAuthenticationFilter);
+        FilterRegistrationBean<JwtAuthenticationFilter> registration =
+                new FilterRegistrationBean<>(jwtAuthenticationFilter);
         // 서블릿 자동 등록을 막아 SecurityFilterChain에서만 실행한다.
         registration.setEnabled(false);
         return registration;
