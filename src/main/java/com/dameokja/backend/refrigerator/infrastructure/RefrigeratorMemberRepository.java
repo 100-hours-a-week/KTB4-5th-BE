@@ -1,5 +1,6 @@
 package com.dameokja.backend.refrigerator.infrastructure;
 
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,14 @@ public interface RefrigeratorMemberRepository extends JpaRepository<Refrigerator
             order by m.refrigerator.id
             """)
     List<Long> findActiveRefrigeratorIdsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            select m.refrigerator from RefrigeratorMember m
+            where m.user.id = :userId and m.isActive = true
+                and m.refrigerator.deletedAt is null
+            order by m.refrigerator.id
+            """)
+    List<Refrigerator> findActiveRefrigeratorsByUserId(@Param("userId") Long userId);
 
     @Transactional
     long deleteAllByRefrigeratorId(Long refrigeratorId);

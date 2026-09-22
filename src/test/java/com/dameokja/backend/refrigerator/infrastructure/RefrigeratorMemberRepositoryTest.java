@@ -57,6 +57,31 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
     }
 
     @Test
+    void activeRefrigeratorsExcludeInactiveAndOtherUsersRefrigerators() {
+        User first = user("로그인회원");
+        Refrigerator active = refrigerator("활성");
+        refrigeratorMemberRepository.save(RefrigeratorMember.owner(first, active));
+        refrigeratorMemberRepository.save(new RefrigeratorMember(first, refrigerator("비활성")));
+        refrigeratorMemberRepository.save(
+                RefrigeratorMember.owner(user("다른회원"), refrigerator("타인")));
+        flushAndClear();
+        assertThat(refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(first.getId()))
+                .extracting(Refrigerator::getId)
+                .containsExactly(active.getId());
+    }
+
+    @Test
+    void activeRefrigeratorsExcludeDeletedRefrigeratorEvenWhenMembershipIsActive() {
+        User first = user("로그인회원");
+        Refrigerator deleted = refrigerator("삭제됨");
+        deleted.delete(LocalDateTime.now());
+        refrigeratorMemberRepository.save(RefrigeratorMember.owner(first, deleted));
+        flushAndClear();
+        assertThat(refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(first.getId()))
+                .isEmpty();
+    }
+
+    @Test
     void savesOwnerWithTheCorrectRelationships() {
         User user = user("소유자");
         Refrigerator refrigerator = refrigerator("개인냉장고");
