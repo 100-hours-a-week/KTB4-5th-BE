@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,6 +61,23 @@ class JwtFilterFailureWebTest extends SecurityWebTestSupport {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("GLOBAL-500-001")).andReturn().getResponse();
         assertThat(response.getContentAsString()).doesNotContain("secret", "validation");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void logoutAuthenticationFailureUsesCommonServerErrorWithoutClearingCookies() throws Exception {
+        Cookie csrf = csrf();
+        doThrow(new IllegalStateException("secret validation detail"))
+                .when(tokenValidator).parseAccessTokenPayload(anyString());
+        MockHttpServletResponse response = mockMvc.perform(delete("/api/v1/auth/sessions")
+                        .cookie(csrf, access()).header("X-XSRF-TOKEN", csrf.getValue()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("GLOBAL-500-001"))
+                .andExpect(jsonPath("$.message").value("서버에서 요청을 처리하지 못했습니다."))
+                .andReturn().getResponse();
+        assertThat(response.getContentAsString()).doesNotContain("secret", "validation");
+        assertThat(response.getCookie("accessToken")).isNull();
+        assertThat(response.getCookie("refreshToken")).isNull();
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
