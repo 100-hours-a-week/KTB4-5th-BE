@@ -63,7 +63,7 @@ class JwtFilterWebTest extends SecurityWebTestSupport {
 
     @Test
     void csrfEndpointIgnoresBadAccessAndFilterIsOnlyInSecurityChain() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/v1/csrf")
+        MvcResult result = mockMvc.perform(get("/api/v1/auth/csrf")
                         .cookie(new Cookie("accessToken", "invalid")))
                 .andExpect(status().isNoContent()).andReturn();
         assertThat(result.getResponse().getCookie("XSRF-TOKEN")).isNotNull();

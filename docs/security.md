@@ -9,7 +9,7 @@
 
 | 요청 | 입력 | 성공 응답 |
 |---|---|---|
-| `GET /api/v1/csrf` | 없음 | 204, 필요하면 `XSRF-TOKEN` 쿠키 발급 |
+| `GET /api/v1/auth/csrf` | 없음 | 204, 필요하면 `XSRF-TOKEN` 쿠키 발급 |
 | `POST /api/v1/auth/sessions` | JSON `loginId`, `password` | 200, access·refresh 쿠키 발급, CSRF 교체 |
 | `POST /api/v1/auth/token-renewals` | `refreshToken` 쿠키 | 200, access·refresh 교체, CSRF 유지 |
 | `DELETE /api/v1/auth/sessions` | 정상 `accessToken` + `refreshToken` 쿠키 | 200, 해당 세션 폐기, 인증 쿠키 삭제, CSRF 교체 |

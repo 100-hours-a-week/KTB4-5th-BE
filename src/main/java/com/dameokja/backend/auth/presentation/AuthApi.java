@@ -27,7 +27,7 @@ public interface AuthApi {
     @Operation(
             summary = "로그인",
             description = "로그인 아이디와 비밀번호로 인증하고 액세스·리프레시 토큰을 쿠키로 발급합니다. "
-                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/csrf로 먼저 발급받아야 합니다."
+                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -64,7 +64,7 @@ public interface AuthApi {
     @Operation(
             summary = "인증정보 갱신",
             description = "리프레시 토큰 쿠키로 액세스·리프레시 토큰을 재발급(회전)합니다. "
-                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/csrf로 먼저 발급받아야 합니다."
+                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -100,7 +100,7 @@ public interface AuthApi {
     @Operation(
             summary = "로그아웃",
             description = "리프레시 토큰을 폐기하고 인증 쿠키를 제거합니다. 로그인 상태(액세스 토큰)가 필요하며, "
-                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/csrf로 먼저 발급받아야 합니다."
+                    + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
             @ApiResponse(
