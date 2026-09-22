@@ -20,6 +20,8 @@ public enum IngredientExceptionCode implements ExceptionCode {
     INVALID_UPDATE_AMOUNT(HttpStatus.UNPROCESSABLE_CONTENT, "INGREDIENT-422-002", "수정할 재고 수량이 유효하지 않습니다."),
     INVALID_UPDATE_MEASUREMENT(HttpStatus.UNPROCESSABLE_CONTENT, "INGREDIENT-422-003", "수정할 재고의 측정값 조합이 유효하지 않습니다."),
     INVALID_UPDATE_VALUE(HttpStatus.UNPROCESSABLE_CONTENT, "INGREDIENT-422-004", "수정할 재고 값이 유효하지 않습니다."),
+    INVALID_EXPIRE_AMOUNT(HttpStatus.UNPROCESSABLE_CONTENT, "INGREDIENT-422-005", "만료 처리할 재고 수량이 유효하지 않습니다."),
+    INVALID_EXPIRE_MEASUREMENT(HttpStatus.UNPROCESSABLE_CONTENT, "INGREDIENT-422-006", "만료 처리할 재고의 측정값 조합이 유효하지 않습니다."),
     STALE_VERSION(HttpStatus.PRECONDITION_FAILED, "INGREDIENT-412-001", "버전 정보가 맞지 않습니다."),
     VERSION_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "INGREDIENT-428-001",
             "현재 버전 정보를 If-Match 헤더에 전달해 주세요.");

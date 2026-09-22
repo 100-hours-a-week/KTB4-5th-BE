@@ -88,6 +88,27 @@ final class IngredientApiExamples {
             }
             """;
 
+    static final String EXPIRE_REQUEST = """
+            {
+              "weightValue": "250.000",
+              "quantity": null
+            }
+            """;
+
+    static final String EXPIRE_RESPONSE = """
+            {
+              "code": "INGREDIENT-200-005",
+              "message": "재고 비우기 성공",
+              "data": {
+                "ingredientId": "1",
+                "removed": false,
+                "remainingQuantity": null,
+                "remainingWeightValue": "50.000",
+                "weightUnit": "G"
+              }
+            }
+            """;
+
     static final String CREATE_RESPONSE = """
             {
               "code": "INGREDIENT-201-001",
