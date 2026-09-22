@@ -4,7 +4,9 @@ import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.support.ServiceIntegrationTest;
+import com.dameokja.backend.user.application.SignupResult;
 import com.dameokja.backend.user.application.UserSignupService;
+import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -29,8 +31,8 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
     @Test
     void persistsHashedCredentialsAndPersonalRefrigeratorWithUsableTokens() {
         String password = " A1" + "a".repeat(69);
-        var result = signup.signup(" log in1 ", password, null);
-        var user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
+        SignupResult result = signup.signup(" log in1 ", password, null);
+        User user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
         assertThat(user.getLoginId()).isEqualTo("login1");
         assertThat(user.getNickname()).isEqualTo("login1");
         assertThat(user.getProfileImageKey()).isEqualTo("profiles/default.png");

@@ -3,6 +3,7 @@ package com.dameokja.backend.user.application;
 import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.auth.application.TokenPair;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,14 +19,14 @@ class UserSignupServiceTest {
 
     @Test
     void normalizesOnlyLoginIdAndReturnsCreatedRefrigeratorAfterLogin() {
-        var command = new RegisterUserCommand(null, null, "한User1", " pass1234 ");
-        var tokens = new TokenPair("access", "refresh", 7L);
+        RegisterUserCommand command = new RegisterUserCommand(null, null, "한User1", " pass1234 ");
+        TokenPair tokens = new TokenPair("access", "refresh", 7L);
         when(registration.register(command)).thenReturn(new RegistrationResult(7L, 9L));
         when(auth.login("한User1", command.password())).thenReturn(tokens);
-        var result = signup.signup(" 한\tUser\n1\u3000\u00a0", command.password(), null);
+        SignupResult result = signup.signup(" 한\tUser\n1\u3000\u00a0", command.password(), null);
         assertThat(result.tokenPair()).isEqualTo(tokens);
         assertThat(result.activeRefrigeratorIds()).containsExactly(9L);
-        var order = inOrder(registration, auth);
+        InOrder order = inOrder(registration, auth);
         order.verify(registration).register(command);
         order.verify(auth).login("한User1", command.password());
         assertThat(command.toString()).doesNotContain(command.password());
@@ -33,8 +34,8 @@ class UserSignupServiceTest {
 
     @Test
     void doesNotLoginWhenRegistrationFails() {
-        var command = new RegisterUserCommand(null, null, null, null);
-        var failure = new IllegalArgumentException("registration rejected");
+        RegisterUserCommand command = new RegisterUserCommand(null, null, null, null);
+        IllegalArgumentException failure = new IllegalArgumentException("registration rejected");
         when(registration.register(command)).thenThrow(failure);
         assertThatThrownBy(() -> signup.signup(null, null, null)).isSameAs(failure);
         verifyNoInteractions(auth);
