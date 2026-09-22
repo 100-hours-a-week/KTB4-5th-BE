@@ -23,7 +23,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringJUnitConfig(PushVapidKeySecurityWebTest.WebConfiguration.class)
@@ -42,14 +41,12 @@ class PushVapidKeySecurityWebTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 
-    // AuthenticationRoutes.PUBLIC 등록을 실제 Security 필터 체인으로 검증한다(로그인 쿠키 없이 호출).
+    // 응답 본문 형태는 PushVapidKeyControllerTest가 이미 검증한다. 이 테스트의 목적은 오직
+    // AuthenticationRoutes.PUBLIC에 이 경로가 등록되어 로그인 쿠키 없이도 200으로 도달하는지 확인하는 것이다.
     @Test
     void isReachableWithoutLogin() throws Exception {
         mockMvc.perform(get("/api/v1/push-subscriptions/vapid-public-key"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("PUSH-200-001"))
-                .andExpect(jsonPath("$.data.vapidPublicKey").value("test-vapid-public-key"))
-                .andExpect(jsonPath("$.data.vapidKeyVersion").value("test-v1"));
+                .andExpect(status().isOk());
     }
 
     @TestConfiguration(proxyBeanMethods = false)
