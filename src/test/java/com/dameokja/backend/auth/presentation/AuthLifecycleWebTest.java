@@ -125,8 +125,9 @@ class AuthLifecycleWebTest extends SecurityWebTestSupport {
 
     @Test
     void authMutationsRequireMatchingCsrf() throws Exception {
-        for (String path : new String[]{"sessions", "signup", "token-renewals"}) {
-            mockMvc.perform(post("/api/v1/auth/" + path)).andExpect(status().isForbidden())
+        for (String path : new String[]{"/api/v1/auth/sessions", "/api/v1/users",
+                "/api/v1/auth/token-renewals"}) {
+            mockMvc.perform(post(path)).andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("COMMON-403-CSRF-001"));
         }
         mockMvc.perform(delete("/api/v1/auth/sessions")).andExpect(status().isForbidden())
