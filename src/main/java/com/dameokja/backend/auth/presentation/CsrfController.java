@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class CsrfController {
+public class CsrfController implements CsrfApi {
+    @Override
     @GetMapping("/api/v1/csrf")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void csrf(CsrfToken csrfToken) {
