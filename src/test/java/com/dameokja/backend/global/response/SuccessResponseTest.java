@@ -13,7 +13,7 @@ class SuccessResponseTest {
 
     @ParameterizedTest
     @MethodSource("successCodes")
-    void preservesExistingCodeMessageAndData(SuccessCode successCode, String code, String message) {
+    void returnsAssignedCodeMessageAndData(SuccessCode successCode, String code, String message) {
         String data = "response-data";
 
         assertThat(SuccessResponse.of(successCode, data))
@@ -25,8 +25,8 @@ class SuccessResponseTest {
     private static Stream<Arguments> successCodes() {
         return Stream.of(
                 Arguments.of(AuthSuccessCode.LOGIN, "AUTH-200-001", "로그인 성공"),
-                Arguments.of(AuthSuccessCode.LOGOUT, "AUTH-200-005", "로그아웃 성공"),
-                Arguments.of(AuthSuccessCode.REFRESH, "AUTH-200-006", "인증정보 갱신 성공"),
+                Arguments.of(AuthSuccessCode.LOGOUT, "AUTH-200-002", "로그아웃 성공"),
+                Arguments.of(AuthSuccessCode.REFRESH, "AUTH-200-003", "인증정보 갱신 성공"),
                 Arguments.of(UserSuccessCode.SIGNUP, "USER-201-001", "회원가입 성공"));
     }
 }

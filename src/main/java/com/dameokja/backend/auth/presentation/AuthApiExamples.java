@@ -20,7 +20,7 @@ final class AuthApiExamples {
 
     static final String REFRESH_RESPONSE = """
             {
-              "code": "AUTH-200-006",
+              "code": "AUTH-200-003",
               "message": "인증정보 갱신 성공",
               "data": {
                 "userId": "1"
@@ -30,7 +30,7 @@ final class AuthApiExamples {
 
     static final String LOGOUT_RESPONSE = """
             {
-              "code": "AUTH-200-005",
+              "code": "AUTH-200-002",
               "message": "로그아웃 성공",
               "data": null
             }
