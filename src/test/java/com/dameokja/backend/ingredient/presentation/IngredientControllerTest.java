@@ -8,24 +8,29 @@ import com.dameokja.backend.ingredient.application.create.IngredientCreateServic
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
+import com.dameokja.backend.ingredient.application.list.IngredientListResult;
+import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
+import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.IngredientStatus;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -39,6 +44,33 @@ class IngredientControllerTest {
     @Mock private IngredientDetailService ingredientDetailService;
     @Mock private IngredientUpdateService ingredientUpdateService;
     @Mock private IngredientExpireService ingredientExpireService;
+    @Mock private IngredientListService ingredientListService;
+
+    @Test
+    void returnsListWithDefaultParametersAndStatusOfBusinessDate() {
+        Ingredient ingredient = ingredient();
+        LocalDate businessDate = LocalDate.of(2026, 9, 16);
+        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, 30L, 30L, (short) 100, "next");
+        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, 10)).thenReturn(result);
+        IngredientController controller = new IngredientController(
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
+                ingredientListService);
+
+        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null);
+
+        IngredientListResponse data = response.getBody().data();
+        assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");
+        assertThat(data.ingredientsNum()).isEqualTo(30L);
+        assertThat(data.filteredCount()).isEqualTo(30L);
+        assertThat(data.refrigeratorCapacity()).isEqualTo((short) 100);
+        assertThat(data.nextCursor()).isEqualTo("next");
+        assertThat(data.ingredients()).singleElement().satisfies(item -> {
+            assertThat(item.ingredientId()).isEqualTo("1");
+            assertThat(item.weightValue()).isEqualByComparingTo("300");
+            assertThat(item.status()).isEqualTo(IngredientStatus.EXPIRED);
+            assertThat(item.daysUntilExpiration()).isEqualTo(-1);
+        });
+    }
 
     @Test
     void returnsDetailWithStrongEtag() {
@@ -47,7 +79,8 @@ class IngredientControllerTest {
         when(ingredientDetailService.getDetail(2L, 1L))
                 .thenReturn(new IngredientDetailResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
-                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService);
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
+                ingredientListService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.getDetail(2L, 1L);
@@ -68,7 +101,8 @@ class IngredientControllerTest {
         when(ingredientUpdateService.update(2L, 1L, "\"before\"", request.toFields()))
                 .thenReturn(new IngredientUpdateResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
-                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService);
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
+                ingredientListService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.update(2L, 1L, "\"before\"", request);

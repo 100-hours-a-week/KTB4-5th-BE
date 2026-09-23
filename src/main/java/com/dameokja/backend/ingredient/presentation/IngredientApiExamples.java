@@ -136,6 +136,32 @@ final class IngredientApiExamples {
             }
             """;
 
+    static final String LIST_RESPONSE = """
+            {
+              "code": "INGREDIENT-200-002",
+              "message": "냉장고 재고 목록 조회 성공",
+              "data": {
+                "ingredientsNum": 30,
+                "filteredCount": 30,
+                "refrigeratorCapacity": 100,
+                "ingredients": [
+                  {
+                    "ingredientId": "1",
+                    "name": "달걀",
+                    "category": "TOFU_BEAN",
+                    "quantity": 10,
+                    "weightValue": null,
+                    "weightUnit": "NONE",
+                    "storageType": "REFRIGERATED",
+                    "status": "EXPIRED",
+                    "daysUntilExpiration": -1
+                  }
+                ],
+                "nextCursor": "eyJzb3J0VHlwZSI6IkVYUElSQVRJT05fQVNDIn0"
+              }
+            }
+            """;
+
     private IngredientApiExamples() {
     }
 }
