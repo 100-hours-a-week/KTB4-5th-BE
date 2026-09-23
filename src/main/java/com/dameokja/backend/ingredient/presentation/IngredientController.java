@@ -1,7 +1,7 @@
 package com.dameokja.backend.ingredient.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.global.security.LoginUser;
+import com.dameokja.backend.global.security.CurrentUserId;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
@@ -51,7 +51,7 @@ public class IngredientController implements IngredientApi {
     @Override
     @GetMapping("/ingredients/{ingredientId}")
     public ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
-            @LoginUser Long userId, @PathVariable Long ingredientId) {
+            @CurrentUserId Long userId, @PathVariable Long ingredientId) {
         IngredientDetailResult result = ingredientDetailService.getDetail(userId, ingredientId);
         IngredientResponse response = IngredientResponse.of(result.ingredient(), result.businessDate());
         SuccessResponse<IngredientResponse> body = SuccessResponse.of(DETAIL_CODE, DETAIL_MESSAGE, response);
@@ -62,7 +62,7 @@ public class IngredientController implements IngredientApi {
     @Override
     @PatchMapping("/ingredients/{ingredientId}")
     public ResponseEntity<SuccessResponse<IngredientResponse>> update(
-            @LoginUser Long userId, @PathVariable Long ingredientId,
+            @CurrentUserId Long userId, @PathVariable Long ingredientId,
             @RequestHeader(value = "If-Match", required = false) String ifMatch,
             @RequestBody IngredientUpdateRequest request) {
         IngredientUpdateResult result = ingredientUpdateService.update(userId, ingredientId, ifMatch, request.toFields());
@@ -75,7 +75,7 @@ public class IngredientController implements IngredientApi {
     @Override
     @PostMapping("/ingredients/{ingredientId}")
     public ResponseEntity<SuccessResponse<IngredientExpireResponse>> expire(
-            @LoginUser Long userId, @PathVariable Long ingredientId,
+            @CurrentUserId Long userId, @PathVariable Long ingredientId,
             @RequestHeader(value = "If-Match", required = false) String ifMatch,
             @RequestBody IngredientExpireRequest request) {
         return processExpiration(userId, ingredientId, ifMatch, request);
@@ -95,7 +95,7 @@ public class IngredientController implements IngredientApi {
     @Override
     @PostMapping("/refrigerators/{refrigeratorId}/ingredients")
     public ResponseEntity<SuccessResponse<IngredientCreateResponse>> create(
-            @LoginUser Long userId, @PathVariable Long refrigeratorId,
+            @CurrentUserId Long userId, @PathVariable Long refrigeratorId,
             @Valid @RequestBody IngredientCreateRequest request) {
         var commands = request.toCommands();
         var result = ingredientCreateService.create(userId, refrigeratorId, commands);

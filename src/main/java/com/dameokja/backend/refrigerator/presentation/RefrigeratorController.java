@@ -1,7 +1,7 @@
 package com.dameokja.backend.refrigerator.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.global.security.LoginUser;
+import com.dameokja.backend.global.security.CurrentUserId;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.presentation.response.RefrigeratorResponse;
 import java.util.List;
@@ -23,7 +23,7 @@ public class RefrigeratorController implements RefrigeratorApi {
     @Override
     @GetMapping("/refrigerators/current")
     public ResponseEntity<SuccessResponse<List<RefrigeratorResponse>>> getActiveRefrigerators(
-            @LoginUser Long userId) {
+            @CurrentUserId Long userId) {
         List<RefrigeratorResponse> response = refrigeratorService.getActiveRefrigerators(userId).stream()
                 .map(RefrigeratorResponse::from)
                 .toList();
