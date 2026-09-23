@@ -14,6 +14,7 @@ import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
+import com.dameokja.backend.ingredient.domain.IngredientStatus;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
@@ -54,7 +55,7 @@ class IngredientControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-003");
-        assertThat(response.getBody().data().status()).isEqualTo("EXPIRED");
+        assertThat(response.getBody().data().status()).isEqualTo(IngredientStatus.EXPIRED);
         assertThat(response.getBody().data().daysUntilExpiration()).isEqualTo(-1);
     }
 

@@ -3,6 +3,7 @@ package com.dameokja.backend.ingredient.presentation.response;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.IngredientStatus;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
@@ -27,21 +28,16 @@ public record IngredientResponse(
         LocalDate expirationDate,
         LocalDate createdDate,
         RegistrationSource registrationSource,
-        String status,
+        IngredientStatus status,
         long daysUntilExpiration) {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
-    private static final int EXPIRING_SOON_DAYS = 3;
-
-    private static final String EXPIRED = "EXPIRED";
-    private static final String EXPIRING_SOON = "EXPIRING_SOON";
-    private static final String NORMAL = "NORMAL";
 
     public static IngredientResponse of(Ingredient ingredient, LocalDate today) {
         Measurement measurement = ingredient.getMeasurement();
         long days = ChronoUnit.DAYS.between(today, ingredient.getExpirationDate());
         String ingredientId = ingredient.getId().toString();
-        String ingredientStatus = status(days);
+        IngredientStatus ingredientStatus = IngredientStatus.of(days);
         LocalDate createdDate = createdDateOf(ingredient);
 
         return new IngredientResponse(
@@ -64,12 +60,5 @@ public record IngredientResponse(
         return ingredient.getCreatedAt().atOffset(ZoneOffset.UTC)
                 .atZoneSameInstant(BUSINESS_ZONE)
                 .toLocalDate();
-    }
-
-    private static String status(long days) {
-        if (days < 0) {
-            return EXPIRED;
-        }
-        return days <= EXPIRING_SOON_DAYS ? EXPIRING_SOON : NORMAL;
     }
 }
