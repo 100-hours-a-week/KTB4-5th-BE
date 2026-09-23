@@ -49,10 +49,10 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     }
 
     @Test
-    void normalizesLoginIdAndBlankNicknameBeforeValidation() throws Exception {
+    void removesWhitespaceFromLoginIdAndBlankNicknameBeforeValidation() throws Exception {
         when(userSignupService.signup("한글1", "password1", null)).thenReturn(new SignupResult(
                 new TokenPair("access-token", "refresh-token", 7L), List.of(1L)));
-        String body = "{\"loginId\":\" \\u1112\\u1161\\u11ab\\u3000\\u1100\\u1173\\u11af1\\u00a0\","
+        String body = "{\"loginId\":\" 한\\u3000글1\\u00a0\","
                 + "\"password\":\"password1\",\"nickname\":\" \\t \"}";
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
@@ -83,6 +83,7 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     @ValueSource(strings = {
             "{\"loginId\":\"a\",\"password\":\"password1\"}",
             "{\"loginId\":\"ㄱㄴ아이디\",\"password\":\"password1\"}",
+            "{\"loginId\":\"\\u1112\\u1161\\u11ab\\u1100\\u1173\\u11af\",\"password\":\"password1\"}",
             "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"ㄱㄴ\"}",
             "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"a\"}",
             "{\"loginId\":\"user1\",\"password\":\"short1\"}",

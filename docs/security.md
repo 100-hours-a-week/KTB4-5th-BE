@@ -18,7 +18,7 @@
 CSRF GET은 합의에 따라 204로 유지한다. 로그인은 `AUTH-200-001`과
 `data.activeRefrigeratorIds` 문자열 배열, 갱신은 `AUTH-200-006`과 문자열 `data.userId`,
 로그아웃은 `AUTH-200-005`와 `data: null`을 반환한다. 로그인·갱신은
-`Cache-Control: no-store`를 설정한다. 로그인 ID는 유니코드 공백을 모두 제거하고 NFC로 정규화한 후
+`Cache-Control: no-store`를 설정한다. 로그인 ID는 유니코드 공백을 모두 제거한 후
 완성형 한글·영문·숫자 2~10자인지, 비밀번호는 8자 이상이고 영문·숫자를 각각 포함하는지 검사한다.
 
 1. 초기 진입 시 CSRF GET API를 호출한다.

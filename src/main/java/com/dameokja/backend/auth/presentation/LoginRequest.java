@@ -8,7 +8,7 @@ public record LoginRequest(
         @NotBlank @Pattern(regexp = UserInputFormat.LOGIN_ID_PATTERN) String loginId,
         @NotBlank @Pattern(regexp = "(?s)(?=.*[a-zA-Z])(?=.*[0-9]).{8,}") String password) {
     public LoginRequest {
-        loginId = UserInputFormat.normalize(loginId);
+        loginId = UserInputFormat.removeWhitespace(loginId);
     }
 
     // record 기본 출력으로 비밀번호가 노출되지 않도록 한다.

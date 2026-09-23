@@ -9,14 +9,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserInputFormatTest {
 
     @Test
-    void removesUnicodeWhitespaceAndComposesHangul() {
-        String decomposed = " 한\t　글 1\n";
-        assertThat(UserInputFormat.normalize(decomposed)).isEqualTo("한글1");
+    void removesUnicodeWhitespace() {
+        assertThat(UserInputFormat.removeWhitespace(" 한\t\u3000글\u00a01\n")).isEqualTo("한글1");
     }
 
     @Test
     void keepsNull() {
-        assertThat(UserInputFormat.normalize(null)).isNull();
+        assertThat(UserInputFormat.removeWhitespace(null)).isNull();
     }
 
     @ParameterizedTest
@@ -26,8 +25,9 @@ class UserInputFormatTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"A", "Abcdefgh123", "Ab_12", "ㄱㄴ", "ㅏㅑ", "가ㄱ", "ﾡﾤ", "㈀㉠", "漢字", "éé", "Ab 12"})
-    void rejectsJamoOtherScriptsSymbolsAndInvalidLength(String value) {
+    @ValueSource(strings = {"A", "Abcdefgh123", "Ab_12", "ㄱㄴ", "ㅏㅑ", "가ㄱ", "\uffa1\uffa4", "\u3200\u3260",
+            "\u1112\u1161\u11ab", "漢字", "éé", "Ab 12"})
+    void rejectsJamoDecomposedHangulOtherScriptsSymbolsAndInvalidLength(String value) {
         assertThat(value).doesNotMatch(UserInputFormat.LOGIN_ID_PATTERN);
     }
 }
