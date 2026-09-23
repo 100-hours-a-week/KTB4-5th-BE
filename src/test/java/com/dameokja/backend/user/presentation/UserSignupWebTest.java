@@ -106,7 +106,7 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
         mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("USER-400-007"));
+                .andExpect(jsonPath("$.code").value("USER-400-001"));
     }
 
     @Test

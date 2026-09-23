@@ -37,7 +37,7 @@ public interface UserApi {
             @ApiResponse(
                     responseCode = "400",
                     description = "요청 형식 또는 아이디·닉네임·비밀번호 입력값 오류 "
-                            + "(GLOBAL-400-001, USER-400-007~008)"
+                            + "(GLOBAL-400-001, USER-400-001~002)"
             ),
             @ApiResponse(
                     responseCode = "403",
