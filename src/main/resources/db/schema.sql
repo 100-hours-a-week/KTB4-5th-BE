@@ -15,7 +15,7 @@ CREATE TABLE users (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     deleted_at DATETIME(6) NULL COMMENT '탈퇴 일시. 활성 회원은 NULL',
-    login_id VARCHAR(10) NULL COMMENT '영문 숫자 2~10자. OAuth-only 및 탈퇴 회원은 NULL',
+    login_id VARCHAR(10) NULL COMMENT '완성형 한글 영문 숫자 2~10자. OAuth-only 및 탈퇴 회원은 NULL',
     password_hash VARCHAR(60) NULL COMMENT 'bcrypt. login_id와 동시 존재. 일반 응답 제외',
     password_changed_at DATETIME(6) NULL COMMENT '이 시각보다 먼저 발급된 토큰 무효화. OAuth-only는 NULL',
     PRIMARY KEY (user_id),
@@ -25,7 +25,7 @@ CREATE TABLE users (
     CONSTRAINT ck_users_status CHECK (status IN ('ACTIVE','WITHDRAWN')),
     CONSTRAINT ck_users_role CHECK (role IN ('USER','ADMIN')),
     CONSTRAINT ck_users_cooking_count CHECK (cooking_count >= 0),
-    CONSTRAINT ck_users_login_format CHECK (login_id IS NULL OR REGEXP_LIKE(login_id, '^[A-Za-z0-9]{2,10}$', 'c')),
+    CONSTRAINT ck_users_login_format CHECK (login_id IS NULL OR REGEXP_LIKE(login_id, '^[가-힣A-Za-z0-9]{2,10}$', 'c')),
     CONSTRAINT ck_users_credentials CHECK (
         (login_id IS NULL AND password_hash IS NULL AND password_changed_at IS NULL)
         OR (login_id IS NOT NULL AND password_hash IS NOT NULL)

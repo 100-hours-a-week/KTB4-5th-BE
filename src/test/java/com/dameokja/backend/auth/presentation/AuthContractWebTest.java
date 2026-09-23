@@ -44,7 +44,7 @@ class AuthContractWebTest extends SecurityWebTestSupport {
     @ValueSource(strings = {
             "{\"loginId\":\"a\",\"password\":\"password1\"}",
             "{\"loginId\":\"abcdefghijk\",\"password\":\"password1\"}",
-            "{\"loginId\":\"한글\",\"password\":\"password1\"}",
+            "{\"loginId\":\"ㄱㄴ\",\"password\":\"password1\"}",
             "{\"loginId\":\"user1\",\"password\":\"password\"}",
             "{\"loginId\":\"user1\",\"password\":\"12345678\"}",
             "{\"loginId\":\"user1\",\"password\":\"abc123\"}"

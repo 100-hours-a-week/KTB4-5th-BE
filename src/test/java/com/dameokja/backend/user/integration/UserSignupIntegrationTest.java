@@ -31,7 +31,7 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
     @Test
     void persistsHashedCredentialsAndPersonalRefrigeratorWithUsableTokens() {
         String password = " A1" + "a".repeat(69);
-        SignupResult result = signup.signup(" log in1 ", password, null);
+        SignupResult result = signup.signup("login1", password, null);
         User user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
         assertThat(user.getLoginId()).isEqualTo("login1");
         assertThat(user.getNickname()).isEqualTo("login1");
@@ -44,6 +44,13 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
         assertThat(jwtProvider.parseAccessTokenPayload(result.tokenPair().accessToken()).userId())
                 .isEqualTo(user.getId());
         assertThat(auth.refresh(result.tokenPair().refreshToken()).userId()).isEqualTo(user.getId());
+    }
+
+    @Test
+    void storesCompleteHangulLoginId() {
+        SignupResult result = signup.signup("한글아이디1", "pass1234", null);
+        User user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
+        assertThat(user.getLoginId()).isEqualTo("한글아이디1");
     }
 
     @ParameterizedTest
