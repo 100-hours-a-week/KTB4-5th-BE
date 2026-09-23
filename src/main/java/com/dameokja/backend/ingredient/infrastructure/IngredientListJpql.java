@@ -13,11 +13,12 @@ final class IngredientListJpql {
     private static final String CURSOR_NAME_KEY =
             "concat(case when substring(:cursorName, 1, 1) between 'ㄱ' and 'ㅣ' then '0' else '1' end, :cursorName)";
 
-    // 경계가 null이면 그 조건을 생략한다. 커서가 없으면(첫 페이지) 커서 조건 전체를 생략한다.
+    // expired 플래그로 만료 그룹(기준일 이전)과 비만료 그룹(기준일 당일 포함 이후)을 나눈다.
+    // 커서가 없으면(첫 페이지) 커서 조건 전체를 생략한다.
     private static final String GROUP_CONDITION = "select i from Ingredient i"
             + " where i.refrigerator.id = :refrigeratorId"
-            + " and (:expirationFrom is null or i.expirationDate >= :expirationFrom)"
-            + " and (:expirationBefore is null or i.expirationDate < :expirationBefore)"
+            + " and ((:expired = true and i.expirationDate < :baseDate)"
+            + "   or (:expired = false and i.expirationDate >= :baseDate))"
             + " and (:cursorId is null";
 
     // 유통기한 오름차순 > 등록일 내림차순 > 이름(한글 우선) > ID
