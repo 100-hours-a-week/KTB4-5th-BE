@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Limit;
 
 class IngredientListRepositoryTest extends MySqlJpaTest {
     private static final LocalDate BASE_DATE = LocalDate.of(2026, 9, 23);
@@ -68,8 +69,8 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         persist(new Ingredient(other, details("두부", 1), RegistrationSource.DIRECT));
         flushAndClear();
 
-        List<Ingredient> page = ingredientRepository.findListPage(IngredientSortType.EXPIRATION_ASC,
-                IngredientPageCondition.of(refrigerator.getId(), IngredientExpiryGroup.NOT_EXPIRED, BASE_DATE, null), ALL);
+        List<Ingredient> page = ingredientRepository.findExpirationAscPage(
+                refrigerator.getId(), false, BASE_DATE, null, null, null, null, Limit.of(ALL));
 
         assertThat(page).extracting(Ingredient::getName).containsExactly("우유");
     }
@@ -88,8 +89,21 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     private List<Ingredient> findPage(IngredientSortType sortType, IngredientExpiryGroup group, IngredientCursor cursor) {
-        IngredientPageCondition condition = IngredientPageCondition.of(refrigerator.getId(), group, BASE_DATE, cursor);
-        return ingredientRepository.findListPage(sortType, condition, 1);
+        Long refrigeratorId = refrigerator.getId();
+        boolean expired = group == IngredientExpiryGroup.EXPIRED;
+        LocalDate expirationDate = cursor == null ? null : cursor.expirationDate();
+        LocalDateTime createdAt = cursor == null ? null : cursor.createdAt();
+        String name = cursor == null ? null : cursor.name();
+        Long id = cursor == null ? null : cursor.ingredientId();
+        Limit one = Limit.of(1);
+        return switch (sortType) {
+            case EXPIRATION_ASC -> ingredientRepository.findExpirationAscPage(
+                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+            case CREATED_DESC -> ingredientRepository.findCreatedDescPage(
+                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+            case NAME_ASC -> ingredientRepository.findNameAscPage(
+                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+        };
     }
 
     private void ingredient(String name, int daysUntilExpiration, int createdDay) {
