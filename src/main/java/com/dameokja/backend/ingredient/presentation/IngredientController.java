@@ -62,10 +62,11 @@ public class IngredientController implements IngredientApi {
             @CurrentUserId Long userId, @PathVariable Long refrigeratorId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) String size,
-            @RequestParam(required = false) String sort) {
-        IngredientListRequest request = new IngredientListRequest(cursor, size, sort);
-        IngredientListResult result = ingredientListService.getList(
-                userId, refrigeratorId, request.sortType(), request.cursorToken(), request.pageSize());
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String filter) {
+        IngredientListRequest request = new IngredientListRequest(cursor, size, sort, filter);
+        IngredientListResult result = ingredientListService.getList(userId, refrigeratorId, request.sortType(),
+                request.ingredientFilter(), request.cursorToken(), request.pageSize());
         IngredientListResponse response = IngredientListResponse.from(result);
         return ResponseEntity.ok(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, response));
     }

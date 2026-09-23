@@ -5,7 +5,7 @@ public enum IngredientStatus {
     EXPIRING_SOON,
     NORMAL;
 
-    private static final int EXPIRING_SOON_DAYS = 3;
+    static final int EXPIRING_SOON_DAYS = 3;
 
     public static IngredientStatus of(long daysUntilExpiration) {
         if (daysUntilExpiration < 0) {

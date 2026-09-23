@@ -3,12 +3,13 @@ package com.dameokja.backend.ingredient.presentation.request;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_INPUT;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 
 /**
  * 재고 목록 조회 쿼리 파라미터. 타입 변환 실패도 재고 입력 오류(INGREDIENT-400-003)로 응답하도록 문자열로 받아 직접 변환한다.
  */
-public record IngredientListRequest(String cursor, String size, String sort) {
+public record IngredientListRequest(String cursor, String size, String sort, String filter) {
     private static final int DEFAULT_SIZE = 10;
     private static final int MIN_SIZE = 1;
     private static final int MAX_SIZE = 50;
@@ -35,6 +36,18 @@ public record IngredientListRequest(String cursor, String size, String sort) {
         }
         try {
             return IngredientSortType.valueOf(sort);
+        } catch (IllegalArgumentException exception) {
+            throw new CustomException(INVALID_INPUT);
+        }
+    }
+
+    // 필터를 생략하면 전체 조회다.
+    public IngredientFilter ingredientFilter() {
+        if (filter == null) {
+            return null;
+        }
+        try {
+            return IngredientFilter.valueOf(filter);
         } catch (IllegalArgumentException exception) {
             throw new CustomException(INVALID_INPUT);
         }

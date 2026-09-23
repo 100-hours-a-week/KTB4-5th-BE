@@ -66,7 +66,7 @@ class IngredientListServiceTest {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(expired, last, ingredient(3L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, 2);
 
         assertThat(result.ingredients()).containsExactly(expired, last);
         assertThat(result.businessDate()).isEqualTo(TODAY);
@@ -75,7 +75,7 @@ class IngredientListServiceTest {
         assertThat(result.refrigeratorCapacity()).isEqualTo((short) 100);
         assertThat(readCursor().group()).isEqualTo(IngredientExpiryGroup.EXPIRED);
         assertThat(cursorCodec.decode(result.nextCursor())).isEqualTo(new IngredientListCursor(IngredientSortType.NAME_ASC,
-                REFRIGERATOR_ID, TODAY, IngredientExpiryGroup.NOT_EXPIRED, IngredientCursor.from(last)));
+                REFRIGERATOR_ID, null, TODAY, IngredientExpiryGroup.NOT_EXPIRED, IngredientCursor.from(last)));
     }
 
     @Test
@@ -83,7 +83,7 @@ class IngredientListServiceTest {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(1L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, 2);
 
         assertThat(result.nextCursor()).isNull();
     }
@@ -94,7 +94,7 @@ class IngredientListServiceTest {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of());
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(0L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, token, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, token, 2);
 
         assertThat(result.businessDate()).isEqualTo(TODAY.minusDays(1));
         assertThat(readCursor().baseDate()).isEqualTo(TODAY.minusDays(1));
@@ -105,7 +105,7 @@ class IngredientListServiceTest {
         String token = token(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, TODAY);
 
         assertThatThrownBy(() -> ingredientListService.getList(
-                USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, token, 2))
+                USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, token, 2))
                 .isInstanceOfSatisfying(CustomException.class,
                         exception -> assertThat(exception.getExceptionCode()).isEqualTo(INVALID_CURSOR));
     }
@@ -119,7 +119,7 @@ class IngredientListServiceTest {
     private String token(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
         IngredientCursor position = new IngredientCursor(baseDate, LocalDateTime.of(2026, 9, 20, 9, 0), "두부", 7L);
         return cursorCodec.encode(new IngredientListCursor(
-                sortType, refrigeratorId, baseDate, IngredientExpiryGroup.NOT_EXPIRED, position));
+                sortType, refrigeratorId, null, baseDate, IngredientExpiryGroup.NOT_EXPIRED, position));
     }
 
     private Ingredient ingredient(Long id, LocalDate expirationDate) {

@@ -44,7 +44,7 @@ public interface IngredientApi {
                     description = "냉장고 재고 목록 조회 성공",
                     content = @Content(mediaType = "application/json", examples = @ExampleObject(value = LIST_RESPONSE))
             ),
-            @ApiResponse(responseCode = "400", description = "size·sort 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
+            @ApiResponse(responseCode = "400", description = "size·sort·filter 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
@@ -64,7 +64,15 @@ public interface IngredientApi {
                     description = "EXPIRATION_ASC(유통기한순, 기본) / CREATED_DESC(최근 등록순) / NAME_ASC(이름순, 한글 우선)",
                     schema = @Schema(allowableValues = {"EXPIRATION_ASC", "CREATED_DESC", "NAME_ASC"})
             )
-            String sort);
+            String sort,
+            @Parameter(
+                    name = "filter",
+                    in = ParameterIn.QUERY,
+                    description = "필터칩. 생략하면 전체. NORMAL(D+4 이후) / EXPIRING_SOON(D-0~D-3) / EXPIRED(유통기한 지남) "
+                            + "/ REFRIGERATED(냉장) / FROZEN(냉동). 바꾸면 cursor 없이 첫 페이지부터 다시 조회",
+                    schema = @Schema(allowableValues = {"NORMAL", "EXPIRING_SOON", "EXPIRED", "REFRIGERATED", "FROZEN"})
+            )
+            String filter);
 
     @Operation(
             summary = "재고 상세 조회",
