@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -39,6 +40,8 @@ public interface IngredientApi {
             @ApiResponse(
                     responseCode = "200",
                     description = "재고 상세 조회 성공",
+                    headers = @Header(name = "ETag", description = "수정·부분 비우기에 If-Match로 전달할 strong ETag",
+                            schema = @Schema(type = "string"), example = "\"sha256-example-token\""),
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(value = DETAIL_RESPONSE)
@@ -60,7 +63,10 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"REFRIGERATOR-410-001","message":"삭제된 냉장고입니다."}
                             """))),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-500-001","message":"서버에서 요청을 처리하지 못했습니다."}
+                            """)))
     })
     ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
             @Parameter(hidden = true) Long userId,
@@ -84,6 +90,8 @@ public interface IngredientApi {
             @ApiResponse(
                     responseCode = "200",
                     description = "재고 수정 성공",
+                    headers = @Header(name = "ETag", description = "다음 수정·부분 비우기에 사용할 새 strong ETag",
+                            schema = @Schema(type = "string"), example = "\"sha256-example-token\""),
                     content = @Content(
                             mediaType = "application/json",
                             examples = @ExampleObject(value = UPDATE_RESPONSE)
@@ -93,9 +101,18 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"INGREDIENT-400-003","message":"입력 형식이 잘못됐습니다."}
                             """))),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
-            @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-401-001","message":"로그인이 필요합니다."}
+                            """))),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"REFRIGERATOR-403-001","message":"해당 냉장고에 접근할 수 없습니다."}
+                            """))),
+            @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"INGREDIENT-404-001","message":"재고를 찾을 수 없습니다."}
+                            """))),
             @ApiResponse(responseCode = "410", description = "삭제된 냉장고 (REFRIGERATOR-410-001)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)",
                     content = @Content(examples = @ExampleObject(value = """
@@ -109,7 +126,10 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"INGREDIENT-428-001","message":"현재 버전 정보를 If-Match 헤더에 전달해 주세요."}
                             """))),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-500-001","message":"서버에서 요청을 처리하지 못했습니다."}
+                            """)))
     })
     ResponseEntity<SuccessResponse<IngredientResponse>> update(
             @Parameter(hidden = true) Long userId,
@@ -139,7 +159,7 @@ public interface IngredientApi {
             IngredientUpdateRequest request);
 
     @Operation(
-            summary = "재고 만료 처리",
+            summary = "재고 비우기",
             description = "입력한 수량 또는 무게만큼 현재 활성 냉장고 재고에서 차감합니다. 잔량이 0이면 "
                     + "행을 삭제하고, 남으면 잔량을 반환합니다. 상세 조회의 strong ETag를 If-Match에 전달해야 합니다."
     )
@@ -154,9 +174,18 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"INGREDIENT-400-003","message":"입력 형식이 잘못됐습니다."}
                             """))),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
-            @ApiResponse(responseCode = "404", description = "다른 냉장고의 재고 (INGREDIENT-404-001)"),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-401-001","message":"로그인이 필요합니다."}
+                            """))),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"REFRIGERATOR-403-001","message":"해당 냉장고에 접근할 수 없습니다."}
+                            """))),
+            @ApiResponse(responseCode = "404", description = "다른 냉장고의 재고 (INGREDIENT-404-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"INGREDIENT-404-001","message":"재고를 찾을 수 없습니다."}
+                            """))),
             @ApiResponse(responseCode = "410", description = "삭제된 냉장고 (REFRIGERATOR-410-001)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)",
                     content = @Content(examples = @ExampleObject(value = """
@@ -170,7 +199,10 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"INGREDIENT-428-001","message":"현재 버전 정보를 If-Match 헤더에 전달해 주세요."}
                             """))),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-500-001","message":"서버에서 요청을 처리하지 못했습니다."}
+                            """)))
     })
     ResponseEntity<SuccessResponse<IngredientExpireResponse>> expire(
             @Parameter(hidden = true) Long userId,
@@ -224,14 +256,14 @@ public interface IngredientApi {
                     content = @Content(examples = @ExampleObject(value = """
                             {"code":"INGREDIENT-409-001","message":"냉장고 용량이 가득 찼습니다."}
                             """))),
-            @ApiResponse(
-                    responseCode = "422",
-                    description = "부적절한 재고 이름 (INGREDIENT-422-001)"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "서버 오류 (GLOBAL-500-001)"
-            )
+            @ApiResponse(responseCode = "422", description = "부적절한 재고 이름 (INGREDIENT-422-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"INGREDIENT-422-001","message":"부적절한 재고 이름입니다."}
+                            """))),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {"code":"GLOBAL-500-001","message":"서버에서 요청을 처리하지 못했습니다."}
+                            """)))
     })
     ResponseEntity<SuccessResponse<IngredientCreateResponse>> create(
             @Parameter(hidden = true) Long userId,
