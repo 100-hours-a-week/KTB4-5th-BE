@@ -56,7 +56,7 @@ public interface UserApi {
     ResponseEntity<SuccessResponse<SignupResponse>> signup(
             @RequestBody(
                     required = true,
-                    description = "아이디·닉네임은 완성형 한글·영문·숫자 2~10자(공백 제거), 비밀번호는 영문·숫자를 포함한 8자 이상, UTF-8 기준 72바이트 이하입니다.",
+                    description = "아이디·닉네임은 완성형 한글·영문·숫자 2~10자(공백 제거), 비밀번호는 영문·숫자만으로 각각 1자 이상 포함한 8~72자입니다.",
                     content = @Content(
                             schema = @Schema(implementation = SignupRequest.class),
                             examples = @ExampleObject(name = "회원가입 요청", value = SIGNUP_REQUEST)

@@ -111,10 +111,9 @@ class UserRegistrationServiceTest {
         verify(userRepository).existsByNickname("login1");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"a", "한"})
-    void hashesPasswordAtBcryptByteBoundaryWithoutChangingIt(String character) {
-        String password = "A1" + (character.equals("a") ? "a".repeat(70) : "한".repeat(23) + "a");
+    @Test
+    void hashesPasswordAtBcryptLimitWithoutChangingIt() {
+        String password = "A1" + "a".repeat(70);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         userRegistrationService.register(new RegisterUserCommand(null, null, "login1", password));
         ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);

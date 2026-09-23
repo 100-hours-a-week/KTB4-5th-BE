@@ -89,7 +89,9 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
             "{\"loginId\":\"user1\",\"password\":\"short1\"}",
             "{\"loginId\":\"user1\",\"password\":\"12345678\"}",
             "{\"loginId\":\"user1\",\"password\":\"한글비밀번호12\"}",
-            "{\"loginId\":\"user1\",\"password\":\"        \"}"
+            "{\"loginId\":\"user1\",\"password\":\"        \"}",
+            "{\"loginId\":\"user1\",\"password\":\"password1!\"}",
+            "{\"loginId\":\"user1\",\"password\":\"pass word1\"}"
     })
     void malformedLoginIdOrPasswordUsesCommonErrorBody(String body) throws Exception {
         Cookie csrf = csrf();
@@ -101,8 +103,8 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     }
 
     @Test
-    void passwordOverBcryptByteLimitIsRejectedBeforeSignup() throws Exception {
-        String password = "A1" + "한".repeat(23) + "ab";
+    void passwordOverBcryptLimitIsRejectedBeforeSignup() throws Exception {
+        String password = "A1" + "a".repeat(71);
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON)
