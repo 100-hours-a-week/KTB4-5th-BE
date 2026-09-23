@@ -70,9 +70,31 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         flushAndClear();
 
         List<Ingredient> page = ingredientRepository.findExpirationAscPage(
-                refrigerator.getId(), BASE_DATE, null, null, null, null, null, Limit.of(ALL));
+                refrigerator.getId(), BASE_DATE, null, null, null, null, null, null, Limit.of(ALL));
 
         assertThat(page).extracting(Ingredient::getName).containsExactly("우유");
+    }
+
+    @Test
+    void narrowsByInclusiveExpirationRangeAndStorageType() {
+        ingredient("어제", -1, 1);
+        ingredient("오늘", 0, 1);
+        ingredient("사흘뒤", 3, 1);
+        ingredient("나흘뒤", 4, 1);
+        persist(new Ingredient(refrigerator, new IngredientDetails("냉동만두", IngredientCategory.OTHER, StorageType.FROZEN,
+                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
+        flushAndClear();
+
+        assertThat(names(BASE_DATE, BASE_DATE.plusDays(3), null)).containsExactly("냉동만두", "사흘뒤", "오늘");
+        assertThat(names(BASE_DATE.plusDays(4), null, null)).containsExactly("나흘뒤");
+        assertThat(names(null, null, StorageType.FROZEN)).containsExactly("냉동만두");
+    }
+
+    private List<String> names(LocalDate from, LocalDate to, StorageType storageType) {
+        return ingredientRepository.findNameAscPage(refrigerator.getId(), from, to, storageType,
+                        null, null, null, null, Limit.of(ALL)).stream()
+                .map(Ingredient::getName)
+                .toList();
     }
 
     // 한 건씩 넘겨 모든 커서 경계(동률 행 사이 포함)를 지나게 한다.
@@ -100,11 +122,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         Limit one = Limit.of(1);
         return switch (sortType) {
             case EXPIRATION_ASC -> ingredientRepository.findExpirationAscPage(
-                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, null, expirationDate, createdAt, name, id, one);
             case CREATED_DESC -> ingredientRepository.findCreatedDescPage(
-                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, null, expirationDate, createdAt, name, id, one);
             case NAME_ASC -> ingredientRepository.findNameAscPage(
-                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, null, expirationDate, createdAt, name, id, one);
         };
     }
 

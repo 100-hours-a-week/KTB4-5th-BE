@@ -19,6 +19,7 @@ final class IngredientListJpql {
             + " where i.refrigerator.id = :refrigeratorId"
             + " and (:expirationFrom is null or i.expirationDate >= :expirationFrom)"
             + " and (:expirationTo is null or i.expirationDate <= :expirationTo)"
+            + " and (:storageType is null or i.storageType = :storageType)"
             + " and (:cursorId is null";
 
     // 유통기한 오름차순 > 등록일 내림차순 > 이름(한글 우선) > ID

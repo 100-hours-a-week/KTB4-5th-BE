@@ -3,7 +3,9 @@ package com.dameokja.backend.ingredient.application.list;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
+import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
+import com.dameokja.backend.ingredient.domain.StorageType;
 import java.time.LocalDate;
 
 /**
@@ -13,26 +15,46 @@ import java.time.LocalDate;
 public record IngredientListCursor(
         IngredientSortType sortType,
         Long refrigeratorId,
+        IngredientFilter filter,
         LocalDate baseDate,
         IngredientExpiryGroup group,
         IngredientCursor position) {
 
-    static IngredientListCursor first(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
-        return new IngredientListCursor(sortType, refrigeratorId, baseDate, IngredientExpiryGroup.EXPIRED, null);
+    // 필터가 만료 그룹을 제외하면(임박·정상) 비만료 그룹부터 읽는다.
+    static IngredientListCursor first(IngredientSortType sortType, Long refrigeratorId, IngredientFilter filter,
+                                      LocalDate baseDate) {
+        IngredientExpiryGroup firstGroup = includes(filter, IngredientExpiryGroup.EXPIRED)
+                ? IngredientExpiryGroup.EXPIRED
+                : IngredientExpiryGroup.NOT_EXPIRED;
+        return new IngredientListCursor(sortType, refrigeratorId, filter, baseDate, firstGroup, null);
     }
 
     IngredientListCursor after(Ingredient last) {
         IngredientExpiryGroup lastGroup = last.getExpirationDate().isBefore(baseDate)
                 ? IngredientExpiryGroup.EXPIRED
                 : IngredientExpiryGroup.NOT_EXPIRED;
-        return new IngredientListCursor(sortType, refrigeratorId, baseDate, lastGroup, IngredientCursor.from(last));
+        return new IngredientListCursor(sortType, refrigeratorId, filter, baseDate, lastGroup, IngredientCursor.from(last));
     }
 
-    boolean matches(IngredientSortType requestedSort, Long requestedRefrigeratorId, LocalDate today) {
+    boolean includes(IngredientExpiryGroup targetGroup) {
+        return includes(filter, targetGroup);
+    }
+
+    StorageType storageType() {
+        return filter == null ? null : filter.storageType();
+    }
+
+    boolean matches(IngredientSortType requestedSort, Long requestedRefrigeratorId, IngredientFilter requestedFilter,
+                    LocalDate today) {
         return isComplete()
                 && sortType == requestedSort
                 && refrigeratorId.equals(requestedRefrigeratorId)
+                && filter == requestedFilter
                 && !baseDate.isAfter(today);
+    }
+
+    private static boolean includes(IngredientFilter filter, IngredientExpiryGroup targetGroup) {
+        return filter == null || filter.includes(targetGroup);
     }
 
     private boolean isComplete() {

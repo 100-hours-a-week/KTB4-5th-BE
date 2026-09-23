@@ -51,12 +51,12 @@ class IngredientControllerTest {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
         IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, 30L, 30L, (short) 100, "next");
-        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, 10)).thenReturn(result);
+        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
 
-        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null);
+        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null);
 
         IngredientListResponse data = response.getBody().data();
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");

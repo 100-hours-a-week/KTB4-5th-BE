@@ -10,6 +10,7 @@ import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
+import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,32 +54,52 @@ class IngredientListCursorTest {
     void matchesOnlySameSortAndRefrigeratorUpToToday() {
         IngredientListCursor cursor = cursor(IngredientSortType.NAME_ASC, 10L, TODAY);
 
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, TODAY)).isTrue();
-        assertThat(cursor.matches(IngredientSortType.CREATED_DESC, 10L, TODAY)).isFalse();
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 99L, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, TODAY)).isTrue();
+        assertThat(cursor.matches(IngredientSortType.CREATED_DESC, 10L, null, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 99L, null, TODAY)).isFalse();
         assertThat(cursor(IngredientSortType.NAME_ASC, 10L, TODAY.minusDays(1))
-                .matches(IngredientSortType.NAME_ASC, 10L, TODAY)).isTrue();
+                .matches(IngredientSortType.NAME_ASC, 10L, null, TODAY)).isTrue();
         assertThat(cursor(IngredientSortType.NAME_ASC, 10L, TODAY.plusDays(1))
-                .matches(IngredientSortType.NAME_ASC, 10L, TODAY)).isFalse();
+                .matches(IngredientSortType.NAME_ASC, 10L, null, TODAY)).isFalse();
     }
 
     @Test
     void doesNotMatchCursorWithMissingValues() {
         IngredientListCursor empty = codec.decode("e30");
 
-        assertThat(empty.matches(IngredientSortType.NAME_ASC, 10L, TODAY)).isFalse();
+        assertThat(empty.matches(IngredientSortType.NAME_ASC, 10L, null, TODAY)).isFalse();
+    }
+
+    @Test
+    void doesNotMatchCursorIssuedForAnotherFilter() {
+        IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, TODAY)
+                .after(ingredient(TODAY));
+
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, TODAY)).isTrue();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.REFRIGERATED, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, TODAY)).isFalse();
+    }
+
+    // 임박·정상 필터는 만료 재고를 포함하지 않으므로 비만료 그룹부터 읽는다.
+    @ParameterizedTest
+    @CsvSource(nullValues = "NONE", value = {
+            "NONE, EXPIRED", "EXPIRED, EXPIRED", "REFRIGERATED, EXPIRED", "FROZEN, EXPIRED",
+            "EXPIRING_SOON, NOT_EXPIRED", "NORMAL, NOT_EXPIRED"
+    })
+    void startsFromFirstGroupTheFilterIncludes(IngredientFilter filter, IngredientExpiryGroup expected) {
+        assertThat(IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, filter, TODAY).group()).isEqualTo(expected);
     }
 
     @Test
     void placesNextPositionInTheExpiryGroupOfTheLastRow() {
-        IngredientListCursor first = IngredientListCursor.first(IngredientSortType.EXPIRATION_ASC, 10L, TODAY);
+        IngredientListCursor first = IngredientListCursor.first(IngredientSortType.EXPIRATION_ASC, 10L, null, TODAY);
 
         assertThat(first.after(ingredient(TODAY.minusDays(1))).group()).isEqualTo(IngredientExpiryGroup.EXPIRED);
         assertThat(first.after(ingredient(TODAY)).group()).isEqualTo(IngredientExpiryGroup.NOT_EXPIRED);
     }
 
     private IngredientListCursor cursor(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
-        return new IngredientListCursor(sortType, refrigeratorId, baseDate, IngredientExpiryGroup.NOT_EXPIRED, POSITION);
+        return new IngredientListCursor(sortType, refrigeratorId, null, baseDate, IngredientExpiryGroup.NOT_EXPIRED, POSITION);
     }
 
     private Ingredient ingredient(LocalDate expirationDate) {
