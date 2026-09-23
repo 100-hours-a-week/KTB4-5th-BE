@@ -59,10 +59,7 @@ final class IngredientApiExamples {
               "name": "두부",
               "category": "TOFU_BEAN",
               "storageType": "REFRIGERATED",
-              "quantity": null,
-              "weightValue": "250.000",
-              "weightUnit": "G",
-              "expirationDate": "2026-09-15"
+              "weightValue": "250.000"
             }
             """;
 
@@ -90,7 +87,7 @@ final class IngredientApiExamples {
 
     static final String EXPIRE_REQUEST = """
             {
-              "weightValue": "250.000",
+              "weightValue": "50.000",
               "quantity": null
             }
             """;
@@ -103,7 +100,7 @@ final class IngredientApiExamples {
                 "ingredientId": "1",
                 "removed": false,
                 "remainingQuantity": null,
-                "remainingWeightValue": "50.000",
+                "remainingWeightValue": "250.000",
                 "weightUnit": "G"
               }
             }
@@ -114,7 +111,7 @@ final class IngredientApiExamples {
               "code": "INGREDIENT-201-001",
               "message": "재고 일괄등록 성공",
               "data": {
-                "createdCount": 2,
+                "createdCount": 1,
                 "mergedCount": 1,
                 "ingredientsNum": 30,
                 "refrigeratorCapacity": 100,
