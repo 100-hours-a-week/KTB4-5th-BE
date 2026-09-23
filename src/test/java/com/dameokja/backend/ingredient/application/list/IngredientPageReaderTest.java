@@ -37,9 +37,9 @@ class IngredientPageReaderTest {
     void fillsRemainingRowsFromNotExpiredGroupWhenExpiredGroupRunsOut() {
         Ingredient expired = mock(Ingredient.class);
         Ingredient notExpired = mock(Ingredient.class);
-        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, true, BASE_DATE, null, null, null, null, Limit.of(3)))
+        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, null, BASE_DATE.minusDays(1), null, null, null, null, Limit.of(3)))
                 .thenReturn(List.of(expired));
-        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, false, BASE_DATE, null, null, null, null, Limit.of(2)))
+        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, BASE_DATE, null, null, null, null, null, Limit.of(2)))
                 .thenReturn(List.of(notExpired));
 
         List<Ingredient> rows = ingredientPageReader.read(firstCursor(IngredientSortType.EXPIRATION_ASC), 3);
@@ -50,7 +50,7 @@ class IngredientPageReaderTest {
     @Test
     void readsOnlyExpiredGroupWhenItFillsTheLimit() {
         List<Ingredient> expired = List.of(mock(Ingredient.class), mock(Ingredient.class));
-        when(ingredientRepository.findCreatedDescPage(REFRIGERATOR_ID, true, BASE_DATE, null, null, null, null, Limit.of(2)))
+        when(ingredientRepository.findCreatedDescPage(REFRIGERATOR_ID, null, BASE_DATE.minusDays(1), null, null, null, null, Limit.of(2)))
                 .thenReturn(expired);
 
         List<Ingredient> rows = ingredientPageReader.read(firstCursor(IngredientSortType.CREATED_DESC), 2);
@@ -65,7 +65,7 @@ class IngredientPageReaderTest {
         IngredientListCursor cursor = new IngredientListCursor(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, BASE_DATE,
                 IngredientExpiryGroup.NOT_EXPIRED, position);
         List<Ingredient> notExpired = List.of(mock(Ingredient.class));
-        when(ingredientRepository.findNameAscPage(REFRIGERATOR_ID, false, BASE_DATE, BASE_DATE,
+        when(ingredientRepository.findNameAscPage(REFRIGERATOR_ID, BASE_DATE, null, BASE_DATE,
                 position.createdAt(), "두부", 7L, Limit.of(5))).thenReturn(notExpired);
 
         List<Ingredient> rows = ingredientPageReader.read(cursor, 5);
