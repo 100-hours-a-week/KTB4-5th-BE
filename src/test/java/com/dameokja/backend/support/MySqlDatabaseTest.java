@@ -19,6 +19,8 @@ public abstract class MySqlDatabaseTest {
         registry.add("push.auth-encryption.key", () -> java.util.Base64.getEncoder()
                 .encodeToString(new byte[32]));
         registry.add("push.auth-encryption.key-version", () -> "test-v1");
+        registry.add("push.vapid.public-key", () -> "test-vapid-public-key");
+        registry.add("push.vapid.key-version", () -> "test-v1");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.sql.init.mode", () -> "never");
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
