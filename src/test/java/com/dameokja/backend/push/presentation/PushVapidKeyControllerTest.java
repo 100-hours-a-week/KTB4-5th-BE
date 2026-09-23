@@ -12,10 +12,10 @@ class PushVapidKeyControllerTest {
     private final PushVapidKeyController controller = new PushVapidKeyController(vapidKeyProperties);
 
     @Test
-    void returnsCurrentVapidPublicKeyAndVersion() {
+    void returnsCurrentVapidPublicKeyOnly() {
         SuccessResponse<PushVapidKeyResponse> response = controller.vapidPublicKey();
 
         assertThat(response.code()).isEqualTo("PUSH-200-001");
-        assertThat(response.data()).isEqualTo(new PushVapidKeyResponse("public-key", "v1"));
+        assertThat(response.data()).isEqualTo(new PushVapidKeyResponse("public-key"));
     }
 }

@@ -16,7 +16,8 @@ public interface PushVapidKeyApi {
 
     @Operation(
             summary = "VAPID 공개키 조회",
-            description = "브라우저가 푸시 구독을 생성할 때 필요한 서버 VAPID 공개키와 그 버전을 반환합니다. "
+            description = "브라우저가 푸시 구독을 생성할 때 필요한 서버 VAPID 공개키를 반환합니다. "
+                    + "기존 구독의 applicationServerKey와 다르면 키가 교체된 것이므로 구독을 해제한 뒤 다시 구독합니다. "
                     + "로그인 여부와 관계없이 호출할 수 있습니다."
     )
     @ApiResponses({

@@ -6,8 +6,7 @@ final class PushVapidKeyApiExamples {
               "code": "PUSH-200-001",
               "message": "VAPID 공개키 조회 성공",
               "data": {
-                "vapidPublicKey": "BExampleVapidPublicKeyBase64Url...",
-                "vapidKeyVersion": "v1"
+                "vapidPublicKey": "BExampleVapidPublicKeyBase64Url..."
               }
             }
             """;
