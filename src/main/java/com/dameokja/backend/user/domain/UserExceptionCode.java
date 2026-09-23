@@ -8,9 +8,6 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum UserExceptionCode implements ExceptionCode {
-    PASSWORD_REQUIRED(HttpStatus.BAD_REQUEST, "USER-400-001", "비밀번호를 입력해 주세요."),
-    PASSWORD_FORMAT_INVALID(HttpStatus.BAD_REQUEST, "USER-400-002",
-            "비밀번호는 영문과 숫자를 포함해 8자 이상, UTF-8 기준 72바이트 이하로 입력해 주세요."),
     USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "USER-403-001", "탈퇴한 회원은 이용할 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER-404-001", "회원을 찾을 수 없습니다."),
     NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "USER-409-001", "이미 사용 중인 닉네임입니다."),

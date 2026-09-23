@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 
 public record SignupRequest(
         @NotBlank @Pattern(regexp = UserInputFormat.LOGIN_ID_PATTERN) String loginId,
-        @NotBlank @Pattern(regexp = "(?s)(?=.*[a-zA-Z])(?=.*[0-9]).{8,}") String password,
+        @NotBlank @Pattern(regexp = UserInputFormat.PASSWORD_PATTERN) String password,
         @Pattern(regexp = UserInputFormat.NICKNAME_PATTERN) String nickname) {
     public SignupRequest {
         loginId = UserInputFormat.removeWhitespace(loginId);

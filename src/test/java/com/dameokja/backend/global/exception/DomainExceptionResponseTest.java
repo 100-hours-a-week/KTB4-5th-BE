@@ -17,10 +17,6 @@ class DomainExceptionResponseTest {
 
     static Stream<Arguments> errors() {
         return Stream.of(
-                Arguments.of(new CustomException(UserExceptionCode.PASSWORD_REQUIRED),
-                        400, "USER-400-001", "비밀번호를 입력해 주세요."),
-                Arguments.of(new CustomException(UserExceptionCode.PASSWORD_FORMAT_INVALID),
-                        400, "USER-400-002", "비밀번호는 영문과 숫자를 포함해 8자 이상, UTF-8 기준 72바이트 이하로 입력해 주세요."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_ACTIVE),
                         403, "USER-403-001", "탈퇴한 회원은 이용할 수 없습니다."),
                 Arguments.of(new CustomException(UserExceptionCode.USER_NOT_FOUND),

@@ -30,7 +30,7 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
 
     @Test
     void persistsHashedCredentialsAndPersonalRefrigeratorWithUsableTokens() {
-        String password = " A1" + "a".repeat(69);
+        String password = "A1" + "a".repeat(70);
         SignupResult result = signup.signup("login1", password, null);
         User user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
         assertThat(user.getLoginId()).isEqualTo("login1");
