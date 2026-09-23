@@ -2,6 +2,9 @@ package com.dameokja.backend.ingredient.infrastructure;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
@@ -26,4 +29,22 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
             + "and i.measurement.weightUnit = :#{#details.measurement().weightUnit} order by i.id")
     List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId,
             @Param("details") IngredientDetails details);
+
+    @Query(IngredientListJpql.EXPIRATION_ASC)
+    List<Ingredient> findExpirationAscPage(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+            @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
+
+    @Query(IngredientListJpql.CREATED_DESC)
+    List<Ingredient> findCreatedDescPage(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+            @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
+
+    @Query(IngredientListJpql.NAME_ASC)
+    List<Ingredient> findNameAscPage(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
+            @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 }
