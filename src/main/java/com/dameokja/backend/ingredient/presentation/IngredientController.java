@@ -7,14 +7,18 @@ import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireResult;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
+import com.dameokja.backend.ingredient.application.list.IngredientListResult;
+import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
+import com.dameokja.backend.ingredient.presentation.request.IngredientListRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import jakarta.validation.Valid;
 import java.util.Optional;
@@ -28,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -42,11 +47,28 @@ public class IngredientController implements IngredientApi {
     private static final String UPDATED_MESSAGE = "재고 수정 성공";
     private static final String EXPIRED_CODE = "INGREDIENT-200-005";
     private static final String EXPIRED_MESSAGE = "재고 비우기 성공";
+    private static final String LIST_CODE = "INGREDIENT-200-002";
+    private static final String LIST_MESSAGE = "냉장고 재고 목록 조회 성공";
 
     private final IngredientCreateService ingredientCreateService;
     private final IngredientDetailService ingredientDetailService;
     private final IngredientUpdateService ingredientUpdateService;
     private final IngredientExpireService ingredientExpireService;
+    private final IngredientListService ingredientListService;
+
+    @Override
+    @GetMapping("/refrigerators/{refrigeratorId}/ingredients")
+    public ResponseEntity<SuccessResponse<IngredientListResponse>> getList(
+            @CurrentUserId Long userId, @PathVariable Long refrigeratorId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String size,
+            @RequestParam(required = false) String sort) {
+        IngredientListRequest request = new IngredientListRequest(cursor, size, sort);
+        IngredientListResult result = ingredientListService.getList(
+                userId, refrigeratorId, request.sortType(), request.cursorToken(), request.pageSize());
+        IngredientListResponse response = IngredientListResponse.from(result);
+        return ResponseEntity.ok(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, response));
+    }
 
     @Override
     @GetMapping("/ingredients/{ingredientId}")

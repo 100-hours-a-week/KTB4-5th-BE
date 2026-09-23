@@ -5,6 +5,7 @@ import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.DETAIL_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_RESPONSE;
+import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.LIST_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_RESPONSE;
 
@@ -14,6 +15,7 @@ import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequ
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +31,40 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "재고", description = "냉장고 재고 API")
 public interface IngredientApi {
+
+    @Operation(
+            summary = "냉장고 재고 목록 조회",
+            description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 모든 정렬에서 만료 재고가 먼저 옵니다. "
+                    + "다음 페이지는 같은 sort와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
+                    + "상태(status)는 첫 페이지 요청 날짜(KST) 기준으로 계산합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "냉장고 재고 목록 조회 성공",
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = LIST_RESPONSE))
+            ),
+            @ApiResponse(responseCode = "400", description = "size·sort 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<IngredientListResponse>> getList(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(name = "refrigeratorId", in = ParameterIn.PATH, description = "조회할 냉장고 ID", required = true, example = "1")
+            Long refrigeratorId,
+            @Parameter(name = "cursor", in = ParameterIn.QUERY, description = "이전 응답의 nextCursor. 첫 요청은 생략")
+            String cursor,
+            @Parameter(name = "size", in = ParameterIn.QUERY, description = "페이지 크기 1~50, 기본 10", example = "10")
+            String size,
+            @Parameter(
+                    name = "sort",
+                    in = ParameterIn.QUERY,
+                    description = "EXPIRATION_ASC(유통기한순, 기본) / CREATED_DESC(최근 등록순) / NAME_ASC(이름순, 한글 우선)",
+                    schema = @Schema(allowableValues = {"EXPIRATION_ASC", "CREATED_DESC", "NAME_ASC"})
+            )
+            String sort);
 
     @Operation(
             summary = "재고 상세 조회",
