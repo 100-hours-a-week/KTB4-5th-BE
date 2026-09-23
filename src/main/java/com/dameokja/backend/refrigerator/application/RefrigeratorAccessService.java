@@ -26,7 +26,7 @@ public class RefrigeratorAccessService {
         return refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(userId);
     }
 
-    public void validateReadAccess(Long userId, Long refrigeratorId) {
+    public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
         Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)
                 .orElseThrow(() -> new CustomException(
@@ -40,6 +40,7 @@ public class RefrigeratorAccessService {
         if (!refrigeratorMember.getRefrigerator().getId().equals(refrigeratorId)) {
             throw new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED);
         }
+        return refrigerator;
     }
 
     public void validateWriteAccess(Long userId, Long refrigeratorId) {
