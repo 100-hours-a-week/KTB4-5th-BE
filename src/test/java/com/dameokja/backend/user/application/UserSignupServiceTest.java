@@ -18,12 +18,12 @@ class UserSignupServiceTest {
     private final UserSignupService signup = new UserSignupService(registration, auth);
 
     @Test
-    void normalizesOnlyLoginIdAndReturnsCreatedRefrigeratorAfterLogin() {
+    void registersThenLogsInAndReturnsCreatedRefrigerator() {
         RegisterUserCommand command = new RegisterUserCommand(null, null, "한User1", " pass1234 ");
         TokenPair tokens = new TokenPair("access", "refresh", 7L);
         when(registration.register(command)).thenReturn(new RegistrationResult(7L, 9L));
         when(auth.login("한User1", command.password())).thenReturn(tokens);
-        SignupResult result = signup.signup(" 한\tUser\n1\u3000\u00a0", command.password(), null);
+        SignupResult result = signup.signup("한User1", command.password(), null);
         assertThat(result.tokenPair()).isEqualTo(tokens);
         assertThat(result.activeRefrigeratorIds()).containsExactly(9L);
         InOrder order = inOrder(registration, auth);

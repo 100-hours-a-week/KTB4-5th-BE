@@ -37,7 +37,7 @@ public interface UserApi {
             @ApiResponse(
                     responseCode = "400",
                     description = "요청 형식 또는 아이디·닉네임·비밀번호 입력값 오류 "
-                            + "(GLOBAL-400-001, USER-400-001~003, USER-400-006~009, USER-400-011)"
+                            + "(GLOBAL-400-001, USER-400-007~008)"
             ),
             @ApiResponse(
                     responseCode = "403",
@@ -56,7 +56,7 @@ public interface UserApi {
     ResponseEntity<SuccessResponse<SignupResponse>> signup(
             @RequestBody(
                     required = true,
-                    description = "아이디는 영문·숫자 2~10자, 비밀번호는 영문·숫자를 포함한 8자 이상입니다.",
+                    description = "아이디·닉네임은 완성형 한글·영문·숫자 2~10자(공백 제거), 비밀번호는 영문·숫자를 포함한 8자 이상입니다.",
                     content = @Content(
                             schema = @Schema(implementation = SignupRequest.class),
                             examples = @ExampleObject(name = "회원가입 요청", value = SIGNUP_REQUEST)

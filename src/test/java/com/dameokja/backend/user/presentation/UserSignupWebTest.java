@@ -14,6 +14,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,6 +49,19 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     }
 
     @Test
+    void normalizesLoginIdAndBlankNicknameBeforeValidation() throws Exception {
+        when(userSignupService.signup("한글1", "password1", null)).thenReturn(new SignupResult(
+                new TokenPair("access-token", "refresh-token", 7L), List.of(1L)));
+        String body = "{\"loginId\":\" \\u1112\\u1161\\u11ab\\u3000\\u1100\\u1173\\u11af1\\u00a0\","
+                + "\"password\":\"password1\",\"nickname\":\" \\t \"}";
+        Cookie csrf = csrf();
+        mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+        verify(userSignupService).signup("한글1", "password1", null);
+    }
+
+    @Test
     void signupWithoutCsrfCookieIsForbidden() throws Exception {
         mockMvc.perform(post("/api/v1/users").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isForbidden())
@@ -68,7 +82,9 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     @ParameterizedTest
     @ValueSource(strings = {
             "{\"loginId\":\"a\",\"password\":\"password1\"}",
-            "{\"loginId\":\"한글아이디\",\"password\":\"password1\"}",
+            "{\"loginId\":\"ㄱㄴ아이디\",\"password\":\"password1\"}",
+            "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"ㄱㄴ\"}",
+            "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"a\"}",
             "{\"loginId\":\"user1\",\"password\":\"short1\"}",
             "{\"loginId\":\"user1\",\"password\":\"12345678\"}"
     })
@@ -84,12 +100,12 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     @Test
     void requiredFieldErrorUsesSpecificUserCode() throws Exception {
         when(userSignupService.signup(any(), any(), any()))
-                .thenThrow(new CustomException(UserExceptionCode.NICKNAME_REQUIRED));
+                .thenThrow(new CustomException(UserExceptionCode.PASSWORD_REQUIRED));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("USER-400-001"));
+                .andExpect(jsonPath("$.code").value("USER-400-007"));
     }
 
     @Test

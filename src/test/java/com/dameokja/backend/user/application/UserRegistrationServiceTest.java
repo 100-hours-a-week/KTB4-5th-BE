@@ -40,8 +40,7 @@ class UserRegistrationServiceTest {
     private RefrigeratorLifecycleService refrigeratorLifecycleService;
     @Mock
     private NicknamePolicy nicknamePolicy;
-    private final LoginIdPolicy loginIdPolicy = new LoginIdPolicy(
-            new NicknameAndLoginIdValidator(mock(ProhibitedWordChecker.class)));
+    private final LoginIdPolicy loginIdPolicy = new LoginIdPolicy(mock(ProhibitedWordChecker.class));
     private UserRegistrationService userRegistrationService;
 
     @BeforeEach
@@ -103,10 +102,7 @@ class UserRegistrationServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource({",pass1234,LOGIN_ID_REQUIRED", "' ',pass1234,LOGIN_ID_REQUIRED",
-            "A,pass1234,LOGIN_ID_LENGTH_INVALID", "Abcdefgh123,pass1234,LOGIN_ID_LENGTH_INVALID",
-            "a_b,pass1234,LOGIN_ID_FORMAT_INVALID", "한 글,pass1234,LOGIN_ID_FORMAT_INVALID",
-            "login1,,PASSWORD_REQUIRED", "login1,' ',PASSWORD_REQUIRED",
+    @CsvSource({"login1,,PASSWORD_REQUIRED", "login1,' ',PASSWORD_REQUIRED",
             "login1,pass123,PASSWORD_FORMAT_INVALID", "login1,password,PASSWORD_FORMAT_INVALID",
             "login1,12345678,PASSWORD_FORMAT_INVALID", "login1,한글비밀번호12,PASSWORD_FORMAT_INVALID"})
     void validatesRawInputWithoutSignup(String loginId, String password, UserExceptionCode expected) {
