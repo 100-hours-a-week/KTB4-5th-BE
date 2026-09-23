@@ -28,13 +28,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 
-@Tag(name = "재고", description = "현재 구현: 재고 상세·등록·수정·부분 비우기. 재고 목록 조회는 아직 구현되지 않았습니다.")
+@Tag(name = "재고", description = "냉장고 재고 조회 및 관리 API")
 public interface IngredientApi {
 
     @Operation(
             summary = "재고 상세 조회",
-            description = "재고 상세 정보와 수정·부분 비우기 요청에 사용할 strong ETag를 조회합니다. "
-                    + "재고 목록 조회 API는 현재 구현되어 있지 않습니다."
+            description = "재고 상세 정보와 수정·부분 비우기 요청에 사용할 strong ETag를 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(
