@@ -1,12 +1,14 @@
 package com.dameokja.backend.user.presentation;
 
+import com.dameokja.backend.global.validation.MaxUtf8Bytes;
 import com.dameokja.backend.user.domain.UserInputFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 public record SignupRequest(
         @NotBlank @Pattern(regexp = UserInputFormat.LOGIN_ID_PATTERN) String loginId,
-        @NotBlank @Pattern(regexp = "(?s)(?=.*[a-zA-Z])(?=.*[0-9]).{8,}") String password,
+        @NotBlank @Pattern(regexp = UserInputFormat.PASSWORD_PATTERN)
+        @MaxUtf8Bytes(UserInputFormat.PASSWORD_MAX_BYTES) String password,
         @Pattern(regexp = UserInputFormat.NICKNAME_PATTERN) String nickname) {
     public SignupRequest {
         loginId = UserInputFormat.removeWhitespace(loginId);

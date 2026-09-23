@@ -87,7 +87,9 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
             "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"ㄱㄴ\"}",
             "{\"loginId\":\"user1\",\"password\":\"password1\",\"nickname\":\"a\"}",
             "{\"loginId\":\"user1\",\"password\":\"short1\"}",
-            "{\"loginId\":\"user1\",\"password\":\"12345678\"}"
+            "{\"loginId\":\"user1\",\"password\":\"12345678\"}",
+            "{\"loginId\":\"user1\",\"password\":\"한글비밀번호12\"}",
+            "{\"loginId\":\"user1\",\"password\":\"        \"}"
     })
     void malformedLoginIdOrPasswordUsesCommonErrorBody(String body) throws Exception {
         Cookie csrf = csrf();
@@ -99,14 +101,15 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
     }
 
     @Test
-    void requiredFieldErrorUsesSpecificUserCode() throws Exception {
-        when(userSignupService.signup(any(), any(), any()))
-                .thenThrow(new CustomException(UserExceptionCode.PASSWORD_REQUIRED));
+    void passwordOverBcryptByteLimitIsRejectedBeforeSignup() throws Exception {
+        String password = "A1" + "한".repeat(23) + "ab";
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/users").cookie(csrf).header("X-XSRF-TOKEN", csrf.getValue())
-                        .contentType(MediaType.APPLICATION_JSON).content(BODY))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"user1\",\"password\":\"" + password + "\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("USER-400-001"));
+                .andExpect(jsonPath("$.code").value("GLOBAL-400-001"));
+        verifyNoInteractions(userSignupService);
     }
 
     @Test

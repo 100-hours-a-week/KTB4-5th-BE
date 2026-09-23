@@ -44,7 +44,7 @@ class UserRegistrationFlushTest {
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService,
                 new UserRegistrationFactory("default.png"), clock,
-                nicknamePolicy, loginIdPolicy, new PasswordPolicy(), new BCryptPasswordEncoder());
+                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
     }
 
     @ParameterizedTest

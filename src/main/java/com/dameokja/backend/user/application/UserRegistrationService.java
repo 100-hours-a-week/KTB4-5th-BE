@@ -26,7 +26,6 @@ public class UserRegistrationService {
 
     private final NicknamePolicy nicknamePolicy;
     private final LoginIdPolicy loginIdPolicy;
-    private final PasswordPolicy passwordPolicy;
     private final PasswordEncoder passwordEncoder;
 
     public RegistrationResult register(RegisterUserCommand registerUserCommand) {
@@ -67,7 +66,6 @@ public class UserRegistrationService {
             nickname = command.loginId();
         }
         nicknamePolicy.validate(nickname);
-        passwordPolicy.validate(command.password());
         return nickname;
     }
 }

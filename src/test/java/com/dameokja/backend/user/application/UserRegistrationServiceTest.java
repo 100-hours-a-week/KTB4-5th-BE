@@ -49,7 +49,7 @@ class UserRegistrationServiceTest {
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService,
                 new UserRegistrationFactory("default.png"), clock,
-                nicknamePolicy, loginIdPolicy, new PasswordPolicy(), new BCryptPasswordEncoder());
+                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
     }
 
     @Test
@@ -102,16 +102,6 @@ class UserRegistrationServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"login1,,PASSWORD_REQUIRED", "login1,' ',PASSWORD_REQUIRED",
-            "login1,pass123,PASSWORD_FORMAT_INVALID", "login1,password,PASSWORD_FORMAT_INVALID",
-            "login1,12345678,PASSWORD_FORMAT_INVALID", "login1,한글비밀번호12,PASSWORD_FORMAT_INVALID"})
-    void validatesRawInputWithoutSignup(String loginId, String password, UserExceptionCode expected) {
-        assertUserError(expected, () -> userRegistrationService.register(
-                new RegisterUserCommand(null, null, loginId, password)));
-        verifyNoInteractions(userRepository, refrigeratorLifecycleService);
-    }
-
-    @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" \t\n", "\u3000", "\u00a0"})
     void defaultsNicknameBeforeValidationAndDuplicateCheck(String nickname) {
@@ -123,15 +113,13 @@ class UserRegistrationServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"a", "한"})
-    void checksBcryptByteBoundaryWithoutChangingPassword(String character) {
+    void hashesPasswordAtBcryptByteBoundaryWithoutChangingIt(String character) {
         String password = "A1" + (character.equals("a") ? "a".repeat(70) : "한".repeat(23) + "a");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         userRegistrationService.register(new RegisterUserCommand(null, null, "login1", password));
         ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(saved.capture());
         assertThat(new BCryptPasswordEncoder().matches(password, saved.getValue().getPasswordHash())).isTrue();
-        assertUserError(UserExceptionCode.PASSWORD_FORMAT_INVALID, () -> userRegistrationService.register(
-                new RegisterUserCommand(null, null, "login2", password + "a")));
     }
 
     private void assertUserError(UserExceptionCode expectedExceptionCode, Runnable action) {
