@@ -3,6 +3,7 @@ package com.dameokja.backend.ingredient.application.list;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
+import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,13 +37,23 @@ class IngredientPageReader {
         String name = position == null ? null : position.name();
         Long ingredientId = position == null ? null : position.ingredientId();
         Limit rowLimit = Limit.of(limit);
-        return switch (cursor.sortType()) {
-            case EXPIRATION_ASC -> ingredientRepository.findExpirationAscPage(
-                    refrigeratorId, expired, baseDate, expirationDate, createdAt, name, ingredientId, rowLimit);
-            case CREATED_DESC -> ingredientRepository.findCreatedDescPage(
-                    refrigeratorId, expired, baseDate, expirationDate, createdAt, name, ingredientId, rowLimit);
-            case NAME_ASC -> ingredientRepository.findNameAscPage(
-                    refrigeratorId, expired, baseDate, expirationDate, createdAt, name, ingredientId, rowLimit);
+        SortedPageQuery query = queryOf(cursor.sortType());
+        return query.find(refrigeratorId, expired, baseDate, expirationDate, createdAt, name, ingredientId, rowLimit);
+    }
+
+    // switch 식은 정렬 유형이 추가됐는데 case가 빠지면 컴파일 에러를 내므로 Map 대신 사용한다.
+    private SortedPageQuery queryOf(IngredientSortType sortType) {
+        return switch (sortType) {
+            case EXPIRATION_ASC -> ingredientRepository::findExpirationAscPage;
+            case CREATED_DESC -> ingredientRepository::findCreatedDescPage;
+            case NAME_ASC -> ingredientRepository::findNameAscPage;
         };
+    }
+
+    // 정렬별 조회 메서드는 모두 같은 인자를 받으므로, 어떤 메서드를 쓸지만 고르고 호출은 한 번에 한다.
+    @FunctionalInterface
+    private interface SortedPageQuery {
+        List<Ingredient> find(Long refrigeratorId, boolean expired, LocalDate baseDate, LocalDate expirationDate,
+                              LocalDateTime createdAt, String name, Long ingredientId, Limit limit);
     }
 }
