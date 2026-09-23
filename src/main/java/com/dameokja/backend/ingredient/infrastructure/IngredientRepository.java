@@ -32,19 +32,19 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     @Query(IngredientListJpql.EXPIRATION_ASC)
     List<Ingredient> findExpirationAscPage(@Param("refrigeratorId") Long refrigeratorId,
-            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.CREATED_DESC)
     List<Ingredient> findCreatedDescPage(@Param("refrigeratorId") Long refrigeratorId,
-            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.NAME_ASC)
     List<Ingredient> findNameAscPage(@Param("refrigeratorId") Long refrigeratorId,
-            @Param("expired") boolean expired, @Param("baseDate") LocalDate baseDate,
+            @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 }

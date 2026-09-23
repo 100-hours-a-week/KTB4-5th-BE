@@ -70,7 +70,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         flushAndClear();
 
         List<Ingredient> page = ingredientRepository.findExpirationAscPage(
-                refrigerator.getId(), false, BASE_DATE, null, null, null, null, Limit.of(ALL));
+                refrigerator.getId(), BASE_DATE, null, null, null, null, null, Limit.of(ALL));
 
         assertThat(page).extracting(Ingredient::getName).containsExactly("우유");
     }
@@ -91,6 +91,8 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     private List<Ingredient> findPage(IngredientSortType sortType, IngredientExpiryGroup group, IngredientCursor cursor) {
         Long refrigeratorId = refrigerator.getId();
         boolean expired = group == IngredientExpiryGroup.EXPIRED;
+        LocalDate from = expired ? null : BASE_DATE;
+        LocalDate to = expired ? BASE_DATE.minusDays(1) : null;
         LocalDate expirationDate = cursor == null ? null : cursor.expirationDate();
         LocalDateTime createdAt = cursor == null ? null : cursor.createdAt();
         String name = cursor == null ? null : cursor.name();
@@ -98,11 +100,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         Limit one = Limit.of(1);
         return switch (sortType) {
             case EXPIRATION_ASC -> ingredientRepository.findExpirationAscPage(
-                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
             case CREATED_DESC -> ingredientRepository.findCreatedDescPage(
-                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
             case NAME_ASC -> ingredientRepository.findNameAscPage(
-                    refrigeratorId, expired, BASE_DATE, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, expirationDate, createdAt, name, id, one);
         };
     }
 
