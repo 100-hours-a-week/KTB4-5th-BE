@@ -57,7 +57,7 @@ class AuthContractWebTest extends SecurityWebTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("GLOBAL-400-001"))
                 .andExpect(jsonPath("$.message").value("요청 형식이 올바르지 않습니다."))
-                .andExpect(jsonPath("$.errors").isArray())
+                .andExpect(jsonPath("$.errors").doesNotExist())
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 

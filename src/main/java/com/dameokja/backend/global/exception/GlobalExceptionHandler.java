@@ -23,27 +23,25 @@ public class GlobalExceptionHandler {
         return toResponse(exception.getExceptionCode(), exception.getFieldErrors());
     }
 
+    // 명세의 오류 응답에는 필드 목록이 없으므로 어떤 필드가 틀렸는지는 서버 로그에만 남긴다.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
             MethodArgumentNotValidException exception) {
-        List<FieldError> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
-                .map(bindingFieldError -> FieldError.of("BODY", "/" + bindingFieldError.getField(),
-                        "FORMAT", bindingFieldError.getDefaultMessage()))
+        List<String> invalidFields = exception.getBindingResult().getFieldErrors().stream()
+                .map(bindingFieldError -> bindingFieldError.getField())
                 .toList();
-        log.warn("[Validation] fieldErrors={}", fieldErrors);
-        return toResponse(GlobalExceptionCode.BAD_REQUEST, fieldErrors);
+        log.warn("[Validation] invalidFields={}", invalidFields);
+        return toResponse(GlobalExceptionCode.BAD_REQUEST, List.of());
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(
             ConstraintViolationException exception) {
-        List<FieldError> fieldErrors = exception.getConstraintViolations().stream()
-                .map(constraintViolation -> FieldError.of("QUERY",
-                        constraintViolation.getPropertyPath().toString(),
-                        "FORMAT", constraintViolation.getMessage()))
+        List<String> invalidFields = exception.getConstraintViolations().stream()
+                .map(constraintViolation -> constraintViolation.getPropertyPath().toString())
                 .toList();
-        log.warn("[ConstraintViolation] fieldErrors={}", fieldErrors);
-        return toResponse(GlobalExceptionCode.BAD_REQUEST, fieldErrors);
+        log.warn("[ConstraintViolation] invalidFields={}", invalidFields);
+        return toResponse(GlobalExceptionCode.BAD_REQUEST, List.of());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
