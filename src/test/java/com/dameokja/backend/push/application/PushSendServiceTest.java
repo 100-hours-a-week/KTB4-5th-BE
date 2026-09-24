@@ -3,7 +3,6 @@ package com.dameokja.backend.push.application;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
 import com.dameokja.backend.push.domain.UserDevice;
-import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.push.infrastructure.WebPushResult;
@@ -18,14 +17,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,14 +34,14 @@ class PushSendServiceTest {
 
     @Mock private UserDeviceRepository userDeviceRepository;
     @Mock private WebPushSender webPushSender;
+    @Mock private PushSubscriptionService pushSubscriptionService;
     private final PushAuthEncryptor encryptor = new PushAuthEncryptor(KEY, "enc-v1");
     private PushSendService service;
     private UserDevice device;
 
     @BeforeEach
     void setUp() {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));
-        service = new PushSendService(userDeviceRepository, encryptor, webPushSender, transactionTemplate);
+        service = new PushSendService(userDeviceRepository, encryptor, webPushSender, pushSubscriptionService);
         device = new UserDevice(new User("닉네임", "profile.png"), "https://push.example.com/abc", "p256dh",
                 encryptor.encrypt("auth-secret"), "enc-v1", "vapid-v1");
     }
@@ -65,7 +61,7 @@ class PushSendServiceTest {
         verify(webPushSender).send(target.capture(), eq(PAYLOAD));
         assertThat(target.getValue())
                 .isEqualTo(new WebPushTarget("https://push.example.com/abc", "p256dh", "auth-secret"));
-        assertThat(device.getStatus()).isEqualTo(UserDeviceStatus.ACTIVE);
+        verify(pushSubscriptionService, never()).invalidate(any());
     }
 
     @Test
@@ -74,7 +70,7 @@ class PushSendServiceTest {
 
         assertThat(service.send(1L, PAYLOAD)).isFalse();
 
-        assertThat(device.getStatus()).isEqualTo(UserDeviceStatus.INVALID);
+        verify(pushSubscriptionService).invalidate(1L);
     }
 
     @Test
@@ -83,7 +79,7 @@ class PushSendServiceTest {
 
         assertThat(service.send(1L, PAYLOAD)).isFalse();
 
-        assertThat(device.getStatus()).isEqualTo(UserDeviceStatus.ACTIVE);
+        verify(pushSubscriptionService, never()).invalidate(any());
     }
 
     @Test

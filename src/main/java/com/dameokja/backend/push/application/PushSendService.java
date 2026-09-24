@@ -11,7 +11,6 @@ import com.dameokja.backend.push.infrastructure.WebPushSender;
 import com.dameokja.backend.push.infrastructure.WebPushTarget;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 // 전송은 응답을 최대 10초까지 기다리므로, 그동안 DB 트랜잭션과 커넥션을 잡지 않도록 @Transactional을 두지 않는다.
 @Service
@@ -20,7 +19,7 @@ public class PushSendService {
     private final UserDeviceRepository userDeviceRepository;
     private final PushAuthEncryptor pushAuthEncryptor;
     private final WebPushSender webPushSender;
-    private final TransactionTemplate transactionTemplate;
+    private final PushSubscriptionService pushSubscriptionService;
 
     public boolean send(Long userDeviceId, String payloadJson) {
         UserDevice device = userDeviceRepository.findById(userDeviceId)
@@ -30,7 +29,7 @@ public class PushSendService {
         }
         WebPushResult result = webPushSender.send(toTarget(device), payloadJson);
         if (result == WebPushResult.EXPIRED) {
-            invalidate(userDeviceId);
+            pushSubscriptionService.invalidate(userDeviceId);
         }
         return result == WebPushResult.SUCCESS;
     }
@@ -38,11 +37,5 @@ public class PushSendService {
     private WebPushTarget toTarget(UserDevice device) {
         String authSecret = pushAuthEncryptor.decrypt(device.getAuthSecretEncrypted());
         return new WebPushTarget(device.getEndpoint(), device.getP256dhKey(), authSecret);
-    }
-
-    // 전송 전에 조회한 객체를 병합하면 전송 중 바뀐 값을 덮어쓰므로, 짧은 트랜잭션에서 다시 조회해 변경한다.
-    private void invalidate(Long userDeviceId) {
-        transactionTemplate.executeWithoutResult(status ->
-                userDeviceRepository.findById(userDeviceId).ifPresent(UserDevice::invalidate));
     }
 }
