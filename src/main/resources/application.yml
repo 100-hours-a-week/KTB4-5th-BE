@@ -39,7 +39,10 @@ push:
     key-version: ${PUSH_AUTH_ENCRYPTION_KEY_VERSION}
   vapid:
     public-key: ${PUSH_VAPID_PUBLIC_KEY}
+    private-key: ${PUSH_VAPID_PRIVATE_KEY}
     key-version: ${PUSH_VAPID_KEY_VERSION}
+    # 비워 두면 VAPID JWT에서 sub 클레임을 생략한다. 값을 넣을 때는 mailto: 또는 https: 형식이다.
+    subject: ${PUSH_VAPID_SUBJECT:}
 
 management:
   endpoints:
