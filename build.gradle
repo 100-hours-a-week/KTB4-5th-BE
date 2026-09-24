@@ -25,6 +25,13 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 	implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+	implementation('nl.martijndwars:web-push:5.1.2') {
+		// 1.70 이후 BouncyCastle은 bcprov-jdk18on으로만 배포되므로 최신 버전으로 교체한다.
+		exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+		// 서버에서 쓰지 않는 CLI 전용 의존성이다.
+		exclude group: 'com.beust', module: 'jcommander'
+	}
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 	compileOnly 'org.projectlombok:lombok'
