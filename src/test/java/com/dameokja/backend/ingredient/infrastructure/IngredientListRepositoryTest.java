@@ -91,6 +91,24 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         assertThat(names(null, null, StorageType.FROZEN)).containsExactly("냉동만두");
     }
 
+    @Test
+    void countsIngredientsMatchingFilter() {
+        ingredient("어제", -1, 1);
+        ingredient("오늘", 0, 1);
+        ingredient("나흘뒤", 4, 1);
+        persist(new Ingredient(refrigerator, new IngredientDetails("냉동만두", IngredientCategory.OTHER, StorageType.FROZEN,
+                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
+        Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
+        persist(new Ingredient(other, details("두부", 0), RegistrationSource.DIRECT));
+        flushAndClear();
+
+        Long refrigeratorId = refrigerator.getId();
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, null)).isEqualTo(4L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, BASE_DATE.minusDays(1), null)).isEqualTo(1L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, BASE_DATE, BASE_DATE.plusDays(3), null)).isEqualTo(2L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, StorageType.FROZEN)).isEqualTo(1L);
+    }
+
     private List<String> names(LocalDate from, LocalDate to, StorageType storageType) {
         return ingredientRepository.findNameAscPage(refrigerator.getId(), from, to, storageType,
                         null, null, null, null, Limit.of(ALL)).stream()

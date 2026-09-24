@@ -29,4 +29,21 @@ class IngredientPageRangeTest {
         assertThat(range.from()).isEqualTo(fromDays == null ? null : BASE_DATE.plusDays(fromDays));
         assertThat(range.to()).isEqualTo(toDays == null ? null : BASE_DATE.plusDays(toDays));
     }
+
+    // 목록 전체(두 그룹)의 범위. 필터가 없거나 보관 필터면 유통기한 조건이 없다.
+    @ParameterizedTest
+    @CsvSource({
+            ",              ,  ",
+            "REFRIGERATED,  ,  ",
+            "FROZEN,        ,  ",
+            "EXPIRED,       , -1",
+            "EXPIRING_SOON, 0, 3",
+            "NORMAL,        4, "
+    })
+    void convertsFilterIntoExpirationRangeOfWholeList(IngredientFilter filter, Integer fromDays, Integer toDays) {
+        IngredientPageRange range = IngredientPageRange.of(filter, BASE_DATE);
+
+        assertThat(range.from()).isEqualTo(fromDays == null ? null : BASE_DATE.plusDays(fromDays));
+        assertThat(range.to()).isEqualTo(toDays == null ? null : BASE_DATE.plusDays(toDays));
+    }
 }

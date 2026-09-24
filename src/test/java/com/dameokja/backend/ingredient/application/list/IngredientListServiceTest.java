@@ -14,6 +14,7 @@ import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
+import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -65,6 +66,7 @@ class IngredientListServiceTest {
         Ingredient last = ingredient(2L, TODAY);
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(expired, last, ingredient(3L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
+        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, null, null, null)).thenReturn(5L);
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, 2);
 
@@ -76,6 +78,19 @@ class IngredientListServiceTest {
         assertThat(readCursor().group()).isEqualTo(IngredientExpiryGroup.EXPIRED);
         assertThat(cursorCodec.decode(result.nextCursor())).isEqualTo(new IngredientListCursor(IngredientSortType.NAME_ASC,
                 REFRIGERATOR_ID, null, TODAY, IngredientExpiryGroup.NOT_EXPIRED, IngredientCursor.from(last)));
+    }
+
+    @Test
+    void countsOnlyIngredientsMatchingFilter() {
+        when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
+        when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
+        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, TODAY, TODAY.plusDays(3), null)).thenReturn(2L);
+
+        IngredientListResult result = ingredientListService.getList(
+                USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, IngredientFilter.EXPIRING_SOON, null, 2);
+
+        assertThat(result.ingredientsNum()).isEqualTo(5L);
+        assertThat(result.filteredCount()).isEqualTo(2L);
     }
 
     @Test

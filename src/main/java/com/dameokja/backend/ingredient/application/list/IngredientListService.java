@@ -39,9 +39,14 @@ public class IngredientListService {
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
         long ingredientsNum = ingredientRepository.countByRefrigeratorId(refrigeratorId);
-        // 검색·필터가 아직 없어 필터 적용 후 개수는 전체 개수와 같다.
-        return new IngredientListResult(page, cursor.baseDate(), ingredientsNum, ingredientsNum,
+        return new IngredientListResult(page, cursor.baseDate(), ingredientsNum, countFiltered(cursor),
                 refrigerator.getCapacity(), nextCursor);
+    }
+
+    // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
+    private long countFiltered(IngredientListCursor cursor) {
+        IngredientPageRange range = IngredientPageRange.of(cursor.filter(), cursor.baseDate());
+        return ingredientRepository.countFiltered(cursor.refrigeratorId(), range.from(), range.to(), cursor.storageType());
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
