@@ -94,7 +94,7 @@ class PushSubscriptionSecurityWebTest {
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Location"))
-                .andExpect(jsonPath("$.code").value("PUSH-200-001"));
+                .andExpect(jsonPath("$.code").value("PUSH-200-002"));
     }
 
     @Test

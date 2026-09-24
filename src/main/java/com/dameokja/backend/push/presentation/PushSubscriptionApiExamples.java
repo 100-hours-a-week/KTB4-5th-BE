@@ -23,7 +23,7 @@ final class PushSubscriptionApiExamples {
 
     static final String SUBSCRIBE_RENEWED_RESPONSE = """
             {
-              "code": "PUSH-200-001",
+              "code": "PUSH-200-002",
               "message": "푸시 구독 등록 성공",
               "data": {
                 "subscriptionId": "501"
