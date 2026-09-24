@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -181,5 +182,25 @@ class PushSubscriptionServiceTest {
         assertThatThrownBy(() -> service.unregister(1L, 600L))
                 .extracting(error -> ((CustomException) error).getExceptionCode())
                 .isEqualTo(UserExceptionCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
+    void invalidatesExpiredSubscriptionWithoutUserValidation() {
+        UserDevice existing = existingDevice(userWithId(1L), "endpoint-10", "p256dh", "auth-secret");
+        when(userDeviceRepository.findById(1000L)).thenReturn(Optional.of(existing));
+
+        service.invalidate(1000L);
+
+        assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.INVALID);
+        verifyNoInteractions(userAccessService);
+    }
+
+    @Test
+    void ignoresInvalidateOfMissingSubscription() {
+        when(userDeviceRepository.findById(1100L)).thenReturn(Optional.empty());
+
+        service.invalidate(1100L);
+
+        verifyNoInteractions(userAccessService);
     }
 }

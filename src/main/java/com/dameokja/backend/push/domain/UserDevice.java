@@ -80,4 +80,13 @@ public class UserDevice extends BaseEntity {
         this.status = UserDeviceStatus.DISABLED;
         this.subscriptionVersion = this.subscriptionVersion + 1;
     }
+
+    // 푸시 서비스가 구독 만료(404·410)를 응답한 경우다. 사용자가 직접 해제한 DISABLED는 그 의미를 유지한다.
+    public void invalidate() {
+        if (this.status != UserDeviceStatus.ACTIVE) {
+            return;
+        }
+        this.status = UserDeviceStatus.INVALID;
+        this.subscriptionVersion = this.subscriptionVersion + 1;
+    }
 }

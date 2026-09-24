@@ -77,4 +77,9 @@ public class PushSubscriptionService {
         }
         device.disable();
     }
+
+    // 푸시 서비스가 구독 만료를 응답했을 때 시스템이 호출하므로 사용자 활성 여부와 소유자를 검증하지 않는다.
+    public void invalidate(Long subscriptionId) {
+        userDeviceRepository.findById(subscriptionId).ifPresent(UserDevice::invalidate);
+    }
 }
