@@ -14,13 +14,18 @@ final class IngredientListJpql {
             "concat(case when substring(:cursorName, 1, 1) between 'ㄱ' and 'ㅣ' then '0' else '1' end, :cursorName)";
 
     // 유통기한이 expirationFrom 이상, expirationTo 이하인 재고만 조회한다. 경계가 null이면 그쪽 조건이 없고,
-    // MySQL은 null 경계 조건을 실행 계획에서 제거한다. 커서가 없으면(첫 페이지) 커서 조건 전체를 생략한다.
-    private static final String GROUP_CONDITION = "select i from Ingredient i"
+    // MySQL은 null 경계 조건을 실행 계획에서 제거한다.
+    private static final String FILTER_CONDITION = " from Ingredient i"
             + " where i.refrigerator.id = :refrigeratorId"
             + " and (:expirationFrom is null or i.expirationDate >= :expirationFrom)"
             + " and (:expirationTo is null or i.expirationDate <= :expirationTo)"
-            + " and (:storageType is null or i.storageType = :storageType)"
-            + " and (:cursorId is null";
+            + " and (:storageType is null or i.storageType = :storageType)";
+
+    // 커서가 없으면(첫 페이지) 커서 조건 전체를 생략한다.
+    private static final String GROUP_CONDITION = "select i" + FILTER_CONDITION + " and (:cursorId is null";
+
+    // 커서와 관계없이 필터 조건에 맞는 재고 수
+    static final String FILTERED_COUNT = "select count(i)" + FILTER_CONDITION;
 
     // 유통기한 오름차순 > 등록일 내림차순 > 이름(한글 우선) > ID
     static final String EXPIRATION_ASC = GROUP_CONDITION

@@ -18,4 +18,15 @@ record IngredientPageRange(LocalDate from, LocalDate to) {
         }
         return new IngredientPageRange(filter.notExpiredFrom(baseDate), filter.notExpiredTo(baseDate));
     }
+
+    // 필터가 두 유통기한 그룹을 모두 포함하면 범위 조건이 없고, 한 그룹만 포함하면 그 그룹의 범위다.
+    static IngredientPageRange of(IngredientFilter filter, LocalDate baseDate) {
+        boolean includesExpired = filter == null || filter.includes(IngredientExpiryGroup.EXPIRED);
+        boolean includesNotExpired = filter == null || filter.includes(IngredientExpiryGroup.NOT_EXPIRED);
+        if (includesExpired && includesNotExpired) {
+            return new IngredientPageRange(null, null);
+        }
+        IngredientExpiryGroup group = includesExpired ? IngredientExpiryGroup.EXPIRED : IngredientExpiryGroup.NOT_EXPIRED;
+        return of(group, filter, baseDate);
+    }
 }

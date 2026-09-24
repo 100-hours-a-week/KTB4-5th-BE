@@ -33,6 +33,11 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId,
             @Param("details") IngredientDetails details);
 
+    @Query(IngredientListJpql.FILTERED_COUNT)
+    long countFiltered(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
+            @Param("storageType") StorageType storageType);
+
     @Query(IngredientListJpql.EXPIRATION_ASC)
     List<Ingredient> findExpirationAscPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
