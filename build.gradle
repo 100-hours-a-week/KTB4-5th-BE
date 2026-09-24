@@ -32,6 +32,9 @@ dependencies {
 		exclude group: 'com.beust', module: 'jcommander'
 	}
 	implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
+	// web-push가 공개 API(send의 반환·예외 타입)에 쓰지만 런타임 의존성으로만 배포해 컴파일 경로에 직접 선언한다.
+	implementation 'org.apache.httpcomponents:httpcore:4.4.16'
+	implementation 'org.bitbucket.b_c:jose4j:0.7.9'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 	compileOnly 'org.projectlombok:lombok'
