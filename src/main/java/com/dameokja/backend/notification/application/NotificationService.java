@@ -1,59 +1,106 @@
 package com.dameokja.backend.notification.application;
 
+import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
+import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService;
+import com.dameokja.backend.notification.domain.Notification;
+import com.dameokja.backend.notification.domain.NotificationExceptionCode;
+import com.dameokja.backend.notification.domain.NotificationRecipient;
+import com.dameokja.backend.notification.infrastructure.NotificationRecipientRepository;
+import com.dameokja.backend.notification.infrastructure.NotificationRepository;
 import com.dameokja.backend.notification.presentation.request.NotificationListRequest;
-import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class NotificationService {
+    private static final int PAGE_SIZE = 10;
+    private static final int DISPLAY_LIMIT = 99;
 
-    private final RefrigeratorRepository refrigeratorRepository;
+    private final RefrigeratorAccessService refrigeratorAccessService;
+    private final ExpiredIngredientCountService expiredIngredientCountService;
+    private final NotificationRepository notificationRepository;
+    private final NotificationRecipientRepository recipientRepository;
+    private final Clock clock;
 
-    public void getNotifications(Long userId, Long refrigeratorId, NotificationListRequest request) {
-        // 1. 사용자 식별자와 요청받은 냉장고 식별자로 공통 함수 validateRefrigeratorAccess(userId, refrigeratorId)를 호출한다.
-        // 2. 조회 유형과 커서를 해석한다.
-        // 3. 알림 DB와 알림 수신자 DB를 조인한다.
-        // 4. 요청한 냉장고에 속하고 현재 사용자가 수신한 알림으로 조회 범위를 제한한다.
-        // 5. 전체 조회는 읽은 시각과 무관하게, 읽음은 읽은 시각이 있는 알림만,
-        //    안읽음은 읽은 시각이 없는 알림만 조회하도록 조건을 적용한다.
-        // 6. 커서 기준으로 최신순 조회하고, 사용자별 읽은 시각도 함께 가져온다.
-        // 7. 다음 페이지 여부를 판단하고 다음 커서를 구성한다.
-        // 8. 알림 내용과 사용자별 읽음 상태를 포함한 목록을 반환한다.
-        throw new UnsupportedOperationException("알림 목록 조회 흐름만 작성된 상태입니다.");
+    public NotificationListResult getNotifications(Long userId, Long refrigeratorId,
+            NotificationListRequest request) {
+        validateRefrigeratorAccess(userId, refrigeratorId);
+        NotificationCursor cursor = NotificationCursor.parse(request.cursor());
+        validateCursor(cursor);
+        int size = Math.min(PAGE_SIZE, DISPLAY_LIMIT - cursor.shownCount());
+        if (size <= 0) {
+            return new NotificationListResult(List.of(), null,
+                    expiredIngredientCountService.count(refrigeratorId));
+        }
+        List<NotificationRecipient> fetched = recipientRepository.findPage(userId, refrigeratorId,
+                request.typeOrDefault(), cursor.createdAt(), cursor.notificationId(),
+                PageRequest.of(0, size + 1));
+        boolean hasMore = fetched.size() > size;
+        List<NotificationRecipient> page = hasMore ? fetched.subList(0, size) : fetched;
+        String nextCursor = nextCursor(page, cursor, hasMore);
+        long expiredIngredientsNum = expiredIngredientCountService.count(refrigeratorId);
+        return new NotificationListResult(page, nextCursor, expiredIngredientsNum);
     }
 
+    public String getLatestNotificationId(Long userId, Long refrigeratorId) {
+        validateRefrigeratorAccess(userId, refrigeratorId);
+        List<NotificationRecipient> latest = recipientRepository.findPage(userId, refrigeratorId,
+                "ALL", null, null, PageRequest.of(0, 1));
+        if (latest.isEmpty()) {
+            return null;
+        }
+        return latest.getFirst().getNotification().getId().toString();
+    }
+
+    @Transactional
     public void readNotification(Long userId, Long notificationId) {
-
-        // 1. 알림 식별자로 알림 수신자 DB를 조회한다.
-        // 2. 조회한 수신자 정보가 현재 사용자의 것인지 확인한다.
-        // 3. 알림이 속한 냉장고를 조회한다.
-        // 4. 사용자 식별자와 알림이 속한 냉장고 식별자로 공통 함수 validateRefrigeratorAccess(userId, refrigeratorId)를 호출한다.
-        // 5. 아직 읽지 않은 알림이면 알림 수신자 DB의 읽은 시각을 현재 시각으로 저장한다.
-        // 6. 이미 읽은 알림이면 값을 변경하지 않는다.
-        // 7. 응답 본문 없이 처리를 끝낸다.
-        throw new UnsupportedOperationException("알림 개별 읽음 흐름만 작성된 상태입니다.");
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new CustomException(NotificationExceptionCode.NOT_FOUND));
+        validateRefrigeratorAccess(userId, notification.getRefrigerator().getId());
+        NotificationRecipient recipient = recipientRepository
+                .findByNotificationIdAndUserId(notificationId, userId)
+                .orElseThrow(() -> new CustomException(GlobalExceptionCode.FORBIDDEN));
+        recipient.markRead(LocalDateTime.now(clock));
     }
 
+    @Transactional
     public void readAllNotifications(Long userId, Long refrigeratorId) {
-
-        // 1. 사용자 식별자와 요청받은 냉장고 식별자로 공통 함수 validateRefrigeratorAccess(userId, refrigeratorId)를 호출한다.
-        // 2. 알림 수신자 DB에서 현재 사용자·활성 냉장고에 속하면서 읽은 시각이 없는 행을 찾는다.
-        // 3. 찾은 모든 행의 읽은 시각을 현재 시각으로 한 번에 저장한다.
-        // 4. 읽지 않은 알림이 없어도 오류로 처리하지 않는다.
-        // 5. 응답 본문 없이 처리를 끝낸다.
-
-        // 개별 읽음을 반복 호출하면 조회와 권한 확인이 중복되므로, 미읽음 기록을 일괄 갱신한다.
-        throw new UnsupportedOperationException("알림 모두 읽음 흐름만 작성된 상태입니다.");
+        validateRefrigeratorAccess(userId, refrigeratorId);
+        recipientRepository.markAllRead(userId, refrigeratorId, LocalDateTime.now(clock));
     }
 
-    // 알림 목록 조회와 두 읽음 기능이 같은 접근 기준을 사용하도록 확인 지점을 모은다.
     private void validateRefrigeratorAccess(Long userId, Long refrigeratorId) {
-        // 1. 냉장고 접근 서비스에 사용자 식별자와 냉장고 식별자를 전달한다.
-        // 2. 냉장고 접근 서비스에서 사용자 상태, 냉장고 존재·삭제 여부, 구성원·활성 냉장고 여부를 확인한다.
-        // 3. 접근할 수 없으면 오류로 종료하고, 확인에 성공하면 호출한 읽음 흐름으로 돌아간다.
-        throw new UnsupportedOperationException("공통 냉장고 접근 확인 흐름만 작성된 상태입니다.");
+        refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
     }
 
+    private void validateCursor(NotificationCursor cursor) {
+        if (cursor.shownCount() < 0 || cursor.shownCount() >= DISPLAY_LIMIT
+                || ((cursor.createdAt() == null) != (cursor.notificationId() == null))) {
+            throw new CustomException(NotificationExceptionCode.INVALID_CURSOR);
+        }
+        if (cursor.shownCount() == 0 && cursor.createdAt() != null
+                || cursor.shownCount() > 0 && cursor.createdAt() == null) {
+            throw new CustomException(NotificationExceptionCode.INVALID_CURSOR);
+        }
+    }
+
+    private String nextCursor(List<NotificationRecipient> page, NotificationCursor cursor,
+            boolean hasMore) {
+        int shownCount = cursor.shownCount() + page.size();
+        if (!hasMore || shownCount >= DISPLAY_LIMIT || page.isEmpty()) {
+            return null;
+        }
+        Notification notification = page.getLast().getNotification();
+        return new NotificationCursor(notification.getCreatedAt(), notification.getId(), shownCount)
+                .encode();
+    }
 }
