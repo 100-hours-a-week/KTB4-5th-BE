@@ -14,8 +14,7 @@ public record PushSubscriptionRequest(
         public String toString() { return "Keys[redacted]"; }
     }
 
+    // endpoint도 기기별 발송 주소라 로그에 남기지 않는다.
     @Override
-    public String toString() {
-        return "PushSubscriptionRequest[endpoint=" + endpoint + ", keys=redacted]";
-    }
+    public String toString() { return "PushSubscriptionRequest[redacted]"; }
 }
