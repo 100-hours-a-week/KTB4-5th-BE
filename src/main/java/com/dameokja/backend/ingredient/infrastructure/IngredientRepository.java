@@ -21,6 +21,8 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     long countByRefrigeratorId(Long refrigeratorId);
 
+    long countByRefrigerator_IdAndExpirationDateBefore(Long refrigeratorId, LocalDate date);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
             + "and i.name = :#{#details.name()} "
