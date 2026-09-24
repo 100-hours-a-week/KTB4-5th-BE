@@ -4,6 +4,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
+import com.dameokja.backend.push.domain.VapidKeyProperties;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.user.application.UserAccessService;
@@ -36,7 +37,8 @@ class PushSubscriptionServiceTest {
     @BeforeEach
     void setUp() {
         service = new PushSubscriptionService(
-                userDeviceRepository, userAccessService, encryptor, "vapid-v1");
+                userDeviceRepository, userAccessService, encryptor,
+                new VapidKeyProperties("vapid-public-key", "vapid-v1"));
     }
 
     private User userWithId(long id) {

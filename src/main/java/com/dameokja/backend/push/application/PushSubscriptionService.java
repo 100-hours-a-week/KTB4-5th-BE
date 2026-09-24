@@ -4,31 +4,24 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
+import com.dameokja.backend.push.domain.VapidKeyProperties;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.user.application.UserAccessService;
 import com.dameokja.backend.user.domain.User;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class PushSubscriptionService {
     private final UserDeviceRepository userDeviceRepository;
     private final UserAccessService userAccessService;
     private final PushAuthEncryptor pushAuthEncryptor;
-    private final String currentVapidKeyVersion;
-
-    public PushSubscriptionService(UserDeviceRepository userDeviceRepository,
-            UserAccessService userAccessService, PushAuthEncryptor pushAuthEncryptor,
-            @Value("${push.vapid.key-version}") String currentVapidKeyVersion) {
-        this.userDeviceRepository = userDeviceRepository;
-        this.userAccessService = userAccessService;
-        this.pushAuthEncryptor = pushAuthEncryptor;
-        this.currentVapidKeyVersion = currentVapidKeyVersion;
-    }
+    private final VapidKeyProperties vapidKeyProperties;
 
     public PushSubscriptionResult register(
             Long userId, String endpoint, String p256dhKey, String authSecretPlain) {
@@ -44,7 +37,7 @@ public class PushSubscriptionService {
             User user, String endpoint, String p256dhKey, String authSecretPlain) {
         byte[] authSecretEncrypted = pushAuthEncryptor.encrypt(authSecretPlain);
         UserDevice device = new UserDevice(user, endpoint, p256dhKey, authSecretEncrypted,
-                pushAuthEncryptor.getCurrentKeyVersion(), currentVapidKeyVersion);
+                pushAuthEncryptor.getCurrentKeyVersion(), vapidKeyProperties.getKeyVersion());
         UserDevice saved = userDeviceRepository.save(device);
         return new PushSubscriptionResult(saved.getId(), true);
     }
@@ -57,7 +50,7 @@ public class PushSubscriptionService {
         if (hasChanged(existing, p256dhKey, authSecretPlain)) {
             byte[] authSecretEncrypted = pushAuthEncryptor.encrypt(authSecretPlain);
             existing.renew(p256dhKey, authSecretEncrypted, pushAuthEncryptor.getCurrentKeyVersion(),
-                    currentVapidKeyVersion);
+                    vapidKeyProperties.getKeyVersion());
         }
         return new PushSubscriptionResult(existing.getId(), false);
     }
