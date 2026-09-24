@@ -48,8 +48,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
             "NAME_ASC       | 가지,우유,우유,apple | 두부,양파,123주스,Kimchi"
     })
     void readsEachGroupInSortOrderAcrossPages(IngredientSortType sortType, String expired, String notExpired) {
+        // 같은 품목은 한 행으로 합산되므로, 보관 방식만 다르고 정렬 키가 모두 같은 두 행으로 ID 순서를 검증한다.
         ingredient("우유", -2, 1);
-        ingredient("우유", -2, 1);
+        ingredient("우유", -2, 1, StorageType.FROZEN);
         ingredient("apple", -2, 1);
         ingredient("가지", -1, 3);
         ingredient("양파", 0, 3);
@@ -131,8 +132,12 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     private void ingredient(String name, int daysUntilExpiration, int createdDay) {
+        ingredient(name, daysUntilExpiration, createdDay, StorageType.REFRIGERATED);
+    }
+
+    private void ingredient(String name, int daysUntilExpiration, int createdDay, StorageType storageType) {
         Ingredient ingredient = persist(new Ingredient(
-                refrigerator, details(name, daysUntilExpiration), RegistrationSource.DIRECT));
+                refrigerator, details(name, daysUntilExpiration, storageType), RegistrationSource.DIRECT));
         entityManager.flush();
         entityManager.createNativeQuery("update ingredients set created_at = ?1 where ingredient_id = ?2")
                 .setParameter(1, BASE_TIME.plusDays(createdDay))
@@ -141,7 +146,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     private IngredientDetails details(String name, int daysUntilExpiration) {
-        return new IngredientDetails(name, IngredientCategory.OTHER, StorageType.REFRIGERATED,
+        return details(name, daysUntilExpiration, StorageType.REFRIGERATED);
+    }
+
+    private IngredientDetails details(String name, int daysUntilExpiration, StorageType storageType) {
+        return new IngredientDetails(name, IngredientCategory.OTHER, storageType,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE),
                 BASE_DATE.plusDays(daysUntilExpiration));
     }
