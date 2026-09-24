@@ -113,6 +113,7 @@ CREATE TABLE ingredients (
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     registration_source VARCHAR(20) NOT NULL COMMENT 'DIRECT / RECEIPT / FOOD_IMAGE. 합산 및 수정 시 최초 값 유지',
     PRIMARY KEY (ingredient_id),
+    UNIQUE KEY uk_ingredients_same_item (refrigerator_id, expiration_date, name, storage_type, category, measure_type, weight_unit),
     KEY ix_ingredients_refrigerator_expiration (refrigerator_id, expiration_date, ingredient_id),
     KEY ix_ingredients_expiration (expiration_date, refrigerator_id),
     CONSTRAINT ck_ingredients_category CHECK (category IN ('VEGETABLE','FRUIT','MEAT','SEAFOOD','DAIRY','TOFU_BEAN','GRAINS_NOODLE','PROCESSED_FOOD','SEASONING','BEVERAGE','OTHER')),

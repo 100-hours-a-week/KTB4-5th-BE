@@ -28,8 +28,11 @@
 | notification_preferences | (user_id, type) |
 | user_devices | endpoint 전체 문자열 |
 | push_notifications | (dispatch_key, user_device_id, subscription_version) |
+| ingredients | (refrigerator_id, expiration_date, name, storage_type, category, measure_type, weight_unit) |
 
-`active_marker`는 `IF(is_active=1,user_id,NULL)` STORED 생성 컬럼이다. 비활성 관계는 여러 개 허용하면서 활성 관계는 회원당 최대 하나로 제한한다. UNIQUE는 NULL을 여러 개 허용하므로 OAuth-only 계정의 `login_id`도 여러 NULL을 허용한다. 이메일, 냉장고별 초대 코드 발급 이력, 회원별 기기, 재고 이름에는 UNIQUE를 추가하지 않았다.
+`active_marker`는 `IF(is_active=1,user_id,NULL)` STORED 생성 컬럼이다. 비활성 관계는 여러 개 허용하면서 활성 관계는 회원당 최대 하나로 제한한다. UNIQUE는 NULL을 여러 개 허용하므로 OAuth-only 계정의 `login_id`도 여러 NULL을 허용한다. 이메일, 냉장고별 초대 코드 발급 이력, 회원별 기기에는 UNIQUE를 추가하지 않았다.
+
+재고는 같은 냉장고 안에서 이름·유통기한·보관 방식·카테고리·측정 방식이 같으면 같은 품목으로 보고 한 행으로 합산하므로, 이 조합에 UNIQUE를 둔다. 「팀」 등록·수정의 합산 규칙을 DB에서도 보장하기 위해서다. 이름만으로는 UNIQUE를 두지 않는다. 무게 단위(`weight_unit`)도 포함한다. G와 ML은 서로 더할 수 없어 다른 행으로 남기 때문이다. 유통기한 범위 조회에도 쓰도록 `(refrigerator_id, expiration_date)`를 앞에 둔다. 기존 DB에는 `docs/database/migrations/20260924_ingredients_same_item_unique.sql`로 적용한다.
 
 CHECK에는 상태·유형 허용값, 양수 및 순번, 날짜 집계 연월 형식, 로그인 ID와 비밀번호의 동시 존재, 탈퇴 상태, 단위와 수량의 조합, 푸시 상태별 필수 컬럼을 반영했다. MySQL CHECK는 UNKNOWN(NULL)을 통과시키므로 조건부 필수값에 `IS NOT NULL`을 명시했다. 수량을 모두 소진한 재고는 0으로 남기지 않고 제거해야 한다.
 
