@@ -6,6 +6,7 @@ import com.dameokja.backend.notification.application.UnreadNotificationCountServ
 import com.dameokja.backend.notification.presentation.request.NotificationListRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -56,6 +57,6 @@ public class NotificationController implements NotificationApi {
             @PathVariable Long refrigeratorId) {
         unreadNotificationCountService.getUnreadCount(userId, refrigeratorId);
         // 실제 구현 시 조회한 개수와 냉장고 식별자를 응답 DTO로 구성한다.
-        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).build();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).build();
     }
 }
