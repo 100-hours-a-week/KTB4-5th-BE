@@ -2,6 +2,7 @@ package com.dameokja.backend.push.infrastructure;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -35,6 +36,7 @@ class WebPushSenderTest {
     private static final String AUTH_SECRET = "AAAAAAAAAAAAAAAAAAAAAA";
     private static final WebPushTarget TARGET =
             new WebPushTarget("https://push.example.com/send/abc", P256DH_KEY, AUTH_SECRET);
+    private static final Duration TTL = Duration.ofHours(4);
 
     private final PushService pushService = mock(PushService.class);
     private final WebPushSender sender = new WebPushSender(pushService);
@@ -51,27 +53,28 @@ class WebPushSenderTest {
     void mapsPushServiceStatus(int statusCode, WebPushResult expected) throws Exception {
         givenResponse(CompletableFuture.completedFuture(response(statusCode)));
 
-        assertThat(sender.send(TARGET, "{}")).isEqualTo(expected);
+        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(expected);
     }
 
     @Test
-    void sendsPayloadWithStandardEncoding() throws Exception {
+    void sendsPayloadWithStandardEncodingAndTtl() throws Exception {
         givenResponse(CompletableFuture.completedFuture(response(201)));
         ArgumentCaptor<Notification> notification = ArgumentCaptor.forClass(Notification.class);
 
-        sender.send(TARGET, "{\"title\":\"알림\"}");
+        sender.send(TARGET, "{\"title\":\"알림\"}", TTL);
 
         verify(pushService).sendAsync(notification.capture(), eq(Encoding.AES128GCM));
         assertThat(notification.getValue().getEndpoint()).isEqualTo(TARGET.endpoint());
         assertThat(notification.getValue().getPayload())
                 .isEqualTo("{\"title\":\"알림\"}".getBytes(StandardCharsets.UTF_8));
+        assertThat(notification.getValue().getTTL()).isEqualTo(TTL.toSeconds());
     }
 
     @Test
     void failsWhenRequestFails() throws Exception {
         givenResponse(CompletableFuture.failedFuture(new ExecutionException(new RuntimeException())));
 
-        assertThat(sender.send(TARGET, "{}")).isEqualTo(WebPushResult.FAILED);
+        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
     }
 
     @Test
@@ -81,7 +84,7 @@ class WebPushSenderTest {
         when(pending.get(WebPushSender.SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)).thenThrow(new TimeoutException());
         givenResponse(pending);
 
-        assertThat(sender.send(TARGET, "{}")).isEqualTo(WebPushResult.FAILED);
+        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         verify(pending).cancel(true);
     }
 
@@ -89,7 +92,7 @@ class WebPushSenderTest {
     void failsWithoutSendingWhenSubscriptionKeyIsMalformed() throws Exception {
         WebPushTarget malformed = new WebPushTarget(TARGET.endpoint(), "not-a-p256-key", AUTH_SECRET);
 
-        assertThat(sender.send(malformed, "{}")).isEqualTo(WebPushResult.FAILED);
+        assertThat(sender.send(malformed, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         verify(pushService, never()).sendAsync(any(Notification.class), any(Encoding.class));
     }
 
