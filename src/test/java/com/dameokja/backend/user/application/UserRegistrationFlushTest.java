@@ -1,6 +1,7 @@
 package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.notification.application.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
@@ -33,6 +34,8 @@ class UserRegistrationFlushTest {
     @Mock
     private RefrigeratorLifecycleService refrigeratorLifecycleService;
     @Mock
+    private NotificationPreferenceService notificationPreferenceService;
+    @Mock
     private NicknamePolicy nicknamePolicy;
     @Mock
     private LoginIdPolicy loginIdPolicy;
@@ -42,7 +45,7 @@ class UserRegistrationFlushTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-09-17T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         userRegistrationService = new UserRegistrationService(
-                userRepository, refrigeratorLifecycleService,
+                userRepository, refrigeratorLifecycleService, notificationPreferenceService,
                 new UserRegistrationFactory("default.png"), clock,
                 nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
     }
