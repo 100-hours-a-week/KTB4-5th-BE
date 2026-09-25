@@ -61,11 +61,11 @@ class PushSendServiceTest {
     }
 
     @Test
-    void returnsTrueAndSendsDecryptedSubscription() {
+    void returnsAcceptedAndSendsDecryptedSubscription() {
         givenSendResult(WebPushResult.SUCCESS);
         ArgumentCaptor<WebPushTarget> target = ArgumentCaptor.forClass(WebPushTarget.class);
 
-        assertThat(service.send(1L, PAYLOAD, TTL)).isTrue();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isEqualTo(PushSendResult.ACCEPTED);
 
         verify(webPushSender).send(target.capture(), eq(PAYLOAD), eq(TTL));
         assertThat(target.getValue())
@@ -74,29 +74,29 @@ class PushSendServiceTest {
     }
 
     @Test
-    void invalidatesDeviceWhenSubscriptionExpired() {
+    void invalidatesDeviceAndReturnsUnavailableWhenSubscriptionExpired() {
         givenSendResult(WebPushResult.EXPIRED);
 
-        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isEqualTo(PushSendResult.UNAVAILABLE);
 
         verify(pushSubscriptionService).invalidate(1L);
     }
 
     @Test
-    void keepsDeviceActiveWhenSendFailsTemporarily() {
+    void keepsDeviceActiveAndReturnsFailedWhenSendFailsTemporarily() {
         givenSendResult(WebPushResult.FAILED);
 
-        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isEqualTo(PushSendResult.FAILED);
 
         verify(pushSubscriptionService, never()).invalidate(any());
     }
 
     @Test
-    void skipsInactiveDevice() {
+    void returnsUnavailableWithoutSendingToInactiveDevice() {
         device.disable();
         when(userDeviceRepository.findById(1L)).thenReturn(Optional.of(device));
 
-        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isEqualTo(PushSendResult.UNAVAILABLE);
 
         verify(webPushSender, never()).send(any(WebPushTarget.class), any(String.class), any(Duration.class));
     }
@@ -114,7 +114,7 @@ class PushSendServiceTest {
     void sendsToOwnDevice() {
         givenSendResult(WebPushResult.SUCCESS);
 
-        assertThat(service.sendToOwnDevice(10L, 1L, PAYLOAD, TTL)).isTrue();
+        assertThat(service.sendToOwnDevice(10L, 1L, PAYLOAD, TTL)).isEqualTo(PushSendResult.ACCEPTED);
 
         verify(userAccessService).validateActive(10L);
     }
