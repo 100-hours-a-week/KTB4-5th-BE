@@ -19,9 +19,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 public class PushNotificationCreationService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
+    static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
     // 8시 알림이 12시를 넘겨 도착하면 이미 늦은 정보이므로 서울 기준 당일 정오까지만 보낸다.
-    private static final LocalTime SEND_DEADLINE = LocalTime.NOON;
+    static final LocalTime SEND_DEADLINE = LocalTime.NOON;
 
     private final PushNotificationRepository pushNotificationRepository;
     private final ObjectMapper objectMapper;
