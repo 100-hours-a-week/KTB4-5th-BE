@@ -8,6 +8,7 @@ import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.push.infrastructure.WebPushResult;
 import com.dameokja.backend.push.infrastructure.WebPushSender;
 import com.dameokja.backend.push.infrastructure.WebPushTarget;
+import com.dameokja.backend.user.application.UserAccessService;
 import com.dameokja.backend.user.domain.User;
 import java.time.Duration;
 import java.util.Base64;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,15 +39,20 @@ class PushSendServiceTest {
     @Mock private UserDeviceRepository userDeviceRepository;
     @Mock private WebPushSender webPushSender;
     @Mock private PushSubscriptionService pushSubscriptionService;
+    @Mock private UserAccessService userAccessService;
     private final PushAuthEncryptor encryptor = new PushAuthEncryptor(KEY, "enc-v1");
     private PushSendService service;
     private UserDevice device;
 
     @BeforeEach
     void setUp() {
-        service = new PushSendService(userDeviceRepository, encryptor, webPushSender, pushSubscriptionService);
-        device = new UserDevice(new User("닉네임", "profile.png"), "https://push.example.com/abc", "p256dh",
+        service = new PushSendService(userDeviceRepository, encryptor, webPushSender, pushSubscriptionService,
+                userAccessService);
+        User owner = new User("닉네임", "profile.png");
+        ReflectionTestUtils.setField(owner, "id", 10L);
+        device = new UserDevice(owner, "https://push.example.com/abc", "p256dh",
                 encryptor.encrypt("auth-secret"), "enc-v1", "vapid-v1");
+        ReflectionTestUtils.setField(device, "id", 1L);
     }
 
     private void givenSendResult(WebPushResult result) {
@@ -101,5 +108,24 @@ class PushSendServiceTest {
         assertThatThrownBy(() -> service.send(1L, PAYLOAD, TTL))
                 .isInstanceOfSatisfying(CustomException.class, exception ->
                         assertThat(exception.getExceptionCode()).isEqualTo(PushExceptionCode.SUBSCRIPTION_NOT_FOUND));
+    }
+
+    @Test
+    void sendsToOwnDevice() {
+        givenSendResult(WebPushResult.SUCCESS);
+
+        assertThat(service.sendToOwnDevice(10L, 1L, PAYLOAD, TTL)).isTrue();
+
+        verify(userAccessService).validateActive(10L);
+    }
+
+    @Test
+    void rejectsSendToOtherUsersDevice() {
+        when(userDeviceRepository.findById(1L)).thenReturn(Optional.of(device));
+
+        assertThatThrownBy(() -> service.sendToOwnDevice(20L, 1L, PAYLOAD, TTL))
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getExceptionCode()).isEqualTo(PushExceptionCode.SUBSCRIPTION_FORBIDDEN));
+        verify(webPushSender, never()).send(any(WebPushTarget.class), any(String.class), any(Duration.class));
     }
 }
