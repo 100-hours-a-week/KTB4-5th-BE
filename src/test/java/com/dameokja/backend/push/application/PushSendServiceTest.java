@@ -9,6 +9,7 @@ import com.dameokja.backend.push.infrastructure.WebPushResult;
 import com.dameokja.backend.push.infrastructure.WebPushSender;
 import com.dameokja.backend.push.infrastructure.WebPushTarget;
 import com.dameokja.backend.user.domain.User;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,7 @@ class PushSendServiceTest {
     private static final String KEY =
             Base64.getEncoder().encodeToString("test-only-secret-32-bytes-long!!".getBytes());
     private static final String PAYLOAD = "{\"title\":\"알림\"}";
+    private static final Duration TTL = Duration.ofHours(4);
 
     @Mock private UserDeviceRepository userDeviceRepository;
     @Mock private WebPushSender webPushSender;
@@ -48,7 +50,7 @@ class PushSendServiceTest {
 
     private void givenSendResult(WebPushResult result) {
         when(userDeviceRepository.findById(1L)).thenReturn(Optional.of(device));
-        when(webPushSender.send(any(WebPushTarget.class), eq(PAYLOAD))).thenReturn(result);
+        when(webPushSender.send(any(WebPushTarget.class), eq(PAYLOAD), eq(TTL))).thenReturn(result);
     }
 
     @Test
@@ -56,9 +58,9 @@ class PushSendServiceTest {
         givenSendResult(WebPushResult.SUCCESS);
         ArgumentCaptor<WebPushTarget> target = ArgumentCaptor.forClass(WebPushTarget.class);
 
-        assertThat(service.send(1L, PAYLOAD)).isTrue();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isTrue();
 
-        verify(webPushSender).send(target.capture(), eq(PAYLOAD));
+        verify(webPushSender).send(target.capture(), eq(PAYLOAD), eq(TTL));
         assertThat(target.getValue())
                 .isEqualTo(new WebPushTarget("https://push.example.com/abc", "p256dh", "auth-secret"));
         verify(pushSubscriptionService, never()).invalidate(any());
@@ -68,7 +70,7 @@ class PushSendServiceTest {
     void invalidatesDeviceWhenSubscriptionExpired() {
         givenSendResult(WebPushResult.EXPIRED);
 
-        assertThat(service.send(1L, PAYLOAD)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
 
         verify(pushSubscriptionService).invalidate(1L);
     }
@@ -77,7 +79,7 @@ class PushSendServiceTest {
     void keepsDeviceActiveWhenSendFailsTemporarily() {
         givenSendResult(WebPushResult.FAILED);
 
-        assertThat(service.send(1L, PAYLOAD)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
 
         verify(pushSubscriptionService, never()).invalidate(any());
     }
@@ -87,16 +89,16 @@ class PushSendServiceTest {
         device.disable();
         when(userDeviceRepository.findById(1L)).thenReturn(Optional.of(device));
 
-        assertThat(service.send(1L, PAYLOAD)).isFalse();
+        assertThat(service.send(1L, PAYLOAD, TTL)).isFalse();
 
-        verify(webPushSender, never()).send(any(WebPushTarget.class), any(String.class));
+        verify(webPushSender, never()).send(any(WebPushTarget.class), any(String.class), any(Duration.class));
     }
 
     @Test
     void rejectsUnknownDevice() {
         when(userDeviceRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.send(1L, PAYLOAD))
+        assertThatThrownBy(() -> service.send(1L, PAYLOAD, TTL))
                 .isInstanceOfSatisfying(CustomException.class, exception ->
                         assertThat(exception.getExceptionCode()).isEqualTo(PushExceptionCode.SUBSCRIPTION_NOT_FOUND));
     }

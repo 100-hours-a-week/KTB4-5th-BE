@@ -9,6 +9,7 @@ import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.push.infrastructure.WebPushResult;
 import com.dameokja.backend.push.infrastructure.WebPushSender;
 import com.dameokja.backend.push.infrastructure.WebPushTarget;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,13 +22,13 @@ public class PushSendService {
     private final WebPushSender webPushSender;
     private final PushSubscriptionService pushSubscriptionService;
 
-    public boolean send(Long userDeviceId, String payloadJson) {
+    public boolean send(Long userDeviceId, String payloadJson, Duration ttl) {
         UserDevice device = userDeviceRepository.findById(userDeviceId)
                 .orElseThrow(() -> new CustomException(PushExceptionCode.SUBSCRIPTION_NOT_FOUND));
         if (device.getStatus() != UserDeviceStatus.ACTIVE) {
             return false;
         }
-        WebPushResult result = webPushSender.send(toTarget(device), payloadJson);
+        WebPushResult result = webPushSender.send(toTarget(device), payloadJson, ttl);
         if (result == WebPushResult.EXPIRED) {
             pushSubscriptionService.invalidate(userDeviceId);
         }
