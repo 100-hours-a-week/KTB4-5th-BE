@@ -1,6 +1,7 @@
 package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.notification.application.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserRegistrationService {
     private final UserRepository userRepository;
     private final RefrigeratorLifecycleService refrigeratorLifecycleService;
+    private final NotificationPreferenceService notificationPreferenceService;
     private final UserRegistrationFactory userRegistrationFactory;
     private final Clock clock;
 
@@ -38,6 +40,7 @@ public class UserRegistrationService {
             User user = userRepository.save(newUser);
             Long refrigeratorId = refrigeratorLifecycleService.createPersonal(
                     user, YearMonth.from(registeredAt).toString());
+            notificationPreferenceService.createDefaults(user);
             userRepository.flush();
             return new RegistrationResult(user.getId(), refrigeratorId);
         } catch (DataIntegrityViolationException dataIntegrityViolationException) {

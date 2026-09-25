@@ -54,6 +54,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     void cleanDatabaseAndResetTime() {
         jdbcTemplate.update("DELETE FROM refrigerator_members");
         jdbcTemplate.update("DELETE FROM refrigerators");
+        jdbcTemplate.update("DELETE FROM notification_preferences");
         jdbcTemplate.update("DELETE FROM users");
         clock.set("2026-09-17T03:00:00Z");
     }
@@ -84,7 +85,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected record Fixture(Long userId, Long refrigeratorId) {}
 
     protected int rows(String tableName) {
-        if (!Set.of("users", "refrigerators", "refrigerator_members").contains(tableName)) {
+        if (!Set.of("users", "refrigerators", "refrigerator_members", "notification_preferences").contains(tableName)) {
             throw new IllegalArgumentException("Not a fixture table");
         }
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
@@ -94,6 +95,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
         assertThat(rows("users")).isZero();
         assertThat(rows("refrigerators")).isZero();
         assertThat(rows("refrigerator_members")).isZero();
+        assertThat(rows("notification_preferences")).isZero();
     }
 
     protected List<Object> concurrently(List<? extends Callable<?>> concurrentTasks)

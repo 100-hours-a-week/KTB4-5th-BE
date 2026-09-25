@@ -2,6 +2,7 @@ package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.moderation.ProhibitedWordChecker;
+import com.dameokja.backend.notification.application.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
@@ -39,6 +40,8 @@ class UserRegistrationServiceTest {
     @Mock
     private RefrigeratorLifecycleService refrigeratorLifecycleService;
     @Mock
+    private NotificationPreferenceService notificationPreferenceService;
+    @Mock
     private NicknamePolicy nicknamePolicy;
     private final LoginIdPolicy loginIdPolicy = new LoginIdPolicy(mock(ProhibitedWordChecker.class));
     private UserRegistrationService userRegistrationService;
@@ -47,7 +50,7 @@ class UserRegistrationServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-09-17T03:00:00Z"), ZoneId.of("Asia/Seoul"));
         userRegistrationService = new UserRegistrationService(
-                userRepository, refrigeratorLifecycleService,
+                userRepository, refrigeratorLifecycleService, notificationPreferenceService,
                 new UserRegistrationFactory("default.png"), clock,
                 nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
     }
@@ -69,6 +72,7 @@ class UserRegistrationServiceTest {
         assertThat(user.getPasswordChangedAt()).isEqualTo(
                 LocalDateTime.of(2026, 9, 17, 12, 0));
         verify(refrigeratorLifecycleService).createPersonal(user, "2026-09");
+        verify(notificationPreferenceService).createDefaults(user);
         assertThat(user.getProfileImageKey()).isEqualTo("default.png");
         assertThat(result.refrigeratorId()).isEqualTo(9L);
         verify(nicknamePolicy).validate("User1");
@@ -82,7 +86,7 @@ class UserRegistrationServiceTest {
         assertUserError(UserExceptionCode.NICKNAME_PROHIBITED,
                 () -> userRegistrationService.register(
                         new RegisterUserCommand("Bad1", null, "login1", "pass1234")));
-        verifyNoInteractions(userRepository, refrigeratorLifecycleService);
+        verifyNoInteractions(userRepository, refrigeratorLifecycleService, notificationPreferenceService);
     }
 
     @ParameterizedTest
@@ -98,7 +102,7 @@ class UserRegistrationServiceTest {
                 () -> userRegistrationService.register(
                         new RegisterUserCommand("User1", null, "login1", "pass1234")));
         verify(userRepository, never()).save(any(User.class));
-        verifyNoInteractions(refrigeratorLifecycleService);
+        verifyNoInteractions(refrigeratorLifecycleService, notificationPreferenceService);
     }
 
     @ParameterizedTest

@@ -1,6 +1,8 @@
 package com.dameokja.backend.user.integration;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.notification.domain.NotificationPreference;
+import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRepository;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
@@ -12,8 +14,10 @@ import com.dameokja.backend.user.application.UserRegistrationService;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
@@ -22,6 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockingDetails;
@@ -35,6 +40,8 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
     RefrigeratorRepository refrigeratorRepository;
     @MockitoSpyBean
     RefrigeratorMemberRepository refrigeratorMemberRepository;
+    @MockitoSpyBean
+    NotificationPreferenceRepository notificationPreferenceRepository;
 
     private RegisterUserCommand command(String nickname, String loginId) {
         return new RegisterUserCommand(nickname, "profiles/default.png", loginId, "pass1234");
@@ -64,6 +71,36 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
                 throw failure;
             }).when(refrigeratorMemberRepository).save(any(RefrigeratorMember.class));
         }
+        assertThatThrownBy(() -> userRegistrationService.register(command("User1", "login1")))
+                .isSameAs(failure);
+        assertEmptyDatabase();
+    }
+
+    @Test
+    void createsDefaultNotificationPreferencesWithUser() {
+        RegistrationResult result = userRegistrationService.register(command("User1", "login1"));
+
+        List<Map<String, Object>> preferences = jdbcTemplate.queryForList(
+                "SELECT user_id, type, is_enabled FROM notification_preferences");
+        assertThat(preferences)
+                .extracting(row -> row.get("user_id"), row -> row.get("type"), row -> row.get("is_enabled"))
+                .containsExactlyInAnyOrder(
+                        tuple(result.userId(), "EXPIRATION", true),
+                        tuple(result.userId(), "RECIPE", false));
+    }
+
+    @Test
+    void rollsBackAllRowsWhenNotificationPreferenceCreationFails() {
+        IllegalStateException failure = new IllegalStateException("simulated storage failure");
+        Answer<?> savePreference = mockingDetails(notificationPreferenceRepository)
+                .getMockCreationSettings().getDefaultAnswer();
+        doAnswer(invocation -> {
+            savePreference.answer(invocation);
+            entityManager.flush();
+            assertThat(rows("notification_preferences")).isEqualTo(1);
+            throw failure;
+        }).when(notificationPreferenceRepository).save(any(NotificationPreference.class));
+
         assertThatThrownBy(() -> userRegistrationService.register(command("User1", "login1")))
                 .isSameAs(failure);
         assertEmptyDatabase();
