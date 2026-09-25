@@ -16,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationPreferenceServiceTest {
@@ -41,5 +42,19 @@ class NotificationPreferenceServiceTest {
                 .containsExactlyInAnyOrder(
                         tuple(user, NotificationPreferenceType.EXPIRATION, true),
                         tuple(user, NotificationPreferenceType.RECIPE, false));
+    }
+
+    @Test
+    void returnsPreferencesOrderedByType() {
+        User user = new User("User1", "profiles/default.png");
+        when(notificationPreferenceRepository.findAllByUserId(1L)).thenReturn(List.of(
+                NotificationPreference.onSignup(user, NotificationPreferenceType.RECIPE),
+                NotificationPreference.onSignup(user, NotificationPreferenceType.EXPIRATION)));
+
+        List<NotificationPreferenceView> preferences = notificationPreferenceService.getPreferences(1L);
+
+        assertThat(preferences).containsExactly(
+                new NotificationPreferenceView(NotificationPreferenceType.EXPIRATION, true),
+                new NotificationPreferenceView(NotificationPreferenceType.RECIPE, false));
     }
 }
