@@ -12,6 +12,7 @@ import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
+import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientListRequest;
@@ -103,6 +104,14 @@ public class IngredientController implements IngredientApi {
             @RequestHeader(value = "If-Match", required = false) String ifMatch,
             @RequestBody IngredientExpireRequest request) {
         return processExpiration(userId, ingredientId, ifMatch, request);
+    }
+
+    @Override
+    @PostMapping("/refrigerators/{refrigeratorId}/ingredients/expired")
+    public ResponseEntity<Void> expireSelected(@CurrentUserId Long userId, @PathVariable Long refrigeratorId,
+            @RequestBody IngredientExpireSelectedRequest request) {
+        ingredientExpireService.expireSelected(userId, refrigeratorId, request.ingredientIds());
+        return ResponseEntity.noContent().build();
     }
 
     private ResponseEntity<SuccessResponse<IngredientExpireResponse>> processExpiration(

@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.response.SuccessResponse;
@@ -26,6 +27,7 @@ import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
+import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
@@ -114,6 +116,19 @@ class IngredientControllerTest {
         assertThat(response.getBody().data().ingredient().registrationSource())
                 .isEqualTo(RegistrationSource.RECEIPT);
         assertThat(response.getBody().data().mergedItems()).isEmpty();
+    }
+
+    @Test
+    void expiresSelectedIngredientsAndReturnsNoContent() {
+        IngredientController controller = new IngredientController(
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
+                ingredientListService);
+
+        ResponseEntity<Void> response = controller.expireSelected(
+                2L, 10L, new IngredientExpireSelectedRequest(List.of(1L, 2L)));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(204);
+        verify(ingredientExpireService).expireSelected(2L, 10L, List.of(1L, 2L));
     }
 
     private Ingredient ingredient() {

@@ -3,6 +3,7 @@ package com.dameokja.backend.ingredient.presentation;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.DETAIL_RESPONSE;
+import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_SELECTED_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.LIST_RESPONSE;
@@ -10,6 +11,7 @@ import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
+import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
@@ -192,6 +194,41 @@ public interface IngredientApi {
                     )
             )
             IngredientExpireRequest request);
+
+    @Operation(
+            summary = "만료 재고 선택 만료 처리",
+            description = "선택한 만료 재고를 한 번에 삭제합니다. "
+                    + "선택한 재고 중 이 냉장고에 있고 유통기한이 오늘(Asia/Seoul)보다 이전인 재고만 삭제하며, "
+                    + "이미 삭제됐거나 그사이 유통기한이 바뀐 재고는 건너뜁니다. 오늘 만료되는 재고(D-0)는 제외합니다. "
+                    + "삭제한 재고 수만큼 이번 달 만료 처리 수를 늘립니다. 삭제 대상이 없어도 204를 반환하며, 되돌릴 수 없습니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "만료 재고 선택 만료 처리 성공 (본문 없음)"),
+            @ApiResponse(responseCode = "400", description = "ingredientIds 누락·빈 목록·null 포함·100개 초과 (INGREDIENT-400-003)"),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<Void> expireSelected(
+            @Parameter(hidden = true) Long userId,
+            @Parameter(
+                    name = "refrigeratorId",
+                    in = ParameterIn.PATH,
+                    description = "만료 재고를 처리할 냉장고 ID",
+                    required = true,
+                    example = "1"
+            )
+            Long refrigeratorId,
+            @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = IngredientExpireSelectedRequest.class),
+                            examples = @ExampleObject(name = "만료 재고 선택 만료 처리 요청", value = EXPIRE_SELECTED_REQUEST)
+                    )
+            )
+            IngredientExpireSelectedRequest request);
 
     @Operation(
             summary = "재고 일괄 등록",

@@ -51,4 +51,8 @@ public class Refrigerator extends BaseEntity {
     public void countExpiredDeletion() {
         expiredCount++;
     }
+
+    public void countExpiredDeletions(int count) {
+        expiredCount += count;
+    }
 }

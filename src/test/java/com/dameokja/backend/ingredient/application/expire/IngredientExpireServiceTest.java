@@ -17,6 +17,7 @@ import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -37,7 +38,7 @@ class IngredientExpireServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository);
+        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, Clock.systemUTC());
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         when(refrigeratorAccessService.lockCurrentForWrite(2L)).thenReturn(refrigerator);

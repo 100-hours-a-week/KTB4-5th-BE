@@ -102,6 +102,12 @@ final class IngredientApiExamples {
             }
             """;
 
+    static final String EXPIRE_SELECTED_REQUEST = """
+            {
+              "ingredientIds": [12, 305, 4081]
+            }
+            """;
+
     static final String EXPIRE_REQUEST = """
             {
               "weightValue": "250.000",
