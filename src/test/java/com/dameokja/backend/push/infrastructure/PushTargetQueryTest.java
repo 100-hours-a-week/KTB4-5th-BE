@@ -16,8 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 class PushTargetQueryTest extends MySqlJpaTest {
-    private static final LocalDateTime TODAY = LocalDateTime.of(2026, 9, 25, 0, 0);
-    private static final LocalDateTime SEND_AT = TODAY.withHour(8);
+    // created_at은 UTC로 저장되므로 서울 기준 2026-09-25 하루를 UTC 범위로 조회한다.
+    private static final LocalDateTime SEOUL_TODAY_START_UTC = LocalDateTime.of(2026, 9, 24, 15, 0);
+    private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
 
     @Autowired PushNotificationRepository pushNotificationRepository;
     @Autowired JdbcTemplate jdbc;
@@ -36,10 +37,10 @@ class PushTargetQueryTest extends MySqlJpaTest {
         device(950003, 950002, "ACTIVE");
         device(950004, 950003, "DISABLED");
         device(950005, 950004, "ACTIVE");
-        notification(950001, "EXPIRED", "2026-09-25 04:00:00");
-        notification(950002, "EXPIRING", "2026-09-25 04:00:00");
-        notification(950003, "MEMBER_JOINED", "2026-09-25 04:00:00");
-        notification(950004, "EXPIRED", "2026-09-24 04:00:00");
+        notification(950001, "EXPIRED", "2026-09-24 19:00:00");
+        notification(950002, "EXPIRING", "2026-09-24 19:00:00");
+        notification(950003, "MEMBER_JOINED", "2026-09-24 19:00:00");
+        notification(950004, "EXPIRED", "2026-09-23 19:00:00");
     }
 
     @Test
@@ -58,7 +59,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
         User recipient = entityManager.find(User.class, 950001L);
         UserDevice device = entityManager.find(UserDevice.class, 950001L);
         pushNotificationRepository.save(PushNotification.inbox(
-                notification, recipient, device, "{}", SEND_AT, TODAY.withHour(12)));
+                notification, recipient, device, "{}", SEND_AT, SEND_AT.withHour(12)));
         entityManager.flush();
 
         assertThat(findTargets())
@@ -67,7 +68,8 @@ class PushTargetQueryTest extends MySqlJpaTest {
     }
 
     private List<PushInboxTarget> findTargets() {
-        return pushNotificationRepository.findExpirationPushTargets(TODAY, TODAY.plusDays(1));
+        return pushNotificationRepository.findExpirationPushTargets(
+                SEOUL_TODAY_START_UTC, SEOUL_TODAY_START_UTC.plusDays(1));
     }
 
     private void device(long deviceId, long userId, String status) {
@@ -77,7 +79,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
                 deviceId, "https://push.example.com/" + deviceId, status, userId);
     }
 
-    // 4시 알림 생성 작업이 모든 수신자(푸시 대상 외 사용자 포함)에게 수신 행을 만든 상태를 흉내 낸다.
+    // 서울 4시(UTC 전날 19시)에 알림 생성 작업이 모든 수신자(푸시 대상 외 사용자 포함)에게 수신 행을 만든 상태를 흉내 낸다.
     private void notification(long notificationId, String type, String createdAt) {
         jdbc.update("INSERT INTO notifications(notification_id,type,title,body,refrigerator_id,created_at,updated_at) "
                 + "VALUES (?,?,'알림','본문',950001,?,?)", notificationId, type, createdAt, createdAt);

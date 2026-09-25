@@ -7,6 +7,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +19,8 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 public class PushNotificationCreationService {
-    // 8시 알림이 12시를 넘겨 도착하면 이미 늦은 정보이므로 당일 정오까지만 보낸다.
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
+    // 8시 알림이 12시를 넘겨 도착하면 이미 늦은 정보이므로 서울 기준 당일 정오까지만 보낸다.
     private static final LocalTime SEND_DEADLINE = LocalTime.NOON;
 
     private final PushNotificationRepository pushNotificationRepository;
@@ -26,10 +29,10 @@ public class PushNotificationCreationService {
 
     @Transactional
     public int createExpirationJobs() {
-        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime now = LocalDateTime.now(clock.withZone(BUSINESS_ZONE));
         LocalDate today = now.toLocalDate();
         List<PushInboxTarget> targets = pushNotificationRepository.findExpirationPushTargets(
-                today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+                toAuditingTime(today.atStartOfDay()), toAuditingTime(today.plusDays(1).atStartOfDay()));
         LocalDateTime expiresAt = today.atTime(SEND_DEADLINE);
         for (PushInboxTarget target : targets) {
             String payload = objectMapper.writeValueAsString(PushPayload.from(target.notification()));
@@ -37,5 +40,10 @@ public class PushNotificationCreationService {
                     target.notification(), target.recipient(), target.device(), payload, now, expiresAt));
         }
         return targets.size();
+    }
+
+    // 알림의 created_at은 JPA Auditing이 UTC로 저장하므로 서울 시각을 UTC로 바꿔 비교한다.
+    private LocalDateTime toAuditingTime(LocalDateTime seoulTime) {
+        return seoulTime.atZone(BUSINESS_ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 }

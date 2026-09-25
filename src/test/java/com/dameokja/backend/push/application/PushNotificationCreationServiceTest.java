@@ -12,7 +12,7 @@ import com.dameokja.backend.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -29,18 +29,19 @@ class PushNotificationCreationServiceTest {
     private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
 
     private final PushNotificationRepository pushNotificationRepository = mock(PushNotificationRepository.class);
-    private final Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneId.of("Asia/Seoul"));
+    // 서버 Clock의 시간대와 상관없이 서울 기준으로 계산하는지 보려고 UTC Clock을 쓴다. (서울 2026-09-25 08:00)
+    private final Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneOffset.UTC);
     private final PushNotificationCreationService service = new PushNotificationCreationService(
             pushNotificationRepository, JsonMapper.builder().build(), clock);
 
     @Test
-    void createsPendingJobsForTodayTargetsWithNoonDeadline() {
+    void createsPendingJobsForSeoulTodayTargetsWithSeoulNoonDeadline() {
         User recipient = new User("회원", "default.png");
         UserDevice device = new UserDevice(recipient, "https://push.example.com/1", "p256dh",
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
         PushInboxTarget target = new PushInboxTarget(notification(), recipient, device);
         when(pushNotificationRepository.findExpirationPushTargets(
-                LocalDateTime.of(2026, 9, 25, 0, 0), LocalDateTime.of(2026, 9, 26, 0, 0)))
+                LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0)))
                 .thenReturn(List.of(target));
         when(pushNotificationRepository.save(any(PushNotification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
