@@ -43,6 +43,11 @@ push:
     key-version: ${PUSH_VAPID_KEY_VERSION}
     # 비워 두면 VAPID JWT에서 sub 클레임을 생략한다. 값을 넣을 때는 mailto: 또는 https: 형식이다.
     subject: ${PUSH_VAPID_SUBJECT:}
+  # 매일 8시(서울) 만료·임박 알림 푸시 배치. 끄면 스케줄러 빈을 등록하지 않는다.
+  expiration-batch:
+    enabled: ${PUSH_EXPIRATION_BATCH_ENABLED:true}
+  dispatch:
+    concurrency: ${PUSH_DISPATCH_CONCURRENCY:20}
   test-api:
     # 로컬 수동 검증용 발송 API(PushTestController). 배포 환경은 기본값 false를 유지하고, 로컬에서만 .env로 켠다.
     enabled: ${PUSH_TEST_API_ENABLED:false}
