@@ -25,13 +25,13 @@ public class PushSendService {
     private final UserAccessService userAccessService;
 
     // 시스템이 알림 대상 기기로 보낼 때 호출하므로 사용자 활성 여부와 소유자를 검증하지 않는다.
-    public boolean send(Long userDeviceId, String payloadJson, Duration ttl) {
+    public PushSendResult send(Long userDeviceId, String payloadJson, Duration ttl) {
         return send(getDevice(userDeviceId), payloadJson, ttl);
     }
 
     // 로컬 수동 검증용 PushTestController(push.test-api.enabled=true)에서만 호출하기 위해 추가했다.
     // 사용자가 요청하는 발송이므로 사용자 활성 여부와 구독 소유자를 검증한다.
-    public boolean sendToOwnDevice(Long userId, Long userDeviceId, String payloadJson, Duration ttl) {
+    public PushSendResult sendToOwnDevice(Long userId, Long userDeviceId, String payloadJson, Duration ttl) {
         userAccessService.validateActive(userId);
         UserDevice device = getDevice(userDeviceId);
         if (!device.getUser().getId().equals(userId)) {
@@ -45,15 +45,23 @@ public class PushSendService {
                 .orElseThrow(() -> new CustomException(PushExceptionCode.SUBSCRIPTION_NOT_FOUND));
     }
 
-    private boolean send(UserDevice device, String payloadJson, Duration ttl) {
+    private PushSendResult send(UserDevice device, String payloadJson, Duration ttl) {
         if (device.getStatus() != UserDeviceStatus.ACTIVE) {
-            return false;
+            return PushSendResult.UNAVAILABLE;
         }
         WebPushResult result = webPushSender.send(toTarget(device), payloadJson, ttl);
         if (result == WebPushResult.EXPIRED) {
             pushSubscriptionService.invalidate(device.getId());
         }
-        return result == WebPushResult.SUCCESS;
+        return toSendResult(result);
+    }
+
+    private PushSendResult toSendResult(WebPushResult result) {
+        return switch (result) {
+            case SUCCESS -> PushSendResult.ACCEPTED;
+            case EXPIRED -> PushSendResult.UNAVAILABLE;
+            case FAILED -> PushSendResult.FAILED;
+        };
     }
 
     private WebPushTarget toTarget(UserDevice device) {

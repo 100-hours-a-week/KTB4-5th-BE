@@ -1,6 +1,7 @@
 package com.dameokja.backend.push.presentation;
 
 import com.dameokja.backend.global.security.CurrentUserId;
+import com.dameokja.backend.push.application.PushSendResult;
 import com.dameokja.backend.push.application.PushSendService;
 import io.swagger.v3.oas.annotations.Hidden;
 import java.time.Duration;
@@ -26,8 +27,8 @@ public class PushTestController {
     private final PushSendService pushSendService;
 
     @PostMapping("/{subscriptionId}/test-sends")
-    public Map<String, Boolean> send(@CurrentUserId Long userId, @PathVariable Long subscriptionId,
+    public Map<String, PushSendResult> send(@CurrentUserId Long userId, @PathVariable Long subscriptionId,
             @RequestBody String payloadJson) {
-        return Map.of("sent", pushSendService.sendToOwnDevice(userId, subscriptionId, payloadJson, TEST_TTL));
+        return Map.of("result", pushSendService.sendToOwnDevice(userId, subscriptionId, payloadJson, TEST_TTL));
     }
 }
