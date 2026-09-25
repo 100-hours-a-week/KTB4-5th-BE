@@ -1,11 +1,8 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.notification.domain.Notification;
-import com.dameokja.backend.notification.domain.NotificationPreferenceType;
-import com.dameokja.backend.notification.domain.NotificationType;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.UserDevice;
-import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -87,10 +84,8 @@ class PushTargetQueryTest extends MySqlJpaTest {
     }
 
     private List<PushInboxTarget> findTargets() {
-        return pushNotificationRepository.findInboxTargets(
-                List.of(NotificationType.EXPIRED, NotificationType.EXPIRING),
-                SEOUL_TODAY_START_UTC, SEOUL_TODAY_START_UTC.plusDays(1),
-                UserDeviceStatus.ACTIVE, NotificationPreferenceType.EXPIRATION);
+        return pushNotificationRepository.findExpirationInboxTargets(
+                SEOUL_TODAY_START_UTC, SEOUL_TODAY_START_UTC.plusDays(1));
     }
 
     private void device(long deviceId, long userId, String status) {

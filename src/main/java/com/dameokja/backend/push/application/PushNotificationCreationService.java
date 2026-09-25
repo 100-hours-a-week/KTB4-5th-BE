@@ -1,9 +1,6 @@
 package com.dameokja.backend.push.application;
 
-import com.dameokja.backend.notification.domain.NotificationPreferenceType;
-import com.dameokja.backend.notification.domain.NotificationType;
 import com.dameokja.backend.push.domain.PushNotification;
-import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.infrastructure.PushInboxTarget;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import java.time.Clock;
@@ -25,8 +22,6 @@ public class PushNotificationCreationService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
     // 8시 알림이 12시를 넘겨 도착하면 이미 늦은 정보이므로 서울 기준 당일 정오까지만 보낸다.
     private static final LocalTime SEND_DEADLINE = LocalTime.NOON;
-    private static final List<NotificationType> EXPIRATION_TYPES =
-            List.of(NotificationType.EXPIRED, NotificationType.EXPIRING);
 
     private final PushNotificationRepository pushNotificationRepository;
     private final ObjectMapper objectMapper;
@@ -36,9 +31,8 @@ public class PushNotificationCreationService {
     public int createExpirationJobs() {
         LocalDateTime now = LocalDateTime.now(clock.withZone(BUSINESS_ZONE));
         LocalDate today = now.toLocalDate();
-        List<PushInboxTarget> targets = pushNotificationRepository.findInboxTargets(EXPIRATION_TYPES,
-                toAuditingTime(today.atStartOfDay()), toAuditingTime(today.plusDays(1).atStartOfDay()),
-                UserDeviceStatus.ACTIVE, NotificationPreferenceType.EXPIRATION);
+        List<PushInboxTarget> targets = pushNotificationRepository.findExpirationInboxTargets(
+                toAuditingTime(today.atStartOfDay()), toAuditingTime(today.plusDays(1).atStartOfDay()));
         LocalDateTime expiresAt = today.atTime(SEND_DEADLINE);
         for (PushInboxTarget target : targets) {
             String payload = objectMapper.writeValueAsString(PushPayload.from(target.notification()));
