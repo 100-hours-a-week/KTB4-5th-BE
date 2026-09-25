@@ -3,6 +3,7 @@ package com.dameokja.backend.push.infrastructure;
 import com.dameokja.backend.push.domain.PushNotification;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,4 +31,29 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
                         and job.subscriptionVersion = d.subscriptionVersion)
             """)
     List<PushInboxTarget> findInboxPushTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    // 전송은 트랜잭션 밖에서 하므로 구독 버전 확인에 쓸 구독을 함께 읽는다.
+    @Query("""
+            select job
+            from PushNotification job
+                join fetch job.userDevice
+            where job.status in (PENDING, RETRY)
+                and job.nextAttemptAt <= :now
+            """)
+    List<PushNotification> findDueJobs(@Param("now") LocalDateTime now);
+
+    @Query("select min(job.nextAttemptAt) from PushNotification job where job.status in (PENDING, RETRY)")
+    Optional<LocalDateTime> findNextAttemptAt();
+
+    // 작업 생성 뒤 탈퇴, 냉장고 탈퇴·삭제, 수신 끔이 있었을 수 있으므로 발송 직전에 다시 확인한다.
+    @Query("""
+            select count(m) > 0
+            from RefrigeratorMember m
+                join NotificationPreference p on p.user = m.user
+            where m.user.id = :userId and m.refrigerator.id = :refrigeratorId
+                and m.user.status = ACTIVE
+                and m.refrigerator.deletedAt is null
+                and p.type = EXPIRATION and p.isEnabled = true
+            """)
+    boolean canReceiveExpirationPush(@Param("userId") Long userId, @Param("refrigeratorId") Long refrigeratorId);
 }
