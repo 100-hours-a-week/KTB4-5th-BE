@@ -5,7 +5,6 @@ import com.dameokja.backend.global.security.CurrentUserId;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
-import com.dameokja.backend.ingredient.application.expire.IngredientBulkExpireService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireResult;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
 import com.dameokja.backend.ingredient.application.list.IngredientListResult;
@@ -13,7 +12,7 @@ import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
-import com.dameokja.backend.ingredient.presentation.request.IngredientBulkExpireRequest;
+import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientListRequest;
@@ -57,7 +56,6 @@ public class IngredientController implements IngredientApi {
     private final IngredientDetailService ingredientDetailService;
     private final IngredientUpdateService ingredientUpdateService;
     private final IngredientExpireService ingredientExpireService;
-    private final IngredientBulkExpireService ingredientBulkExpireService;
     private final IngredientListService ingredientListService;
 
     @Override
@@ -111,8 +109,8 @@ public class IngredientController implements IngredientApi {
     @Override
     @PostMapping("/refrigerators/{refrigeratorId}/ingredients/expired")
     public ResponseEntity<Void> expireSelected(@CurrentUserId Long userId, @PathVariable Long refrigeratorId,
-            @RequestBody IngredientBulkExpireRequest request) {
-        ingredientBulkExpireService.expire(userId, refrigeratorId, request.ingredientIds());
+            @RequestBody IngredientExpireSelectedRequest request) {
+        ingredientExpireService.expireSelected(userId, refrigeratorId, request.ingredientIds());
         return ResponseEntity.noContent().build();
     }
 

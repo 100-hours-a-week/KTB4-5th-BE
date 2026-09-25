@@ -31,20 +31,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class IngredientBulkExpireServiceTest {
+class IngredientExpireSelectedTest {
     private static final LocalDate BUSINESS_DATE = LocalDate.of(2026, 9, 20);
 
     @Mock private RefrigeratorAccessService refrigeratorAccessService;
     @Mock private IngredientRepository ingredientRepository;
 
-    private IngredientBulkExpireService service;
+    private IngredientExpireService service;
     private Refrigerator refrigerator;
 
     @BeforeEach
     void setUp() {
         // 2026-09-19T15:00Z = 2026-09-20 00:00 KST
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"), ZoneId.of("Asia/Seoul"));
-        service = new IngredientBulkExpireService(refrigeratorAccessService, ingredientRepository, clock);
+        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, clock);
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
     }
@@ -56,7 +56,7 @@ class IngredientBulkExpireServiceTest {
         when(ingredientRepository.findByRefrigerator_IdAndIdInAndExpirationDateBefore(
                 10L, List.of(1L, 2L, 3L), BUSINESS_DATE)).thenReturn(expired);
 
-        int deletedCount = service.expire(2L, 10L, List.of(1L, 2L, 3L, 1L));
+        int deletedCount = service.expireSelected(2L, 10L, List.of(1L, 2L, 3L, 1L));
 
         assertThat(deletedCount).isEqualTo(2);
         assertThat(refrigerator.getExpiredCount()).isEqualTo(2);
@@ -65,7 +65,7 @@ class IngredientBulkExpireServiceTest {
 
     @Test
     void rejectsEmptySelectionBeforeLocking() {
-        assertThatThrownBy(() -> service.expire(2L, 10L, List.of()))
+        assertThatThrownBy(() -> service.expireSelected(2L, 10L, List.of()))
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getExceptionCode().getCode())
                 .isEqualTo("INGREDIENT-400-003");

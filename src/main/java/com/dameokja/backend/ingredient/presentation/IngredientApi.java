@@ -3,7 +3,7 @@ package com.dameokja.backend.ingredient.presentation;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.CREATE_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.DETAIL_RESPONSE;
-import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.BULK_EXPIRE_REQUEST;
+import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_SELECTED_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_REQUEST;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.EXPIRE_RESPONSE;
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.LIST_RESPONSE;
@@ -11,7 +11,7 @@ import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.ingredient.presentation.request.IngredientBulkExpireRequest;
+import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
@@ -224,11 +224,11 @@ public interface IngredientApi {
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = IngredientBulkExpireRequest.class),
-                            examples = @ExampleObject(name = "만료 재고 선택 만료 처리 요청", value = BULK_EXPIRE_REQUEST)
+                            schema = @Schema(implementation = IngredientExpireSelectedRequest.class),
+                            examples = @ExampleObject(name = "만료 재고 선택 만료 처리 요청", value = EXPIRE_SELECTED_REQUEST)
                     )
             )
-            IngredientBulkExpireRequest request);
+            IngredientExpireSelectedRequest request);
 
     @Operation(
             summary = "재고 일괄 등록",

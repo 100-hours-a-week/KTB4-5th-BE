@@ -102,7 +102,7 @@ final class IngredientApiExamples {
             }
             """;
 
-    static final String BULK_EXPIRE_REQUEST = """
+    static final String EXPIRE_SELECTED_REQUEST = """
             {
               "ingredientIds": [12, 305, 4081]
             }
