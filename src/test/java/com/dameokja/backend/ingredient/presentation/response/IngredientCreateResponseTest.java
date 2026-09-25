@@ -32,7 +32,7 @@ class IngredientCreateResponseTest {
 
         IngredientCreateResponse response = IngredientCreateResponse.from(result);
 
-        IngredientCreateResponse.MergedItem mergedItem = response.mergedItems().getFirst();
+        IngredientMergedItemResponse mergedItem = response.mergedItems().getFirst();
         assertThat(mergedItem.previousWeightValue()).isEqualByComparingTo("500.000");
         assertThat(mergedItem.addedWeightValue()).isEqualByComparingTo("200.000");
         assertThat(mergedItem.totalWeightValue()).isEqualByComparingTo("700.000");
