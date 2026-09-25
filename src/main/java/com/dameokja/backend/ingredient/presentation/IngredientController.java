@@ -20,6 +20,7 @@ import com.dameokja.backend.ingredient.presentation.response.IngredientCreateRes
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import jakarta.validation.Valid;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -84,13 +85,13 @@ public class IngredientController implements IngredientApi {
 
     @Override
     @PatchMapping("/ingredients/{ingredientId}")
-    public ResponseEntity<SuccessResponse<IngredientResponse>> update(
+    public ResponseEntity<SuccessResponse<IngredientUpdateResponse>> update(
             @CurrentUserId Long userId, @PathVariable Long ingredientId,
             @RequestHeader(value = "If-Match", required = false) String ifMatch,
             @RequestBody IngredientUpdateRequest request) {
         IngredientUpdateResult result = ingredientUpdateService.update(userId, ingredientId, ifMatch, request.toFields());
-        IngredientResponse response = IngredientResponse.of(result.ingredient(), result.businessDate());
-        SuccessResponse<IngredientResponse> body = SuccessResponse.of(UPDATED_CODE, UPDATED_MESSAGE, response);
+        IngredientUpdateResponse response = IngredientUpdateResponse.from(result);
+        SuccessResponse<IngredientUpdateResponse> body = SuccessResponse.of(UPDATED_CODE, UPDATED_MESSAGE, response);
 
         return ResponseEntity.ok().eTag(IngredientEtag.of(result.ingredient())).body(body);
     }

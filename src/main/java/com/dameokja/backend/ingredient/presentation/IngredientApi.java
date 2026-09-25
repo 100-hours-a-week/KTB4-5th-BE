@@ -17,6 +17,7 @@ import com.dameokja.backend.ingredient.presentation.response.IngredientCreateRes
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -106,7 +107,9 @@ public interface IngredientApi {
     @Operation(
             summary = "재고 수정",
             description = "상세 조회에서 받은 ETag를 사용해 재고의 제공된 필드만 수정합니다. "
-                    + "측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다."
+                    + "측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
+                    + "수정 결과가 같은 냉장고의 다른 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같으면 "
+                    + "그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -121,12 +124,13 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
+            @ApiResponse(responseCode = "409", description = "합산 시 허용 수량 초과 (INGREDIENT-409-004)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)"),
             @ApiResponse(responseCode = "422", description = "재고 수정 규칙 위반 (INGREDIENT-422-001~004)"),
             @ApiResponse(responseCode = "428", description = "If-Match 헤더가 누락됨 (INGREDIENT-428-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
-    ResponseEntity<SuccessResponse<IngredientResponse>> update(
+    ResponseEntity<SuccessResponse<IngredientUpdateResponse>> update(
             @Parameter(hidden = true) Long userId,
             @Parameter(
                     name = "ingredientId",
