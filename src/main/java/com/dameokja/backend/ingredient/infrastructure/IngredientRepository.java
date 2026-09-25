@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.List;
 import org.springframework.data.jpa.repository.Lock;
@@ -25,6 +26,9 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     long countByRefrigeratorId(Long refrigeratorId);
 
     long countByRefrigerator_IdAndExpirationDateBefore(Long refrigeratorId, LocalDate date);
+
+    List<Ingredient> findByRefrigerator_IdAndIdInAndExpirationDateBefore(
+            Long refrigeratorId, Collection<Long> ids, LocalDate date);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "

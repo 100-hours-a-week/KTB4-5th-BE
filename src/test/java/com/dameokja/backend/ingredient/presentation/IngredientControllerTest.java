@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.response.SuccessResponse;
@@ -10,6 +11,7 @@ import com.dameokja.backend.ingredient.application.detail.IngredientDetailServic
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
 import com.dameokja.backend.ingredient.application.list.IngredientListResult;
 import com.dameokja.backend.ingredient.application.list.IngredientListService;
+import com.dameokja.backend.ingredient.application.expire.IngredientBulkExpireService;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
@@ -26,6 +28,7 @@ import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
+import com.dameokja.backend.ingredient.presentation.request.IngredientBulkExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
@@ -44,6 +47,7 @@ class IngredientControllerTest {
     @Mock private IngredientCreateService ingredientCreateService;
     @Mock private IngredientDetailService ingredientDetailService;
     @Mock private IngredientUpdateService ingredientUpdateService;
+    @Mock private IngredientBulkExpireService ingredientBulkExpireService;
     @Mock private IngredientExpireService ingredientExpireService;
     @Mock private IngredientListService ingredientListService;
 
@@ -55,7 +59,7 @@ class IngredientControllerTest {
         when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                ingredientBulkExpireService, ingredientListService);
 
         ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null);
 
@@ -81,7 +85,7 @@ class IngredientControllerTest {
                 .thenReturn(new IngredientDetailResult(ingredient, businessDate));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                ingredientBulkExpireService, ingredientListService);
 
         ResponseEntity<SuccessResponse<IngredientResponse>> response =
                 controller.getDetail(2L, 1L);
@@ -103,7 +107,7 @@ class IngredientControllerTest {
                 .thenReturn(new IngredientUpdateResult(ingredient, businessDate, List.of()));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                ingredientBulkExpireService, ingredientListService);
 
         ResponseEntity<SuccessResponse<IngredientUpdateResponse>> response =
                 controller.update(2L, 1L, "\"before\"", request);
@@ -114,6 +118,19 @@ class IngredientControllerTest {
         assertThat(response.getBody().data().ingredient().registrationSource())
                 .isEqualTo(RegistrationSource.RECEIPT);
         assertThat(response.getBody().data().mergedItems()).isEmpty();
+    }
+
+    @Test
+    void expiresSelectedIngredientsAndReturnsNoContent() {
+        IngredientController controller = new IngredientController(
+                ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
+                ingredientBulkExpireService, ingredientListService);
+
+        ResponseEntity<Void> response = controller.expireSelected(
+                2L, 10L, new IngredientBulkExpireRequest(List.of(1L, 2L)));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(204);
+        verify(ingredientBulkExpireService).expire(2L, 10L, List.of(1L, 2L));
     }
 
     private Ingredient ingredient() {
