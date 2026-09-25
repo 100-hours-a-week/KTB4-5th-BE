@@ -25,6 +25,7 @@ import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
@@ -99,19 +100,20 @@ class IngredientControllerTest {
         request.setWeightValue(new BigDecimal("250"));
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
         when(ingredientUpdateService.update(2L, 1L, "\"before\"", request.toFields()))
-                .thenReturn(new IngredientUpdateResult(ingredient, businessDate));
+                .thenReturn(new IngredientUpdateResult(ingredient, businessDate, List.of()));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
 
-        ResponseEntity<SuccessResponse<IngredientResponse>> response =
+        ResponseEntity<SuccessResponse<IngredientUpdateResponse>> response =
                 controller.update(2L, 1L, "\"before\"", request);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-004");
-        assertThat(response.getBody().data().registrationSource())
+        assertThat(response.getBody().data().ingredient().registrationSource())
                 .isEqualTo(RegistrationSource.RECEIPT);
+        assertThat(response.getBody().data().mergedItems()).isEmpty();
     }
 
     private Ingredient ingredient() {

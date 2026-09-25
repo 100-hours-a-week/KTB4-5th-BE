@@ -77,13 +77,27 @@ final class IngredientApiExamples {
                 "storageType": "REFRIGERATED",
                 "measureType": "WEIGHT",
                 "quantity": null,
-                "weightValue": "250.000",
+                "weightValue": "550.000",
                 "weightUnit": "G",
                 "expirationDate": "2026-09-15",
                 "createdDate": "2026-09-01",
                 "registrationSource": "RECEIPT",
                 "status": "EXPIRED",
-                "daysUntilExpiration": -1
+                "daysUntilExpiration": -1,
+                "mergedItems": [
+                  {
+                    "ingredientId": 1,
+                    "name": "두부",
+                    "measureType": "WEIGHT",
+                    "previousQuantity": null,
+                    "addedQuantity": null,
+                    "totalQuantity": null,
+                    "previousWeightValue": 250.000,
+                    "addedWeightValue": 300.000,
+                    "totalWeightValue": 550.000,
+                    "weightUnit": "G"
+                  }
+                ]
               }
             }
             """;

@@ -4,12 +4,15 @@ import com.dameokja.backend.ingredient.application.IngredientPolicy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.moderation.ProhibitedWordChecker;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateFields.UpdateField;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
@@ -27,6 +30,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +55,7 @@ class IngredientUpdateServiceTest {
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         ingredient = ingredient(refrigerator, LocalDate.of(2026, 9, 15));
 
+        when(ingredientRepository.findRefrigeratorIdById(20L)).thenReturn(Optional.of(10L));
         when(ingredientRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(ingredient));
 
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"),
@@ -76,7 +81,7 @@ class IngredientUpdateServiceTest {
                 .isEqualTo(LocalDate.of(2026, 9, 15));
         assertThat(result.ingredient().getRegistrationSource())
                 .isEqualTo(RegistrationSource.RECEIPT);
-        verify(accessService).validateWriteAccess(1L, 10L);
+        verify(accessService).lockForWrite(1L, 10L);
         verify(ingredientRepository).flush();
     }
 
@@ -137,7 +142,34 @@ class IngredientUpdateServiceTest {
     void checksAccessUsingRefrigeratorOwnedByIngredient() {
         updateService.update(1L, 20L, IngredientEtag.of(ingredient), emptyFields());
 
-        verify(accessService).validateWriteAccess(1L, 10L);
+        verify(accessService).lockForWrite(1L, 10L);
+    }
+
+    @Test
+    void mergesDuplicateIntoUpdatedIngredientAndDeletesDuplicate() {
+        Ingredient duplicate = ingredient(refrigerator, LocalDate.of(2026, 9, 25));
+        ReflectionTestUtils.setField(duplicate, "id", 21L);
+        when(ingredientRepository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(ingredient, duplicate));
+
+        IngredientUpdateResult result = updateService.update(
+                1L, 20L, IngredientEtag.of(ingredient), fieldsWithExpiration(LocalDate.of(2026, 9, 25)));
+
+        IngredientWriteItem mergedItem = result.mergedItems().getFirst();
+        assertThat(result.ingredient().getId()).isEqualTo(20L);
+        assertThat(result.ingredient().getMeasurement().getWeightValue()).isEqualByComparingTo("600.000");
+        assertThat(mergedItem.beforeMerge().getWeightValue()).isEqualByComparingTo("300.000");
+        assertThat(mergedItem.addedByRequest().getWeightValue()).isEqualByComparingTo("300.000");
+        verify(ingredientRepository).deleteAll(List.of(duplicate));
+    }
+
+    @Test
+    void returnsNoMergedItemsWhenOnlyItselfMatches() {
+        when(ingredientRepository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(ingredient));
+
+        IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient), emptyFields());
+
+        assertThat(result.mergedItems()).isEmpty();
+        verify(ingredientRepository, never()).deleteAll(any());
     }
 
     private IngredientUpdateFields fieldsWithExpiration(LocalDate expirationDate) {

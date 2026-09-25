@@ -19,6 +19,9 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     @Query("select i from Ingredient i where i.id = :id")
     Optional<Ingredient> findByIdForUpdate(@Param("id") Long id);
 
+    @Query("select i.refrigerator.id from Ingredient i where i.id = :id")
+    Optional<Long> findRefrigeratorIdById(@Param("id") Long id);
+
     long countByRefrigeratorId(Long refrigeratorId);
 
     long countByRefrigerator_IdAndExpirationDateBefore(Long refrigeratorId, LocalDate date);
