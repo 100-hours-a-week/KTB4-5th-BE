@@ -39,7 +39,7 @@ class PushNotificationCreationServiceTest {
         User recipient = new User("회원", "default.png");
         UserDevice device = new UserDevice(recipient, "https://push.example.com/1", "p256dh",
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
-        PushInboxTarget target = new PushInboxTarget(notification(), recipient, device);
+        PushInboxTarget target = new PushInboxTarget(notification(), device);
         when(pushNotificationRepository.findExpirationPushTargets(
                 LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0)))
                 .thenReturn(List.of(target));
@@ -53,6 +53,7 @@ class PushNotificationCreationServiceTest {
         verify(pushNotificationRepository).save(saved.capture());
         PushNotification job = saved.getValue();
         assertThat(job.getStatus()).isEqualTo(PushNotificationStatus.PENDING);
+        assertThat(job.getUser()).isSameAs(recipient);
         assertThat(job.getNextAttemptAt()).isEqualTo(SEND_AT);
         assertThat(job.getExpiresAt()).isEqualTo(LocalDateTime.of(2026, 9, 25, 12, 0));
         assertThat(job.getPayload()).isEqualTo("{\"notificationId\":7,\"refrigeratorId\":3,"

@@ -46,7 +46,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
     @Test
     void findsTodayExpirationNotificationsForEnabledActiveUsersAndActiveDevices() {
         assertThat(findTargets())
-                .extracting(target -> target.notification().getId(), target -> target.recipient().getId(),
+                .extracting(target -> target.notification().getId(), target -> target.device().getUser().getId(),
                         target -> target.device().getId())
                 .containsExactly(
                         tuple(950001L, 950001L, 950001L), tuple(950001L, 950001L, 950002L),

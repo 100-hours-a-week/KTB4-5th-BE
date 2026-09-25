@@ -37,7 +37,7 @@ public class PushNotificationCreationService {
         for (PushInboxTarget target : targets) {
             String payload = objectMapper.writeValueAsString(PushPayload.from(target.notification()));
             pushNotificationRepository.save(PushNotification.inbox(
-                    target.notification(), target.recipient(), target.device(), payload, now, expiresAt));
+                    target.notification(), target.device().getUser(), target.device(), payload, now, expiresAt));
         }
         return targets.size();
     }
