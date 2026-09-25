@@ -31,7 +31,7 @@ public class PushNotificationCreationService {
     public int createExpirationJobs() {
         LocalDateTime now = LocalDateTime.now(clock.withZone(BUSINESS_ZONE));
         LocalDate today = now.toLocalDate();
-        List<PushInboxTarget> targets = pushNotificationRepository.findExpirationInboxTargets(
+        List<PushInboxTarget> targets = pushNotificationRepository.findInboxPushTargets(
                 toAuditingTime(today.atStartOfDay()), toAuditingTime(today.plusDays(1).atStartOfDay()));
         LocalDateTime expiresAt = today.atTime(SEND_DEADLINE);
         for (PushInboxTarget target : targets) {

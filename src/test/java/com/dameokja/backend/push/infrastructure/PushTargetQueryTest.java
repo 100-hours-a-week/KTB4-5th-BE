@@ -31,8 +31,10 @@ class PushTargetQueryTest extends MySqlJpaTest {
         jdbc.update("INSERT INTO users(user_id,nickname,profile_image_key) VALUES "
                 + "(950001,'푸시대상','p'),(950002,'수신끔','p'),(950003,'구독해제','p')");
         jdbc.update("INSERT INTO refrigerators(refrigerator_id,name,expired_count_month) VALUES (950001,'냉장고','2026-09')");
+        // 레시피 설정은 만료 푸시 대상에 영향을 주지 않아야 한다. (둘 다 켬: 중복 없음, 만료만 끔: 제외)
         jdbc.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES "
-                + "(950001,'EXPIRATION',1),(950002,'EXPIRATION',0),(950003,'EXPIRATION',1)");
+                + "(950001,'EXPIRATION',1),(950001,'RECIPE',1),(950002,'EXPIRATION',0),(950002,'RECIPE',1),"
+                + "(950003,'EXPIRATION',1),(950003,'RECIPE',0)");
         device(950001, 950001, "ACTIVE");
         device(950002, 950001, "ACTIVE");
         device(950003, 950002, "ACTIVE");
@@ -47,7 +49,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
     void findsTodayExpirationNotificationsForEnabledRecipientsActiveDevices() {
         assertThat(findTargets())
                 .extracting(target -> target.notification().getId(), target -> target.device().getId())
-                .containsExactly(tuple(950001L, 950001L), tuple(950001L, 950002L),
+                .containsExactlyInAnyOrder(tuple(950001L, 950001L), tuple(950001L, 950002L),
                         tuple(950002L, 950001L), tuple(950002L, 950002L));
     }
 
@@ -61,7 +63,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
 
         assertThat(findTargets())
                 .extracting(target -> target.notification().getId(), target -> target.device().getId())
-                .containsExactly(tuple(950001L, 950002L), tuple(950002L, 950001L), tuple(950002L, 950002L));
+                .containsExactlyInAnyOrder(tuple(950001L, 950002L), tuple(950002L, 950001L), tuple(950002L, 950002L));
     }
 
     // 작업 생성에 쓰는 값(알림 문구·냉장고 ID, 구독 버전·소유자)을 읽어도 추가 조회가 생기지 않아야 한다.
@@ -84,7 +86,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
     }
 
     private List<PushInboxTarget> findTargets() {
-        return pushNotificationRepository.findExpirationInboxTargets(
+        return pushNotificationRepository.findInboxPushTargets(
                 SEOUL_TODAY_START_UTC, SEOUL_TODAY_START_UTC.plusDays(1));
     }
 

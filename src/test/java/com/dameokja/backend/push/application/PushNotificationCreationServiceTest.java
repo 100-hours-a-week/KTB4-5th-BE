@@ -40,7 +40,7 @@ class PushNotificationCreationServiceTest {
         UserDevice device = new UserDevice(recipient, "https://push.example.com/1", "p256dh",
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
         PushInboxTarget target = new PushInboxTarget(notification(), device);
-        when(pushNotificationRepository.findExpirationInboxTargets(
+        when(pushNotificationRepository.findInboxPushTargets(
                 LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0)))
                 .thenReturn(List.of(target));
         when(pushNotificationRepository.save(any(PushNotification.class)))
