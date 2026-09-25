@@ -1,10 +1,12 @@
 package com.dameokja.backend.push.application;
 
 import com.dameokja.backend.notification.domain.Notification;
+import com.dameokja.backend.notification.domain.NotificationPreferenceType;
 import com.dameokja.backend.notification.domain.NotificationType;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.PushNotificationStatus;
 import com.dameokja.backend.push.domain.UserDevice;
+import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.infrastructure.PushInboxTarget;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
@@ -40,8 +42,10 @@ class PushNotificationCreationServiceTest {
         UserDevice device = new UserDevice(recipient, "https://push.example.com/1", "p256dh",
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
         PushInboxTarget target = new PushInboxTarget(notification(), device);
-        when(pushNotificationRepository.findExpirationPushTargets(
-                LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0)))
+        when(pushNotificationRepository.findInboxTargets(
+                List.of(NotificationType.EXPIRED, NotificationType.EXPIRING),
+                LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0),
+                UserDeviceStatus.ACTIVE, NotificationPreferenceType.EXPIRATION))
                 .thenReturn(List.of(target));
         when(pushNotificationRepository.save(any(PushNotification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
