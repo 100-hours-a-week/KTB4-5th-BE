@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -39,13 +40,30 @@ public class PushDispatchService {
 
     public Optional<LocalDateTime> dispatchDueJobs() {
         List<PushNotification> dueJobs = pushNotificationRepository.findDueJobs(now());
-        // 응답이 느린 구독 하나가 뒤의 발송을 밀어내지 않도록 동시에 보내되, 동시 전송 수는 제한한다.
-        try (ExecutorService executor = Executors.newFixedThreadPool(concurrency, Thread.ofVirtual().factory())) {
+        // 응답이 느린 구독 하나가 뒤의 발송을 밀어내지 않도록 동시에 보낸다.
+        // 가상 스레드는 풀로 재사용하지 않고 작업마다 만들며, 동시 전송 수는 세마포어로 제한한다.
+        Semaphore permits = new Semaphore(concurrency);
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             for (PushNotification job : dueJobs) {
-                executor.submit(() -> dispatch(job));
+                executor.submit(() -> dispatchWithPermit(job, permits));
             }
         }
         return pushNotificationRepository.findNextAttemptAt();
+    }
+
+    private void dispatchWithPermit(PushNotification job, Semaphore permits) {
+        try {
+            permits.acquire();
+        } catch (InterruptedException exception) {
+            // 상태를 바꾸지 않았으므로 다음 발송 차례에 다시 처리된다.
+            Thread.currentThread().interrupt();
+            return;
+        }
+        try {
+            dispatch(job);
+        } finally {
+            permits.release();
+        }
     }
 
     private void dispatch(PushNotification job) {

@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -60,6 +63,37 @@ class PushDispatchServiceTest {
         verify(pushNotificationUpdater).accept(100L, SEND_AT);
         verify(pushNotificationUpdater).accept(101L, SEND_AT);
         verify(pushNotificationUpdater).accept(102L, SEND_AT);
+    }
+
+    @Test
+    void runsEachDueJobOnItsOwnVirtualThread() {
+        givenDueJobs(job(100L, DEADLINE), job(101L, DEADLINE), job(102L, DEADLINE));
+        Set<Thread> threads = ConcurrentHashMap.newKeySet();
+        when(pushSendService.send(10L, "{}", TTL_UNTIL_DEADLINE)).thenAnswer(invocation -> {
+            threads.add(Thread.currentThread());
+            return PushSendResult.ACCEPTED;
+        });
+
+        service.dispatchDueJobs();
+
+        assertThat(threads).hasSize(3).allMatch(Thread::isVirtual);
+    }
+
+    @Test
+    void limitsConcurrentSendsToConfiguredConcurrency() {
+        givenDueJobs(job(100L, DEADLINE), job(101L, DEADLINE), job(102L, DEADLINE), job(103L, DEADLINE));
+        AtomicInteger inFlight = new AtomicInteger();
+        AtomicInteger maxInFlight = new AtomicInteger();
+        when(pushSendService.send(10L, "{}", TTL_UNTIL_DEADLINE)).thenAnswer(invocation -> {
+            maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+            Thread.sleep(50);
+            inFlight.decrementAndGet();
+            return PushSendResult.ACCEPTED;
+        });
+
+        service.dispatchDueJobs();
+
+        assertThat(maxInFlight.get()).isLessThanOrEqualTo(2);
     }
 
     @Test
