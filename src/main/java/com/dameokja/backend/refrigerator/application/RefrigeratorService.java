@@ -1,5 +1,6 @@
 package com.dameokja.backend.refrigerator.application;
 
+import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class RefrigeratorService {
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
+
+    public List<Long> findNotificationTargetRefrigeratorIds() {
+        return refrigeratorMemberRepository.findNotificationTargetRefrigeratorIds();
+    }
+
+    public List<RefrigeratorMember> findNotificationRecipients(Long refrigeratorId) {
+        return refrigeratorMemberRepository.findNotificationRecipients(refrigeratorId);
+    }
 
     public List<RefrigeratorView> getActiveRefrigerators(Long userId) {
         return refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(userId).stream()
