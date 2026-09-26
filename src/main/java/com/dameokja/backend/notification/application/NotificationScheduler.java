@@ -49,8 +49,9 @@ public class NotificationScheduler {
 
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void runNotificationCleanup() {
-        // TODO: 사용자 × 냉장고별로 99개 초과분을 정리하는 서비스를 호출한다.
-        // TODO: 읽은 알림 중 오래된 것부터 삭제하고, 부족하면 안 읽은 알림 중 오래된 것부터 삭제한다.
+        // 1. 사용자 × 냉장고별 알림 정리 서비스를 호출한다.
+        // 2. 알림이 99개를 초과하면 읽은 알림 중 오래된 것부터 삭제한다.
+        // 3. 읽은 알림을 모두 삭제해도 초과하면, 안 읽은 알림 중 오래된 것부터 삭제한다.
     }
 
     private long recordBatchStart() {
