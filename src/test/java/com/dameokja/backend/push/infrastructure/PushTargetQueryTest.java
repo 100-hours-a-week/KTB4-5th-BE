@@ -39,10 +39,10 @@ class PushTargetQueryTest extends MySqlJpaTest {
         device(950002, 950001, "ACTIVE");
         device(950003, 950002, "ACTIVE");
         device(950004, 950003, "DISABLED");
-        notification(950001, "EXPIRED", "2026-09-24 19:00:00");
-        notification(950002, "EXPIRING", "2026-09-24 19:00:00");
-        notification(950003, "MEMBER_JOINED", "2026-09-24 19:00:00");
-        notification(950004, "EXPIRED", "2026-09-23 19:00:00");
+        notification(950001, "EXPIRED", "2026-09-24 23:00:00");
+        notification(950002, "EXPIRING", "2026-09-24 23:00:00");
+        notification(950003, "MEMBER_JOINED", "2026-09-24 23:00:00");
+        notification(950004, "EXPIRED", "2026-09-23 23:00:00");
     }
 
     @Test
@@ -97,7 +97,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
                 deviceId, "https://push.example.com/" + deviceId, status, userId);
     }
 
-    // 서울 4시(UTC 전날 19시)에 알림 생성 작업이 냉장고 구성원 모두에게 수신 행을 만든 상태를 흉내 낸다.
+    // 서울 8시(UTC 전날 23시)에 알림·수신자 저장이 완료된 상태에서 푸시 대상을 조회하기 위한 데이터다.
     private void notification(long notificationId, String type, String createdAt) {
         jdbc.update("INSERT INTO notifications(notification_id,type,title,body,refrigerator_id,created_at,updated_at) "
                 + "VALUES (?,?,'알림','본문',950001,?,?)", notificationId, type, createdAt, createdAt);

@@ -1,5 +1,7 @@
-package com.dameokja.backend.push.application;
+package com.dameokja.backend.notification.application;
 
+import com.dameokja.backend.push.application.PushDispatchService;
+import com.dameokja.backend.push.application.PushNotificationCreationService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -16,7 +18,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class ExpirationPushSchedulerTest {
+class NotificationSchedulerTest {
     private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
 
     private final PushNotificationCreationService pushNotificationCreationService =
@@ -25,7 +27,7 @@ class ExpirationPushSchedulerTest {
 
     @Test
     void runsEveryDayAtEightInSeoul() throws NoSuchMethodException {
-        Scheduled scheduled = ExpirationPushScheduler.class.getMethod("run").getAnnotation(Scheduled.class);
+        Scheduled scheduled = NotificationScheduler.class.getMethod("runExpirationNotificationBatch").getAnnotation(Scheduled.class);
 
         assertThat(scheduled.cron()).isEqualTo("0 0 8 * * *");
         assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
@@ -36,7 +38,7 @@ class ExpirationPushSchedulerTest {
         when(pushDispatchService.dispatchDueJobs())
                 .thenReturn(Optional.of(SEND_AT.minusMinutes(1)), Optional.empty());
 
-        scheduler("2026-09-24T23:00:00Z").run();
+        scheduler("2026-09-24T23:00:00Z").runExpirationNotificationBatch();
 
         InOrder order = inOrder(pushNotificationCreationService, pushDispatchService);
         order.verify(pushNotificationCreationService).createExpirationJobs();
@@ -47,14 +49,14 @@ class ExpirationPushSchedulerTest {
     void stopsAtDeadlineEvenIfJobsRemain() {
         when(pushDispatchService.dispatchDueJobs()).thenReturn(Optional.of(SEND_AT.withHour(11)));
 
-        scheduler("2026-09-25T03:00:00Z").run();
+        scheduler("2026-09-25T03:00:00Z").runExpirationNotificationBatch();
 
         verify(pushDispatchService, times(1)).dispatchDueJobs();
     }
 
     // UTC 시각으로 Clock을 만들어도 기한은 서울 기준 12:00으로 계산해야 한다.
-    private ExpirationPushScheduler scheduler(String utcInstant) {
+    private NotificationScheduler scheduler(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC);
-        return new ExpirationPushScheduler(pushNotificationCreationService, pushDispatchService, clock);
+        return new NotificationScheduler(pushNotificationCreationService, pushDispatchService, clock, true);
     }
 }
