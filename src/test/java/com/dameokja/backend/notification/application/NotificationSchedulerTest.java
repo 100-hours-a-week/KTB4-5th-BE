@@ -2,6 +2,7 @@ package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.push.application.PushDispatchService;
 import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -24,6 +25,8 @@ class NotificationSchedulerTest {
     private final PushNotificationCreationService pushNotificationCreationService =
             mock(PushNotificationCreationService.class);
     private final PushDispatchService pushDispatchService = mock(PushDispatchService.class);
+    private final RefrigeratorService refrigeratorService = mock(RefrigeratorService.class);
+    private final ExpirationNotificationService expirationNotificationService = mock(ExpirationNotificationService.class);
 
     @Test
     void runsEveryDayAtEightInSeoul() throws NoSuchMethodException {
@@ -57,6 +60,7 @@ class NotificationSchedulerTest {
     // UTC 시각으로 Clock을 만들어도 기한은 서울 기준 12:00으로 계산해야 한다.
     private NotificationScheduler scheduler(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC);
-        return new NotificationScheduler(pushNotificationCreationService, pushDispatchService, clock, true);
+        return new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
+                refrigeratorService, expirationNotificationService, clock, true);
     }
 }

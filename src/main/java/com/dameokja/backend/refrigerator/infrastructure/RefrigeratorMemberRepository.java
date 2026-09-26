@@ -13,6 +13,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RefrigeratorMemberRepository extends JpaRepository<RefrigeratorMember, Long> {
+    @Query("""
+            select distinct m.refrigerator.id from RefrigeratorMember m
+            where m.isActive = true
+                and m.user.status = ACTIVE
+                and m.refrigerator.deletedAt is null
+            order by m.refrigerator.id
+            """)
+    List<Long> findNotificationTargetRefrigeratorIds();
+
+    @Query("""
+            select m from RefrigeratorMember m
+                join fetch m.user
+                join fetch m.refrigerator
+            where m.refrigerator.id = :refrigeratorId
+                and m.isActive = true
+                and m.user.status = ACTIVE
+                and m.refrigerator.deletedAt is null
+            order by m.id
+            """)
+    List<RefrigeratorMember> findNotificationRecipients(@Param("refrigeratorId") Long refrigeratorId);
+
     @Query("select m.refrigerator.id from RefrigeratorMember m "
             + "where m.user.id = :userId and m.isActive = true")
     Optional<Long> findActiveRefrigeratorId(@Param("userId") Long userId);
