@@ -97,7 +97,8 @@ jobs:
           SSH_KNOWN_HOSTS: ${{ github.ref_name == 'main' && secrets.PROD_SSH_KNOWN_HOSTS || secrets.DEV_SSH_KNOWN_HOSTS }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_ENV: ${{ secrets.APP_ENV }}
+          # 환경별 Secret 이름을 먼저 선택해 운영 값이 없어도 개발 값으로 대체되지 않게 한다.
+          APP_ENV: ${{ secrets[github.ref_name == 'main' && 'PROD_APP_ENV' || 'DEV_APP_ENV'] }}
           IMAGE: ${{ needs.build.outputs.image }}
         shell: bash
         run: |
@@ -113,7 +114,10 @@ jobs:
           test -n "$SSH_PRIVATE_KEY"
           test -n "$SSH_KNOWN_HOSTS"
           test -n "$GHCR_TOKEN"
-          test -n "$APP_ENV"
+          if [[ -z "$APP_ENV" ]]; then
+            echo "::error::현재 브랜치에 해당하는 DEV_APP_ENV 또는 PROD_APP_ENV Secret을 등록하세요."
+            exit 1
+          fi
           umask 077
           key=$(mktemp)
           hosts=$(mktemp)
