@@ -30,6 +30,8 @@ class NotificationSchedulerTest {
     private final PushDispatchService pushDispatchService = mock(PushDispatchService.class);
     private final RefrigeratorService refrigeratorService = mock(RefrigeratorService.class);
     private final ExpirationNotificationService expirationNotificationService = mock(ExpirationNotificationService.class);
+    private final NotificationRecipientService notificationRecipientService = mock(NotificationRecipientService.class);
+    private final NotificationService notificationService = mock(NotificationService.class);
 
     @Test
     void runsEveryDayAtEightInSeoul() throws NoSuchMethodException {
@@ -88,7 +90,7 @@ class NotificationSchedulerTest {
         when(refrigeratorService.findNotificationTargetRefrigeratorIds()).thenReturn(List.of(1L, 2L));
         Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneOffset.UTC);
         NotificationScheduler scheduler = new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
-                refrigeratorService, expirationNotificationService, clock, false);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
 
         scheduler.runExpirationNotificationBatch();
 
@@ -97,10 +99,37 @@ class NotificationSchedulerTest {
         verifyNoInteractions(pushNotificationCreationService, pushDispatchService);
     }
 
+    @Test
+    void cleansUpAtThreeInSeoulEvenWhenPushIsDisabled() throws NoSuchMethodException {
+        Scheduled scheduled = NotificationScheduler.class.getMethod("runNotificationCleanup").getAnnotation(Scheduled.class);
+        assertThat(scheduled.cron()).isEqualTo("0 0 3 * * *");
+        assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
+        Clock clock = Clock.fixed(Instant.parse("2026-09-24T18:00:00Z"), ZoneOffset.UTC);
+        NotificationScheduler scheduler = new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
+
+        scheduler.runNotificationCleanup();
+
+        InOrder order = inOrder(notificationRecipientService, notificationService);
+        order.verify(notificationRecipientService).deleteExcessRecipients();
+        order.verify(notificationService).deleteUnreferencedNotifications();
+        verifyNoInteractions(pushNotificationCreationService, pushDispatchService, refrigeratorService, expirationNotificationService);
+    }
+
+    @Test
+    void stopsBeforeBodyCleanupWhenRecipientCleanupFails() {
+        RuntimeException failure = new IllegalStateException("수신자 정리 실패");
+        when(notificationRecipientService.deleteExcessRecipients()).thenThrow(failure);
+
+        assertThatThrownBy(() -> scheduler("2026-09-24T18:00:00Z").runNotificationCleanup()).isSameAs(failure);
+
+        verifyNoInteractions(notificationService, pushNotificationCreationService, pushDispatchService);
+    }
+
     // UTC 시각으로 Clock을 만들어도 기한은 서울 기준 12:00으로 계산해야 한다.
     private NotificationScheduler scheduler(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC);
         return new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
-                refrigeratorService, expirationNotificationService, clock, true);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, true);
     }
 }

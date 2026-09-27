@@ -78,6 +78,11 @@ public class NotificationService {
         recipientRepository.markAllRead(userId, refrigeratorId, LocalDateTime.now(clock));
     }
 
+    @Transactional
+    public int deleteUnreferencedNotifications() {
+        return notificationRepository.deleteUnreferencedNotifications();
+    }
+
     private void validateRefrigeratorAccess(Long userId, Long refrigeratorId) {
         refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
     }

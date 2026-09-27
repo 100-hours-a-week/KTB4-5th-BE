@@ -55,7 +55,7 @@ class NotificationGenerationTransactionTest extends NotificationGenerationTestSu
         });
         when(dispatch.dispatchDueJobs()).thenReturn(Optional.empty());
         NotificationScheduler scheduler = new NotificationScheduler(pushCreation, dispatch,
-                refrigeratorService, generationService, clock, true);
+                refrigeratorService, generationService, mock(NotificationRecipientService.class), mock(NotificationService.class), clock, true);
 
         scheduler.runExpirationNotificationBatch();
 

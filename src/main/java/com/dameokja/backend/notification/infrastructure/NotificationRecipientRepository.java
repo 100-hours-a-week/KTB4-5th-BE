@@ -36,4 +36,20 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
             + "where r.user.id = :userId and r.readAt is null "
             + "and r.notification.refrigerator.id = :refrigeratorId")
     long countUnread(@Param("userId") Long userId, @Param("refrigeratorId") Long refrigeratorId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            DELETE recipient FROM notification_recipients recipient
+            JOIN (
+                SELECT r.notification_recipient_id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY r.user_id, n.refrigerator_id
+                           ORDER BY (r.read_at IS NOT NULL), n.created_at DESC, n.notification_id DESC
+                       ) AS retention_rank
+                FROM notification_recipients r
+                JOIN notifications n ON n.notification_id = r.notification_id
+            ) ranked ON ranked.notification_recipient_id = recipient.notification_recipient_id
+            WHERE ranked.retention_rank > :retentionLimit
+            """, nativeQuery = true)
+    int deleteExcessRecipients(@Param("retentionLimit") int retentionLimit);
 }

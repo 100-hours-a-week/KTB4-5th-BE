@@ -22,18 +22,24 @@ public class NotificationScheduler {
     private final PushDispatchService pushDispatchService;
     private final RefrigeratorService refrigeratorService;
     private final ExpirationNotificationService expirationNotificationService;
+    private final NotificationRecipientService notificationRecipientService;
+    private final NotificationService notificationService;
     private final Clock clock;
     private final boolean expirationPushEnabled;
 
     public NotificationScheduler(PushNotificationCreationService pushNotificationCreationService,
                                  PushDispatchService pushDispatchService,
                                  RefrigeratorService refrigeratorService,
-                                 ExpirationNotificationService expirationNotificationService, Clock clock,
+                                 ExpirationNotificationService expirationNotificationService,
+                                 NotificationRecipientService notificationRecipientService,
+                                 NotificationService notificationService, Clock clock,
                                  @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled) {
         this.pushNotificationCreationService = pushNotificationCreationService;
         this.pushDispatchService = pushDispatchService;
         this.refrigeratorService = refrigeratorService;
         this.expirationNotificationService = expirationNotificationService;
+        this.notificationRecipientService = notificationRecipientService;
+        this.notificationService = notificationService;
         this.clock = clock;
         this.expirationPushEnabled = expirationPushEnabled;
     }
@@ -49,8 +55,11 @@ public class NotificationScheduler {
 
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void runNotificationCleanup() {
-        // TODO: 사용자 × 냉장고별로 99개 초과분을 정리하는 서비스를 호출한다.
-        // TODO: 읽은 알림 중 오래된 것부터 삭제하고, 부족하면 안 읽은 알림 중 오래된 것부터 삭제한다.
+        int deletedRecipients = notificationRecipientService.deleteExcessRecipients();
+        int deletedNotifications = notificationService.deleteUnreferencedNotifications();
+
+        log.info("알림 보관 한도 정리를 마쳤습니다. deletedRecipients={}, deletedNotifications={}",
+                deletedRecipients, deletedNotifications);
     }
 
     private long recordBatchStart() {
