@@ -21,15 +21,35 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+	implementation('nl.martijndwars:web-push:5.1.2') {
+		// 1.70 이후 BouncyCastle은 bcprov-jdk18on으로만 배포되므로 최신 버전으로 교체한다.
+		exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+		// 서버에서 쓰지 않는 CLI 전용 의존성이다.
+		exclude group: 'com.beust', module: 'jcommander'
+	}
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
+	// web-push가 공개 API(send의 반환·예외 타입)에 쓰지만 런타임 의존성으로만 배포해 컴파일 경로에 직접 선언한다.
+	implementation 'org.apache.httpcomponents:httpcore:4.4.16'
+	implementation 'org.bitbucket.b_c:jose4j:0.7.9'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 tasks.named('test') {
