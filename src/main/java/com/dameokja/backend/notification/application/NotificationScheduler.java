@@ -22,18 +22,24 @@ public class NotificationScheduler {
     private final PushDispatchService pushDispatchService;
     private final RefrigeratorService refrigeratorService;
     private final ExpirationNotificationService expirationNotificationService;
+    private final NotificationRecipientService notificationRecipientService;
+    private final NotificationService notificationService;
     private final Clock clock;
     private final boolean expirationPushEnabled;
 
     public NotificationScheduler(PushNotificationCreationService pushNotificationCreationService,
                                  PushDispatchService pushDispatchService,
                                  RefrigeratorService refrigeratorService,
-                                 ExpirationNotificationService expirationNotificationService, Clock clock,
+                                 ExpirationNotificationService expirationNotificationService,
+                                 NotificationRecipientService notificationRecipientService,
+                                 NotificationService notificationService, Clock clock,
                                  @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled) {
         this.pushNotificationCreationService = pushNotificationCreationService;
         this.pushDispatchService = pushDispatchService;
         this.refrigeratorService = refrigeratorService;
         this.expirationNotificationService = expirationNotificationService;
+        this.notificationRecipientService = notificationRecipientService;
+        this.notificationService = notificationService;
         this.clock = clock;
         this.expirationPushEnabled = expirationPushEnabled;
     }
@@ -49,21 +55,11 @@ public class NotificationScheduler {
 
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void runNotificationCleanup() {
-        // [NotificationScheduler]
-        // 1. 수신자 서비스에 사용자 × 냉장고별 99개 초과분 정리를 요청한다.
-        // 2. 수신자 정리가 끝나면 알림 서비스에 남은 알림 본문 정리를 요청한다.
-        //
-        // [NotificationRecipientService]
-        // 1. notification_recipients 행을 사용자 × 냉장고 조합별로 정리한다.
-        // 2. 각 조합에서 99개를 초과한 수신자 행 수를 계산한다.
-        // 3. 초과분만큼 읽은 알림을 오래된 순서(createdAt, notificationId 오름차순)로 삭제한다.
-        // 4. 읽은 알림을 모두 삭제해도 초과분이 남으면, 안 읽은 알림을 같은 순서로 삭제한다.
-        // 5. 수신자 조회·삭제는 이 서비스에서 NotificationRecipientRepository를 통해 처리한다.
-        //
-        // [NotificationService]
-        // 1. 어떤 사용자에게도 남지 않은 알림 본문을 정리 대상으로 확인한다.
-        // 2. 본문 조회·삭제는 이 서비스에서 NotificationRepository를 통해 처리한다.
-        // 3. 미정: 기존 푸시 작업이 FK로 참조하는 본문의 정리 범위는 정책 확인 후 구현한다.
+        int deletedRecipients = notificationRecipientService.deleteExcessRecipients();
+        int deletedNotifications = notificationService.deleteUnreferencedNotifications();
+
+        log.info("알림 보관 한도 정리를 마쳤습니다. deletedRecipients={}, deletedNotifications={}",
+                deletedRecipients, deletedNotifications);
     }
 
     private long recordBatchStart() {
