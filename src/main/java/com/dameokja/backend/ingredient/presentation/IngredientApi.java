@@ -64,7 +64,7 @@ public interface IngredientApi {
             @Parameter(
                     name = "sort",
                     in = ParameterIn.QUERY,
-                    description = "EXPIRATION_ASC(유통기한순, 기본) / CREATED_DESC(최근 등록순) / NAME_ASC(이름순, 한글 우선)",
+                    description = "EXPIRATION_ASC(유통기한순, 기본) / CREATED_DESC(최근 등록순) / NAME_ASC(이름 오름차순)",
                     schema = @Schema(allowableValues = {"EXPIRATION_ASC", "CREATED_DESC", "NAME_ASC"})
             )
             String sort,

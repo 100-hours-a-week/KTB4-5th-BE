@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Limit;
 
@@ -43,9 +44,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
-            "EXPIRATION_ASC | 우유,우유,apple,가지 | 양파,두부,Kimchi,123주스",
-            "CREATED_DESC   | 가지,우유,우유,apple | 123주스,양파,두부,Kimchi",
-            "NAME_ASC       | 가지,우유,우유,apple | 두부,양파,123주스,Kimchi"
+            "EXPIRATION_ASC | apple,우유,우유,가지 | 양파,Kimchi,두부,123주스",
+            "CREATED_DESC   | 가지,apple,우유,우유 | 123주스,양파,Kimchi,두부",
+            "NAME_ASC       | apple,가지,우유,우유 | 123주스,Kimchi,두부,양파"
     })
     void readsEachGroupInSortOrderAcrossPages(IngredientSortType sortType, String expired, String notExpired) {
         // 같은 품목은 한 행으로 합산되므로, 보관 방식만 다르고 정렬 키가 모두 같은 두 행으로 ID 순서를 검증한다.
@@ -61,6 +62,26 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
         assertThat(readAllPages(sortType, IngredientExpiryGroup.EXPIRED)).containsExactly(expired.split(","));
         assertThat(readAllPages(sortType, IngredientExpiryGroup.NOT_EXPIRED)).containsExactly(notExpired.split(","));
+    }
+
+    @ParameterizedTest
+    @EnumSource(IngredientSortType.class)
+    void sortsNumericEnglishAndKoreanNamesConsistentlyAcrossPages(IngredientSortType sortType) {
+        // 날짜와 등록 시각을 같게 맞춰 하위 기준의 이름 비교도 검증한다.
+        for (int daysUntilExpiration : List.of(-1, 1)) {
+            ingredient("우유", daysUntilExpiration, 1);
+            ingredient("Kimchi", daysUntilExpiration, 1);
+            ingredient("123주스", daysUntilExpiration, 1);
+            ingredient("apple", daysUntilExpiration, 1);
+            ingredient("가지", daysUntilExpiration, 1);
+            ingredient("123주스", daysUntilExpiration, 1, StorageType.FROZEN);
+        }
+        flushAndClear();
+
+        assertThat(readAllPages(sortType, IngredientExpiryGroup.EXPIRED))
+                .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
+        assertThat(readAllPages(sortType, IngredientExpiryGroup.NOT_EXPIRED))
+                .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
     }
 
     @Test
