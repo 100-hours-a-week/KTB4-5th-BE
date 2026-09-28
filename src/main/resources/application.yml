@@ -61,3 +61,19 @@ management:
   endpoint:
     health:
       show-details: never
+sentry:
+  dsn: https://0b94628388804a002ae8de068b7ff373@o4512162336276480.ingest.us.sentry.io/4512163111436288
+  # Add data like request headers and IP for users,
+  # see https://docs.sentry.io/platforms/java/guides/spring-boot/data-management/data-collected/ for more info
+  send-default-pii: true
+  # Enable sending logs to Sentry
+  logs:
+    enabled: true
+  # Set traces-sample-rate to 1.0 to capture 100% of transactions for tracing.
+  # We recommend adjusting this value in production.
+  traces-sample-rate: 1.0
+  # Set profile-session-sample-rate to 1.0 to profile 100% of profile sessions.
+  profile-session-sample-rate: 1.0
+  # Set profile-lifecycle to trace to automatically start and stop
+  # profiling when a transaction starts and finishes.
+  profile-lifecycle: TRACE
