@@ -37,7 +37,7 @@ public interface IngredientApi {
 
     @Operation(
             summary = "냉장고 재고 목록 조회",
-            description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 모든 정렬에서 만료 재고가 먼저 옵니다. "
+            description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 만료 여부와 관계없이 선택한 정렬 기준을 적용합니다. "
                     + "다음 페이지는 같은 sort와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
                     + "상태(status)는 첫 페이지 요청 날짜(KST) 기준으로 계산합니다."
     )
@@ -57,7 +57,7 @@ public interface IngredientApi {
             @Parameter(hidden = true) Long userId,
             @Parameter(name = "refrigeratorId", in = ParameterIn.PATH, description = "조회할 냉장고 ID", required = true, example = "1")
             Long refrigeratorId,
-            @Parameter(name = "cursor", in = ParameterIn.QUERY, description = "이전 응답의 nextCursor. 첫 요청은 생략")
+            @Parameter(name = "cursor", in = ParameterIn.QUERY, description = "이전 응답의 nextCursor. 첫 요청은 생략. 유효하지 않은 커서는 목록 초기화 후 재조회")
             String cursor,
             @Parameter(name = "size", in = ParameterIn.QUERY, description = "페이지 크기 1~50, 기본 10", example = "10")
             String size,

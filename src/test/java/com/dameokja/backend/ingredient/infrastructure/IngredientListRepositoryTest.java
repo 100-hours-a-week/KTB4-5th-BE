@@ -6,7 +6,6 @@ import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
-import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -44,11 +43,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
-            "EXPIRATION_ASC | apple,우유,우유,가지 | 양파,Kimchi,두부,123주스",
-            "CREATED_DESC   | 가지,apple,우유,우유 | 123주스,양파,Kimchi,두부",
-            "NAME_ASC       | apple,가지,우유,우유 | 123주스,Kimchi,두부,양파"
+            "EXPIRATION_ASC | apple,우유,우유,가지,양파,Kimchi,두부,123주스",
+            "CREATED_DESC   | 123주스,가지,양파,Kimchi,두부,apple,우유,우유",
+            "NAME_ASC       | 123주스,apple,Kimchi,가지,두부,양파,우유,우유"
     })
-    void readsEachGroupInSortOrderAcrossPages(IngredientSortType sortType, String expired, String notExpired) {
+    void readsWholeListInSortOrderAcrossPages(IngredientSortType sortType, String expected) {
         // 같은 품목은 한 행으로 합산되므로, 보관 방식만 다르고 정렬 키가 모두 같은 두 행으로 ID 순서를 검증한다.
         ingredient("우유", -2, 1);
         ingredient("우유", -2, 1, StorageType.FROZEN);
@@ -60,8 +59,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         ingredient("123주스", 7, 4);
         flushAndClear();
 
-        assertThat(readAllPages(sortType, IngredientExpiryGroup.EXPIRED)).containsExactly(expired.split(","));
-        assertThat(readAllPages(sortType, IngredientExpiryGroup.NOT_EXPIRED)).containsExactly(notExpired.split(","));
+        assertThat(readAllPages(sortType, null, null)).containsExactly(expected.split(","));
     }
 
     @ParameterizedTest
@@ -78,9 +76,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         }
         flushAndClear();
 
-        assertThat(readAllPages(sortType, IngredientExpiryGroup.EXPIRED))
+        assertThat(readAllPages(sortType, null, BASE_DATE.minusDays(1)))
                 .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
-        assertThat(readAllPages(sortType, IngredientExpiryGroup.NOT_EXPIRED))
+        assertThat(readAllPages(sortType, BASE_DATE, null))
                 .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
     }
 
@@ -138,23 +136,20 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     // 한 건씩 넘겨 모든 커서 경계(동률 행 사이 포함)를 지나게 한다.
-    private List<String> readAllPages(IngredientSortType sortType, IngredientExpiryGroup group) {
+    private List<String> readAllPages(IngredientSortType sortType, LocalDate from, LocalDate to) {
         List<String> names = new ArrayList<>();
         IngredientCursor cursor = null;
-        List<Ingredient> page = findPage(sortType, group, cursor);
+        List<Ingredient> page = findPage(sortType, from, to, cursor);
         while (!page.isEmpty()) {
             names.add(page.getFirst().getName());
             cursor = IngredientCursor.from(page.getFirst());
-            page = findPage(sortType, group, cursor);
+            page = findPage(sortType, from, to, cursor);
         }
         return names;
     }
 
-    private List<Ingredient> findPage(IngredientSortType sortType, IngredientExpiryGroup group, IngredientCursor cursor) {
+    private List<Ingredient> findPage(IngredientSortType sortType, LocalDate from, LocalDate to, IngredientCursor cursor) {
         Long refrigeratorId = refrigerator.getId();
-        boolean expired = group == IngredientExpiryGroup.EXPIRED;
-        LocalDate from = expired ? null : BASE_DATE;
-        LocalDate to = expired ? BASE_DATE.minusDays(1) : null;
         LocalDate expirationDate = cursor == null ? null : cursor.expirationDate();
         LocalDateTime createdAt = cursor == null ? null : cursor.createdAt();
         String name = cursor == null ? null : cursor.name();

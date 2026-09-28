@@ -1,7 +1,7 @@
 package com.dameokja.backend.ingredient.infrastructure;
 
 /**
- * 재고 목록 정렬별 JPQL. 모든 쿼리는 한 유통기한 그룹(만료 또는 비만료) 안에서만 정렬·커서 조회를 한다.
+ * 재고 목록 정렬별 JPQL. 필터에 맞는 전체 재고를 정렬·커서 조회한다.
  * 커서 조건은 "앞 키가 모두 커서와 같고 이번 키가 커서보다 뒤인 행"을 키마다 한 줄씩 OR로 잇는다.
  */
 final class IngredientListJpql {
