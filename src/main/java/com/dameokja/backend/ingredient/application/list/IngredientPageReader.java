@@ -2,13 +2,12 @@ package com.dameokja.backend.ingredient.application.list;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
-import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
+import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
@@ -19,25 +18,18 @@ import org.springframework.stereotype.Component;
 class IngredientPageReader {
     private final IngredientRepository ingredientRepository;
 
-    // 만료 그룹을 먼저 읽고, limit을 다 채우지 못했고 필터가 비만료 그룹을 포함하면 같은 요청에서 비만료 그룹을 처음부터 이어 읽는다.
+    // 필터에 맞는 전체 재고를 선택한 정렬 기준과 커서 위치로 한 번에 조회한다.
     List<Ingredient> read(IngredientListCursor cursor, int limit) {
-        List<Ingredient> rows = new ArrayList<>(find(cursor, cursor.group(), cursor.position(), limit));
-        boolean expiredGroupRanOut = cursor.group() == IngredientExpiryGroup.EXPIRED && rows.size() < limit;
-        if (expiredGroupRanOut && cursor.includes(IngredientExpiryGroup.NOT_EXPIRED)) {
-            rows.addAll(find(cursor, IngredientExpiryGroup.NOT_EXPIRED, null, limit - rows.size()));
-        }
-        return rows;
-    }
-
-    private List<Ingredient> find(IngredientListCursor cursor, IngredientExpiryGroup group,
-                                  IngredientCursor position, int limit) {
-        IngredientPageRange range = IngredientPageRange.of(group, cursor.filter(), cursor.baseDate());
+        IngredientFilter filter = cursor.filter();
+        LocalDate expirationFrom = filter == null ? null : filter.expirationFrom(cursor.baseDate());
+        LocalDate expirationTo = filter == null ? null : filter.expirationTo(cursor.baseDate());
+        IngredientCursor position = cursor.position();
         LocalDate expirationDate = position == null ? null : position.expirationDate();
         LocalDateTime createdAt = position == null ? null : position.createdAt();
         String name = position == null ? null : position.name();
         Long ingredientId = position == null ? null : position.ingredientId();
         SortedPageQuery query = queryOf(cursor.sortType());
-        return query.find(cursor.refrigeratorId(), range.from(), range.to(), cursor.storageType(),
+        return query.find(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(),
                 expirationDate, createdAt, name, ingredientId, Limit.of(limit));
     }
 

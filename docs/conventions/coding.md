@@ -62,7 +62,7 @@ return userRepository.findById(userId)
 ## DB 데이터
 
 - 날짜 컬럼은 DATETIME을 사용한다. TIMESTAMP는 2038-01-19까지만 저장되고 세션 시간대에 따라 값이 변환된다. [M1] 시간대(서울/UTC)와 Java 타입은 날짜 기능 구현 시 합의한다.
-- 이름 정렬은 **한글로 시작하는 이름 → 영문으로 시작하는 이름** 순이며 그룹 내부는 이름순이다(요구사항). MySQL `utf8mb4_0900_*` collation은 UCA 기본 순서를 따르므로 한글 우선을 보장하지 않는다. 쿼리에서 명시적으로 정렬한다. [M2][U1]
+- 이름 정렬은 주 정렬과 하위 정렬 모두 `name ASC`로 통일한다. 「팀」 정렬 기준마다 이름 순서가 달라지는 혼동을 없애기 위해 한글 우선 키를 제거한다. 현재 스키마의 `utf8mb4_0900_as_cs` collation에 따라 비교한다. [M2][U1]
 - IDENTITY 전략에서는 `saveAll()`이 JDBC 배치가 되지 않는다. [H1]
 
 ## Lombok·JPA
@@ -119,3 +119,4 @@ DTO(record 사용 여부·변환 위치), 트랜잭션 스타일은 필요할 �
 | M1 | [MySQL 8.4 — DATE, DATETIME, TIMESTAMP](https://dev.mysql.com/doc/refman/8.4/en/datetime.html) | TIMESTAMP 범위 ~2038, 시간대 변환 |
 | M2 | [MySQL 8.4 — Unicode Character Sets](https://dev.mysql.com/doc/refman/8.4/en/charset-unicode-sets.html) | `utf8mb4_0900_*`는 UCA 9.0.0 가중치 기반 |
 | U1 | [Unicode TR #10 — Unicode Collation Algorithm](https://www.unicode.org/reports/tr10/) | 기본 정렬 순서(DUCET) |
+| 팀 | 팀 — 이름 정렬 변경 합의 (확인 2026-09-28) | 모든 정렬에서 이름 비교를 `name ASC`로 통일해 정렬 기준에 따른 혼동을 줄임 |
