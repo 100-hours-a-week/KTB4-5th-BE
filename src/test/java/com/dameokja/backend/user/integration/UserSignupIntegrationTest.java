@@ -53,6 +53,15 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
         assertThat(user.getLoginId()).isEqualTo("한글아이디1");
     }
 
+    @Test
+    void signsUpAndLogsInWithHangulOnlyLoginId() {
+        SignupResult result = signup.signup("한글아이디", "pass1234", null);
+        User user = userRepository.findById(result.tokenPair().userId()).orElseThrow();
+        assertThat(user.getLoginId()).isEqualTo("한글아이디");
+        assertThat(user.getNickname()).isEqualTo("한글아이디");
+        assertThat(auth.login("한글아이디", "pass1234").userId()).isEqualTo(user.getId());
+    }
+
     @ParameterizedTest
     @CsvSource({"login2,별명, NICKNAME_DUPLICATE", "login1,다른별명, LOGIN_ID_DUPLICATE"})
     void duplicateSignupDoesNotCreateAdditionalRows(String loginId, String nickname,
