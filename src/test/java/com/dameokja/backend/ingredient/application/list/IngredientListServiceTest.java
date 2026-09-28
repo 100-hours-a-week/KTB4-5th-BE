@@ -13,7 +13,6 @@ import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
-import com.dameokja.backend.ingredient.domain.IngredientExpiryGroup;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
@@ -75,9 +74,9 @@ class IngredientListServiceTest {
         assertThat(result.ingredientsNum()).isEqualTo(5L);
         assertThat(result.filteredCount()).isEqualTo(5L);
         assertThat(result.refrigeratorCapacity()).isEqualTo((short) 100);
-        assertThat(readCursor().group()).isEqualTo(IngredientExpiryGroup.EXPIRED);
+        assertThat(readCursor().position()).isNull();
         assertThat(cursorCodec.decode(result.nextCursor())).isEqualTo(new IngredientListCursor(IngredientSortType.NAME_ASC,
-                REFRIGERATOR_ID, null, TODAY, IngredientExpiryGroup.NOT_EXPIRED, IngredientCursor.from(last)));
+                REFRIGERATOR_ID, null, TODAY, IngredientCursor.from(last)));
     }
 
     @Test
@@ -134,7 +133,7 @@ class IngredientListServiceTest {
     private String token(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
         IngredientCursor position = new IngredientCursor(baseDate, LocalDateTime.of(2026, 9, 20, 9, 0), "두부", 7L);
         return cursorCodec.encode(new IngredientListCursor(
-                sortType, refrigeratorId, null, baseDate, IngredientExpiryGroup.NOT_EXPIRED, position));
+                sortType, refrigeratorId, null, baseDate, position));
     }
 
     private Ingredient ingredient(Long id, LocalDate expirationDate) {

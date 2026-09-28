@@ -45,8 +45,10 @@ public class IngredientListService {
 
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
     private long countFiltered(IngredientListCursor cursor) {
-        IngredientPageRange range = IngredientPageRange.of(cursor.filter(), cursor.baseDate());
-        return ingredientRepository.countFiltered(cursor.refrigeratorId(), range.from(), range.to(), cursor.storageType());
+        IngredientFilter filter = cursor.filter();
+        LocalDate expirationFrom = filter == null ? null : filter.expirationFrom(cursor.baseDate());
+        LocalDate expirationTo = filter == null ? null : filter.expirationTo(cursor.baseDate());
+        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType());
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
