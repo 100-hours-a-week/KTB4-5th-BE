@@ -3,6 +3,7 @@ package com.dameokja.backend.ingredient.application.list;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_CURSOR;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
@@ -11,7 +12,6 @@ import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class IngredientListService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
     // 다음 페이지가 있는지 알기 위해 요청 크기보다 한 건 더 읽는다.
     private static final int LOOKAHEAD = 1;
 
@@ -53,7 +52,7 @@ public class IngredientListService {
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
                                           IngredientFilter filter) {
-        LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDate today = BusinessTime.today(clock);
         if (cursorToken == null) {
             return IngredientListCursor.first(sortType, refrigeratorId, filter, today);
         }
