@@ -4,6 +4,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.NOT_FOUND;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -14,7 +15,6 @@ import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class IngredientExpireService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
     private static final int MAX_SELECTION = 100; // 냉장고 한 개의 최대 재고 수
 
     private final RefrigeratorAccessService refrigeratorAccessService;
@@ -97,7 +96,7 @@ public class IngredientExpireService {
     // 이미 삭제됐거나 그사이 유통기한이 바뀐 재고는 건너뛴다. 오늘 만료(D-0)는 아직 임박이라 제외한다.
     public int expireSelected(Long userId, Long refrigeratorId, List<Long> ingredientIds) {
         List<Long> targetIds = validateSelection(ingredientIds);
-        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDate businessDate = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         List<Ingredient> expiredIngredients = ingredientRepository
                 .findByRefrigerator_IdAndIdInAndExpirationDateBefore(refrigeratorId, targetIds, businessDate);

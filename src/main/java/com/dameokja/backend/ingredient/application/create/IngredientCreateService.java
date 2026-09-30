@@ -2,6 +2,7 @@ package com.dameokja.backend.ingredient.application.create;
 
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.CAPACITY_EXCEEDED;
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
@@ -11,7 +12,6 @@ import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class IngredientCreateService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
-
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final IngredientRepository ingredientRepository;
     private final IngredientPolicy ingredientPolicy;
@@ -32,7 +30,7 @@ public class IngredientCreateService {
     public IngredientWriteResult create(
             Long userId, Long refrigeratorId,
             List<IngredientCreateCommand> commands) {
-        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDate businessDate = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         long existingIngredientCount = ingredientRepository.countByRefrigeratorId(refrigeratorId);
         List<IngredientWriteItem> writeItems = createOrMergeIngredients(refrigerator, commands, businessDate, existingIngredientCount);
