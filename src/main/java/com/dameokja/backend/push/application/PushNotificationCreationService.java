@@ -8,7 +8,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,7 @@ public class PushNotificationCreationService {
         LocalDateTime now = BusinessTime.now(clock);
         LocalDate today = now.toLocalDate();
         List<PushInboxTarget> targets = pushNotificationRepository.findInboxPushTargets(
-                toAuditingTime(today.atStartOfDay()), toAuditingTime(today.plusDays(1).atStartOfDay()));
+                today.atStartOfDay(), today.plusDays(1).atStartOfDay());
         LocalDateTime expiresAt = today.atTime(SEND_DEADLINE);
         for (PushInboxTarget target : targets) {
             String payload = objectMapper.writeValueAsString(PushPayload.from(target.notification()));
@@ -39,10 +38,5 @@ public class PushNotificationCreationService {
                     target.notification(), target.device().getUser(), target.device(), payload, now, expiresAt));
         }
         return targets.size();
-    }
-
-    // 알림의 created_at은 JPA Auditing이 UTC로 저장하므로 서울 시각을 UTC로 바꿔 비교한다.
-    private LocalDateTime toAuditingTime(LocalDateTime seoulTime) {
-        return seoulTime.atZone(BusinessTime.ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 }
