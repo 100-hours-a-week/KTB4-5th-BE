@@ -1,5 +1,6 @@
 package com.dameokja.backend.notification.application;
 
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.IngredientExpirationService;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.notification.domain.Notification;
@@ -10,7 +11,6 @@ import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.user.domain.User;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ExpirationNotificationService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
-
     private final RefrigeratorService refrigeratorService;
     private final IngredientExpirationService ingredientExpirationService;
     private final ExpirationNotificationFactory notificationFactory;
@@ -37,7 +35,7 @@ public class ExpirationNotificationService {
         }
 
         Refrigerator refrigerator = members.getFirst().getRefrigerator();
-        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDate businessDate = BusinessTime.today(clock);
 
         List<Ingredient> ingredients = ingredientExpirationService.findNotificationTargets(refrigeratorId, businessDate);
         List<Notification> notifications = createNotifications(refrigerator, ingredients, businessDate);

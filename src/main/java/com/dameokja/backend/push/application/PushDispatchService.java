@@ -1,12 +1,12 @@
 package com.dameokja.backend.push.application;
 
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.PushNotificationErrorCode;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -20,8 +20,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class PushDispatchService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
-
     private final PushNotificationRepository pushNotificationRepository;
     private final PushNotificationUpdater pushNotificationUpdater;
     private final PushSendService pushSendService;
@@ -108,6 +106,6 @@ public class PushDispatchService {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now(clock.withZone(BUSINESS_ZONE));
+        return BusinessTime.now(clock);
     }
 }
