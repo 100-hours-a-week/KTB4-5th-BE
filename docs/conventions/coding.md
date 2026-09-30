@@ -61,7 +61,9 @@ return userRepository.findById(userId)
 
 ## DB 데이터
 
-- 날짜 컬럼은 DATETIME을 사용한다. TIMESTAMP는 2038-01-19까지만 저장되고 세션 시간대에 따라 값이 변환된다. [M1] 시간대(서울/UTC)와 Java 타입은 날짜 기능 구현 시 합의한다.
+- 날짜 컬럼은 DATETIME을 사용한다. TIMESTAMP는 2038-01-19까지만 저장되고 세션 시간대에 따라 값이 변환된다. [M1]
+- 날짜·시간은 `LocalDate`·`LocalDateTime`으로 다루고 서울(Asia/Seoul) 기준 값을 저장한다. 「팀」 만료·임박 판정과 8시 알림 배치 등 업무 날짜가 서울 기준이기 때문이다. 저장 설정은 [초기 설정의 DB 시간대](../setup.md#db-시간대)를 따른다.
+- 현재 시각·날짜는 `BusinessTime.now(clock)`·`BusinessTime.today(clock)`로 만들고, `ZoneId.of("Asia/Seoul")`이나 `LocalDateTime.now(clock)`를 직접 쓰지 않는다. 「팀」 생성 방식이 흩어져 JPA Auditing만 UTC로 저장되고 다른 필드는 서울로 저장되는 불일치가 생겼기 때문이다.
 - 이름 정렬은 주 정렬과 하위 정렬 모두 `name ASC`로 통일한다. 「팀」 정렬 기준마다 이름 순서가 달라지는 혼동을 없애기 위해 한글 우선 키를 제거한다. 현재 스키마의 `utf8mb4_0900_as_cs` collation에 따라 비교한다. [M2][U1]
 - IDENTITY 전략에서는 `saveAll()`이 JDBC 배치가 되지 않는다. [H1]
 
