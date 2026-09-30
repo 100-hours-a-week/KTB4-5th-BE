@@ -9,6 +9,8 @@ public abstract class MySqlDatabaseTest {
             .withReuse(false)
             // 롤백 검증용 실패 유발 트리거를 테스트 DB에서 생성할 수 있도록 허용한다.
             .withCommand("--log-bin-trust-function-creators=1")
+            // 운영과 같은 연결 시간대를 써야 JVM 시간대에 따른 저장값 변환이 테스트에서도 드러난다.
+            .withUrlParam("serverTimezone", "Asia/Seoul")
             .withInitScript("db/schema.sql");
     private static final String TEST_VAPID_PUBLIC_KEY =
             "BBsm6R4Q8Y7zDW6IP3LwAqDKguIYBLa83eH8r18Jd9ts8Dyt3xmcoSyL91wjkGIPymgWPJZPeol1iwrLafmJczY";
