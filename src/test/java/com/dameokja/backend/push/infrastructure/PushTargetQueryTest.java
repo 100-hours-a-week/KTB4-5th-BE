@@ -96,7 +96,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
                 deviceId, "https://push.example.com/" + deviceId, status, userId);
     }
 
-    // 서울 8시(UTC 전날 23시)에 알림·수신자 저장이 완료된 상태에서 푸시 대상을 조회하기 위한 데이터다.
+    // 서울 8시에 알림·수신자 저장이 완료된 상태에서 푸시 대상을 조회하기 위한 데이터다.
     private void notification(long notificationId, String type, String createdAt) {
         jdbc.update("INSERT INTO notifications(notification_id,type,title,body,refrigerator_id,created_at,updated_at) "
                 + "VALUES (?,?,'알림','본문',950001,?,?)", notificationId, type, createdAt, createdAt);
