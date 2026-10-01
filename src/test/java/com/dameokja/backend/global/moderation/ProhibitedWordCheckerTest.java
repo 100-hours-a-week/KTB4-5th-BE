@@ -54,6 +54,7 @@ class ProhibitedWordCheckerTest {
     @ValueSource(strings = {"eric12", "tester01", "csuser01", "sbkim01", "jbrown01",
             "rice", "brie", "paprika", "피망", "피망볶음", "빵칼", "물엿", "호박엿",
             "좁쌀", "삼시세끼", "씹어먹는치즈", "새끼오징어", "게젓갈", "젓가락",
+            "깔다구", "깔따구", "깔다구구이", "깔따구구이",
             "짜지않은버터", "버지니아", "마가리타", "cucumber", "cumin", "cockles",
             "cocktail", "shellfish", "passionfruit", "casserole", "tossed salad",
             "classic01", "iosuser01", "codex01"})
