@@ -1,5 +1,6 @@
 package com.dameokja.backend.notification.application;
 
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.application.PushDispatchService;
 import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
@@ -121,6 +122,6 @@ public class NotificationScheduler {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now(clock.withZone(PushNotificationCreationService.BUSINESS_ZONE));
+        return BusinessTime.now(clock);
     }
 }

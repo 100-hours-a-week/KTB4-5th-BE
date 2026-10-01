@@ -2,6 +2,7 @@ package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService;
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.domain.NotificationExceptionCode;
@@ -11,7 +12,6 @@ import com.dameokja.backend.notification.infrastructure.NotificationRepository;
 import com.dameokja.backend.notification.presentation.request.NotificationListRequest;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import java.time.Clock;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -69,13 +69,13 @@ public class NotificationService {
         NotificationRecipient recipient = recipientRepository
                 .findByNotificationIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CustomException(GlobalExceptionCode.FORBIDDEN));
-        recipient.markRead(LocalDateTime.now(clock));
+        recipient.markRead(BusinessTime.now(clock));
     }
 
     @Transactional
     public void readAllNotifications(Long userId, Long refrigeratorId) {
         validateRefrigeratorAccess(userId, refrigeratorId);
-        recipientRepository.markAllRead(userId, refrigeratorId, LocalDateTime.now(clock));
+        recipientRepository.markAllRead(userId, refrigeratorId, BusinessTime.now(clock));
     }
 
     @Transactional

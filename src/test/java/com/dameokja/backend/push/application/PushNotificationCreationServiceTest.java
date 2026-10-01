@@ -41,7 +41,7 @@ class PushNotificationCreationServiceTest {
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
         PushInboxTarget target = new PushInboxTarget(notification(), device);
         when(pushNotificationRepository.findInboxPushTargets(
-                LocalDateTime.of(2026, 9, 24, 15, 0), LocalDateTime.of(2026, 9, 25, 15, 0)))
+                LocalDateTime.of(2026, 9, 25, 0, 0), LocalDateTime.of(2026, 9, 26, 0, 0)))
                 .thenReturn(List.of(target));
         when(pushNotificationRepository.save(any(PushNotification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

@@ -11,8 +11,6 @@ import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 public record IngredientResponse(
@@ -30,8 +28,6 @@ public record IngredientResponse(
         RegistrationSource registrationSource,
         IngredientStatus status,
         long daysUntilExpiration) {
-
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
 
     public static IngredientResponse of(Ingredient ingredient, LocalDate today) {
         Measurement measurement = ingredient.getMeasurement();
@@ -57,8 +53,6 @@ public record IngredientResponse(
     }
 
     private static LocalDate createdDateOf(Ingredient ingredient) {
-        return ingredient.getCreatedAt().atOffset(ZoneOffset.UTC)
-                .atZoneSameInstant(BUSINESS_ZONE)
-                .toLocalDate();
+        return ingredient.getCreatedAt().toLocalDate();
     }
 }

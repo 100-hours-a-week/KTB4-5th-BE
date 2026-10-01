@@ -1,11 +1,10 @@
 package com.dameokja.backend.global.config;
 
+import com.dameokja.backend.global.util.BusinessTime;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +16,6 @@ import org.springframework.data.auditing.DateTimeProvider;
 public class JpaAuditingConfig {
     @Bean
     DateTimeProvider auditingDateTimeProvider(Clock clock) {
-        return () -> Optional.of(LocalDateTime.now(clock.withZone(ZoneOffset.UTC))
-                .truncatedTo(ChronoUnit.MICROS));
+        return () -> Optional.of(BusinessTime.now(clock).truncatedTo(ChronoUnit.MICROS));
     }
 }

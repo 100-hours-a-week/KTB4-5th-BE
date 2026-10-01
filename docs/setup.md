@@ -20,6 +20,7 @@
 | 테스트 DB | Testcontainers `mysql:8.4.8` (Docker 호환 환경 필요, reuse 끔) — 운영과 같은 DB로 테스트 「팀」, reuse 끔 [T1] | `support/MySqlDatabaseTest.java` |
 | DDL | `src/main/resources/db/schema.sql` (상세: [database/README](database/README.md)) | - |
 | 스키마 도구 | Flyway 미도입 — 스키마 변경 이력이 아직 없음 「팀」 | - |
+| 시간 저장 기준 | 서울(Asia/Seoul) 기준 `LocalDateTime`·`LocalDate`를 변환 없이 `DATETIME`·`DATE`에 저장 「팀」 (상세: [DB 시간대](#db-시간대)) | `application.yml`, `global/util/BusinessTime.java` |
 
 합의한 버전은 "최신 LTS"를 이유로 임의 변경하지 않는다. 「팀」 버전 변경은 빌드·의존성 PR로 따로 합의해야 팀원 환경이 어긋나지 않는다.
 
@@ -45,6 +46,14 @@
 - 비밀번호 등 비밀값은 `application.yml`·Git에 넣지 않는다. [OW1]
 - 현재 `ddl-auto: update`, `show-sql: true`로 개발용 설정이다.
 
+## DB 시간대
+
+- 저장 기준은 서울(Asia/Seoul)이다. 「팀」 만료·임박 판정과 8시 알림 배치 등 업무 날짜가 서울 기준이므로 저장값도 같은 기준으로 맞춘다.
+- JDBC URL의 `serverTimezone=Asia/Seoul`은 Connector/J의 연결 시간대(`connectionTimeZone`) 설정이다. 기본값 `LOCAL`은 JVM 기본 시간대를 연결 시간대로 쓴다. [C1]
+- `spring.jpa.properties.hibernate.type.java_time_use_direct_jdbc: true`로 `LocalDateTime`을 JDBC에 그대로 넘긴다. 기본값(`false`)이면 Hibernate가 JVM 기본 시간대로 `java.sql.Timestamp`를 만들고, 드라이버가 저장 대상 타입이 `TIMESTAMP`인 값을 연결 시간대로 다시 변환한다. [HB1][C1] 그래서 JVM(운영 UTC)과 연결 시간대(서울)가 다르면 저장값이 9시간 밀린다. 검증: `global/config/LocalDateTimeStorageTest`.
+- 앱은 현재 시각·날짜를 `BusinessTime.now(clock)`·`BusinessTime.today(clock)`로 만든다. JPA Auditing(`created_at`·`updated_at`)도 같은 기준이다.
+- DB 기본값 `CURRENT_TIMESTAMP(6)`은 MySQL 세션 시간대로 표현되므로 앱이 값을 넣지 않는 경로(직접 SQL 등)에서는 서버 설정에 따라 기준이 달라질 수 있다. [M2]
+
 ## DDL
 
 - `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
@@ -55,6 +64,7 @@
 
 - Repository 테스트는 `support.MySqlJpaTest`, 전체 컨텍스트 테스트는 `support.MySqlDatabaseTest`를 상속한다. 컨테이너는 테스트 JVM당 1개이며 종료 시 제거된다.
 - 테스트는 로컬 DB·환경변수 없이 컨테이너 접속정보만 사용한다.
+- 컨테이너 접속 URL에도 운영과 같은 `serverTimezone=Asia/Seoul`을 지정한다. 「팀」 연결 시간대가 JVM 시간대와 다를 때만 드러나는 저장값 변환 문제를 테스트에서 잡기 위해서다.
 
 ## 신규 합류
 
@@ -72,7 +82,6 @@
 | DB 접속 기본값 | `application.yml`에 DB 이름·계정 기본값이 있음 | 기본값을 빼고 모두 환경변수 필수로 (사람마다 값이 달라 기본값이 오히려 혼란) |
 | 비밀값 주입 | OS 환경변수 + 기본값 | 루트 `.env`를 `spring.config.import`로 읽고, 없으면 기동 실패 + `.env.example` 공유 |
 | `ddl-auto` | `update` | `validate` (스키마는 `schema.sql`이 원본) — 스키마 생성 방식은 하나만 [B2] |
-| DB 시간대 | JDBC `serverTimezone=Asia/Seoul` | 서울/UTC 저장 기준은 날짜 기능 구현 시 합의 |
 | 환경별 설정 | 단일 `application.yml` | profile 분리 여부 미정 |
 
 ## 근거
@@ -83,8 +92,11 @@
 |---|---|---|
 | O1 | [Oracle — Java SE Support Roadmap](https://www.oracle.com/java/technologies/java-se-support-roadmap.html) | Java SE 25는 LTS |
 | M1 | [MySQL 8.4 — MySQL Releases: Innovation and LTS](https://dev.mysql.com/doc/refman/8.4/en/mysql-releases.html) | 8.4는 LTS, 버그·보안 수정 중심의 장기 지원 |
+| M2 | [MySQL 8.4 — Date and Time Functions](https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html) (확인 2026-09-30) | `NOW()` 값은 세션 시간대로 표현, `CURRENT_TIMESTAMP`는 `NOW()`의 동의어 |
 | B1 | [Spring Boot — System Requirements](https://docs.spring.io/spring-boot/system-requirements.html) | 4.1.1은 Java 17~26, Gradle 8.14 이상·9.x 지원 |
 | B2 | [Spring Boot — Database Initialization](https://docs.spring.io/spring-boot/how-to/data-initialization.html) | 스키마 생성은 한 가지 방식만 쓰는 것을 권장 |
 | B3 | [Spring Boot — Externalized Configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html) | 환경변수·`${VAR:default}` 설정 주입 |
 | T1 | [Testcontainers — Reusable Containers](https://java.testcontainers.org/features/reuse/) | 실험 기능, 테스트 후 컨테이너가 멈추지 않음, CI에 부적합 |
 | OW1 | [OWASP — Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) | 소스코드·설정 파일에 평문 비밀값을 두는 것이 문제 |
+| HB1 | [Hibernate ORM 7.4 — `MappingSettings.JAVA_TIME_USE_DIRECT_JDBC`](https://docs.hibernate.org/orm/7.4/javadocs/org/hibernate/cfg/MappingSettings.html) (확인 2026-09-30) | JDBC 4.2 방식으로 java.time 값을 바로 바인딩·추출할지 여부, 기본값 `false` |
+| C1 | [MySQL Connector/J — Datetime Types Processing](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-datetime-types-processing.html) (확인 2026-09-30) | `connectionTimeZone` 기본값 `LOCAL`(JVM 기본 시간대), `serverTimezone`은 별칭. `preserveInstants` 기본값 `true`, 저장 시 대상 타입이 `TIMESTAMP`일 때만 변환 |

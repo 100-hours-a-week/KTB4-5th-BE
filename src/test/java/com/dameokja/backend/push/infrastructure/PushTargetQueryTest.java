@@ -19,8 +19,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 class PushTargetQueryTest extends MySqlJpaTest {
-    // created_at은 UTC로 저장되므로 서울 기준 2026-09-25 하루를 UTC 범위로 조회한다.
-    private static final LocalDateTime SEOUL_TODAY_START_UTC = LocalDateTime.of(2026, 9, 24, 15, 0);
+    private static final LocalDateTime SEOUL_TODAY_START = LocalDateTime.of(2026, 9, 25, 0, 0);
     private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
 
     @Autowired PushNotificationRepository pushNotificationRepository;
@@ -39,10 +38,10 @@ class PushTargetQueryTest extends MySqlJpaTest {
         device(950002, 950001, "ACTIVE");
         device(950003, 950002, "ACTIVE");
         device(950004, 950003, "DISABLED");
-        notification(950001, "EXPIRED", "2026-09-24 23:00:00");
-        notification(950002, "EXPIRING", "2026-09-24 23:00:00");
-        notification(950003, "MEMBER_JOINED", "2026-09-24 23:00:00");
-        notification(950004, "EXPIRED", "2026-09-23 23:00:00");
+        notification(950001, "EXPIRED", "2026-09-25 08:00:00");
+        notification(950002, "EXPIRING", "2026-09-25 08:00:00");
+        notification(950003, "MEMBER_JOINED", "2026-09-25 08:00:00");
+        notification(950004, "EXPIRED", "2026-09-24 08:00:00");
     }
 
     @Test
@@ -87,7 +86,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
 
     private List<PushInboxTarget> findTargets() {
         return pushNotificationRepository.findInboxPushTargets(
-                SEOUL_TODAY_START_UTC, SEOUL_TODAY_START_UTC.plusDays(1));
+                SEOUL_TODAY_START, SEOUL_TODAY_START.plusDays(1));
     }
 
     private void device(long deviceId, long userId, String status) {
@@ -97,7 +96,7 @@ class PushTargetQueryTest extends MySqlJpaTest {
                 deviceId, "https://push.example.com/" + deviceId, status, userId);
     }
 
-    // 서울 8시(UTC 전날 23시)에 알림·수신자 저장이 완료된 상태에서 푸시 대상을 조회하기 위한 데이터다.
+    // 서울 8시에 알림·수신자 저장이 완료된 상태에서 푸시 대상을 조회하기 위한 데이터다.
     private void notification(long notificationId, String type, String createdAt) {
         jdbc.update("INSERT INTO notifications(notification_id,type,title,body,refrigerator_id,created_at,updated_at) "
                 + "VALUES (?,?,'알림','본문',950001,?,?)", notificationId, type, createdAt, createdAt);

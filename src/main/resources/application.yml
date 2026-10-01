@@ -15,6 +15,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # 기본값이면 LocalDateTime을 JVM 시간대의 Timestamp로 바꾼 뒤 연결 시간대로 다시 변환해 JVM 시간대에 따라 저장값이 달라진다.
+        type:
+          java_time_use_direct_jdbc: true
 
 springdoc:
   api-docs:

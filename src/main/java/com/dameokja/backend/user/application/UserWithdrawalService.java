@@ -2,6 +2,7 @@ package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import com.dameokja.backend.user.domain.UserStatus;
@@ -12,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
@@ -53,6 +53,6 @@ public class UserWithdrawalService {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Seoul"));
+        return BusinessTime.now(clock);
     }
 }

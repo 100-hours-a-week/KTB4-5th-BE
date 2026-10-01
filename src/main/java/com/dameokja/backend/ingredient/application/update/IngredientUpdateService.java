@@ -2,6 +2,7 @@ package com.dameokja.backend.ingredient.application.update;
 
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.NOT_FOUND;
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
@@ -10,7 +11,6 @@ import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,15 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class IngredientUpdateService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
-
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final IngredientRepository ingredientRepository;
     private final IngredientUpdatePolicy ingredientUpdatePolicy;
     private final Clock clock;
 
     public IngredientUpdateResult update(Long userId, Long ingredientId, String ifMatch, IngredientUpdateFields fields) {
-        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDate businessDate = BusinessTime.today(clock);
         Ingredient ingredient = lockIngredientForUpdate(userId, ingredientId);
         validateVersion(ingredient, ifMatch);
 
