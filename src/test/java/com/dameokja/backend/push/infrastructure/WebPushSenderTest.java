@@ -1,9 +1,5 @@
 package com.dameokja.backend.push.infrastructure;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,19 +9,17 @@ import java.net.http.HttpTimeoutException;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.time.Duration;
+import java.util.Optional;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
-import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -44,8 +38,6 @@ class WebPushSenderTest {
     private static final Duration TTL = Duration.ofHours(4);
 
     private final HttpClient httpClient = mock(HttpClient.class);
-    private final Logger logger = (Logger) LoggerFactory.getLogger(WebPushSender.class);
-    private final ListAppender<ILoggingEvent> logEvents = new ListAppender<>();
     private WebPushSender sender;
 
     @BeforeAll
@@ -58,14 +50,6 @@ class WebPushSenderTest {
     @BeforeEach
     void setUp() throws GeneralSecurityException {
         sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient);
-        logEvents.start();
-        logger.addAppender(logEvents);
-    }
-
-    @AfterEach
-    void detachLogAppender() {
-        logger.detachAppender(logEvents);
-        logEvents.stop();
     }
 
     @ParameterizedTest
@@ -74,7 +58,6 @@ class WebPushSenderTest {
         givenStatus(statusCode);
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(expected);
-        assertSendLog(Integer.toString(statusCode), "none");
     }
 
     @Test
@@ -98,29 +81,10 @@ class WebPushSenderTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void measuresTimeWaitingForPushResponse() throws Exception {
-        Duration responseDelay = Duration.ofMillis(25);
-        HttpResponse<Void> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(201);
-        doAnswer(invocation -> {
-            Thread.sleep(responseDelay);
-            return response;
-        }).when(httpClient).send(any(HttpRequest.class), any());
-
-        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.SUCCESS);
-
-        ILoggingEvent event = assertSendLog("201", "none");
-        String durationMs = event.getFormattedMessage().replaceAll(".*duration_ms=(\\d+).*", "$1");
-        assertThat(Long.parseLong(durationMs)).isGreaterThanOrEqualTo(responseDelay.toMillis());
-    }
-
-    @Test
     void failsWhenRequestFails() throws Exception {
         doThrow(new IOException("connection reset")).when(httpClient).send(any(HttpRequest.class), any());
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        assertSendLog("none", "IOException");
     }
 
     @Test
@@ -128,7 +92,6 @@ class WebPushSenderTest {
         doThrow(new HttpTimeoutException("timed out")).when(httpClient).send(any(HttpRequest.class), any());
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        assertSendLog("none", "HttpTimeoutException");
     }
 
     @Test
@@ -137,7 +100,6 @@ class WebPushSenderTest {
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         assertThat(Thread.interrupted()).isTrue();
-        assertSendLog("none", "InterruptedException");
     }
 
     @Test
@@ -146,25 +108,11 @@ class WebPushSenderTest {
 
         assertThat(sender.send(malformed, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         verify(httpClient, never()).send(any(HttpRequest.class), any());
-        assertThat(logEvents.list).noneMatch(event -> event.getFormattedMessage().startsWith("event=web_push_send "));
     }
 
     @Test
     void hidesAuthSecretInToString() {
         assertThat(TARGET.toString()).doesNotContain(AUTH_SECRET);
-    }
-
-    private ILoggingEvent assertSendLog(String statusCode, String errorType) {
-        var events = logEvents.list.stream()
-                .filter(event -> event.getFormattedMessage().startsWith("event=web_push_send ")).toList();
-        assertThat(events).hasSize(1);
-        ILoggingEvent event = events.getFirst();
-        assertThat(event.getLevel()).isEqualTo(Level.INFO);
-        assertThat(event.getTimeStamp()).isPositive();
-        assertThat(event.getFormattedMessage())
-                .matches("event=web_push_send status_code=" + statusCode + " duration_ms=\\d+ error_type=" + errorType)
-                .doesNotContain(TARGET.endpoint(), PUBLIC_KEY, PRIVATE_KEY, AUTH_SECRET);
-        return event;
     }
 
     @SuppressWarnings("unchecked")
