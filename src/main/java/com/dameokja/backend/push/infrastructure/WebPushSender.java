@@ -35,15 +35,24 @@ public class WebPushSender {
     }
 
     private WebPushResult send(HttpRequest request, WebPushTarget target) {
+        long startedNanos = System.nanoTime();
         try {
             HttpResponse<Void> response = webPushHttpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            logSendResult(Integer.toString(response.statusCode()), startedNanos, "none");
             return WebPushResult.fromStatus(response.statusCode());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            logSendResult("none", startedNanos, exception.getClass().getSimpleName());
             return WebPushResult.FAILED;
         } catch (IOException exception) {
+            logSendResult("none", startedNanos, exception.getClass().getSimpleName());
             log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
             return WebPushResult.FAILED;
         }
+    }
+
+    private void logSendResult(String statusCode, long startedNanos, String errorType) {
+        long durationMs = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
+        log.info("event=web_push_send status_code={} duration_ms={} error_type={}", statusCode, durationMs, errorType);
     }
 }
