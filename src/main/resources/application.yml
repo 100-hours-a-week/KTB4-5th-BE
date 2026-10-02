@@ -19,6 +19,10 @@ spring:
         type:
           java_time_use_direct_jdbc: true
 
+logging:
+  file:
+    name: /var/log/dameokja/backend.log
+
 springdoc:
   api-docs:
     path: /v3/api-docs

@@ -4,6 +4,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 app && useradd --uid 10001 --gid app app
+RUN mkdir -p /var/log/dameokja && chown app:app /var/log/dameokja
 COPY --chown=app:app build/libs/backend-0.0.1-SNAPSHOT.jar app.jar
 USER app
 EXPOSE 8080
