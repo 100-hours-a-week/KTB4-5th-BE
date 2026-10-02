@@ -3,7 +3,7 @@ package com.dameokja.backend.push.presentation;
 final class PushSubscriptionApiExamples {
     static final String SUBSCRIBE_REQUEST = """
             {
-              "endpoint": "https://push.example.com/subscriptions/example",
+              "endpoint": "https://fcm.googleapis.com/fcm/send/example",
               "keys": {
                 "p256dh": "{BASE64URL_PUBLIC_KEY}",
                 "auth": "{BASE64URL_AUTH_SECRET}"

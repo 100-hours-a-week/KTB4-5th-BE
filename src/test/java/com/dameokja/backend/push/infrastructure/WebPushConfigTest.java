@@ -1,6 +1,7 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.domain.VapidKeyProperties;
+import java.net.http.HttpClient;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,6 +22,13 @@ class WebPushConfigTest {
         assertThat(factory.getPublicKey()).isNotNull();
         assertThat(factory.getPrivateKey()).isNotNull();
         assertThat(factory.getSubject()).isNull();
+    }
+
+    @Test
+    void doesNotFollowRedirectsToOtherDestinations() {
+        try (HttpClient client = config.webPushHttpClient()) {
+            assertThat(client.followRedirects()).isEqualTo(HttpClient.Redirect.NEVER);
+        }
     }
 
     @Test

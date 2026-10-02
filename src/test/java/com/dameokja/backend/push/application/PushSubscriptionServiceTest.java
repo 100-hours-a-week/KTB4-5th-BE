@@ -1,6 +1,7 @@
 package com.dameokja.backend.push.application;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
@@ -15,6 +16,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -60,17 +63,32 @@ class PushSubscriptionServiceTest {
     @Test
     void createsNewSubscriptionWhenEndpointUnknown() {
         stubActiveUser(1L);
-        when(userDeviceRepository.findByEndpoint("endpoint-1")).thenReturn(Optional.empty());
+        when(userDeviceRepository.findByEndpoint("https://fcm.googleapis.com/fcm/send/1")).thenReturn(Optional.empty());
         when(userDeviceRepository.save(any())).thenAnswer(call -> {
             UserDevice device = call.getArgument(0);
             ReflectionTestUtils.setField(device, "id", 501L);
             return device;
         });
 
-        PushSubscriptionResult result = service.register(1L, "endpoint-1", "p256dh", "auth-secret");
+        PushSubscriptionResult result = service.register(1L, "https://fcm.googleapis.com/fcm/send/1", "p256dh", "auth-secret");
 
         assertThat(result.created()).isTrue();
         assertThat(result.subscriptionId()).isEqualTo(501L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"http://fcm.googleapis.com/1", "https://127.0.0.1/1", "https://push.example.com/1"})
+    void rejectsUnsafeEndpointBeforeSubscriptionLookupOrSave(String endpoint) {
+        stubActiveUser(1L);
+
+        assertThatThrownBy(() -> service.register(1L, endpoint, "p256dh", "auth-secret"))
+                .isInstanceOfSatisfying(CustomException.class, exception -> {
+                    assertThat(exception.getExceptionCode()).isEqualTo(GlobalExceptionCode.BAD_REQUEST);
+                    assertThat(exception.getFieldErrors()).singleElement()
+                            .extracting("location", "field", "code").containsExactly("BODY", "/endpoint", "FORMAT");
+                    assertThat(exception.getMessage()).doesNotContain(endpoint);
+                });
+        verifyNoInteractions(userDeviceRepository);
     }
 
     @Test
@@ -78,7 +96,7 @@ class PushSubscriptionServiceTest {
         when(userAccessService.getActive(1L))
                 .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
 
-        assertThatThrownBy(() -> service.register(1L, "endpoint-1", "p256dh", "auth-secret"))
+        assertThatThrownBy(() -> service.register(1L, "https://fcm.googleapis.com/fcm/send/1", "p256dh", "auth-secret"))
                 .extracting(error -> ((CustomException) error).getExceptionCode())
                 .isEqualTo(UserExceptionCode.USER_NOT_ACTIVE);
     }
@@ -86,11 +104,11 @@ class PushSubscriptionServiceTest {
     @Test
     void renewsWithoutVersionBumpWhenNothingChanged() {
         stubActiveUser(1L);
-        UserDevice existing = existingDevice(userWithId(1L), "endpoint-2", "p256dh", "auth-secret");
+        UserDevice existing = existingDevice(userWithId(1L), "https://fcm.googleapis.com/fcm/send/2", "p256dh", "auth-secret");
         ReflectionTestUtils.setField(existing, "id", 502L);
-        when(userDeviceRepository.findByEndpoint("endpoint-2")).thenReturn(Optional.of(existing));
+        when(userDeviceRepository.findByEndpoint("https://fcm.googleapis.com/fcm/send/2")).thenReturn(Optional.of(existing));
 
-        PushSubscriptionResult result = service.register(1L, "endpoint-2", "p256dh", "auth-secret");
+        PushSubscriptionResult result = service.register(1L, "https://fcm.googleapis.com/fcm/send/2", "p256dh", "auth-secret");
 
         assertThat(result.created()).isFalse();
         assertThat(result.subscriptionId()).isEqualTo(502L);
@@ -100,10 +118,10 @@ class PushSubscriptionServiceTest {
     @Test
     void renewsWithVersionBumpWhenKeyChanged() {
         stubActiveUser(1L);
-        UserDevice existing = existingDevice(userWithId(1L), "endpoint-3", "old-p256dh", "old-secret");
-        when(userDeviceRepository.findByEndpoint("endpoint-3")).thenReturn(Optional.of(existing));
+        UserDevice existing = existingDevice(userWithId(1L), "https://fcm.googleapis.com/fcm/send/3", "old-p256dh", "old-secret");
+        when(userDeviceRepository.findByEndpoint("https://fcm.googleapis.com/fcm/send/3")).thenReturn(Optional.of(existing));
 
-        service.register(1L, "endpoint-3", "new-p256dh", "new-secret");
+        service.register(1L, "https://fcm.googleapis.com/fcm/send/3", "new-p256dh", "new-secret");
 
         assertThat(existing.getSubscriptionVersion()).isEqualTo(2L);
         assertThat(existing.getP256dhKey()).isEqualTo("new-p256dh");
@@ -112,11 +130,11 @@ class PushSubscriptionServiceTest {
     @Test
     void renewsWithVersionBumpWhenReactivatingDisabledDevice() {
         stubActiveUser(1L);
-        UserDevice existing = existingDevice(userWithId(1L), "endpoint-4", "p256dh", "auth-secret");
+        UserDevice existing = existingDevice(userWithId(1L), "https://fcm.googleapis.com/fcm/send/4", "p256dh", "auth-secret");
         existing.disable();
-        when(userDeviceRepository.findByEndpoint("endpoint-4")).thenReturn(Optional.of(existing));
+        when(userDeviceRepository.findByEndpoint("https://fcm.googleapis.com/fcm/send/4")).thenReturn(Optional.of(existing));
 
-        service.register(1L, "endpoint-4", "p256dh", "auth-secret");
+        service.register(1L, "https://fcm.googleapis.com/fcm/send/4", "p256dh", "auth-secret");
 
         assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.ACTIVE);
         assertThat(existing.getSubscriptionVersion()).isEqualTo(3L);
@@ -125,10 +143,10 @@ class PushSubscriptionServiceTest {
     @Test
     void rejectsWhenEndpointOwnedByDifferentUser() {
         stubActiveUser(2L);
-        UserDevice existing = existingDevice(userWithId(1L), "endpoint-5", "p256dh", "auth-secret");
-        when(userDeviceRepository.findByEndpoint("endpoint-5")).thenReturn(Optional.of(existing));
+        UserDevice existing = existingDevice(userWithId(1L), "https://fcm.googleapis.com/fcm/send/5", "p256dh", "auth-secret");
+        when(userDeviceRepository.findByEndpoint("https://fcm.googleapis.com/fcm/send/5")).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service.register(2L, "endpoint-5", "p256dh", "auth-secret"))
+        assertThatThrownBy(() -> service.register(2L, "https://fcm.googleapis.com/fcm/send/5", "p256dh", "auth-secret"))
                 .extracting(error -> ((CustomException) error).getExceptionCode())
                 .isEqualTo(PushExceptionCode.SUBSCRIPTION_OWNER_CONFLICT);
     }

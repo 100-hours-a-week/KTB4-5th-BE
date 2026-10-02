@@ -1,7 +1,10 @@
 package com.dameokja.backend.push.application;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.FieldError;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
+import com.dameokja.backend.push.domain.PushEndpointPolicy;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.domain.VapidKeyProperties;
@@ -9,6 +12,7 @@ import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.user.application.UserAccessService;
 import com.dameokja.backend.user.domain.User;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +30,11 @@ public class PushSubscriptionService {
     public PushSubscriptionResult register(
             Long userId, String endpoint, String p256dhKey, String authSecretPlain) {
         User user = userAccessService.getActive(userId);
+        if (!PushEndpointPolicy.isAllowed(endpoint)) {
+            throw new CustomException(GlobalExceptionCode.BAD_REQUEST,
+                    List.of(FieldError.of("BODY", "/endpoint", "FORMAT",
+                            "허용되지 않은 푸시 구독 주소입니다.")));
+        }
         Optional<UserDevice> existing = userDeviceRepository.findByEndpoint(endpoint);
         if (existing.isEmpty()) {
             return create(user, endpoint, p256dhKey, authSecretPlain);

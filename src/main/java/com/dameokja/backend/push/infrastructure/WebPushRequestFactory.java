@@ -1,5 +1,6 @@
 package com.dameokja.backend.push.infrastructure;
 
+import com.dameokja.backend.push.domain.PushEndpointPolicy;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -22,6 +23,10 @@ public class WebPushRequestFactory extends AbstractPushService<WebPushRequestFac
 
     HttpRequest create(WebPushTarget target, String payloadJson, Duration ttl, Duration timeout)
             throws GeneralSecurityException, IOException, JoseException {
+        // 등록 전에 저장된 구독도 발송 시 같은 목적지 정책으로 차단한다.
+        if (!PushEndpointPolicy.isAllowed(target.endpoint())) {
+            throw new IllegalArgumentException("허용되지 않은 푸시 구독 주소입니다.");
+        }
         // 라이브러리 기본값(aesgcm)은 초안 규격이므로 표준(RFC 8291)인 aes128gcm을 명시한다.
         nl.martijndwars.webpush.HttpRequest prepared =
                 prepareRequest(toNotification(target, payloadJson, ttl), Encoding.AES128GCM);
