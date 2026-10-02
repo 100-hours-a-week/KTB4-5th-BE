@@ -30,7 +30,7 @@ public class WebPushConfig {
     // 전송마다 클라이언트를 만들지 않고 푸시 서비스와의 커넥션과 TLS 세션을 재사용한다.
     @Bean
     HttpClient webPushHttpClient() {
-        return HttpClient.newHttpClient();
+        return HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
     }
 
     private void validatePrivateKey(String privateKey) {

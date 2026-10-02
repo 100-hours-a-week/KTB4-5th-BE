@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,7 @@ class WebPushSenderTest {
     private static final String PRIVATE_KEY = "CaYwQ9blK0k4N0J-5tPLIQzYBpSJj24S6sWadUP7wCg";
     private static final String AUTH_SECRET = "AAAAAAAAAAAAAAAAAAAAAA";
     private static final WebPushTarget TARGET =
-            new WebPushTarget("https://push.example.com/send/abc", PUBLIC_KEY, AUTH_SECRET);
+            new WebPushTarget("https://fcm.googleapis.com/send/abc", PUBLIC_KEY, AUTH_SECRET);
     private static final Duration TTL = Duration.ofHours(4);
 
     private final HttpClient httpClient = mock(HttpClient.class);
@@ -107,6 +108,16 @@ class WebPushSenderTest {
         WebPushTarget malformed = new WebPushTarget(TARGET.endpoint(), "not-a-p256-key", AUTH_SECRET);
 
         assertThat(sender.send(malformed, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
+        verify(httpClient, never()).send(any(HttpRequest.class), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"http://fcm.googleapis.com/1", "https://169.254.169.254/latest/meta-data/",
+            "https://[::1]/1", "https://fcm.googleapis.com.evil.com/1"})
+    void rejectsStoredUnsafeEndpointWithoutSending(String endpoint) throws Exception {
+        WebPushTarget unsafe = new WebPushTarget(endpoint, PUBLIC_KEY, AUTH_SECRET);
+
+        assertThat(sender.send(unsafe, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         verify(httpClient, never()).send(any(HttpRequest.class), any());
     }
 
