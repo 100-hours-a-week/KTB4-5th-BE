@@ -1,16 +1,24 @@
 package com.dameokja.backend.push.infrastructure;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.time.Duration;
-import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
+import org.apache.hc.core5.util.Timeout;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +29,7 @@ import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -38,7 +46,8 @@ class WebPushSenderTest {
             new WebPushTarget("https://fcm.googleapis.com/send/abc", PUBLIC_KEY, AUTH_SECRET);
     private static final Duration TTL = Duration.ofHours(4);
 
-    private final HttpClient httpClient = mock(HttpClient.class);
+    private final CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+    private final ExecutorService executor = new WebPushConfig().webPushExecutor();
     private WebPushSender sender;
 
     @BeforeAll
@@ -50,7 +59,12 @@ class WebPushSenderTest {
 
     @BeforeEach
     void setUp() throws GeneralSecurityException {
-        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient);
+        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, executor);
+    }
+
+    @AfterEach
+    void closeExecutor() {
+        executor.close();
     }
 
     @ParameterizedTest
@@ -62,42 +76,55 @@ class WebPushSenderTest {
     }
 
     @Test
+    void sendsHttpRequestOnVirtualThread() throws Exception {
+        doAnswer(invocation -> {
+            assertThat(Thread.currentThread().isVirtual()).isTrue();
+            return 201;
+        }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
+
+        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.SUCCESS);
+    }
+
+    @Test
     void sendsEncryptedPayloadWithStandardEncodingTtlAndTimeout() throws Exception {
         givenStatus(201);
-        ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+        ArgumentCaptor<HttpPost> captor = ArgumentCaptor.forClass(HttpPost.class);
 
         sender.send(TARGET, "{\"title\":\"알림\"}", TTL);
 
-        verify(httpClient).send(captor.capture(), any());
-        HttpRequest request = captor.getValue();
-        assertThat(request.uri()).isEqualTo(URI.create(TARGET.endpoint()));
-        assertThat(request.method()).isEqualTo("POST");
-        assertThat(request.timeout()).contains(WebPushSender.SEND_TIMEOUT);
-        assertThat(request.headers().firstValue("Content-Encoding")).contains("aes128gcm");
-        assertThat(request.headers().firstValue("TTL")).contains(String.valueOf(TTL.toSeconds()));
-        assertThat(request.headers().firstValue("Authorization")).hasValueSatisfying(
-                value -> assertThat(value).startsWith("vapid t="));
-        assertThat(request.bodyPublisher().map(HttpRequest.BodyPublisher::contentLength))
-                .hasValueSatisfying(length -> assertThat(length).isPositive());
+        verify(httpClient).execute(captor.capture(), any(HttpClientResponseHandler.class));
+        HttpPost request = captor.getValue();
+        assertThat(request.getUri()).isEqualTo(URI.create(TARGET.endpoint()));
+        assertThat(request.getMethod()).isEqualTo("POST");
+        assertThat(request.getConfig().getResponseTimeout()).isEqualTo(Timeout.of(WebPushSender.SEND_TIMEOUT));
+        assertThat(request.getFirstHeader("Content-Encoding").getValue()).isEqualTo("aes128gcm");
+        assertThat(request.getFirstHeader("TTL").getValue()).isEqualTo(String.valueOf(TTL.toSeconds()));
+        assertThat(request.getFirstHeader("Authorization").getValue()).startsWith("vapid t=");
+        assertThat(request.getEntity().getContentLength()).isPositive();
     }
 
     @Test
     void failsWhenRequestFails() throws Exception {
-        doThrow(new IOException("connection reset")).when(httpClient).send(any(HttpRequest.class), any());
+        doThrow(new IOException("connection reset")).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
     }
 
     @Test
     void failsWhenResponseTimesOut() throws Exception {
-        doThrow(new HttpTimeoutException("timed out")).when(httpClient).send(any(HttpRequest.class), any());
+        doThrow(new SocketTimeoutException("timed out")).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
     }
 
     @Test
     void keepsInterruptFlagAndFailsWhenInterrupted() throws Exception {
-        doThrow(new InterruptedException()).when(httpClient).send(any(HttpRequest.class), any());
+        Thread caller = Thread.currentThread();
+        doAnswer(invocation -> {
+            caller.interrupt();
+            new CountDownLatch(1).await();
+            return 201;
+        }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         assertThat(Thread.interrupted()).isTrue();
@@ -108,7 +135,7 @@ class WebPushSenderTest {
         WebPushTarget malformed = new WebPushTarget(TARGET.endpoint(), "not-a-p256-key", AUTH_SECRET);
 
         assertThat(sender.send(malformed, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        verify(httpClient, never()).send(any(HttpRequest.class), any());
+        verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
     }
 
     @ParameterizedTest
@@ -118,7 +145,25 @@ class WebPushSenderTest {
         WebPushTarget unsafe = new WebPushTarget(endpoint, PUBLIC_KEY, AUTH_SECRET);
 
         assertThat(sender.send(unsafe, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        verify(httpClient, never()).send(any(HttpRequest.class), any());
+        verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void cancelsRequestWhenOverallDeadlineExpires() throws Exception {
+        ExecutorService blockedExecutor = mock(ExecutorService.class);
+        Future<WebPushResult> pending = mock(Future.class);
+        when(blockedExecutor.submit(any(Callable.class))).thenReturn(pending);
+        when(pending.get(WebPushSender.SEND_TIMEOUT.toNanos(), TimeUnit.NANOSECONDS)).thenThrow(new TimeoutException());
+        WebPushRequestFactory factory = mock(WebPushRequestFactory.class);
+        HttpPost request = new HttpPost(TARGET.endpoint());
+        when(factory.create(TARGET, "{}", TTL, WebPushSender.SEND_TIMEOUT)).thenReturn(request);
+        sender = new WebPushSender(factory, httpClient, blockedExecutor);
+
+        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
+        verify(pending).cancel(true);
+        assertThat(request.isCancelled()).isTrue();
+        verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
     }
 
     @Test
@@ -128,8 +173,9 @@ class WebPushSenderTest {
 
     @SuppressWarnings("unchecked")
     private void givenStatus(int statusCode) throws Exception {
-        HttpResponse<Void> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(statusCode);
-        doReturn(response).when(httpClient).send(any(HttpRequest.class), any());
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<Integer> handler = invocation.getArgument(1);
+            return handler.handleResponse(new BasicClassicHttpResponse(statusCode));
+        }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
     }
 }

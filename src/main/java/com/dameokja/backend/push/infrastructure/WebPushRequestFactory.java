@@ -2,14 +2,16 @@ package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.domain.PushEndpointPolicy;
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import nl.martijndwars.webpush.AbstractPushService;
 import nl.martijndwars.webpush.Encoding;
 import nl.martijndwars.webpush.Notification;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+import org.apache.hc.core5.util.Timeout;
 import org.jose4j.lang.JoseException;
 
 // 라이브러리의 전송(PushService.sendAsync)은 전송마다 HTTP 클라이언트와 I/O 스레드를 새로 만든다.
@@ -21,7 +23,7 @@ public class WebPushRequestFactory extends AbstractPushService<WebPushRequestFac
         super(publicKey, privateKey);
     }
 
-    HttpRequest create(WebPushTarget target, String payloadJson, Duration ttl, Duration timeout)
+    HttpPost create(WebPushTarget target, String payloadJson, Duration ttl, Duration timeout)
             throws GeneralSecurityException, IOException, JoseException {
         // 등록 전에 저장된 구독도 발송 시 같은 목적지 정책으로 차단한다.
         if (!PushEndpointPolicy.isAllowed(target.endpoint())) {
@@ -30,11 +32,12 @@ public class WebPushRequestFactory extends AbstractPushService<WebPushRequestFac
         // 라이브러리 기본값(aesgcm)은 초안 규격이므로 표준(RFC 8291)인 aes128gcm을 명시한다.
         nl.martijndwars.webpush.HttpRequest prepared =
                 prepareRequest(toNotification(target, payloadJson, ttl), Encoding.AES128GCM);
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(prepared.getUrl()))
-                .timeout(timeout)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(prepared.getBody()));
-        prepared.getHeaders().forEach(builder::header);
-        return builder.build();
+        HttpPost request = new HttpPost(prepared.getUrl());
+        request.setConfig(RequestConfig.custom().setConnectionRequestTimeout(Timeout.of(timeout))
+                .setResponseTimeout(Timeout.of(timeout)).setRedirectsEnabled(false).build());
+        request.setEntity(new ByteArrayEntity(prepared.getBody(), null));
+        prepared.getHeaders().forEach(request::setHeader);
+        return request;
     }
 
     private Notification toNotification(WebPushTarget target, String payloadJson, Duration ttl)
