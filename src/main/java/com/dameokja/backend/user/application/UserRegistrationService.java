@@ -33,10 +33,10 @@ public class UserRegistrationService {
     public RegistrationResult register(RegisterUserCommand registerUserCommand) {
         LocalDateTime registeredAt = now();
         String nickname = validateInput(registerUserCommand);
-        String passwordHash = passwordEncoder.encode(registerUserCommand.password());
-        User newUser = userRegistrationFactory.create(registerUserCommand, nickname, passwordHash, registeredAt);
         try {
             validateUniqueAccount(nickname, registerUserCommand.loginId());
+            String passwordHash = passwordEncoder.encode(registerUserCommand.password());
+            User newUser = userRegistrationFactory.create(registerUserCommand, nickname, passwordHash, registeredAt);
             User user = userRepository.save(newUser);
             Long refrigeratorId = refrigeratorLifecycleService.createPersonal(
                     user, YearMonth.from(registeredAt).toString());
