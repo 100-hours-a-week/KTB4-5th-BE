@@ -8,4 +8,4 @@ RUN mkdir -p /var/log/dameokja && chown app:app /var/log/dameokja
 COPY --chown=app:app build/libs/backend-0.0.1-SNAPSHOT.jar app.jar
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "/app/app.jar"]
