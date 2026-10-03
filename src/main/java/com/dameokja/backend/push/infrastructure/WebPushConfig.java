@@ -3,8 +3,8 @@ package com.dameokja.backend.push.infrastructure;
 import com.dameokja.backend.push.domain.VapidKeyProperties;
 import java.security.GeneralSecurityException;
 import java.security.Security;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -53,9 +53,12 @@ public class WebPushConfig {
         return new PushDnsResolver(SystemDefaultDnsResolver.INSTANCE);
     }
 
-    @Bean(destroyMethod = "close")
-    ExecutorService webPushExecutor() {
-        return Executors.newVirtualThreadPerTaskExecutor();
+    // 발송은 Dispatch의 가상 스레드에서 수행하고 이 스레드는 요청 취소 기한만 관리한다.
+    @Bean(destroyMethod = "shutdownNow")
+    ScheduledExecutorService webPushDeadlineTimer() {
+        ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1, Thread.ofPlatform().daemon(true).name("web-push-deadline").factory());
+        timer.setRemoveOnCancelPolicy(true);
+        return timer;
     }
 
     private void validatePrivateKey(String privateKey) {

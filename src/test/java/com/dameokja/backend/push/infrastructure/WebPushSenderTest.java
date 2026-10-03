@@ -1,17 +1,21 @@
 package com.dameokja.backend.push.infrastructure;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.time.Duration;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
@@ -26,9 +30,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -47,7 +54,9 @@ class WebPushSenderTest {
     private static final Duration TTL = Duration.ofHours(4);
 
     private final CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
-    private final ExecutorService executor = new WebPushConfig().webPushExecutor();
+    private final ScheduledExecutorService timer = new WebPushConfig().webPushDeadlineTimer();
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    private final Logger logger = (Logger) LoggerFactory.getLogger(WebPushSender.class);
     private WebPushSender sender;
 
     @BeforeAll
@@ -59,30 +68,42 @@ class WebPushSenderTest {
 
     @BeforeEach
     void setUp() throws GeneralSecurityException {
-        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, executor);
+        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, timer);
+        logs.start();
+        logger.addAppender(logs);
     }
 
     @AfterEach
-    void closeExecutor() {
-        executor.close();
+    void closeTimerAndDetachLogs() {
+        logger.detachAppender(logs);
+        timer.close();
     }
 
     @ParameterizedTest
-    @CsvSource({"201, SUCCESS", "404, EXPIRED", "410, EXPIRED", "429, FAILED", "500, FAILED"})
+    @CsvSource({"201, SUCCESS", "404, EXPIRED", "410, EXPIRED", "408, FAILED", "429, FAILED", "500, FAILED", "504, FAILED"})
     void mapsPushServiceStatus(int statusCode, WebPushResult expected) throws Exception {
         givenStatus(statusCode);
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(expected);
+        assertThat(logs.list.getLast().getFormattedMessage()).contains("status_code=" + statusCode, "outcome=http_response");
     }
 
     @Test
-    void sendsHttpRequestOnVirtualThread() throws Exception {
+    void sendsOnCallingVirtualThreadWithoutSubmittingAnotherWorker() throws Exception {
+        AtomicReference<Thread> caller = new AtomicReference<>();
+        AtomicReference<Thread> executing = new AtomicReference<>();
         doAnswer(invocation -> {
-            assertThat(Thread.currentThread().isVirtual()).isTrue();
+            executing.set(Thread.currentThread());
             return 201;
         }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
-
-        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.SUCCESS);
+        try (ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor()) {
+            assertThat(calls.submit(() -> {
+                caller.set(Thread.currentThread());
+                return sender.send(TARGET, "{}", TTL);
+            }).get()).isEqualTo(WebPushResult.SUCCESS);
+        }
+        assertThat(executing.get()).isSameAs(caller.get());
+        assertThat(executing.get().isVirtual()).isTrue();
     }
 
     @Test
@@ -115,15 +136,14 @@ class WebPushSenderTest {
         doThrow(new SocketTimeoutException("timed out")).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
+        assertThat(logs.list.getFirst().getFormattedMessage()).contains("status_code=none", "outcome=timeout");
     }
 
     @Test
     void keepsInterruptFlagAndFailsWhenInterrupted() throws Exception {
-        Thread caller = Thread.currentThread();
         doAnswer(invocation -> {
-            caller.interrupt();
-            new CountDownLatch(1).await();
-            return 201;
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("interrupted");
         }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
@@ -148,22 +168,30 @@ class WebPushSenderTest {
         verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @SuppressWarnings("unchecked")
-    void cancelsRequestWhenOverallDeadlineExpires() throws Exception {
-        ExecutorService blockedExecutor = mock(ExecutorService.class);
-        Future<WebPushResult> pending = mock(Future.class);
-        when(blockedExecutor.submit(any(Callable.class))).thenReturn(pending);
-        when(pending.get(WebPushSender.SEND_TIMEOUT.toNanos(), TimeUnit.NANOSECONDS)).thenThrow(new TimeoutException());
-        WebPushRequestFactory factory = mock(WebPushRequestFactory.class);
-        HttpPost request = new HttpPost(TARGET.endpoint());
-        when(factory.create(TARGET, "{}", TTL, WebPushSender.SEND_TIMEOUT)).thenReturn(request);
-        sender = new WebPushSender(factory, httpClient, blockedExecutor);
-
+    void cancelsAtDeadlineAndPreservesOnlyActuallyReceivedStatus(boolean receivedHeaders) throws Exception {
+        ScheduledExecutorService controlledTimer = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> scheduled = mock(ScheduledFuture.class);
+        ArgumentCaptor<Runnable> expire = ArgumentCaptor.forClass(Runnable.class);
+        when(controlledTimer.schedule(expire.capture(), eq(WebPushSender.SEND_TIMEOUT.toNanos()), eq(TimeUnit.NANOSECONDS))).thenAnswer(invocation -> scheduled);
+        doAnswer(invocation -> {
+            if (receivedHeaders) {
+                HttpClientResponseHandler<Integer> handler = invocation.getArgument(1);
+                handler.handleResponse(new BasicClassicHttpResponse(201));
+            }
+            expire.getValue().run();
+            throw new IOException("connection cancelled");
+        }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
+        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, controlledTimer);
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        verify(pending).cancel(true);
-        assertThat(request.isCancelled()).isTrue();
-        verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
+        ArgumentCaptor<HttpPost> request = ArgumentCaptor.forClass(HttpPost.class);
+        verify(httpClient).execute(request.capture(), any(HttpClientResponseHandler.class));
+        assertThat(request.getValue().isCancelled()).isTrue();
+        verify(scheduled, atLeastOnce()).cancel(false);
+        assertThat(logs.list.stream().map(ILoggingEvent::getFormattedMessage).filter(message -> message.startsWith("event=web_push_send")))
+                .singleElement().asString().contains("status_code=" + (receivedHeaders ? "201" : "none"), "outcome=timeout");
     }
 
     @Test

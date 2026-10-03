@@ -2,6 +2,8 @@ package com.dameokja.backend.push.infrastructure;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.List;
 import org.apache.hc.client5.http.DnsResolver;
@@ -35,6 +37,20 @@ final class PushDnsResolver implements DnsResolver {
         }
         // 기본 resolve(host, port)는 이 IP 객체로 소켓 주소를 만들어 추가 DNS 조회를 하지 않는다.
         return addresses;
+    }
+
+    @Override
+    public List<InetSocketAddress> resolve(String host, int port) throws UnknownHostException {
+        try {
+            PushSendDeadline.check();
+            List<InetSocketAddress> addresses = DnsResolver.super.resolve(host, port);
+            PushSendDeadline.check();
+            return addresses;
+        } catch (SocketTimeoutException exception) {
+            UnknownHostException failure = new UnknownHostException(exception.getMessage());
+            failure.initCause(exception);
+            throw failure;
+        }
     }
 
     @Override
