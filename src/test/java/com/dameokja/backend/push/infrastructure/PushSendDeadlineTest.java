@@ -5,8 +5,6 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,41 +16,56 @@ import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.io.SocketConfig;
 import org.apache.hc.core5.util.Timeout;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PushSendDeadlineTest {
-    private final ScheduledExecutorService timer = mock(ScheduledExecutorService.class);
-    private final ScheduledFuture<?> scheduled = mock(ScheduledFuture.class);
-    private final ArgumentCaptor<Runnable> expiration = ArgumentCaptor.forClass(Runnable.class);
-    private final Runnable onTimeout = mock(Runnable.class);
-    private final HttpPost request = new HttpPost("https://fcm.googleapis.com/send/test");
+    private final HttpPost request = spy(new HttpPost("https://fcm.googleapis.com/send/test"));
+    private final CountDownLatch cancelled = new CountDownLatch(1);
+    private final AtomicReference<Thread> cancellingThread = new AtomicReference<>();
+
+    @BeforeEach
+    void observeCancellation() {
+        doAnswer(invocation -> {
+            cancellingThread.set(Thread.currentThread());
+            Object result = invocation.callRealMethod();
+            cancelled.countDown();
+            return result;
+        }).when(request).cancel();
+    }
 
     private PushSendDeadline deadline() {
-        when(timer.schedule(expiration.capture(), anyLong(), any(TimeUnit.class))).thenAnswer(invocation -> scheduled);
-        return new PushSendDeadline(request, timer, Duration.ofSeconds(10), onTimeout);
+        return new PushSendDeadline(request, Duration.ofSeconds(1));
     }
 
     @Test
-    void cancelsTimerAfterCompletionAndIgnoresLateExpiration() throws Exception {
+    void stopsCancellationWaitAfterEarlyCompletionAndClearsCurrentDeadline() throws Exception {
         try (PushSendDeadline deadline = deadline()) {
             assertThat(deadline.finish()).isTrue();
-            expiration.getValue().run();
             PushSendDeadline.check();
         }
-        verify(onTimeout, never()).run();
+        assertThat(cancelled.await(1500, TimeUnit.MILLISECONDS)).isFalse();
         assertThat(request.isCancelled()).isFalse();
-        verify(scheduled, org.mockito.Mockito.atLeastOnce()).cancel(false);
         PushSendDeadline.check();
+    }
+
+    @Test
+    void expiresOnVirtualThread() throws Exception {
+        try (PushSendDeadline deadline = new PushSendDeadline(request, Duration.ofMillis(100))) {
+            assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(cancellingThread.get().isVirtual()).isTrue();
+            assertThat(deadline.finish()).isFalse();
+        }
     }
 
     @Test
@@ -72,7 +85,7 @@ class PushSendDeadlineTest {
         Thread caller = Thread.ofVirtual().start(() -> connectWithPermit(operator, permit, failure));
         try {
             assertThat(dnsEntered.await(5, TimeUnit.SECONDS)).isTrue();
-            expiration.getValue().run();
+            assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(request.isCancelled()).isTrue();
             assertThat(permit.availablePermits()).isZero();
             assertThat(caller.isAlive()).isTrue();
@@ -84,7 +97,6 @@ class PushSendDeadlineTest {
         assertThat(failure.get()).isInstanceOf(UnknownHostException.class);
         assertThat(permit.availablePermits()).isEqualTo(1);
         verify(socket, never()).connect(any(), anyInt());
-        verify(onTimeout).run();
     }
 
     private void connectWithPermit(DefaultHttpClientConnectionOperator operator, Semaphore permit, AtomicReference<Exception> failure) {

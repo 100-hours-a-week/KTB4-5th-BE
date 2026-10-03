@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +22,6 @@ public class WebPushSender {
 
     private final WebPushRequestFactory webPushRequestFactory;
     private final CloseableHttpClient webPushHttpClient;
-    private final ScheduledExecutorService webPushDeadlineTimer;
 
     // ttl은 기기가 꺼져 있을 때 푸시 서비스가 메시지를 보관하는 기간이다. (RFC 8030)
     // 라이브러리 기본값(28일)을 쓰면 발송 기한이 지난 알림이 뒤늦게 도착하므로 호출하는 쪽이 정한다.
@@ -44,8 +42,7 @@ public class WebPushSender {
     private WebPushResult send(HttpPost request, WebPushTarget target) {
         long startedNanos = System.nanoTime();
         AtomicInteger responseCode = new AtomicInteger();
-        try (PushSendDeadline deadline = new PushSendDeadline(request, webPushDeadlineTimer, SEND_TIMEOUT,
-                () -> logSendResult("timeout", responseCode.get(), startedNanos, "deadline_exceeded"))) {
+        try (PushSendDeadline deadline = new PushSendDeadline(request, SEND_TIMEOUT)) {
             try {
                 int statusCode = webPushHttpClient.execute(request, response -> {
                     responseCode.set(response.getCode());
@@ -53,13 +50,16 @@ public class WebPushSender {
                     return response.getCode();
                 });
                 if (!deadline.finish()) {
+                    logSendResult("timeout", responseCode.get(), startedNanos, "deadline_exceeded");
                     return WebPushResult.FAILED;
                 }
                 logSendResult("http_response", statusCode, startedNanos, "none");
                 return WebPushResult.fromStatus(statusCode);
             } catch (IOException exception) {
-                if (deadline.finish()) {
-                    logSendResult(failureOutcome(exception), responseCode.get(), startedNanos, exception.getClass().getSimpleName());
+                boolean withinDeadline = deadline.finish();
+                logSendResult(withinDeadline ? failureOutcome(exception) : "timeout", responseCode.get(), startedNanos,
+                        withinDeadline ? exception.getClass().getSimpleName() : "deadline_exceeded");
+                if (withinDeadline) {
                     log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
                 }
                 return WebPushResult.FAILED;

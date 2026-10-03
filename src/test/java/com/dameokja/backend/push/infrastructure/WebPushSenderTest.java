@@ -12,9 +12,6 @@ import java.security.Security;
 import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -34,8 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -54,7 +49,6 @@ class WebPushSenderTest {
     private static final Duration TTL = Duration.ofHours(4);
 
     private final CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
-    private final ScheduledExecutorService timer = new WebPushConfig().webPushDeadlineTimer();
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
     private final Logger logger = (Logger) LoggerFactory.getLogger(WebPushSender.class);
     private WebPushSender sender;
@@ -68,15 +62,14 @@ class WebPushSenderTest {
 
     @BeforeEach
     void setUp() throws GeneralSecurityException {
-        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, timer);
+        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient);
         logs.start();
         logger.addAppender(logs);
     }
 
     @AfterEach
-    void closeTimerAndDetachLogs() {
+    void detachLogs() {
         logger.detachAppender(logs);
-        timer.close();
     }
 
     @ParameterizedTest
@@ -166,32 +159,6 @@ class WebPushSenderTest {
 
         assertThat(sender.send(unsafe, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
         verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    @SuppressWarnings("unchecked")
-    void cancelsAtDeadlineAndPreservesOnlyActuallyReceivedStatus(boolean receivedHeaders) throws Exception {
-        ScheduledExecutorService controlledTimer = mock(ScheduledExecutorService.class);
-        ScheduledFuture<?> scheduled = mock(ScheduledFuture.class);
-        ArgumentCaptor<Runnable> expire = ArgumentCaptor.forClass(Runnable.class);
-        when(controlledTimer.schedule(expire.capture(), eq(WebPushSender.SEND_TIMEOUT.toNanos()), eq(TimeUnit.NANOSECONDS))).thenAnswer(invocation -> scheduled);
-        doAnswer(invocation -> {
-            if (receivedHeaders) {
-                HttpClientResponseHandler<Integer> handler = invocation.getArgument(1);
-                handler.handleResponse(new BasicClassicHttpResponse(201));
-            }
-            expire.getValue().run();
-            throw new IOException("connection cancelled");
-        }).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
-        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, controlledTimer);
-        assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        ArgumentCaptor<HttpPost> request = ArgumentCaptor.forClass(HttpPost.class);
-        verify(httpClient).execute(request.capture(), any(HttpClientResponseHandler.class));
-        assertThat(request.getValue().isCancelled()).isTrue();
-        verify(scheduled, atLeastOnce()).cancel(false);
-        assertThat(logs.list.stream().map(ILoggingEvent::getFormattedMessage).filter(message -> message.startsWith("event=web_push_send")))
-                .singleElement().asString().contains("status_code=" + (receivedHeaders ? "201" : "none"), "outcome=timeout");
     }
 
     @Test

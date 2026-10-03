@@ -2,8 +2,6 @@ package com.dameokja.backend.push.infrastructure;
 
 import java.net.SocketTimeoutException;
 import java.time.Duration;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 
@@ -12,17 +10,29 @@ final class PushSendDeadline implements AutoCloseable {
     private static final ThreadLocal<PushSendDeadline> CURRENT = new ThreadLocal<>();
     private final HttpPost request;
     private final long expiresAtNanos;
-    private final Runnable onTimeout;
-    private final ScheduledFuture<?> cancellation;
+    private final Thread cancellation;
     private boolean finished;
     private volatile boolean timedOut;
 
-    PushSendDeadline(HttpPost request, ScheduledExecutorService timer, Duration timeout, Runnable onTimeout) {
+    PushSendDeadline(HttpPost request, Duration timeout) {
         this.request = request;
         this.expiresAtNanos = System.nanoTime() + timeout.toNanos();
-        this.onTimeout = onTimeout;
-        this.cancellation = timer.schedule(this::expire, timeout.toNanos(), TimeUnit.NANOSECONDS);
+        this.cancellation = Thread.ofVirtual().name("web-push-deadline").start(this::awaitExpiration);
         CURRENT.set(this);
+    }
+
+    private void awaitExpiration() {
+        try {
+            // 스레드 시작이 늦어져도 발송 기한까지 남은 시간만 기다린다.
+            long remainingNanos = expiresAtNanos - System.nanoTime();
+            if (remainingNanos > 0) {
+                TimeUnit.NANOSECONDS.sleep(remainingNanos);
+            }
+            expire();
+        } catch (InterruptedException exception) {
+            // 전송이 먼저 끝나면 취소 대기도 종료한다.
+            Thread.currentThread().interrupt();
+        }
     }
 
     private synchronized void expire() {
@@ -32,7 +42,6 @@ final class PushSendDeadline implements AutoCloseable {
         finished = true;
         timedOut = true;
         request.cancel();
-        onTimeout.run();
     }
 
     synchronized boolean finish() {
@@ -40,7 +49,7 @@ final class PushSendDeadline implements AutoCloseable {
             expire();
         }
         finished = true;
-        cancellation.cancel(false);
+        cancellation.interrupt();
         return !timedOut;
     }
 
