@@ -13,7 +13,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
-// 업무 로직 검증이 아닌 수동 실험 실행기다. 일반 test에서는 이 태그를 제외한다.
+// 업무 로직 검증이 아닌 수동 실험 실행기다. 별도 소스 묶음에서 pushExperiment로만 실행한다.
 @Tag("push-experiment")
 class PushExperimentTest extends MySqlDatabaseTest {
     @Test
