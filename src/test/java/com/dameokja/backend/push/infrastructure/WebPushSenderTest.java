@@ -1,8 +1,5 @@
 package com.dameokja.backend.push.infrastructure;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
@@ -19,7 +16,6 @@ import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
 import org.apache.hc.core5.util.Timeout;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +23,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +31,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class WebPushSenderTest {
     // 테스트 전용 P-256 키 쌍이다. 공개키는 구독 키(p256dh)로도 쓴다.
@@ -49,8 +43,6 @@ class WebPushSenderTest {
     private static final Duration TTL = Duration.ofHours(4);
 
     private final CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
-    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
-    private final Logger logger = (Logger) LoggerFactory.getLogger(WebPushSender.class);
     private WebPushSender sender;
 
     @BeforeAll
@@ -63,13 +55,6 @@ class WebPushSenderTest {
     @BeforeEach
     void setUp() throws GeneralSecurityException {
         sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient);
-        logs.start();
-        logger.addAppender(logs);
-    }
-
-    @AfterEach
-    void detachLogs() {
-        logger.detachAppender(logs);
     }
 
     @ParameterizedTest
@@ -78,7 +63,6 @@ class WebPushSenderTest {
         givenStatus(statusCode);
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(expected);
-        assertThat(logs.list.getLast().getFormattedMessage()).contains("status_code=" + statusCode, "outcome=http_response");
     }
 
     @Test
@@ -129,7 +113,6 @@ class WebPushSenderTest {
         doThrow(new SocketTimeoutException("timed out")).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
-        assertThat(logs.list.getFirst().getFormattedMessage()).contains("status_code=none", "outcome=timeout");
     }
 
     @Test

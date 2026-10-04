@@ -2,8 +2,6 @@ package com.dameokja.backend.push.infrastructure;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.List;
 import org.apache.hc.client5.http.DnsResolver;
@@ -40,21 +38,8 @@ final class PushDnsResolver implements DnsResolver {
     }
 
     @Override
-    public List<InetSocketAddress> resolve(String host, int port) throws UnknownHostException {
-        try {
-            PushSendDeadline.check();
-            List<InetSocketAddress> addresses = DnsResolver.super.resolve(host, port);
-            PushSendDeadline.check();
-            return addresses;
-        } catch (SocketTimeoutException exception) {
-            UnknownHostException failure = new UnknownHostException(exception.getMessage());
-            failure.initCause(exception);
-            throw failure;
-        }
-    }
-
-    @Override
     public String resolveCanonicalHostname(String host) {
+        // VAPID 인증에는 정식 호스트명 변환이 필요 없으므로 별도 DNS 조회를 하지 않는다.
         return host;
     }
 

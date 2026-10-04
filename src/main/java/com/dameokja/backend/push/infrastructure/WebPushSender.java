@@ -1,15 +1,12 @@
 package com.dameokja.backend.push.infrastructure;
 
 import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import org.jose4j.lang.JoseException;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class WebPushSender {
-    // 발송 시작 10초 후 요청의 연결을 취소한다. OS DNS 조회 자체는 즉시 중단되지 않을 수 있다.
+    // 연결·소켓 읽기·응답 대기에 적용한다. DNS를 포함한 전체 반환 기한은 아니다.
     static final Duration SEND_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebPushRequestFactory webPushRequestFactory;
@@ -41,42 +38,19 @@ public class WebPushSender {
 
     private WebPushResult send(HttpPost request, WebPushTarget target) {
         long startedNanos = System.nanoTime();
-        AtomicInteger responseCode = new AtomicInteger();
-        try (PushSendDeadline deadline = new PushSendDeadline(request, SEND_TIMEOUT)) {
-            try {
-                int statusCode = webPushHttpClient.execute(request, response -> {
-                    responseCode.set(response.getCode());
-                    PushSendDeadline.check();
-                    return response.getCode();
-                });
-                if (!deadline.finish()) {
-                    logSendResult("timeout", responseCode.get(), startedNanos, "deadline_exceeded");
-                    return WebPushResult.FAILED;
-                }
-                logSendResult("http_response", statusCode, startedNanos, "none");
-                return WebPushResult.fromStatus(statusCode);
-            } catch (IOException exception) {
-                boolean withinDeadline = deadline.finish();
-                logSendResult(withinDeadline ? failureOutcome(exception) : "timeout", responseCode.get(), startedNanos,
-                        withinDeadline ? exception.getClass().getSimpleName() : "deadline_exceeded");
-                if (withinDeadline) {
-                    log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
-                }
-                return WebPushResult.FAILED;
-            }
+        try {
+            int statusCode = webPushHttpClient.execute(request, response -> response.getCode());
+            logSendResult(Integer.toString(statusCode), startedNanos, "none");
+            return WebPushResult.fromStatus(statusCode);
+        } catch (IOException exception) {
+            logSendResult("none", startedNanos, exception.getClass().getSimpleName());
+            log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
+            return WebPushResult.FAILED;
         }
     }
 
-    private String failureOutcome(IOException exception) {
-        if (Thread.currentThread().isInterrupted()) {
-            return "interrupted";
-        }
-        return exception instanceof SocketTimeoutException || exception instanceof ConnectionRequestTimeoutException ? "timeout" : "io_error";
-    }
-
-    private void logSendResult(String outcome, int statusCode, long startedNanos, String errorType) {
+    private void logSendResult(String statusCode, long startedNanos, String errorType) {
         long durationMs = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        log.info("event=web_push_send status_code={} duration_ms={} error_type={} outcome={}",
-                statusCode == 0 ? "none" : Integer.toString(statusCode), durationMs, errorType, outcome);
+        log.info("event=web_push_send status_code={} duration_ms={} error_type={}", statusCode, durationMs, errorType);
     }
 }
