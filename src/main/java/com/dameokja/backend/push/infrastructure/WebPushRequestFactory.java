@@ -7,6 +7,7 @@ import java.security.GeneralSecurityException;
 import java.time.Duration;
 import nl.martijndwars.webpush.AbstractPushService;
 import nl.martijndwars.webpush.Encoding;
+import nl.martijndwars.webpush.HttpRequest;
 import nl.martijndwars.webpush.Notification;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -30,8 +31,7 @@ public class WebPushRequestFactory extends AbstractPushService<WebPushRequestFac
             throw new IllegalArgumentException("허용되지 않은 푸시 구독 주소입니다.");
         }
         // 라이브러리 기본값(aesgcm)은 초안 규격이므로 표준(RFC 8291)인 aes128gcm을 명시한다.
-        nl.martijndwars.webpush.HttpRequest prepared =
-                prepareRequest(toNotification(target, payloadJson, ttl), Encoding.AES128GCM);
+        HttpRequest prepared = prepareRequest(toNotification(target, payloadJson, ttl), Encoding.AES128GCM);
         HttpPost request = new HttpPost(prepared.getUrl());
         request.setConfig(RequestConfig.custom().setConnectionRequestTimeout(Timeout.of(timeout))
                 .setResponseTimeout(Timeout.of(timeout)).setRedirectsEnabled(false).build());
