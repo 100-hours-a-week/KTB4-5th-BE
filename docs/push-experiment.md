@@ -1,10 +1,7 @@
 # 규모별 실험 기초 데이터 준비
 
 Docker와 JDK 25가 필요합니다. `pushExperiment`는 JUnit을 수동 실행기로 사용하며 업무 로직 검증 assertion을 추가하지 않습니다.
-실험 코드는 `src/pushExperiment/java`, 주입 SQL은 `src/pushExperiment/resources`에 분리합니다.
-일반 `test`·`build`·`check`에서는 실험 코드 컴파일·리소스 처리·실행을 포함하지 않습니다. `pushExperiment` 실행 시에만 실험을 컴파일합니다.
-기존 격리 DB 지원 코드를 재사용하므로 실험 실행 시에는 일반 테스트 코드도 컴파일하지만, 일반 테스트는 실행하지 않습니다.
-실험 코드만 컴파일하려면 `./gradlew compilePushExperimentJava`를 사용합니다. 일반 CI가 실험 컴파일을 검사하지 않으므로 실험 변경 시 이 작업 또는 `pushExperiment`를 직접 실행합니다.
+일반 `test`·`build`·`check`에서는 실험을 실행하지 않으며, 실험 코드 컴파일만 포함됩니다.
 
 ```bash
 # 기본: 유저 1000명, 전원 만료·임박 재고 보유

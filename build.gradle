@@ -62,28 +62,15 @@ dependencies {
 	implementation 'io.sentry:sentry-async-profiler:8.58.0'
 }
 
-sourceSets {
-	pushExperiment {
-		// 기존 격리 DB 지원 코드를 재사용한다. 일반 test는 이 소스 묶음을 참조하지 않는다.
-		compileClasspath += sourceSets.main.output + sourceSets.test.output
-		runtimeClasspath += sourceSets.main.output + sourceSets.test.output
-	}
-}
-
-configurations {
-	pushExperimentImplementation.extendsFrom testImplementation
-	pushExperimentRuntimeOnly.extendsFrom testRuntimeOnly
-}
-
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform { excludeTags 'push-experiment' }
 }
 
 tasks.register('pushExperiment', Test) {
 	description = '격리 DB에 규모별 실험 기초 데이터를 준비합니다.'
 	group = 'verification'
-	testClassesDirs = sourceSets.pushExperiment.output.classesDirs
-	classpath = sourceSets.pushExperiment.runtimeClasspath
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
 	useJUnitPlatform { includeTags 'push-experiment' }
 	maxParallelForks = 1
 	outputs.upToDateWhen { false }
