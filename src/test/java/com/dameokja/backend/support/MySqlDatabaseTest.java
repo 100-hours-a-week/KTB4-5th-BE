@@ -16,6 +16,13 @@ public abstract class MySqlDatabaseTest {
             "BBsm6R4Q8Y7zDW6IP3LwAqDKguIYBLa83eH8r18Jd9ts8Dyt3xmcoSyL91wjkGIPymgWPJZPeol1iwrLafmJczY";
     private static final String TEST_VAPID_PRIVATE_KEY = "CaYwQ9blK0k4N0J-5tPLIQzYBpSJj24S6sWadUP7wCg";
 
+    // 수동 실험에서도 기존 격리 DB와 테스트 키를 Spring 환경에 등록한다.
+    protected static java.util.Map<String, Object> experimentProperties() {
+        java.util.Map<String, Object> properties = new java.util.HashMap<>();
+        database((name, supplier) -> properties.put(name, supplier.get()));
+        return properties;
+    }
+
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();

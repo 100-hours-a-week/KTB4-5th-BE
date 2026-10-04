@@ -63,5 +63,23 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform { excludeTags 'push-experiment' }
+}
+
+tasks.register('pushExperiment', Test) {
+	description = '격리 DB에 규모별 실험 기초 데이터를 준비합니다.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform { includeTags 'push-experiment' }
+	maxParallelForks = 1
+	outputs.upToDateWhen { false }
+	['count', 'notificationTargetUserCount', 'mode', 'outputDir'].each { key ->
+		def argument = providers.gradleProperty(key)
+		if (argument.isPresent()) {
+			systemProperty "push.experiment.${key}", argument.get()
+		}
+	}
+	maxHeapSize = providers.gradleProperty('experimentHeap').getOrElse('2g')
+	testLogging.showStandardStreams = true
 }
