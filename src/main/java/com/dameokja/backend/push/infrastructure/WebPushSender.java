@@ -1,12 +1,15 @@
 package com.dameokja.backend.push.infrastructure;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.core5.http.ConnectionRequestTimeoutException;
 import org.jose4j.lang.JoseException;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class WebPushSender {
-    // 연결·소켓 읽기·응답 대기에 적용한다. DNS를 포함한 전체 반환 기한은 아니다.
+    // HTTP 실행 시작을 기준으로 약 10초 후 요청을 취소한다. DNS 조회 자체의 즉시 종료는 보장하지 않는다.
     static final Duration SEND_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebPushRequestFactory webPushRequestFactory;
@@ -38,19 +41,45 @@ public class WebPushSender {
 
     private WebPushResult send(HttpPost request, WebPushTarget target) {
         long startedNanos = System.nanoTime();
-        try {
-            int statusCode = webPushHttpClient.execute(request, response -> response.getCode());
-            logSendResult(Integer.toString(statusCode), startedNanos, "none");
-            return WebPushResult.fromStatus(statusCode);
-        } catch (IOException exception) {
-            logSendResult("none", startedNanos, exception.getClass().getSimpleName());
-            log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
-            return WebPushResult.FAILED;
+        // 람다에서 지역 int를 갱신할 수 없어 별도 응답 처리 클래스 대신 변경 가능한 객체를 사용한다.
+        // 본문 처리 중 예외가 발생해도 헤더에서 받은 응답 코드를 로그에 남기기 위해 보존한다.
+        // 갱신과 조회는 같은 전송 스레드에서 실행되므로 동시 접근에 대한 원자성은 필요하지 않다.
+        AtomicInteger responseCode = new AtomicInteger();
+        try (PushSendDeadline deadline = new PushSendDeadline(request, SEND_TIMEOUT)) {
+            try {
+                int statusCode = webPushHttpClient.execute(request, response -> {
+                    responseCode.set(response.getCode());
+                    PushSendDeadline.check();
+                    return response.getCode();
+                });
+                if (!deadline.finishWithinDeadline()) {
+                    logSendResult("timeout", responseCode.get(), startedNanos, "deadline_exceeded");
+                    return WebPushResult.FAILED;
+                }
+                logSendResult("http_response", statusCode, startedNanos, "none");
+                return WebPushResult.fromStatus(statusCode);
+            } catch (IOException exception) {
+                boolean withinDeadline = deadline.finishWithinDeadline();
+                logSendResult(withinDeadline ? failureOutcome(exception) : "timeout", responseCode.get(), startedNanos,
+                        withinDeadline ? exception.getClass().getSimpleName() : "deadline_exceeded");
+                if (withinDeadline) {
+                    log.warn("Web Push 전송에 실패했습니다. target={}", target, exception);
+                }
+                return WebPushResult.FAILED;
+            }
         }
     }
 
-    private void logSendResult(String statusCode, long startedNanos, String errorType) {
+    private String failureOutcome(IOException exception) {
+        if (Thread.currentThread().isInterrupted()) {
+            return "interrupted";
+        }
+        return exception instanceof SocketTimeoutException || exception instanceof ConnectionRequestTimeoutException ? "timeout" : "io_error";
+    }
+
+    private void logSendResult(String outcome, int statusCode, long startedNanos, String errorType) {
         long durationMs = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        log.info("event=web_push_send status_code={} duration_ms={} error_type={}", statusCode, durationMs, errorType);
+        log.info("event=web_push_send status_code={} duration_ms={} error_type={} outcome={}",
+                statusCode == 0 ? "none" : Integer.toString(statusCode), durationMs, errorType, outcome);
     }
 }
