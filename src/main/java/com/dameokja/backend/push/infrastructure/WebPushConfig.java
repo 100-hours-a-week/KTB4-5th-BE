@@ -1,9 +1,16 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.domain.VapidKeyProperties;
-import java.net.http.HttpClient;
 import java.security.GeneralSecurityException;
 import java.security.Security;
+import org.apache.hc.client5.http.SystemDefaultDnsResolver;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.Timeout;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -28,9 +35,20 @@ public class WebPushConfig {
     }
 
     // 전송마다 클라이언트를 만들지 않고 푸시 서비스와의 커넥션과 TLS 세션을 재사용한다.
+    @Bean(destroyMethod = "close")
+    CloseableHttpClient webPushHttpClient(PushDnsResolver webPushDnsResolver) {
+        PoolingHttpClientConnectionManager manager = PoolingHttpClientConnectionManagerBuilder.create().setDnsResolver(webPushDnsResolver)
+                .setDefaultConnectionConfig(ConnectionConfig.custom().setConnectTimeout(Timeout.of(WebPushSender.SEND_TIMEOUT))
+                        .setSocketTimeout(Timeout.of(WebPushSender.SEND_TIMEOUT)).build()).build();
+        return HttpClients.custom().setConnectionManager(manager)
+                .setDefaultRequestConfig(RequestConfig.custom().setRedirectsEnabled(false).build())
+                .disableRedirectHandling().disableAutomaticRetries()
+                .disableCookieManagement().build();
+    }
+
     @Bean
-    HttpClient webPushHttpClient() {
-        return HttpClient.newHttpClient();
+    PushDnsResolver webPushDnsResolver() {
+        return new PushDnsResolver(SystemDefaultDnsResolver.INSTANCE);
     }
 
     private void validatePrivateKey(String privateKey) {

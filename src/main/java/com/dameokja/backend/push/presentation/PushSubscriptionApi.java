@@ -26,6 +26,9 @@ public interface PushSubscriptionApi {
             description = "브라우저에서 생성한 Web Push 구독(endpoint, p256dh, auth)을 등록합니다. "
                     + "이미 등록된 endpoint면 본인 구독일 때만 갱신하고, 다른 계정의 구독이면 409를 반환합니다. "
                     + "auth는 서버에 암호화되어 저장되며 응답에 포함되지 않습니다."
+                    + " endpoint는 HTTPS와 기본 포트(443)만 허용하며, fcm.googleapis.com, "
+                    + "updates.push.services.mozilla.com 또는 push.apple.com·notify.windows.com의 하위 도메인이어야 합니다. "
+                    + "IP 주소, 사용자 정보, fragment가 포함된 주소는 허용하지 않습니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -44,7 +47,7 @@ public interface PushSubscriptionApi {
                             examples = @ExampleObject(value = SUBSCRIBE_RENEWED_RESPONSE)
                     )
             ),
-            @ApiResponse(responseCode = "400", description = "요청 형식 오류 (GLOBAL-400-001)"),
+            @ApiResponse(responseCode = "400", description = "요청 형식 또는 endpoint 오류 (GLOBAL-400-001)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(
                     responseCode = "403",

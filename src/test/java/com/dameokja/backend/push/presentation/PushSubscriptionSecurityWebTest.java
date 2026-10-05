@@ -1,6 +1,9 @@
 package com.dameokja.backend.push.presentation;
 
 import com.dameokja.backend.auth.presentation.CsrfController;
+import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.FieldError;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
@@ -10,6 +13,7 @@ import com.dameokja.backend.push.application.PushSubscriptionService;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class PushSubscriptionSecurityWebTest {
     private static final String BODY = """
-            {"endpoint": "https://push.example.com/1",
+            {"endpoint": "https://fcm.googleapis.com/1",
              "keys": {"p256dh": "p256dh-key", "auth": "auth-secret"}}
             """;
 
@@ -72,7 +76,7 @@ class PushSubscriptionSecurityWebTest {
 
     @Test
     void registerReturnsCreatedWithLocationForNewSubscription() throws Exception {
-        when(pushSubscriptionService.register(7L, "https://push.example.com/1", "p256dh-key",
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key",
                 "auth-secret")).thenReturn(new PushSubscriptionResult(501L, true));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
@@ -86,7 +90,7 @@ class PushSubscriptionSecurityWebTest {
 
     @Test
     void registerReturnsOkWithoutLocationForRenewedSubscription() throws Exception {
-        when(pushSubscriptionService.register(7L, "https://push.example.com/1", "p256dh-key",
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key",
                 "auth-secret")).thenReturn(new PushSubscriptionResult(501L, false));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
@@ -104,6 +108,22 @@ class PushSubscriptionSecurityWebTest {
                         .header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void registerReturnsEndpointValidationError() throws Exception {
+        when(pushSubscriptionService.register(7L, "https://127.0.0.1/1", "p256dh-key", "auth-secret"))
+                .thenThrow(new CustomException(GlobalExceptionCode.BAD_REQUEST,
+                        List.of(FieldError.of("BODY", "/endpoint", "FORMAT", "허용되지 않은 푸시 구독 주소입니다."))));
+        Cookie csrf = csrf();
+
+        mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
+                        .header("X-XSRF-TOKEN", csrf.getValue()).contentType(MediaType.APPLICATION_JSON)
+                        .content(BODY.replace("https://fcm.googleapis.com/1", "https://127.0.0.1/1")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL-400-001"))
+                .andExpect(jsonPath("$.message").value("요청 형식이 올바르지 않습니다."))
+                .andExpect(jsonPath("$.errors[0].field").value("/endpoint"));
     }
 
     @Test

@@ -1,10 +1,18 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.domain.VapidKeyProperties;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import org.apache.hc.client5.http.DnsResolver;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.protocol.HttpClientContext;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class WebPushConfigTest {
     private static final String PUBLIC_KEY =
@@ -21,6 +29,19 @@ class WebPushConfigTest {
         assertThat(factory.getPublicKey()).isNotNull();
         assertThat(factory.getPrivateKey()).isNotNull();
         assertThat(factory.getSubject()).isNull();
+    }
+
+    @Test
+    void blocksPrivateDnsBeforeConnectingWithRedirectsDisabled() throws Exception {
+        DnsResolver delegate = mock(DnsResolver.class);
+        when(delegate.resolve("fcm.googleapis.com")).thenReturn(new InetAddress[]{InetAddress.ofLiteral("127.0.0.1")});
+        HttpPost request = new HttpPost("https://fcm.googleapis.com/send/abc");
+        HttpClientContext context = HttpClientContext.create();
+        try (CloseableHttpClient client = config.webPushHttpClient(new PushDnsResolver(delegate))) {
+            assertThatThrownBy(() -> client.execute(request, context, response -> response.getCode()))
+                    .isInstanceOf(UnknownHostException.class);
+            assertThat(context.getRequestConfigOrDefault().isRedirectsEnabled()).isFalse();
+        }
     }
 
     @Test
