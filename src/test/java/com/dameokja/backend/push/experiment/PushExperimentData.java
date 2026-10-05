@@ -35,6 +35,7 @@ final class PushExperimentData {
             try {
                 configure(connection);
                 executeBatches(connection, config.userCount(), "seed.sql");
+                executeBatches(connection, config.historyCount(), "history.sql");
             } catch (Exception exception) {
                 connection.rollback();
                 throw exception;
@@ -66,11 +67,12 @@ final class PushExperimentData {
     private void configure(Connection connection) throws Exception {
         LocalDateTime now = BusinessTime.now(clock);
         try (PreparedStatement statement = connection.prepareStatement(
-                "SET @now=?, @public_key=?, @encrypted_auth=?, @notification_targets=?")) {
-            statement.setObject(1, now);
-            statement.setString(2, vapidKeys.getPublicKey());
-            statement.setBytes(3, authEncryptor.encrypt("AAAAAAAAAAAAAAAAAAAAAA"));
-            statement.setInt(4, config.notificationTargetUserCount());
+                "SET @count=?, @now=?, @public_key=?, @encrypted_auth=?, @notification_targets=?")) {
+            statement.setInt(1, config.userCount());
+            statement.setObject(2, now);
+            statement.setString(3, vapidKeys.getPublicKey());
+            statement.setBytes(4, authEncryptor.encrypt("AAAAAAAAAAAAAAAAAAAAAA"));
+            statement.setInt(5, config.notificationTargetUserCount());
             statement.execute();
         }
     }

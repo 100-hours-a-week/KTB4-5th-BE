@@ -45,7 +45,7 @@ final class PushExperimentApplication {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @Import(PushExperimentData.class)
+    @Import({PushExperimentData.class, PushExperimentStages.class})
     static class ExperimentBeans {
         @Bean
         @Primary
