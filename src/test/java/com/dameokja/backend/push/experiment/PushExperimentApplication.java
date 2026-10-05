@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -45,11 +46,20 @@ final class PushExperimentApplication {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @Import({PushExperimentData.class, PushExperimentStages.class})
+    @Import({PushExperimentData.class, PushExperimentStages.class, PushExperimentSqlCapture.class, PushExperimentPlans.class})
     static class ExperimentBeans {
         @Bean
         @Primary
         Clock experimentClock(PushExperimentConfig config) { return config.clock(); }
+
+        @Bean
+        HibernatePropertiesCustomizer experimentSqlInspector(PushExperimentConfig config, PushExperimentSqlCapture capture) {
+            return properties -> {
+                if (config.explain()) {
+                    properties.put("hibernate.session_factory.statement_inspector", capture);
+                }
+            };
+        }
 
         // 데이터 준비 중 자동 생성·정리가 끼어들지 않도록 자동 스케줄을 차단한다.
         @Bean

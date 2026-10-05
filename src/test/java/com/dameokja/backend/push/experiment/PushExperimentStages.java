@@ -3,6 +3,8 @@ package com.dameokja.backend.push.experiment;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.ExpirationNotificationService;
 import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.push.domain.PushNotification;
+import com.dameokja.backend.push.infrastructure.PushInboxTarget;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import java.time.Clock;
@@ -18,6 +20,7 @@ final class PushExperimentStages {
     private final PushExperimentConfig config;
     private final PushExperimentData dataset;
     private final Clock clock;
+    private final PushExperimentPlans plans;
     private final JdbcTemplate jdbc;
     private final RefrigeratorService refrigeratorService;
     private final ExpirationNotificationService notificationService;
@@ -54,7 +57,7 @@ final class PushExperimentStages {
     }
 
     private List<Long> queryRefrigerators(Map<String, Object> report) throws Exception {
-        List<Long> ids = PushExperimentMeasurement.measure(report, "refrigeratorQuery",
+        List<Long> ids = plans.measureQuery(report, "refrigeratorQuery", new Object[0],
                 refrigeratorService::findNotificationTargetRefrigeratorIds);
         report.put("refrigeratorQueryRows", ids.size());
         return ids;
@@ -73,7 +76,7 @@ final class PushExperimentStages {
 
     private void queryPushTargets(Map<String, Object> report) throws Exception {
         LocalDateTime from = businessNow().toLocalDate().atStartOfDay();
-        var targets = PushExperimentMeasurement.measure(report, "pushTargetQuery",
+        List<PushInboxTarget> targets = plans.measureQuery(report, "pushTargetQuery", new Object[] {from, from.plusDays(1)},
                 () -> pushRepository.findInboxPushTargets(from, from.plusDays(1)));
         report.put("pushTargetQueryRows", targets.size());
     }
@@ -85,7 +88,8 @@ final class PushExperimentStages {
     }
 
     private void queryDueJobs(Map<String, Object> report) throws Exception {
-        var jobs = PushExperimentMeasurement.measure(report, "dueQuery", () -> pushRepository.findDueJobs(businessNow()));
+        LocalDateTime now = businessNow();
+        List<PushNotification> jobs = plans.measureQuery(report, "dueQuery", new Object[] {now}, () -> pushRepository.findDueJobs(now));
         report.put("dueQueryRows", jobs.size());
     }
 

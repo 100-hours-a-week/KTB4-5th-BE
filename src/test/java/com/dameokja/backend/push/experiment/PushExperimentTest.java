@@ -45,6 +45,8 @@ class PushExperimentTest extends MySqlDatabaseTest {
         report.put("notificationTargetUserCount", config.notificationTargetUserCount());
         report.put("historyNotificationCount", config.historyCount());
         report.put("mode", config.mode().argument());
+        report.put("explain", config.explain());
+        report.put("analyze", config.analyze());
         report.put("maxHeapBytes", Runtime.getRuntime().maxMemory());
         report.put("heapSamplingIntervalMs", PushExperimentMeasurement.SAMPLE_INTERVAL_MS);
         report.put("businessZone", BusinessTime.ZONE.getId());
