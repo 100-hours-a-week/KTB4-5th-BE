@@ -43,6 +43,20 @@ final class PushExperimentData {
         }
     }
 
+    void prepareRecovery() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                configure(connection);
+                ScriptUtils.executeSqlScript(connection, new ClassPathResource("push-experiment/recovery.sql"));
+                connection.commit();
+            } catch (Exception exception) {
+                connection.rollback();
+                throw exception;
+            }
+        }
+    }
+
     Map<String, Long> tableCounts() {
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String table : new String[] {"users", "refrigerators", "refrigerator_members", "notification_preferences",

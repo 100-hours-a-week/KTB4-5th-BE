@@ -47,7 +47,7 @@ final class PushExperimentStages {
                 generateNotifications(queryRefrigerators(report), report);
                 generateJobs(report);
             }
-            case QUERY -> {
+            case QUERY, GENERATION, RECOVERY, STARTUP_OBSERVE -> {
                 generateNotifications(queryRefrigerators(report), report);
                 generateJobs(report);
                 queryDueJobs(report);

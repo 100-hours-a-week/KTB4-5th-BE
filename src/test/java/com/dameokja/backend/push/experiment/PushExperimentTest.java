@@ -33,9 +33,16 @@ class PushExperimentTest extends MySqlDatabaseTest {
     }
 
     private void runSelectedStage(PushExperimentConfig config, Map<String, Object> report) throws Exception {
-        try (ConfigurableApplicationContext context = PushExperimentMeasurement.measure(report, "startup",
-                () -> new PushExperimentApplication(config, experimentProperties()).start())) {
+        PushExperimentApplication application = new PushExperimentApplication(config, experimentProperties());
+        try (ConfigurableApplicationContext context = PushExperimentMeasurement.measure(report, "startup", application::start)) {
             context.getBean(PushExperimentStages.class).execute(report);
+            context.getBean(PushExperimentDispatch.class).executeBeforeShutdown(report);
+        }
+        if (config.mode().requiresRestart()) {
+            report.put("restartType", "spring-context");
+            try (ConfigurableApplicationContext context = PushExperimentMeasurement.measure(report, "restart", application::start)) {
+                context.getBean(PushExperimentDispatch.class).executeAfterRestart(report);
+            }
         }
     }
 
@@ -47,6 +54,9 @@ class PushExperimentTest extends MySqlDatabaseTest {
         report.put("mode", config.mode().argument());
         report.put("explain", config.explain());
         report.put("analyze", config.analyze());
+        report.put("mockStatus", config.httpStatus());
+        report.put("mockDelayMs", config.responseDelayMs());
+        report.put("observationWaitMs", config.observationWaitMs());
         report.put("maxHeapBytes", Runtime.getRuntime().maxMemory());
         report.put("heapSamplingIntervalMs", PushExperimentMeasurement.SAMPLE_INTERVAL_MS);
         report.put("businessZone", BusinessTime.ZONE.getId());

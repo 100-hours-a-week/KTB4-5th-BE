@@ -21,6 +21,9 @@ Docker와 JDK 25가 필요합니다. `pushExperiment`는 JUnit을 수동 실행�
 | `mode` | seed | 아래 단계 선택 |
 | `explain` | false | 실제 SQL과 EXPLAIN FORMAT=JSON 수집 |
 | `analyze` | false | EXPLAIN ANALYZE FORMAT=TREE 추가 실행. explain도 활성화 |
+| `status` | 201 | 가짜 HTTP 응답 코드, 100~599 |
+| `delayMs` | 0 | 가짜 HTTP 응답 대기(ms), 0 이상 |
+| `waitMs` | 0 | startup-observe 관측 대기 상한(ms), 0~60000 |
 | `historyCount` | 0 | 과거 알림 수, 0~1000000. 수신자 H건·ACCEPTED 푸시 2H건 추가 |
 | `outputDir` | build/push-experiment | 실제 건수와 시간 조건을 기록한 result.json 경로 |
 | `experimentHeap` | 2g | 실행 JVM 최대 힙. Docker 메모리·디스크는 별도 확보 |
@@ -35,7 +38,7 @@ Docker와 JDK 25가 필요합니다. `pushExperiment`는 JUnit을 수동 실행�
 빈 DB에 1만 명씩 커밋하며 FK·인덱스를 유지합니다. 실패 시 앞선 배치가 남을 수 있으나 실행 종료 시 컨테이너는 제거됩니다.
 새 실행마다 새 컨테이너를 만들며 종료 후 데이터가 남지 않습니다. 실행 중 DB를 유지하는 부하 환경은 아직 아닙니다.
 서울 2026-09-30 08:00으로 업무 Clock을 고정하며 JVM 시간대는 변경하지 않습니다. 자동 `@Scheduled` 작업은 준비 중 생성·정리가 끼어들지 않도록 차단합니다.
-전송·재시작 실험은 후속 범위입니다.
+전송·컨텍스트 재시작은 아래 수동 모드에서 실행합니다.
 
 ## 전체 조회 측정
 
@@ -58,6 +61,9 @@ Docker와 JDK 25가 필요합니다. `pushExperiment`는 JUnit을 수동 실행�
 | targets | 알림 생성 후 findInboxPushTargets 전체 조회, 신규 푸시 작업 삽입 없음 |
 | jobs | createExpirationJobs로 실제 푸시 작업 생성 |
 | query | findDueJobs 전체 조회·ORM 객체 생성, 발송 없음 |
+| generation | query 후 실제 dispatchDueJobs 1회 실행 |
+| recovery | query 후 합성 상태 준비 → 컨텍스트 재시작 → 직접 dispatch 1회 |
+| startup-observe | 같은 상태 준비·재시작 후 직접 dispatch 없이 관측 |
 
 과거 데이터는 history.sql로 주입하며 같은 유저·냉장고에 어제 생성된 알림 H건, 수신자 H건, ACCEPTED 푸시 2H건을 추가합니다.
 기초·과거 데이터는 각각 1만 건씩 커밋합니다. 신규 알림·푸시는 실제 서비스로 생성합니다. 대상 K명의 신규 알림은 2K건, 푸시는 4K건입니다.
@@ -70,7 +76,7 @@ Docker와 JDK 25가 필요합니다. `pushExperiment`는 JUnit을 수동 실행�
 단일 실행 값이며 준비·앞선 단계로 DB 캐시가 달라집니다. 동일 설정으로 반복하고 전체 규모·대상 수·누적량을 독립적으로 바꾸어 비교합니다.
 
 `ExperimentBeans`의 `@Import`로 `PushExperimentData`·`PushExperimentStages`를 등록하고 의존성은 생성자로 주입합니다.
-실행기는 컨텍스트 시작·종료와 `Stages` 진입점 조회만 맡고, 결과 Map은 `execute(report)` 인자로 전달합니다.
+실행기는 컨텍스트 시작·종료·재시작과 `Stages`·`Dispatch` 진입점 조회를 맡고, 결과 Map은 실행 메서드의 인자로 전달합니다.
 재시작 시에는 새 컨텍스트의 진입점 빈을 가져와야 하며 이전 컨텍스트의 빈을 재사용하지 않습니다.
 
 ## 실제 SQL과 실행계획
@@ -97,3 +103,40 @@ EXPLAIN ANALYZE는 SELECT를 실제로 다시 실행하며, 추가 부하와 이
 EXPLAIN의 인덱스·접근 방식·예상 행 수와 ANALYZE의 실제 rows·loops·시간을 함께 읽습니다. 인덱스 사용을 강제하거나 성능 기준을 assertion으로 검증하지 않습니다.
 
 참고: [MySQL EXPLAIN·EXPLAIN ANALYZE](https://dev.mysql.com/doc/refman/8.4/en/explain.html), [Hibernate StatementInspector](https://docs.hibernate.org/orm/7.1/javadocs/org/hibernate/resource/jdbc/spi/StatementInspector.html).
+
+## 전송·컨텍스트 재시작 관측
+
+```bash
+# 외부 응답을 201·100ms로 설정하고 실제 전송 경로를 1회 실행
+./gradlew pushExperiment -Pmode=generation -Pcount=1000 -PnotificationTargetUserCount=100 -Pstatus=201 -PdelayMs=100 -PoutputDir=build/push-experiment/send-201
+# 합성 중단 상태를 준비하고 같은 DB로 컨텍스트를 재시작한 뒤 직접 전송
+./gradlew pushExperiment -Pmode=recovery -Pcount=7 -PhistoryCount=3 -Pstatus=503 -PoutputDir=build/push-experiment/recovery-503
+# 직접 전송 없이 기동 시 처리 여부를 최대 1초 관측
+./gradlew pushExperiment -Pmode=startup-observe -Pcount=7 -PwaitMs=1000 -PoutputDir=build/push-experiment/startup-observe
+```
+
+기존 기본 모드(seed)와 실행 명령은 유지합니다. 조회 모드에는 HTTP 대기나 재시작이 없습니다.
+연결 순서는 Test → Stages → Dispatch → 실제 PushDispatchService → PushSendService → WebPushSender → SimulatedPushHttpClient입니다.
+`ExperimentBeans`가 Dispatch를 등록하고, `@Primary` HTTP 클라이언트를 WebPushSender에 주입합니다.
+Dispatch의 서비스·데이터 준비·Clock·JDBC·HTTP 클라이언트는 생성자로 주입하며 재시작 시 새 컨텍스트의 Bean을 사용합니다.
+실제 발송은 기존 서비스의 가상 스레드·동시 전송 제한을 사용합니다. 클라이언트 요청 수는 AtomicInteger로 기록합니다.
+SQL 수집은 발송 전의 순차 조회에서만 켜지고, 기존 세 쿼리 외에 발송 내부 쿼리의 실행계획은 추가 수집하지 않습니다.
+
+HTTP 클라이언트만 교체하므로 구독 복호화·Web Push 암호화·서명·응답 분류·DB 갱신은 실제 코드입니다.
+실험의 합성 FCM endpoint 경로를 검사하고 네트워크 없이 설정한 상태를 반환합니다. DNS·TCP·TLS·실제 기기 수신은 측정하지 않습니다.
+가짜 지연은 Thread.sleep으로 구현해 요청 취소가 즉시 대기를 끝내는 실제 네트워크 timeout 동작까지 재현하지 않습니다.
+`dispatchMs`·힙·GC는 전체 전송 단계 값입니다. `httpAttempts`, `nextAttemptAt`, `dueAfterDispatch`, `finalStates`, `finalRows`도 기록합니다.
+503 등 실패 응답도 1회 호출 후 결과를 기록하며 다음 재시도 시각까지 기다려 재호출하지 않습니다.
+
+`recovery.sql`은 실제 생성한 당일 작업만 알림 ID % 7로 PENDING·RETRY·ACCEPTED·FAILED·CANCELLED에 분배합니다.
+기한 내 즉시 대상·미래 대상·기한 만료 대상을 함께 준비하며 과거 작업은 변경하지 않습니다.
+종료 전 `statesBeforeRestart`·`dueBeforeRestart`·`sendableBeforeRestart`·`httpAttemptsBeforeRestart`를 기록합니다.
+재시작 직후 `statesAfterRestart`·`dueAfterRestart`·`httpAttemptsAfterRestart`를 기록하고 recovery에서만 전송합니다.
+startup-observe는 `startupObservationMs`와 `statesAfterObservation`·`dueAfterObservation`·`httpAttemptsAfterObservation`을 기록합니다.
+관측은 대기 상한 또는 즉시 처리 대상이 없어질 때 끝납니다. waitMs=0이면 기동 직후 상태만 확인합니다.
+
+`restartType=spring-context`는 같은 JVM·DB에서 스프링 컨텍스트만 정상 종료 후 재생성했다는 뜻입니다.
+현재 앱에는 기동 시 자동 복구가 없고 모든 자동 @Scheduled 등록도 계속 차단하므로 startup-observe에서 전송하지 않습니다.
+Clock은 서울 2026-09-30 08:00 고정이며 waitMs·delayMs만 실제 경과 시간입니다. 관측 중 미래 예약 시각이 도래하지 않습니다.
+프로세스 강제 종료·전송 도중 중단·진행 중 요청 유실·정상 종료 중 대기는 이 실험으로 검증하지 않습니다.
+실행 종료 시 DB는 제거됩니다. 지속 컨테이너 부하 환경이나 k6·Locust 연결은 별도 작업입니다.

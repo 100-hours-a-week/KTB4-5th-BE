@@ -46,11 +46,17 @@ final class PushExperimentApplication {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @Import({PushExperimentData.class, PushExperimentStages.class, PushExperimentSqlCapture.class, PushExperimentPlans.class})
+    @Import({PushExperimentData.class, PushExperimentStages.class, PushExperimentSqlCapture.class,
+            PushExperimentPlans.class, PushExperimentDispatch.class})
     static class ExperimentBeans {
         @Bean
         @Primary
         Clock experimentClock(PushExperimentConfig config) { return config.clock(); }
+
+        // WebPushSender의 HTTP 클라이언트만 교체해 암호화·응답 분류·DB 갱신은 실제 경로를 실행한다.
+        @Bean
+        @Primary
+        SimulatedPushHttpClient experimentHttpClient(PushExperimentConfig config) { return new SimulatedPushHttpClient(config); }
 
         @Bean
         HibernatePropertiesCustomizer experimentSqlInspector(PushExperimentConfig config, PushExperimentSqlCapture capture) {

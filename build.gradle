@@ -74,7 +74,7 @@ tasks.register('pushExperiment', Test) {
 	useJUnitPlatform { includeTags 'push-experiment' }
 	maxParallelForks = 1
 	outputs.upToDateWhen { false }
-	['count', 'notificationTargetUserCount', 'historyCount', 'mode', 'explain', 'analyze', 'outputDir'].each { key ->
+	['count', 'notificationTargetUserCount', 'historyCount', 'mode', 'explain', 'analyze', 'status', 'delayMs', 'waitMs', 'outputDir'].each { key ->
 		def argument = providers.gradleProperty(key)
 		if (argument.isPresent()) {
 			systemProperty "push.experiment.${key}", argument.get()
