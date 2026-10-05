@@ -10,6 +10,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.scheduling.config.TaskManagementConfigUtils;
@@ -44,6 +45,7 @@ final class PushExperimentApplication {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
+    @Import(PushExperimentData.class)
     static class ExperimentBeans {
         @Bean
         @Primary

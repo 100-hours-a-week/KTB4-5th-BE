@@ -10,7 +10,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 // 업무 로직 검증이 아닌 수동 실험 실행기다. 일반 test에서는 이 태그를 제외한다.
@@ -21,18 +20,13 @@ class PushExperimentTest extends MySqlDatabaseTest {
         PushExperimentConfig config = PushExperimentConfig.fromSystemProperties();
         PushExperimentApplication application = new PushExperimentApplication(config, experimentProperties());
         try (ConfigurableApplicationContext context = application.start()) {
-            PushExperimentData.seed(context, config);
-            recordPreparedDataset(context, config);
+            PushExperimentData dataset = context.getBean(PushExperimentData.class);
+            dataset.seed();
+            recordPreparedDataset(config, dataset.tableCounts());
         }
     }
 
-    private void recordPreparedDataset(ConfigurableApplicationContext context, PushExperimentConfig config) throws Exception {
-        JdbcTemplate jdbc = context.getBean(JdbcTemplate.class);
-        Map<String, Long> counts = new LinkedHashMap<>();
-        for (String table : new String[] {"users", "refrigerators", "refrigerator_members", "notification_preferences",
-                "ingredients", "user_devices", "notifications", "notification_recipients", "push_notifications"}) {
-            counts.put(table, jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class));
-        }
+    private void recordPreparedDataset(PushExperimentConfig config, Map<String, Long> counts) throws Exception {
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("userCount", config.userCount());
         report.put("notificationTargetUserCount", config.notificationTargetUserCount());
