@@ -54,6 +54,36 @@
 - 앱은 현재 시각·날짜를 `BusinessTime.now(clock)`·`BusinessTime.today(clock)`로 만든다. JPA Auditing(`created_at`·`updated_at`)도 같은 기준이다.
 - DB 기본값 `CURRENT_TIMESTAMP(6)`은 MySQL 세션 시간대로 표현되므로 앱이 값을 넣지 않는 경로(직접 SQL 등)에서는 서버 설정에 따라 기준이 달라질 수 있다. [M2]
 
+## 이미지 S3 업로드 설정
+
+AWS SDK for Java 2.x는 BOM으로 버전을 맞추고 S3 모듈을 사용한다. [AWS1]
+현재는 `S3Presigner`와 설정만 준비되어 있으며, URL 발급 API는 후속 PR에서 연결한다.
+
+| 환경변수 | 내용 |
+|---|---|
+| `S3_BUCKET` | 업로드 버킷 이름 |
+| `S3_REGION` | 버킷 리전 |
+| `S3_UPLOAD_PREFIX` | 공통 객체 키 prefix. `/`로 끝나는 상대 경로 |
+| `S3_PRESIGNED_URL_TTL` | URL 유효시간. Duration 형식, 1초 이상 7일 이하 [AWS3] |
+| `S3_MAX_UPLOAD_BYTES` | 최대 업로드 크기(바이트), 양수 |
+| `S3_ALLOWED_CONTENT_TYPES` | 쉼표로 구분한 허용 MIME 타입 |
+
+위 변수는 기본값 없이 외부 환경에서 주입한다. 빠지거나 잘못된 설정은 기동 시 거절한다.
+버킷 이름의 기본 형식은 S3 명명 규칙을 따른다. [AWS5]
+실제 버킷·리전·prefix 값은 코드·테스트·문서에 기록하지 않는다. 「팀」
+업로드 제한은 영수증 분석 서버의 입력 제한에 맞춰 배포 환경에서 설정한다. 「팀」
+객체 키는 후속 발급 API에서 `<prefix>analysis/<사용자 ID>/<UUID>.<확장자>` 또는 `<prefix>profile/<사용자 ID>/<UUID>.<확장자>`로 생성한다.
+분석용 업로드는 영수증·실물 여부를 경로로 구분하지 않는다. 「팀」 AI 요청으로 이미지 유형을 판단하기 때문이다.
+크기·MIME 제한은 후속 발급 API에서 구현하며, 현재 설정만으로 업로드를 제한하지 않는다.
+영수증 객체 키는 분석 입력용이며 재고 실물 사진의 `ingredient_image_key`에 저장하지 않는다. 「팀」
+
+자격 증명은 AWS SDK 기본 체인을 사용한다. 로컬에서는 `aws login`으로 만든 공유 프로필 또는 AWS 환경변수,
+EC2에서는 인스턴스 IAM 역할로 제공한다. 키를 `application.yml`이나 Git에 넣지 않는다. [AWS2][OW1]
+`aws login` 자격 증명을 읽고 갱신하도록 `signin` 모듈을 포함한다. 임시 키를 `.env`에 복사할 필요는 없다. [AWS6]
+Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 시 조회한다. [AWS3]
+실제 PUT 업로드에는 서명 주체의 설정된 prefix 아래 `analysis/`·`profile/` 객체 쓰기 권한과 프론트 Origin·PUT·업로드 헤더를 허용하는
+버킷 CORS 설정이 필요하다. [AWS3][AWS4] 버킷·IAM·CORS 변경은 이 설정 코드가 수행하지 않는다.
+
 ## DDL
 
 - `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
@@ -100,3 +130,10 @@
 | OW1 | [OWASP — Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) | 소스코드·설정 파일에 평문 비밀값을 두는 것이 문제 |
 | HB1 | [Hibernate ORM 7.4 — `MappingSettings.JAVA_TIME_USE_DIRECT_JDBC`](https://docs.hibernate.org/orm/7.4/javadocs/org/hibernate/cfg/MappingSettings.html) (확인 2026-09-30) | JDBC 4.2 방식으로 java.time 값을 바로 바인딩·추출할지 여부, 기본값 `false` |
 | C1 | [MySQL Connector/J — Datetime Types Processing](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-datetime-types-processing.html) (확인 2026-09-30) | `connectionTimeZone` 기본값 `LOCAL`(JVM 기본 시간대), `serverTimezone`은 별칭. `preserveInstants` 기본값 `true`, 저장 시 대상 타입이 `TIMESTAMP`일 때만 변환 |
+| AWS1 | [AWS SDK for Java — Gradle 설정](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-project-gradle.html) (확인 2026-10-05) | SDK BOM과 필요한 서비스 모듈만 선언 |
+| AWS2 | [AWS SDK for Java — 기본 자격 증명 체인](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html) (확인 2026-10-05) | 환경변수·공유 프로필·IAM 역할 등에서 자격 증명 조회 |
+| AWS3 | [AWS SDK for Java — S3Presigner](https://docs.aws.amazon.com/java/api/latest/software/amazon/awssdk/services/s3/presigner/S3Presigner.html) (확인 2026-10-05) | Presigner 수명 주기·7일 서명 제한·발급 시 자격 증명 조회 |
+| AWS4 | [Amazon S3 — CORS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cors.html) (확인 2026-10-05) | 브라우저 업로드 Origin·메서드·헤더 허용 |
+| 팀 | 팀 — 영수증 업로드 설정 외부 주입 (확인 2026-10-05) | 실제 저장소 값을 공개 코드에서 분리하고 환경변수로만 설정; 영수증은 분석 입력으로만 사용 |
+| AWS5 | [Amazon S3 — 버킷 명명 규칙](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) (확인 2026-10-05) | 버킷 이름의 길이 및 허용 문자 기본 형식 |
+| AWS6 | [AWS SDK for Java — 콘솔 로그인 자격 증명](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-temporary.html) (확인 2026-10-06) | `aws login` 공유 프로필 사용에 필요한 `signin` 모듈 및 자동 갱신 |

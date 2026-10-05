@@ -59,6 +59,15 @@ push:
     # 로컬 수동 검증용 발송 API(PushTestController). 배포 환경은 기본값 false를 유지하고, 로컬에서만 .env로 켠다.
     enabled: ${PUSH_TEST_API_ENABLED:false}
 
+image:
+  storage:
+    bucket: ${S3_BUCKET}
+    region: ${S3_REGION}
+    prefix: ${S3_UPLOAD_PREFIX}
+    presigned-url-ttl: ${S3_PRESIGNED_URL_TTL}
+    max-upload-bytes: ${S3_MAX_UPLOAD_BYTES}
+    allowed-content-types: ${S3_ALLOWED_CONTENT_TYPES}
+
 management:
   endpoints:
     web:
