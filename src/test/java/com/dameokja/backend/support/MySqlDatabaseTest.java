@@ -26,6 +26,7 @@ public abstract class MySqlDatabaseTest {
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();
+        imageStorage(registry);
         registry.add("jwt.secret", () -> java.util.Base64.getEncoder()
                 .encodeToString(new byte[32]));
         registry.add("push.auth-encryption.key", () -> java.util.Base64.getEncoder()
@@ -40,6 +41,15 @@ public abstract class MySqlDatabaseTest {
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);
+    }
+
+    private static void imageStorage(DynamicPropertyRegistry registry) {
+        registry.add("image.storage.bucket", () -> "test-bucket");
+        registry.add("image.storage.region", () -> "us-east-1");
+        registry.add("image.storage.prefix", () -> "test-images/");
+        registry.add("image.storage.presigned-url-ttl", () -> "2m");
+        registry.add("image.storage.max-upload-bytes", () -> "2048");
+        registry.add("image.storage.allowed-content-types", () -> "image/png");
     }
 
 }
