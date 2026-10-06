@@ -1,5 +1,6 @@
 package com.dameokja.backend.image.presentation;
 
+import com.dameokja.backend.global.exception.ErrorResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.image.presentation.request.ImagePresignRequest;
 import com.dameokja.backend.image.presentation.response.ImagePresignResponse;
@@ -24,10 +25,15 @@ public interface ImageApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "발급 성공 (IMAGE-200-001)", content = @Content(
                     mediaType = "application/json", examples = @ExampleObject(value = ImageApiExamples.RESPONSE))),
-            @ApiResponse(responseCode = "400", description = "입력 형식·MIME·크기 제한 오류 (GLOBAL-400-001)"),
-            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 오류"),
-            @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001)"),
-            @ApiResponse(responseCode = "500", description = "서명 또는 서버 오류 (GLOBAL-500-001)")
+            @ApiResponse(responseCode = "400", description = "입력 형식·MIME·크기 제한 오류 (GLOBAL-400-001)", content = @Content(schema = @Schema(implementation = ErrorResponse.class),
+                    mediaType = "application/json", examples = @ExampleObject(value = "{\"code\":\"GLOBAL-400-001\",\"message\":\"요청 형식이 올바르지 않습니다.\"}"))),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class), mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"code\":\"GLOBAL-401-001\",\"message\":\"로그인이 필요합니다.\"}"))),
+            @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001)", content = @Content(schema = @Schema(implementation = ErrorResponse.class),
+                    mediaType = "application/json", examples = @ExampleObject(value = "{\"code\":\"COMMON-403-CSRF-001\",\"message\":\"CSRF 토큰이 없거나 올바르지 않습니다.\"}"))),
+            @ApiResponse(responseCode = "500", description = "서명 또는 서버 오류 (GLOBAL-500-001)", content = @Content(schema = @Schema(implementation = ErrorResponse.class),
+                    mediaType = "application/json", examples = @ExampleObject(value = "{\"code\":\"GLOBAL-500-001\",\"message\":\"서버에서 요청을 처리하지 못했습니다.\"}")))
     })
     ResponseEntity<SuccessResponse<ImagePresignResponse>> issue(@Parameter(hidden = true) Long userId,
             @RequestBody(required = true, content = @Content(schema = @Schema(implementation = ImagePresignRequest.class),
