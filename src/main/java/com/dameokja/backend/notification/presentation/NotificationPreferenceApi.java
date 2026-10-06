@@ -21,8 +21,8 @@ public interface NotificationPreferenceApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "알림 설정 조회 성공",
                     content = @Content(examples = @ExampleObject(value = PREFERENCES_RESPONSE))),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<NotificationPreferencesResponse>> getPreferences(
             @Parameter(hidden = true) Long userId);

@@ -28,9 +28,9 @@ public interface NotificationApi {
             @ApiResponse(responseCode = "200", description = "알림 목록 조회 성공",
                     content = @Content(examples = @ExampleObject(value = LIST_RESPONSE))),
             @ApiResponse(responseCode = "400", description = "커서 형식 오류 (NOTI-400-001)"),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<NotificationListResponse>> getNotifications(
             @Parameter(hidden = true) Long userId,
@@ -42,10 +42,10 @@ public interface NotificationApi {
     @Operation(summary = "알림 개별 읽음 처리", description = "본인 수신 알림을 읽음 처리합니다. 이미 읽은 알림은 그대로 둡니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "읽음 처리 성공"),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 또는 알림 수신 권한이 없음"),
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 또는 알림 수신 권한이 없음 (REFRIGERATOR-403-001, GLOBAL-403-001)"),
             @ApiResponse(responseCode = "404", description = "알림을 찾을 수 없음 (NOTI-404-001)"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<Void> readNotification(
             @Parameter(hidden = true) Long userId,
@@ -55,9 +55,9 @@ public interface NotificationApi {
     @Operation(summary = "알림 모두 읽음 처리", description = "활성 냉장고의 본인 미읽음 알림을 일괄 처리합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "읽음 처리 성공"),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<Void> readAllNotifications(
             @Parameter(hidden = true) Long userId,
@@ -68,9 +68,9 @@ public interface NotificationApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "최신 알림 확인 성공",
                     content = @Content(examples = @ExampleObject(value = POLLING_RESPONSE))),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<NotificationPollingResponse>> pollLatestNotification(
             @Parameter(hidden = true) Long userId,
@@ -82,9 +82,9 @@ public interface NotificationApi {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "미읽음 수 조회 성공",
                     content = @Content(examples = @ExampleObject(value = UNREAD_COUNT_RESPONSE))),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (COMMON-401-001)"),
-            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음"),
-            @ApiResponse(responseCode = "500", description = "서버 오류 (COMMON-500-001)")
+            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<UnreadNotificationCountResponse>> getUnreadCount(
             @Parameter(hidden = true) Long userId,
