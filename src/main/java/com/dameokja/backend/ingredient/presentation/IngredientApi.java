@@ -131,7 +131,8 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "409", description = "합산 시 허용 수량 초과 (INGREDIENT-409-004)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)"),
-            @ApiResponse(responseCode = "422", description = "재고 수정 규칙 위반 (INGREDIENT-422-001~004)"),
+            @ApiResponse(responseCode = "422", description = "재고 수정 규칙 위반 "
+                    + "(INGREDIENT-422-001, INGREDIENT-422-002, INGREDIENT-422-003, INGREDIENT-422-004)"),
             @ApiResponse(responseCode = "428", description = "If-Match 헤더가 누락됨 (INGREDIENT-428-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
@@ -178,7 +179,7 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "다른 냉장고의 재고 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)"),
-            @ApiResponse(responseCode = "422", description = "처리 수량 또는 측정값 조합이 유효하지 않음 (INGREDIENT-422-005~006)"),
+            @ApiResponse(responseCode = "422", description = "처리 수량 또는 측정값 조합이 유효하지 않음 (INGREDIENT-422-005, INGREDIENT-422-006)"),
             @ApiResponse(responseCode = "428", description = "If-Match 헤더가 누락됨 (INGREDIENT-428-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
