@@ -16,9 +16,9 @@ import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequ
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientDetailResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
-import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,7 +39,9 @@ public interface IngredientApi {
             summary = "냉장고 재고 목록 조회",
             description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 만료 여부와 관계없이 선택한 정렬 기준을 적용합니다. "
                     + "다음 페이지는 같은 sort와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
-                    + "상태(status)는 첫 페이지 요청 날짜(KST) 기준으로 계산합니다."
+                    + "baseDate는 첫 페이지 요청 날짜(KST)이며 상태·D-day·상태 필터는 다음 페이지도 같은 날짜로 계산합니다. "
+                    + "기준일이 요청 시점의 KST 날짜보다 이전이면 outdated는 true입니다. "
+                    + "자정 이후에도 기존 커서는 유효하며, 오늘 기준으로 갱신하려면 cursor 없이 첫 페이지부터 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -79,7 +81,8 @@ public interface IngredientApi {
 
     @Operation(
             summary = "재고 상세 조회",
-            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다."
+            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. "
+                    + "baseDate는 요청 시점의 KST 날짜이며 상태·D-day의 계산 기준입니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -95,7 +98,7 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
-    ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
+    ResponseEntity<SuccessResponse<IngredientDetailResponse>> getDetail(
             @Parameter(hidden = true) Long userId,
             @Parameter(
                     name = "ingredientId",

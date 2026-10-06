@@ -7,6 +7,7 @@ import java.util.List;
 public record IngredientListResult(
         List<Ingredient> ingredients,
         LocalDate businessDate,
+        boolean outdated,
         long ingredientsNum,
         long filteredCount,
         Short refrigeratorCapacity,

@@ -32,13 +32,14 @@ public class IngredientListService {
 
     public IngredientListResult getList(Long userId, Long refrigeratorId, IngredientSortType sortType,
                                         IngredientFilter filter, String cursorToken, int size) {
+        LocalDate today = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
-        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter);
+        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter, today);
         List<Ingredient> rows = ingredientPageReader.read(cursor, size + LOOKAHEAD);
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
         long ingredientsNum = ingredientRepository.countByRefrigeratorId(refrigeratorId);
-        return new IngredientListResult(page, cursor.baseDate(), ingredientsNum, countFiltered(cursor),
+        return new IngredientListResult(page, cursor.baseDate(), cursor.baseDate().isBefore(today), ingredientsNum, countFiltered(cursor),
                 refrigerator.getCapacity(), nextCursor);
     }
 
@@ -51,8 +52,7 @@ public class IngredientListService {
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
-                                          IngredientFilter filter) {
-        LocalDate today = BusinessTime.today(clock);
+                                          IngredientFilter filter, LocalDate today) {
         if (cursorToken == null) {
             return IngredientListCursor.first(sortType, refrigeratorId, filter, today);
         }

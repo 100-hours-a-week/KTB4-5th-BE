@@ -18,9 +18,9 @@ import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequ
 import com.dameokja.backend.ingredient.presentation.request.IngredientListRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientDetailResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
-import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import jakarta.validation.Valid;
 import java.util.Optional;
@@ -75,11 +75,11 @@ public class IngredientController implements IngredientApi {
 
     @Override
     @GetMapping("/ingredients/{ingredientId}")
-    public ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
+    public ResponseEntity<SuccessResponse<IngredientDetailResponse>> getDetail(
             @CurrentUserId Long userId, @PathVariable Long ingredientId) {
         IngredientDetailResult result = ingredientDetailService.getDetail(userId, ingredientId);
-        IngredientResponse response = IngredientResponse.of(result.ingredient(), result.businessDate());
-        SuccessResponse<IngredientResponse> body = SuccessResponse.of(DETAIL_CODE, DETAIL_MESSAGE, response);
+        IngredientDetailResponse response = IngredientDetailResponse.from(result);
+        SuccessResponse<IngredientDetailResponse> body = SuccessResponse.of(DETAIL_CODE, DETAIL_MESSAGE, response);
 
         return ResponseEntity.ok().eTag(IngredientEtag.of(result.ingredient())).body(body);
     }

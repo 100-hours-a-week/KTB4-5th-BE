@@ -6,6 +6,7 @@ final class IngredientApiExamples {
               "code": "INGREDIENT-200-003",
               "message": "재고 상세 조회 성공",
               "data": {
+                "baseDate": "2026-09-16",
                 "ingredientId": "1",
                 "name": "두부",
                 "category": "TOFU_BEAN",
@@ -161,6 +162,8 @@ final class IngredientApiExamples {
               "code": "INGREDIENT-200-002",
               "message": "냉장고 재고 목록 조회 성공",
               "data": {
+                "baseDate": "2026-09-16",
+                "outdated": false,
                 "ingredientsNum": 30,
                 "filteredCount": 30,
                 "refrigeratorCapacity": 100,

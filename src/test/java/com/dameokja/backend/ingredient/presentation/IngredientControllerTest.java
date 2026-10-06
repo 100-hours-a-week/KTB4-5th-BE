@@ -24,8 +24,8 @@ import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.dameokja.backend.ingredient.presentation.response.IngredientDetailResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
-import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
@@ -53,7 +53,7 @@ class IngredientControllerTest {
     void returnsListWithDefaultParametersAndStatusOfBusinessDate() {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
-        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, 30L, 30L, (short) 100, "next");
+        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 100, "next");
         when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
@@ -85,14 +85,14 @@ class IngredientControllerTest {
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
 
-        ResponseEntity<SuccessResponse<IngredientResponse>> response =
+        ResponseEntity<SuccessResponse<IngredientDetailResponse>> response =
                 controller.getDetail(2L, 1L);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-003");
-        assertThat(response.getBody().data().status()).isEqualTo(IngredientStatus.EXPIRED);
-        assertThat(response.getBody().data().daysUntilExpiration()).isEqualTo(-1);
+        assertThat(response.getBody().data().ingredient().status()).isEqualTo(IngredientStatus.EXPIRED);
+        assertThat(response.getBody().data().ingredient().daysUntilExpiration()).isEqualTo(-1);
     }
 
     @Test
