@@ -84,6 +84,21 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 실제 PUT 업로드에는 서명 주체의 설정된 prefix 아래 `analysis/`·`profile/` 객체 쓰기 권한과 프론트 Origin·PUT·업로드 헤더를 허용하는
 버킷 CORS 설정이 필요하다. [AWS3][AWS4] 버킷·IAM·CORS 변경은 이 설정 코드가 수행하지 않는다.
 
+## AI 분석 호출 설정
+
+| 환경변수 | 내용 |
+|---|---|
+| `AI_BASE_URL` | AI 서버의 HTTP(S) 기본 주소 |
+| `AI_INTERNAL_API_KEY` | `X-Internal-API-Key` 헤더에 넣는 내부 인증키 |
+| `AI_CONNECT_TIMEOUT` | 연결 타임아웃. Duration 형식, 1ms 이상 |
+| `AI_READ_TIMEOUT` | 응답 읽기 타임아웃. Duration 형식, 1ms 이상 |
+
+기본값 없이 외부 환경에서 주입하며, 누락·잘못된 설정은 기동 시 거절한다.
+`AiAnalysisClient.submit`은 단건 분석을 접수하고, `get`은 `analysisId`로 상태·결과를 조회한다.
+`requestId`는 요청별로 구분하며 같은 요청의 재전송에는 같은 값을 사용한다.
+접수 응답은 분석 완료를 뜻하지 않는다. HTTP 오류·통신 실패는 Spring `RestClientException` 계열로 전달한다.
+현재 AI 서버는 영수증 분석만 지원한다. 사용자별 작업 저장·자동 조회·콜백·재고 등록은 후속 구현 범위다.
+
 ## DDL
 
 - `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.

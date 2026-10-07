@@ -27,6 +27,10 @@ public abstract class MySqlDatabaseTest {
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();
         imageStorage(registry);
+        registry.add("ai.analysis.base-url", () -> "http://ai.example.com");
+        registry.add("ai.analysis.api-key", () -> "test-key");
+        registry.add("ai.analysis.connect-timeout", () -> "1s");
+        registry.add("ai.analysis.read-timeout", () -> "2s");
         registry.add("jwt.secret", () -> java.util.Base64.getEncoder()
                 .encodeToString(new byte[32]));
         registry.add("push.auth-encryption.key", () -> java.util.Base64.getEncoder()
