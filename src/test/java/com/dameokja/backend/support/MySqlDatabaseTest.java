@@ -27,6 +27,7 @@ public abstract class MySqlDatabaseTest {
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();
         imageStorage(registry);
+        registry.add("analysis.job-ttl", () -> "PT1H");
         registry.add("ai.analysis.base-url", () -> "http://ai.example.com");
         registry.add("ai.analysis.api-key", () -> "test-key");
         registry.add("ai.analysis.connect-timeout", () -> "1s");

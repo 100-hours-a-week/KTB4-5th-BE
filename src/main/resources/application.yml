@@ -75,6 +75,9 @@ ai:
     connect-timeout: ${AI_CONNECT_TIMEOUT}
     read-timeout: ${AI_READ_TIMEOUT}
 
+analysis:
+  job-ttl: ${ANALYSIS_JOB_TTL}
+
 management:
   endpoints:
     web:
