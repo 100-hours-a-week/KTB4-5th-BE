@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-public record AiAnalysisResult(DocumentType documentType, ImageQuality imageQuality, List<Item> items, ModelTrace modelTrace) {
+public record AiImageAnalysisResult(DocumentType documentType, ImageQuality imageQuality, List<Item> items, ModelTrace modelTrace) {
     public record DocumentType(String value, double confidence) {}
 
     public record ImageQuality(double score, List<String> issues) {}

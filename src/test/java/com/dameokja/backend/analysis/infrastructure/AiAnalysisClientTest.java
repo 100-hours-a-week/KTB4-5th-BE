@@ -56,8 +56,8 @@ class AiAnalysisClientTest {
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"analysisId":"analysis-1","status":"QUEUED","submittedAt":"2026-10-07T01:00:00Z","pollAfterMs":1000}
                         """));
-        AiAnalysisAccepted accepted = client.submit(new AiAnalysisRequest("request-1", "uploads/analysis/7/image.png", SHA256));
-        assertThat(accepted).extracting(AiAnalysisAccepted::analysisId).isEqualTo("analysis-1");
+        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256));
+        assertThat(aiImageAnalysisSubmitResponse).extracting(AiImageAnalysisSubmitResponse::analysisId).isEqualTo("analysis-1");
         server.verify();
     }
 
@@ -67,15 +67,15 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key")).andRespond(withSuccess("""
                         {"analysisId":"analysis-2","status":"QUEUED","submittedAt":"2026-10-07T01:00:00Z"}
                         """, MediaType.APPLICATION_JSON));
-        AiAnalysisView view = client.get("analysis-2");
-        assertThat(view).extracting(AiAnalysisView::status).isEqualTo("QUEUED");
+        AiImageAnalysisResponse aiImageAnalysisResponse = client.get("analysis-2");
+        assertThat(aiImageAnalysisResponse).extracting(AiImageAnalysisResponse::status).isEqualTo("QUEUED");
         server.verify();
     }
 
     @Test
     void rejectsEmptySubmissionResponse() {
         server.expect(requestTo(URL + "/ai/v1/analyses")).andRespond(withSuccess());
-        assertThatThrownBy(() -> client.submit(new AiAnalysisRequest("request-1", "uploads/analysis/7/image.png", SHA256)))
+        assertThatThrownBy(() -> client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256)))
                 .isInstanceOf(RestClientException.class);
         server.verify();
     }
