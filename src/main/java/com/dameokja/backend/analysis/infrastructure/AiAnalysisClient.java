@@ -10,16 +10,16 @@ public class AiAnalysisClient {
     private static final String ANALYSES_PATH = "/ai/v1/analyses";
     private final RestClient restClient;
 
-    public AiAnalysisAccepted submit(AiAnalysisRequest request) {
-        AiAnalysisAccepted response = restClient.post().uri(ANALYSES_PATH).contentType(MediaType.APPLICATION_JSON)
-                .body(request).retrieve().body(AiAnalysisAccepted.class);
-        return requireBody(response);
+    public AiImageAnalysisSubmitResponse submit(AiImageAnalysisSubmitRequest aiImageAnalysisSubmitRequest) {
+        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = restClient.post().uri(ANALYSES_PATH).contentType(MediaType.APPLICATION_JSON)
+                .body(aiImageAnalysisSubmitRequest).retrieve().body(AiImageAnalysisSubmitResponse.class);
+        return requireBody(aiImageAnalysisSubmitResponse);
     }
 
-    public AiAnalysisView get(String analysisId) {
-        AiAnalysisView response = restClient.get().uri(ANALYSES_PATH + "/{analysisId}", analysisId)
-                .retrieve().body(AiAnalysisView.class);
-        return requireBody(response);
+    public AiImageAnalysisResponse get(String analysisId) {
+        AiImageAnalysisResponse aiImageAnalysisResponse = restClient.get().uri(ANALYSES_PATH + "/{analysisId}", analysisId)
+                .retrieve().body(AiImageAnalysisResponse.class);
+        return requireBody(aiImageAnalysisResponse);
     }
 
     private <T> T requireBody(T response) {

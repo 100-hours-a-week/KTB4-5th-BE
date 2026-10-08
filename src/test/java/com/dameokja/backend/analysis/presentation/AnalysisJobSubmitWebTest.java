@@ -15,12 +15,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisSubmitService;
+import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisAccepted;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisRequest;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.auth.presentation.CsrfController;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -59,11 +59,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-@SpringJUnitConfig(AnalysisSubmitWebTest.WebConfiguration.class)
+@SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
         "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h"})
-class AnalysisSubmitWebTest {
+class AnalysisJobSubmitWebTest {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";
     @Autowired WebApplicationContext webApplicationContext;
     @Autowired JwtProvider jwtProvider;
@@ -102,10 +102,10 @@ class AnalysisSubmitWebTest {
         AnalysisJob analysisJob = analysisJobStore.findOwned(jsonNode.path("analysisId").asString(), 7L);
         assertThat(analysisJob.id()).isNotIn("ai-first", "ai-second");
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
-        ArgumentCaptor<AiAnalysisRequest> argumentCaptor = ArgumentCaptor.forClass(AiAnalysisRequest.class);
+        ArgumentCaptor<AiImageAnalysisSubmitRequest> argumentCaptor = ArgumentCaptor.forClass(AiImageAnalysisSubmitRequest.class);
         verify(aiAnalysisClient, times(2)).submit(argumentCaptor.capture());
-        assertThat(argumentCaptor.getAllValues()).extracting(AiAnalysisRequest::inputHint).containsOnly(inputHint == null ? "AUTO" : inputHint);
-        assertThat(argumentCaptor.getAllValues()).extracting(aiAnalysisRequest -> aiAnalysisRequest.image().sha256()).containsExactly("ab".repeat(32), "cd".repeat(32));
+        assertThat(argumentCaptor.getAllValues()).extracting(AiImageAnalysisSubmitRequest::inputHint).containsOnly(inputHint == null ? "AUTO" : inputHint);
+        assertThat(argumentCaptor.getAllValues()).extracting(aiImageAnalysisSubmitRequest -> aiImageAnalysisSubmitRequest.image().sha256()).containsExactly("ab".repeat(32), "cd".repeat(32));
     }
 
     @ParameterizedTest
@@ -153,14 +153,14 @@ class AnalysisSubmitWebTest {
 
     private Cookie csrf() throws Exception { return mockMvc.perform(get("/api/v1/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN"); }
     private Cookie accessToken() { return new Cookie("accessToken", jwtProvider.createAccessToken(7L, UserRole.USER)); }
-    private AiAnalysisAccepted accepted(String analysisId) {
-        return new AiAnalysisAccepted(analysisId, "QUEUED", Instant.parse("2026-10-08T01:00:00Z").atZone(BusinessTime.ZONE).toOffsetDateTime(), 1000);
+    private AiImageAnalysisSubmitResponse accepted(String analysisId) {
+        return new AiImageAnalysisSubmitResponse(analysisId, "QUEUED", Instant.parse("2026-10-08T01:00:00Z").atZone(BusinessTime.ZONE).toOffsetDateTime(), 1000);
     }
 
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, CsrfController.class, GlobalExceptionHandler.class,
-            AnalysisController.class, AnalysisSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
+            AnalysisController.class, AnalysisJobSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
     static class WebConfiguration {
         @Bean
         static org.springframework.core.convert.ConversionService conversionService() { return new org.springframework.boot.convert.ApplicationConversionService(); }

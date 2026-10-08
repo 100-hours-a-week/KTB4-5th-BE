@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.presentation.request.AnalysisSubmitRequest;
-import com.dameokja.backend.analysis.presentation.response.AnalysisSubmitResponse;
+import com.dameokja.backend.analysis.presentation.request.AnalysisJobSubmitRequest;
+import com.dameokja.backend.analysis.presentation.response.AnalysisJobSubmitResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,7 +31,7 @@ public interface AnalysisApi {
             @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)"),
             @ApiResponse(responseCode = "503", description = "AI 분석 접수 일시 불가 (IMAGE-503-001)")
     })
-    ResponseEntity<SuccessResponse<AnalysisSubmitResponse>> submit(@Parameter(hidden = true) Long userId,
-            @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AnalysisSubmitRequest.class),
-                    examples = @ExampleObject(value = AnalysisApiExamples.REQUEST))) AnalysisSubmitRequest analysisSubmitRequest);
+    ResponseEntity<SuccessResponse<AnalysisJobSubmitResponse>> submit(@Parameter(hidden = true) Long userId,
+            @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AnalysisJobSubmitRequest.class),
+                    examples = @ExampleObject(value = AnalysisApiExamples.REQUEST))) AnalysisJobSubmitRequest analysisJobSubmitRequest);
 }

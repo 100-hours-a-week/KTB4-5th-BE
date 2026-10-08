@@ -4,7 +4,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisRequest;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.ExceptionCode;
@@ -19,7 +19,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Service
 @RequiredArgsConstructor
-public class AnalysisSubmitService {
+public class AnalysisJobSubmitService {
     private final ImageAnalysisInputService imageAnalysisInputService;
     private final AnalysisJobStore analysisJobStore;
     private final AiAnalysisClient aiAnalysisClient;
@@ -40,9 +40,9 @@ public class AnalysisSubmitService {
 
     private String submitImage(AnalysisImage analysisImage, String inputHint) {
         try {
-            AiAnalysisRequest aiAnalysisRequest = new AiAnalysisRequest(analysisImage.requestId(), new AiAnalysisRequest.Image(analysisImage.objectKey(), analysisImage.sha256()),
-                    inputHint, "ko-KR", "Asia/Seoul");
-            String analysisId = aiAnalysisClient.submit(aiAnalysisRequest).analysisId();
+            AiImageAnalysisSubmitRequest aiImageAnalysisSubmitRequest = new AiImageAnalysisSubmitRequest(analysisImage.requestId(),
+                    new AiImageAnalysisSubmitRequest.Image(analysisImage.objectKey(), analysisImage.sha256()), inputHint, "ko-KR", "Asia/Seoul");
+            String analysisId = aiAnalysisClient.submit(aiImageAnalysisSubmitRequest).analysisId();
             if (analysisId == null || analysisId.isBlank()) {
                 throw new RestClientException("AI 접수 응답에 작업 ID가 없습니다.");
             }
