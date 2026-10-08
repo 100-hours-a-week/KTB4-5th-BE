@@ -5,6 +5,7 @@ import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageStorageProperties;
+import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.image.infrastructure.S3ImageUploadSigner;
 import java.util.Locale;
 import java.util.Map;
@@ -19,6 +20,7 @@ public class ImagePresignService {
     private static final Map<String, String> EXTENSIONS = Map.of("image/jpeg", "jpg", "image/png", "png", "image/webp", "webp");
     private final ImageStorageProperties properties;
     private final S3ImageUploadSigner signer;
+    private final ImageUploadMetadataStore uploads;
 
     public ImageUploadResult issue(Long userId, ImageUploadPurpose purpose, String contentType, long byteSize, String sha256) {
         validateUpload(contentType, byteSize);
@@ -27,6 +29,7 @@ public class ImagePresignService {
         PresignedPutObjectRequest signed = signer.sign(objectKey, contentType, byteSize, sha256);
         Map<String, String> headers = Map.of("Content-Type", contentType, "x-amz-checksum-sha256",
                 signed.httpRequest().firstMatchingHeader("x-amz-checksum-sha256").orElseThrow());
+        uploads.save(userId, purpose, objectKey, sha256);
         return new ImageUploadResult(objectKey, signed.url().toExternalForm(), "PUT", headers,
                 signed.expiration().atZone(BusinessTime.ZONE).toOffsetDateTime());
     }
