@@ -1,11 +1,13 @@
 package com.dameokja.backend.global.config;
 
+import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.exception.ErrorResponse;
 import com.dameokja.backend.global.exception.ExceptionCode;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.ingredient.exception.IngredientExceptionCode;
+import com.dameokja.backend.image.exception.ImageAnalysisExceptionCode;
 import com.dameokja.backend.notification.domain.NotificationExceptionCode;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
@@ -29,7 +31,8 @@ final class ErrorResponseOpenApiCustomizer implements GlobalOpenApiCustomizer {
     private static final List<ExceptionCode> EXCEPTION_CODES = Stream.<ExceptionCode[]>of(
             GlobalExceptionCode.values(), SecurityExceptionCode.values(), AuthExceptionCode.values(),
             UserExceptionCode.values(), RefrigeratorExceptionCode.values(), IngredientExceptionCode.values(),
-            NotificationExceptionCode.values(), PushExceptionCode.values()).flatMap(Arrays::stream).toList();
+            NotificationExceptionCode.values(), PushExceptionCode.values(), AnalysisExceptionCode.values(),
+            ImageAnalysisExceptionCode.values()).flatMap(Arrays::stream).toList();
 
     @Override
     public void customise(OpenAPI openApi) {
