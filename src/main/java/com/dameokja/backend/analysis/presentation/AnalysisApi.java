@@ -1,6 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
 import com.dameokja.backend.analysis.presentation.request.AnalysisJobSubmitRequest;
+import com.dameokja.backend.analysis.presentation.response.AnalysisJobResponse;
 import com.dameokja.backend.analysis.presentation.response.AnalysisJobSubmitResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,4 +35,23 @@ public interface AnalysisApi {
     ResponseEntity<SuccessResponse<AnalysisJobSubmitResponse>> submit(@Parameter(hidden = true) Long userId,
             @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AnalysisJobSubmitRequest.class),
                     examples = @ExampleObject(value = AnalysisApiExamples.REQUEST))) AnalysisJobSubmitRequest analysisJobSubmitRequest);
+
+    @Operation(summary = "이미지 분석 결과 조회", description = "accessToken 쿠키로 로그인하고 접수 응답의 작업 ID로 조회합니다. "
+            + "항목별 displayStatus를 그대로 반환하고 이미지별 recognitionStatus는 가장 낮은 항목 상태로 집계합니다. "
+            + "UNRECOGNIZED, NEEDS_REVIEW, AI_ESTIMATED, RECOGNIZED 순이며 빈 결과는 UNRECOGNIZED입니다. 모두 대기 중이면 QUEUED, "
+            + "대기·처리 중 이미지가 남으면 PROCESSING입니다. 모든 이미지가 종료되면 COMPLETED, PARTIALLY_COMPLETED 또는 FAILED입니다. "
+            + "pollAfterMs는 진행 중 1000, 종료 시 null입니다. 값만 있는 필드는 직접 반환하며 weight는 value·unit 객체입니다. confidence와 imageQuality는 반환하지 않습니다. "
+            + "AI 조회 장애는 분석 실패와 구분하여 오류 응답으로 반환합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 인식 결과 조회 성공 (IMAGE-200-002)", content = @Content(
+                    mediaType = "application/json", examples = @ExampleObject(value = AnalysisApiExamples.QUERY_RESPONSE))),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
+            @ApiResponse(responseCode = "403", description = "다른 사용자의 작업 (GLOBAL-403-001)"),
+            @ApiResponse(responseCode = "404", description = "작업 없음 또는 만료 (IMAGE-404-001)"),
+            @ApiResponse(responseCode = "429", description = "AI 조회 횟수 제한 (IMAGE-429-002)"),
+            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)"),
+            @ApiResponse(responseCode = "503", description = "AI 분석 조회 일시 불가 (IMAGE-503-002)")
+    })
+    ResponseEntity<SuccessResponse<AnalysisJobResponse>> get(@Parameter(hidden = true) Long userId,
+            @Parameter(description = "백엔드가 발급한 이미지 묶음 작업 ID", required = true) String analysisId);
 }
