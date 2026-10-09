@@ -10,7 +10,9 @@ import org.springframework.http.HttpStatus;
 public enum AnalysisExceptionCode implements ExceptionCode {
     NOT_FOUND(HttpStatus.NOT_FOUND, "IMAGE-404-001", "조회 대상을 찾을 수 없습니다."),
     REQUEST_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "IMAGE-429-001", "요청 횟수 제한"),
-    ACCEPTANCE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "IMAGE-503-001", "분석 접수 일시 불가");
+    ACCEPTANCE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "IMAGE-503-001", "분석 접수 일시 불가"),
+    LOOKUP_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "IMAGE-429-002", "조회 횟수 제한을 초과했습니다."),
+    LOOKUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "IMAGE-503-002", "분석 조회 일시 불가");
 
     private final HttpStatus status;
     private final String code;
