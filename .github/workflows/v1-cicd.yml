@@ -135,3 +135,16 @@ jobs:
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_PATH' && bash scripts/deploy-v1.sh backend '$IMAGE' '$COMPOSE_PROJECT' '$COMPOSE_FILE_NAME' '$GHCR_USER'"
+
+  deploy-v2:
+    name: v2 dev 배포
+    needs: build
+    # 배포 절차는 CLOUD 저장소가 관리한다. 여기서는 빌드한 이미지만 넘긴다.
+    if: github.event_name == 'push' && github.ref_name == 'dev'
+    permissions:
+      contents: read
+      id-token: write
+    uses: 100-hours-a-week/KTB4-5th-CLOUD/.github/workflows/ecs-deploy.yml@main
+    with:
+      service: backend
+      image: ${{ needs.build.outputs.image }}
