@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum UserExceptionCode implements ExceptionCode {
+    REGISTRATION_INVALID(HttpStatus.BAD_REQUEST, "USER-400-001", "회원가입 인증이 유효하지 않습니다."),
     USER_NOT_ACTIVE(HttpStatus.FORBIDDEN, "USER-403-001", "탈퇴한 회원은 이용할 수 없습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER-404-001", "회원을 찾을 수 없습니다."),
     NICKNAME_DUPLICATE(HttpStatus.CONFLICT, "USER-409-001", "이미 사용 중인 닉네임입니다."),
