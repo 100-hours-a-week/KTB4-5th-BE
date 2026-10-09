@@ -106,8 +106,8 @@ Spring Boot가 연결 팩토리와 `StringRedisTemplate`을 자동 등록하므�
 
 | 환경변수 | 내용 | 기본값 |
 |---|---|---|
-| `REDIS_HOST` | Redis 서버 주소 | `localhost` |
-| `REDIS_PORT` | Redis 서버 포트 | `6379` |
+| `SPRING_DATA_REDIS_HOST` | Redis 서버 주소 | `127.0.0.1` |
+| `SPRING_DATA_REDIS_PORT` | Redis 서버 포트 | `6379` |
 | `REDIS_USERNAME` | ACL 사용자 이름. 서버 인증 설정에 맞춰 주입 | 빈 값 |
 | `REDIS_PASSWORD` | 서버 인증 비밀번호. 비밀값은 외부 환경에서만 주입 | 빈 값 |
 | `REDIS_DATABASE` | 논리 DB 인덱스 | `0` |
