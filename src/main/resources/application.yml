@@ -8,6 +8,20 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_TIMEOUT:2s}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -79,6 +93,10 @@ analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
 
 management:
+  health:
+    redis:
+      # 실제 Redis 사용 전까지 서버 없이도 기존 health 상태를 유지한다.
+      enabled: ${REDIS_HEALTH_ENABLED:false}
   endpoints:
     web:
       exposure:

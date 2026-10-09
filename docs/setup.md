@@ -113,6 +113,31 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 진행 중에는 `pollAfterMs=1000`, 종료 후에는 `null`을 반환한다. 일부 이미지가 실패하면 `PARTIALLY_COMPLETED`, 전부 실패하면 `FAILED`로 응답한다.
 이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. BE 재시작 후에는 URL을 다시 발급해야 한다.
 
+## Redis 접속 설정
+
+`spring-boot-starter-data-redis`의 기본 클라이언트인 Lettuce를 사용한다.
+Spring Boot가 연결 팩토리와 `StringRedisTemplate`을 자동 등록하므로 별도 설정 클래스 없이 주입받아 사용한다. [R1]
+
+| 환경변수 | 내용 | 기본값 |
+|---|---|---|
+| `SPRING_DATA_REDIS_HOST` | Redis 서버 주소 | 없음 (필수) |
+| `SPRING_DATA_REDIS_PORT` | Redis 서버 포트 | 없음 (필수) |
+| `REDIS_USERNAME` | ACL 사용자 이름. 서버 인증 설정에 맞춰 주입 | 빈 값 |
+| `REDIS_PASSWORD` | 서버 인증 비밀번호. 비밀값은 외부 환경에서만 주입 | 빈 값 |
+| `REDIS_DATABASE` | 논리 DB 인덱스 | `0` |
+| `REDIS_CONNECT_TIMEOUT` | 연결 타임아웃. Duration 형식 | `2s` |
+| `REDIS_TIMEOUT` | 명령 응답 타임아웃. Duration 형식 | `2s` |
+| `REDIS_SSL_ENABLED` | TLS 연결 사용 여부 | `false` |
+| `REDIS_HEALTH_ENABLED` | Actuator Redis health check 사용 여부 | `false` |
+
+서버 주소와 포트는 기본값 없이 환경변수로 주입한다.
+현재는 단일 Redis 서버 연결 준비만 포함하며 실제 저장·조회 기능은 연결하지 않는다.
+Redis Repository를 사용하지 않으므로 자동 탐색을 끈다. [R2]
+Redis health check는 기본적으로 꺼 두어 서버 연결 여부가 기존 health 응답에 영향을 주지 않게 한다.
+Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함께 `REDIS_HEALTH_ENABLED=true`를 적용한다. [R2]
+객체를 JSON으로 저장할 때는 `ObjectMapper`로 문자열 변환 후 `StringRedisTemplate`을 사용하고,
+키 구조·TTL·역직렬화 대상 타입은 해당 도메인의 저장소에서 정한다.
+
 ## DDL
 
 - `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
@@ -166,3 +191,5 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 | 팀 | 팀 — 영수증 업로드 설정 외부 주입 (확인 2026-10-05) | 실제 저장소 값을 공개 코드에서 분리하고 환경변수로만 설정; 영수증은 분석 입력으로만 사용 |
 | AWS5 | [Amazon S3 — 버킷 명명 규칙](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) (확인 2026-10-05) | 버킷 이름의 길이 및 허용 문자 기본 형식 |
 | AWS6 | [AWS SDK for Java — 콘솔 로그인 자격 증명](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-temporary.html) (확인 2026-10-06) | `aws login` 공유 프로필 사용에 필요한 `signin` 모듈 및 자동 갱신 |
+| R1 | [Spring Boot — Redis](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis) (확인 2026-10-08) | Redis starter의 기본 Lettuce 클라이언트, 연결 팩토리·템플릿 자동 설정 |
+| R2 | [Spring Boot — Common Application Properties](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) (확인 2026-10-08) | Redis 연결·인증·타임아웃·TLS·Repository 및 health check 설정 |
