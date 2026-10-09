@@ -52,6 +52,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
 
     @BeforeEach
     void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM social_accounts");
         jdbcTemplate.update("DELETE FROM refrigerator_members");
         jdbcTemplate.update("DELETE FROM refrigerators");
         jdbcTemplate.update("DELETE FROM notification_preferences");
@@ -85,13 +86,14 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected record Fixture(Long userId, Long refrigeratorId) {}
 
     protected int rows(String tableName) {
-        if (!Set.of("users", "refrigerators", "refrigerator_members", "notification_preferences").contains(tableName)) {
+        if (!Set.of("users", "refrigerators", "refrigerator_members", "notification_preferences", "social_accounts").contains(tableName)) {
             throw new IllegalArgumentException("Not a fixture table");
         }
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
     }
 
     protected void assertEmptyDatabase() {
+        assertThat(rows("social_accounts")).isZero();
         assertThat(rows("users")).isZero();
         assertThat(rows("refrigerators")).isZero();
         assertThat(rows("refrigerator_members")).isZero();

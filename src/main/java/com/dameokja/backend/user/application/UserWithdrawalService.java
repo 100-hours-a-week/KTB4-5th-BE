@@ -5,6 +5,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.auth.application.AuthService;
 import org.springframework.stereotype.Service;
@@ -26,10 +27,12 @@ public class UserWithdrawalService {
     private final RefrigeratorLifecycleService refrigeratorLifecycleService;
     private final Clock clock;
     private final AuthService authService;
+    private final SocialAccountRepository socialAccountRepository;
 
     public void withdraw(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
+        socialAccountRepository.deleteAllByUserId(userId);
         if (user.getStatus() == UserStatus.WITHDRAWN) {
             authService.revokeAllUserSessions(userId);
             return;
