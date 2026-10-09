@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
@@ -164,6 +165,8 @@ class AnalysisJobSubmitWebTest {
     static class WebConfiguration {
         @Bean
         static org.springframework.core.convert.ConversionService conversionService() { return new org.springframework.boot.convert.ApplicationConversionService(); }
+        @Bean
+        AnalysisJobQueryService analysisJobQueryService() { return mock(AnalysisJobQueryService.class); }
         @Bean
         Clock clock() { return Clock.fixed(Instant.parse("2026-10-08T01:00:00Z"), BusinessTime.ZONE); }
         @Bean

@@ -81,8 +81,7 @@ class AnalysisJobQueryServiceTest {
         AnalysisImageResult analysisImageResult = analysisJobResult.analysisImageResults().getFirst();
         if (firstAnalysisStatus == AnalysisStatus.COMPLETED) {
             assertThat(analysisImageResult.recognitionStatus()).isEqualTo(RecognitionStatus.UNRECOGNIZED);
-            assertThat(analysisImageResult.documentType()).isEqualTo(new AnalysisImageResult.DocumentType("RECEIPT", 0.9));
-            assertThat(analysisImageResult.imageQuality()).isEqualTo(new AnalysisImageResult.ImageQuality(0.8, List.of()));
+            assertThat(analysisImageResult.documentType()).isEqualTo("RECEIPT");
         } else {
             assertThat(analysisImageResult.recognitionStatus()).isNull();
             assertThat(analysisImageResult.items()).isEmpty();
@@ -146,12 +145,12 @@ class AnalysisJobQueryServiceTest {
         assertThat(analysisImageResult.items()).extracting(AnalysisImageResult.Item::displayStatus)
                 .containsExactly(RecognitionStatus.valueOf(firstDisplayStatus), RecognitionStatus.valueOf(secondDisplayStatus));
         AnalysisImageResult.Item item = analysisImageResult.items().getFirst();
-        assertThat(item.name()).isEqualTo(new AnalysisImageResult.Name("우유", 0.9));
-        assertThat(item.category()).isEqualTo(new AnalysisImageResult.Category("DAIRY", 0.8));
+        assertThat(item.name()).isEqualTo("우유");
+        assertThat(item.category()).isEqualTo("DAIRY");
         assertThat(item.storageType()).isEqualTo("REFRIGERATED");
-        assertThat(item.quantity()).isEqualTo(new AnalysisImageResult.Quantity(2, 0.7));
-        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, "NONE", 0.0));
-        assertThat(item.expiration()).isEqualTo(new AnalysisImageResult.Expiration(LocalDate.parse("2026-10-12"), 0.6));
+        assertThat(item.quantity()).isEqualTo(2);
+        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, "NONE"));
+        assertThat(item.expiration()).isEqualTo(LocalDate.parse("2026-10-12"));
         assertThat(item.reviewReasons()).containsExactly("DATE_REVIEW");
     }
 
@@ -168,7 +167,7 @@ class AnalysisJobQueryServiceTest {
         AnalysisJob pendingAnalysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("pending", "ab".repeat(32))));
         AnalysisJobResult analysisJobResult = analysisJobQueryService.get(7L, pendingAnalysisJob.id());
         assertThat(analysisJobResult.status()).isEqualTo(AnalysisStatus.QUEUED);
-        assertThat(analysisJobResult.analysisImageResults().getFirst()).isEqualTo(new AnalysisImageResult("pending", AnalysisStatus.QUEUED, null, null, null, List.of(), null));
+        assertThat(analysisJobResult.analysisImageResults().getFirst()).isEqualTo(new AnalysisImageResult("pending", AnalysisStatus.QUEUED, null, null, List.of(), null));
     }
 
     @Test
@@ -190,8 +189,8 @@ class AnalysisJobQueryServiceTest {
         expectView("ai-second", "QUEUED");
         AnalysisImageResult.Item item = analysisJobQueryService.get(7L, analysisJob.id()).analysisImageResults().getFirst().items().getFirst();
         assertThat(item.quantity()).isNull();
-        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(new BigDecimal("1750.5"), "G", 0.7));
-        assertThat(item.name().value()).isEqualTo("우유 \"특가\"\\냉장\n");
+        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(new BigDecimal("1750.5"), "G"));
+        assertThat(item.name()).isEqualTo("우유 \"특가\"\\냉장\n");
     }
 
     private ObjectNode createItem(String displayStatus) {
