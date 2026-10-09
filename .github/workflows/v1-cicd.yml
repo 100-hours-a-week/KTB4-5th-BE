@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: 검증 및 이미지 빌드
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -40,6 +40,10 @@ jobs:
         env:
           REPOSITORY: ${{ github.repository }}
         run: echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      # AMD64 러너에서 ARM64 이미지도 빌드할 수 있도록 에뮬레이션을 준비한다.
+      - uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
       - uses: docker/setup-buildx-action@v4
       - name: GHCR 로그인
         if: github.event_name == 'push'
@@ -48,12 +52,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: ARM64 이미지 빌드 및 푸시
+      - name: AMD64·ARM64 이미지 빌드 및 푸시
         id: docker
         uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: linux/arm64
+          # 하나의 태그와 인덱스 다이제스트로 t3와 t4g에 맞는 이미지를 선택한다.
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
