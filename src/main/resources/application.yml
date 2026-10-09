@@ -10,8 +10,8 @@ spring:
 
   data:
     redis:
-      host: ${SPRING_DATA_REDIS_HOST:127.0.0.1}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
       username: ${REDIS_USERNAME:}
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}

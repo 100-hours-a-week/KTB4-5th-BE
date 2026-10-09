@@ -106,8 +106,8 @@ Spring Boot가 연결 팩토리와 `StringRedisTemplate`을 자동 등록하므�
 
 | 환경변수 | 내용 | 기본값 |
 |---|---|---|
-| `SPRING_DATA_REDIS_HOST` | Redis 서버 주소 | `127.0.0.1` |
-| `SPRING_DATA_REDIS_PORT` | Redis 서버 포트 | `6379` |
+| `SPRING_DATA_REDIS_HOST` | Redis 서버 주소 | 없음 (필수) |
+| `SPRING_DATA_REDIS_PORT` | Redis 서버 포트 | 없음 (필수) |
 | `REDIS_USERNAME` | ACL 사용자 이름. 서버 인증 설정에 맞춰 주입 | 빈 값 |
 | `REDIS_PASSWORD` | 서버 인증 비밀번호. 비밀값은 외부 환경에서만 주입 | 빈 값 |
 | `REDIS_DATABASE` | 논리 DB 인덱스 | `0` |
@@ -116,6 +116,7 @@ Spring Boot가 연결 팩토리와 `StringRedisTemplate`을 자동 등록하므�
 | `REDIS_SSL_ENABLED` | TLS 연결 사용 여부 | `false` |
 | `REDIS_HEALTH_ENABLED` | Actuator Redis health check 사용 여부 | `false` |
 
+서버 주소와 포트는 기본값 없이 환경변수로 주입한다.
 현재는 단일 Redis 서버 연결 준비만 포함하며 실제 저장·조회 기능은 연결하지 않는다.
 Redis Repository를 사용하지 않으므로 자동 탐색을 끈다. [R2]
 Redis health check는 기본적으로 꺼 두어 서버 연결 여부가 기존 health 응답에 영향을 주지 않게 한다.
