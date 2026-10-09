@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClient;
 public class AiAnalysisConfig {
     @Bean(destroyMethod = "close")
     HttpClient aiAnalysisHttpClient(AiAnalysisProperties properties) {
-        return HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build();
+        return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(properties.connectTimeout()).build();
     }
 
     @Bean
