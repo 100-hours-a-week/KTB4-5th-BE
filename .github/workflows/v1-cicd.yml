@@ -135,3 +135,47 @@ jobs:
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_PATH' && bash scripts/deploy-v1.sh backend '$IMAGE' '$COMPOSE_PROJECT' '$COMPOSE_FILE_NAME' '$GHCR_USER'"
+
+  deploy-v2:
+    name: v2 배포 (CLOUD 이미지 갱신)
+    needs: build
+    # v2 dev는 CLOUD 저장소가 배포한다. 여기서는 CLOUD의 이미지 값만 바꿔 main에 올리고, CLOUD 파이프라인이 ECS에 반영한다.
+    if: github.event_name == 'push' && github.ref_name == 'dev'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: v2-deploy-dev
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: 100-hours-a-week/KTB4-5th-CLOUD
+          ref: main
+          token: ${{ secrets.CLOUD_REPO_TOKEN }}
+      - name: CLOUD BeImage 갱신
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+          SHA: ${{ github.sha }}
+          PARAMS: infra/v2/params/dev.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # BE·FE가 동시에 푸시하면 한쪽이 거절되므로 최신 main을 받아 다시 시도한다.
+          for attempt in 1 2 3; do
+            grep -q '"ParameterKey": "BeImage"' "$PARAMS"
+            sed -i -E "s#(\"ParameterKey\": \"BeImage\", \"ParameterValue\": \")[^\"]*#\1${IMAGE}#" "$PARAMS"
+            if git diff --quiet; then
+              echo "이미 같은 이미지입니다."
+              exit 0
+            fi
+            git commit -q -am "deploy(v2-dev): BE ${SHA::7}"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            git reset -q --hard origin/main
+          done
+          exit 1
