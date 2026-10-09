@@ -40,10 +40,14 @@ public class NotificationPreference extends BaseEntity {
     private Boolean isEnabled;
 
     public static NotificationPreference onSignup(User user, NotificationPreferenceType type) {
+        return onSignup(user, type, type.isEnabledOnSignup());
+    }
+
+    public static NotificationPreference onSignup(User user, NotificationPreferenceType type, boolean enabled) {
         NotificationPreference preference = new NotificationPreference();
         preference.user = user;
         preference.type = type;
-        preference.isEnabled = type.isEnabledOnSignup();
+        preference.isEnabled = enabled;
         return preference;
     }
 }

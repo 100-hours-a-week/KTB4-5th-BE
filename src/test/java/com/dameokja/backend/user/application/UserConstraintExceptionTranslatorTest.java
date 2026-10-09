@@ -19,7 +19,11 @@ class UserConstraintExceptionTranslatorTest {
             "uk_users_nickname, NICKNAME_DUPLICATE",
             "users.uk_users_nickname, NICKNAME_DUPLICATE",
             "uk_users_login_id, LOGIN_ID_DUPLICATE",
-            "users.uk_users_login_id, LOGIN_ID_DUPLICATE"
+            "users.uk_users_login_id, LOGIN_ID_DUPLICATE",
+            "uk_social_provider_identity, SOCIAL_ACCOUNT_DUPLICATE",
+            "social_accounts.uk_social_provider_identity, SOCIAL_ACCOUNT_DUPLICATE",
+            "uk_social_user_provider, SOCIAL_ACCOUNT_DUPLICATE",
+            "social_accounts.uk_social_user_provider, SOCIAL_ACCOUNT_DUPLICATE"
     })
     void translatesKnownConstraintsThroughNestedCauses(
             String constraintName, UserExceptionCode expectedCode) {

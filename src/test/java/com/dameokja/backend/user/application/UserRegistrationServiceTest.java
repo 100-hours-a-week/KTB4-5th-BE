@@ -6,6 +6,7 @@ import com.dameokja.backend.notification.application.NotificationPreferenceServi
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,7 +53,8 @@ class UserRegistrationServiceTest {
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService, notificationPreferenceService,
                 new UserRegistrationFactory("default.png"), clock,
-                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
+                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder(),
+                mock(SocialAccountRepository.class));
     }
 
     @Test
