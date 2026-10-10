@@ -32,7 +32,7 @@ public class OAuthCallbackHandler implements AuthenticationSuccessHandler, Authe
     private final String frontend;
 
     public OAuthCallbackHandler(OAuthLoginService login, AuthCookies cookies, CsrfTokenRotator csrf,
-            SecurityErrorHandler errors, @Value("${oauth.frontend-base-url:http://localhost:3000}") String frontend) {
+            SecurityErrorHandler errors, @Value("${oauth.frontend-base-url}") String frontend) {
         this.login = login;
         this.cookies = cookies;
         this.csrf = csrf;
