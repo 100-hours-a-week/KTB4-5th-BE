@@ -30,7 +30,7 @@ class IngredientPageReader {
         String name = position == null ? null : position.name();
         Long ingredientId = position == null ? null : position.ingredientId();
         SortedPageQuery query = queryOf(cursor.sortType());
-        return query.find(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(),
+        return query.find(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(), cursor.keywordPattern(),
                 expirationDate, createdAt, name, ingredientId, Limit.of(limit));
     }
 
@@ -47,6 +47,6 @@ class IngredientPageReader {
     @FunctionalInterface
     private interface SortedPageQuery {
         List<Ingredient> find(Long refrigeratorId, LocalDate expirationFrom, LocalDate expirationTo, StorageType storageType, IngredientCategory category,
-                              LocalDate expirationDate, LocalDateTime createdAt, String name, Long ingredientId, Limit limit);
+                              String keywordPattern, LocalDate expirationDate, LocalDateTime createdAt, String name, Long ingredientId, Limit limit);
     }
 }

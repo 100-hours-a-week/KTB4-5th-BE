@@ -42,7 +42,7 @@ class IngredientPageReaderTest {
     void readsWholeExpirationOrderedListInOneQuery() {
         Ingredient expired = mock(Ingredient.class);
         Ingredient notExpired = mock(Ingredient.class);
-        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, null, null, null, null, null, null, null, null, Limit.of(3)))
+        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, null, null, null, null, null, null, null, null, null, Limit.of(3)))
                 .thenReturn(List.of(expired, notExpired));
 
         List<Ingredient> rows = ingredientPageReader.read(firstCursor(IngredientSortType.EXPIRATION_ASC), 3);
@@ -54,7 +54,7 @@ class IngredientPageReaderTest {
     @Test
     void readsWholeCreatedOrderedListInOneQuery() {
         List<Ingredient> expired = List.of(mock(Ingredient.class), mock(Ingredient.class));
-        when(ingredientRepository.findCreatedDescPage(REFRIGERATOR_ID, null, null, null, null, null, null, null, null, Limit.of(2)))
+        when(ingredientRepository.findCreatedDescPage(REFRIGERATOR_ID, null, null, null, null, null, null, null, null, null, Limit.of(2)))
                 .thenReturn(expired);
 
         List<Ingredient> rows = ingredientPageReader.read(firstCursor(IngredientSortType.CREATED_DESC), 2);
@@ -66,10 +66,10 @@ class IngredientPageReaderTest {
     @Test
     void continuesWholeNameOrderedListAfterCursorPosition() {
         IngredientCursor position = new IngredientCursor(BASE_DATE, LocalDateTime.of(2026, 9, 20, 9, 0), "두부", 7L);
-        IngredientListCursor cursor = new IngredientListCursor(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, null, null, BASE_DATE,
+        IngredientListCursor cursor = new IngredientListCursor(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, null, null, null, BASE_DATE,
                 position);
         List<Ingredient> notExpired = List.of(mock(Ingredient.class));
-        when(ingredientRepository.findNameAscPage(REFRIGERATOR_ID, null, null, null, null, BASE_DATE,
+        when(ingredientRepository.findNameAscPage(REFRIGERATOR_ID, null, null, null, null, null, BASE_DATE,
                 position.createdAt(), "두부", 7L, Limit.of(5))).thenReturn(notExpired);
 
         List<Ingredient> rows = ingredientPageReader.read(cursor, 5);
@@ -83,10 +83,10 @@ class IngredientPageReaderTest {
     void passesStatusFilterExpirationBounds(IngredientFilter filter, Integer fromDays, Integer toDays) {
         List<Ingredient> ingredients = List.of(mock(Ingredient.class));
         IngredientListCursor cursor = IngredientListCursor.first(
-                IngredientSortType.EXPIRATION_ASC, REFRIGERATOR_ID, filter, IngredientCategory.TOFU_BEAN, BASE_DATE);
+                IngredientSortType.EXPIRATION_ASC, REFRIGERATOR_ID, filter, IngredientCategory.TOFU_BEAN, "두부", BASE_DATE);
         LocalDate from = fromDays == null ? null : BASE_DATE.plusDays(fromDays);
         LocalDate to = toDays == null ? null : BASE_DATE.plusDays(toDays);
-        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, from, to, null, IngredientCategory.TOFU_BEAN, null, null, null, null, Limit.of(3)))
+        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, from, to, null, IngredientCategory.TOFU_BEAN, "%두부%", null, null, null, null, Limit.of(3)))
                 .thenReturn(ingredients);
 
         List<Ingredient> rows = ingredientPageReader.read(cursor, 3);
@@ -101,8 +101,8 @@ class IngredientPageReaderTest {
         Ingredient expired = mock(Ingredient.class);
         Ingredient notExpired = mock(Ingredient.class);
         IngredientListCursor cursor = IngredientListCursor.first(
-                IngredientSortType.EXPIRATION_ASC, REFRIGERATOR_ID, IngredientFilter.valueOf(storageType.name()), null, BASE_DATE);
-        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, null, null, storageType, null,
+                IngredientSortType.EXPIRATION_ASC, REFRIGERATOR_ID, IngredientFilter.valueOf(storageType.name()), null, null, BASE_DATE);
+        when(ingredientRepository.findExpirationAscPage(REFRIGERATOR_ID, null, null, storageType, null, null,
                 null, null, null, null, Limit.of(3))).thenReturn(List.of(expired, notExpired));
 
         List<Ingredient> rows = ingredientPageReader.read(cursor, 3);
@@ -112,6 +112,6 @@ class IngredientPageReaderTest {
     }
 
     private IngredientListCursor firstCursor(IngredientSortType sortType) {
-        return IngredientListCursor.first(sortType, REFRIGERATOR_ID, null, null, BASE_DATE);
+        return IngredientListCursor.first(sortType, REFRIGERATOR_ID, null, null, null, BASE_DATE);
     }
 }

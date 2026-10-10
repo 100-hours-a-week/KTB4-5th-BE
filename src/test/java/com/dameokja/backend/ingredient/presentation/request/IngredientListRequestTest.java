@@ -11,23 +11,25 @@ import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class IngredientListRequestTest {
 
     @Test
     void usesDefaultsWhenParametersAreOmitted() {
-        IngredientListRequest request = new IngredientListRequest(null, null, null, null, null);
+        IngredientListRequest request = new IngredientListRequest(null, null, null, null, null, null);
 
         assertThat(request.cursorToken()).isNull();
         assertThat(request.pageSize()).isEqualTo(10);
         assertThat(request.sortType()).isEqualTo(IngredientSortType.EXPIRATION_ASC);
         assertThat(request.ingredientFilter()).isNull();
         assertThat(request.ingredientCategory()).isNull();
+        assertThat(request.keywordValue()).isNull();
     }
 
     @Test
     void readsProvidedParameters() {
-        IngredientListRequest request = new IngredientListRequest("token", "50", "NAME_ASC", "EXPIRING_SOON", "VEGETABLE");
+        IngredientListRequest request = new IngredientListRequest("token", "50", "NAME_ASC", "EXPIRING_SOON", "VEGETABLE", null);
 
         assertThat(request.cursorToken()).isEqualTo("token");
         assertThat(request.pageSize()).isEqualTo(50);
@@ -38,31 +40,43 @@ class IngredientListRequestTest {
 
     @Test
     void treatsBlankCursorAsFirstPage() {
-        assertThat(new IngredientListRequest(" ", null, null, null, null).cursorToken()).isNull();
+        assertThat(new IngredientListRequest(" ", null, null, null, null, null).cursorToken()).isNull();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "51", "-1", "ten", ""})
     void rejectsSizeOutOfRange(String size) {
-        assertInvalidInput(() -> new IngredientListRequest(null, size, null, null, null).pageSize());
+        assertInvalidInput(() -> new IngredientListRequest(null, size, null, null, null, null).pageSize());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"expiration_asc", "PRICE_ASC", ""})
     void rejectsUnknownSort(String sort) {
-        assertInvalidInput(() -> new IngredientListRequest(null, null, sort, null, null).sortType());
+        assertInvalidInput(() -> new IngredientListRequest(null, null, sort, null, null, null).sortType());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"expired", "VEGETABLE", ""})
     void rejectsUnknownFilter(String filter) {
-        assertInvalidInput(() -> new IngredientListRequest(null, null, null, filter, null).ingredientFilter());
+        assertInvalidInput(() -> new IngredientListRequest(null, null, null, filter, null, null).ingredientFilter());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"vegetable", "UNKNOWN", "", " ", "VEGETABLE,FRUIT"})
     void rejectsInvalidCategory(String category) {
-        assertInvalidInput(() -> new IngredientListRequest(null, null, null, null, category).ingredientCategory());
+        assertInvalidInput(() -> new IngredientListRequest(null, null, null, null, category, null).ingredientCategory());
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"'  두부  ',두부", "'',", "'   ',", "'\t두부\t',두부", "😀두,😀두"})
+    void normalizesKeywordOrOmitsBlankInput(String keyword, String expected) {
+        assertThat(new IngredientListRequest(null, null, null, null, null, keyword).keywordValue()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"두", " 두 ", "😀"})
+    void rejectsOneCharacterAfterStrippingKeyword(String keyword) {
+        assertInvalidInput(() -> new IngredientListRequest(null, null, null, null, null, keyword).keywordValue());
     }
 
     private void assertInvalidInput(Runnable action) {

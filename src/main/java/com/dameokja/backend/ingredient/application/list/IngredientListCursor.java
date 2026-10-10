@@ -7,6 +7,7 @@ import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import java.time.LocalDate;
+import java.util.Objects;
 
 /**
  * 클라이언트에 불투명 토큰으로 내려가는 목록 커서. baseDate는 첫 페이지 요청 날짜(KST)로 고정해
@@ -17,16 +18,17 @@ public record IngredientListCursor(
         Long refrigeratorId,
         IngredientFilter filter,
         IngredientCategory category,
+        String keyword,
         LocalDate baseDate,
         IngredientCursor position) {
 
     static IngredientListCursor first(IngredientSortType sortType, Long refrigeratorId, IngredientFilter filter, IngredientCategory category,
-                                      LocalDate baseDate) {
-        return new IngredientListCursor(sortType, refrigeratorId, filter, category, baseDate, null);
+                                      String keyword, LocalDate baseDate) {
+        return new IngredientListCursor(sortType, refrigeratorId, filter, category, keyword, baseDate, null);
     }
 
     IngredientListCursor after(Ingredient last) {
-        return new IngredientListCursor(sortType, refrigeratorId, filter, category, baseDate, IngredientCursor.from(last));
+        return new IngredientListCursor(sortType, refrigeratorId, filter, category, keyword, baseDate, IngredientCursor.from(last));
     }
 
     StorageType storageType() {
@@ -34,13 +36,18 @@ public record IngredientListCursor(
     }
 
     boolean matches(IngredientSortType requestedSort, Long requestedRefrigeratorId, IngredientFilter requestedFilter,
-                    IngredientCategory requestedCategory, LocalDate today) {
+                    IngredientCategory requestedCategory, String requestedKeyword, LocalDate today) {
         return isComplete()
                 && sortType == requestedSort
                 && refrigeratorId.equals(requestedRefrigeratorId)
                 && filter == requestedFilter
                 && category == requestedCategory
+                && Objects.equals(keyword, requestedKeyword)
                 && !baseDate.isAfter(today);
+    }
+
+    public String keywordPattern() {
+        return keyword == null ? null : "%" + keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
     }
 
     private boolean isComplete() {

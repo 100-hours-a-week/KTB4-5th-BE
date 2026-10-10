@@ -2,6 +2,7 @@ package com.dameokja.backend.ingredient.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dameokja.backend.ingredient.application.list.IngredientListCursor;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Limit;
 
@@ -59,7 +61,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         ingredient("123주스", 7, 4);
         flushAndClear();
 
-        assertThat(readAllPages(sortType, null, null, null, null)).containsExactly(expected.split(","));
+        assertThat(readAllPages(sortType, null, null, null, null, null)).containsExactly(expected.split(","));
     }
 
     @ParameterizedTest
@@ -76,9 +78,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         }
         flushAndClear();
 
-        assertThat(readAllPages(sortType, null, BASE_DATE.minusDays(1), null, null))
+        assertThat(readAllPages(sortType, null, BASE_DATE.minusDays(1), null, null, null))
                 .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
-        assertThat(readAllPages(sortType, BASE_DATE, null, null, null))
+        assertThat(readAllPages(sortType, BASE_DATE, null, null, null, null))
                 .containsExactly("123주스", "123주스", "apple", "Kimchi", "가지", "우유");
     }
 
@@ -90,7 +92,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         flushAndClear();
 
         List<Ingredient> page = ingredientRepository.findExpirationAscPage(
-                refrigerator.getId(), BASE_DATE, null, null, null, null, null, null, null, Limit.of(ALL));
+                refrigerator.getId(), BASE_DATE, null, null, null, null, null, null, null, null, Limit.of(ALL));
 
         assertThat(page).extracting(Ingredient::getName).containsExactly("우유");
     }
@@ -122,37 +124,55 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         flushAndClear();
 
         Long refrigeratorId = refrigerator.getId();
-        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, null, null)).isEqualTo(4L);
-        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, BASE_DATE.minusDays(1), null, null)).isEqualTo(1L);
-        assertThat(ingredientRepository.countFiltered(refrigeratorId, BASE_DATE, BASE_DATE.plusDays(3), null, null)).isEqualTo(2L);
-        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, StorageType.FROZEN, null)).isEqualTo(1L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, null, null, null)).isEqualTo(4L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, BASE_DATE.minusDays(1), null, null, null)).isEqualTo(1L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, BASE_DATE, BASE_DATE.plusDays(3), null, null, null)).isEqualTo(2L);
+        assertThat(ingredientRepository.countFiltered(refrigeratorId, null, null, StorageType.FROZEN, null, null)).isEqualTo(1L);
     }
 
     @ParameterizedTest
-    @CsvSource(delimiter = '|', value = {"EXPIRATION_ASC | A,B", "CREATED_DESC | B,A", "NAME_ASC | A,B"})
-    void combinesCategoryWithDateAndStorageAcrossPages(IngredientSortType sortType, String expected) {
-        ingredient("B", 1, 2, StorageType.FROZEN);
-        ingredient("A", 0, 1, StorageType.FROZEN);
-        ingredient("냉장", 0, 1);
-        ingredient("만료", -1, 1, StorageType.FROZEN);
-        persist(new Ingredient(refrigerator, new IngredientDetails("채소", IngredientCategory.VEGETABLE, StorageType.FROZEN,
+    @CsvSource(delimiter = '|', value = {"EXPIRATION_ASC | 볶음두부A,볶음두부B", "CREATED_DESC | 볶음두부B,볶음두부A", "NAME_ASC | 볶음두부A,볶음두부B"})
+    void combinesKeywordWithCategoryDateAndStorageAcrossPages(IngredientSortType sortType, String expected) {
+        ingredient("볶음두부B", 1, 2, StorageType.FROZEN);
+        ingredient("볶음두부A", 0, 1, StorageType.FROZEN);
+        ingredient("냉장두부", 0, 1);
+        ingredient("만두", 0, 1, StorageType.FROZEN);
+        ingredient("만료두부", -1, 1, StorageType.FROZEN);
+        persist(new Ingredient(refrigerator, new IngredientDetails("채소두부", IngredientCategory.VEGETABLE, StorageType.FROZEN,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
         Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
-        persist(new Ingredient(other, details("타냉장고", 0, StorageType.FROZEN), RegistrationSource.DIRECT));
+        persist(new Ingredient(other, details("타냉장고두부", 0, StorageType.FROZEN), RegistrationSource.DIRECT));
         flushAndClear();
 
-        assertThat(readAllPages(sortType, BASE_DATE, BASE_DATE.plusDays(3), StorageType.FROZEN, IngredientCategory.OTHER))
+        assertThat(readAllPages(sortType, BASE_DATE, BASE_DATE.plusDays(3), StorageType.FROZEN, IngredientCategory.OTHER, "%두부%"))
                 .containsExactly(expected.split(","));
         assertThat(ingredientRepository.countFiltered(refrigerator.getId(), BASE_DATE, BASE_DATE.plusDays(3),
-                StorageType.FROZEN, IngredientCategory.OTHER)).isEqualTo(2L);
-        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.OTHER)).isEqualTo(4L);
-        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.FRUIT)).isZero();
-        assertThat(readAllPages(sortType, null, null, null, IngredientCategory.FRUIT)).isEmpty();
-        assertThat(ingredientRepository.countByRefrigeratorId(refrigerator.getId())).isEqualTo(5L);
+                StorageType.FROZEN, IngredientCategory.OTHER, "%두부%")).isEqualTo(2L);
+        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.OTHER, "%두부%")).isEqualTo(4L);
+        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.OTHER, null)).isEqualTo(5L);
+        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.FRUIT, "%두부%")).isZero();
+        assertThat(readAllPages(sortType, null, null, null, IngredientCategory.FRUIT, "%두부%")).isEmpty();
+        assertThat(ingredientRepository.countByRefrigeratorId(refrigerator.getId())).isEqualTo(6L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"A%", "A_", "A!", "A\\"})
+    void searchesWildcardEscapeAndBackslashAsLiteralCharacters(String keyword) {
+        ingredient("앞" + keyword + "뒤", 0, 1);
+        ingredient("앞AX뒤", 0, 1);
+        ingredient("앞A뒤", 0, 1);
+        flushAndClear();
+        String pattern = new IngredientListCursor(IngredientSortType.NAME_ASC, refrigerator.getId(), null, null,
+                keyword, BASE_DATE, null).keywordPattern();
+
+        assertThat(readAllPages(IngredientSortType.NAME_ASC, null, null, null, null, pattern)).containsExactly("앞" + keyword + "뒤");
+        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, null, pattern)).isEqualTo(1L);
+        assertThat(readAllPages(IngredientSortType.NAME_ASC, null, null, null, null, "%없는이름%")).isEmpty();
+        assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, null, "%없는이름%")).isZero();
     }
 
     private List<String> names(LocalDate from, LocalDate to, StorageType storageType) {
-        return ingredientRepository.findNameAscPage(refrigerator.getId(), from, to, storageType, null,
+        return ingredientRepository.findNameAscPage(refrigerator.getId(), from, to, storageType, null, null,
                         null, null, null, null, Limit.of(ALL)).stream()
                 .map(Ingredient::getName)
                 .toList();
@@ -160,20 +180,20 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
     // 한 건씩 넘겨 모든 커서 경계(동률 행 사이 포함)를 지나게 한다.
     private List<String> readAllPages(IngredientSortType sortType, LocalDate from, LocalDate to,
-                                      StorageType storageType, IngredientCategory category) {
+                                      StorageType storageType, IngredientCategory category, String keywordPattern) {
         List<String> names = new ArrayList<>();
         IngredientCursor cursor = null;
-        List<Ingredient> page = findPage(sortType, from, to, storageType, category, cursor);
+        List<Ingredient> page = findPage(sortType, from, to, storageType, category, keywordPattern, cursor);
         while (!page.isEmpty()) {
             names.add(page.getFirst().getName());
             cursor = IngredientCursor.from(page.getFirst());
-            page = findPage(sortType, from, to, storageType, category, cursor);
+            page = findPage(sortType, from, to, storageType, category, keywordPattern, cursor);
         }
         return names;
     }
 
     private List<Ingredient> findPage(IngredientSortType sortType, LocalDate from, LocalDate to,
-                                      StorageType storageType, IngredientCategory category, IngredientCursor cursor) {
+                                      StorageType storageType, IngredientCategory category, String keywordPattern, IngredientCursor cursor) {
         Long refrigeratorId = refrigerator.getId();
         LocalDate expirationDate = cursor == null ? null : cursor.expirationDate();
         LocalDateTime createdAt = cursor == null ? null : cursor.createdAt();
@@ -182,11 +202,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         Limit one = Limit.of(1);
         return switch (sortType) {
             case EXPIRATION_ASC -> ingredientRepository.findExpirationAscPage(
-                    refrigeratorId, from, to, storageType, category, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, storageType, category, keywordPattern, expirationDate, createdAt, name, id, one);
             case CREATED_DESC -> ingredientRepository.findCreatedDescPage(
-                    refrigeratorId, from, to, storageType, category, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, storageType, category, keywordPattern, expirationDate, createdAt, name, id, one);
             case NAME_ASC -> ingredientRepository.findNameAscPage(
-                    refrigeratorId, from, to, storageType, category, expirationDate, createdAt, name, id, one);
+                    refrigeratorId, from, to, storageType, category, keywordPattern, expirationDate, createdAt, name, id, one);
         };
     }
 

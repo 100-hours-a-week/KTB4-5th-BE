@@ -54,57 +54,82 @@ class IngredientListCursorTest {
     void matchesOnlySameSortAndRefrigeratorUpToToday() {
         IngredientListCursor cursor = cursor(IngredientSortType.NAME_ASC, 10L, TODAY);
 
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isTrue();
-        assertThat(cursor.matches(IngredientSortType.CREATED_DESC, 10L, null, null, TODAY)).isFalse();
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 99L, null, null, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isTrue();
+        assertThat(cursor.matches(IngredientSortType.CREATED_DESC, 10L, null, null, null, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 99L, null, null, null, TODAY)).isFalse();
         assertThat(cursor(IngredientSortType.NAME_ASC, 10L, TODAY.minusDays(1))
-                .matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isTrue();
+                .matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isTrue();
         assertThat(cursor(IngredientSortType.NAME_ASC, 10L, TODAY.plusDays(1))
-                .matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isFalse();
+                .matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isFalse();
     }
 
     @Test
     void doesNotMatchCursorWithMissingValues() {
         IngredientListCursor empty = codec.decode("e30");
 
-        assertThat(empty.matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isFalse();
+        assertThat(empty.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isFalse();
     }
 
     @Test
     void doesNotMatchCursorIssuedForAnotherFilter() {
-        IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, null, TODAY)
+        IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, null, null, TODAY)
                 .after(ingredient(TODAY));
 
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, null, TODAY)).isTrue();
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.REFRIGERATED, null, TODAY)).isFalse();
-        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.FROZEN, null, null, TODAY)).isTrue();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, IngredientFilter.REFRIGERATED, null, null, TODAY)).isFalse();
+        assertThat(cursor.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isFalse();
     }
 
     @Test
     void preservesCategoryAndRequiresSameSelection() {
         IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, null,
-                IngredientCategory.TOFU_BEAN, TODAY).after(ingredient(TODAY));
+                IngredientCategory.TOFU_BEAN, null, TODAY).after(ingredient(TODAY));
         IngredientListCursor decoded = codec.decode(codec.encode(cursor));
 
         assertThat(decoded).isEqualTo(cursor);
-        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, TODAY)).isTrue();
-        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.VEGETABLE, TODAY)).isFalse();
-        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isFalse();
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, null, TODAY)).isTrue();
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.VEGETABLE, null, TODAY)).isFalse();
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isFalse();
     }
 
     @Test
     void acceptsLegacyCursorOnlyWithoutCategory() {
         String json = new String(Base64.getUrlDecoder().decode(codec.encode(cursor(IngredientSortType.NAME_ASC, 10L, TODAY))),
-                StandardCharsets.UTF_8).replace(",\"category\":null", "");
+                StandardCharsets.UTF_8).replace(",\"category\":null", "").replace(",\"keyword\":null", "");
         IngredientListCursor legacy = codec.decode(Base64.getUrlEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8)));
 
-        assertThat(json).doesNotContain("category");
-        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, null, TODAY)).isTrue();
-        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, TODAY)).isFalse();
+        assertThat(json).doesNotContain("category", "keyword");
+        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isTrue();
+        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, null, TODAY)).isFalse();
+    }
+
+    @Test
+    void preservesKeywordAndRejectsChangedOrRemovedSearch() {
+        IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, null, null, "두부", TODAY)
+                .after(ingredient(TODAY));
+        IngredientListCursor decoded = codec.decode(codec.encode(cursor));
+
+        assertThat(decoded).isEqualTo(cursor);
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, null, "두부", TODAY)).isTrue();
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, null, "우유", TODAY)).isFalse();
+        assertThat(decoded.matches(IngredientSortType.NAME_ASC, 10L, null, null, null, TODAY)).isFalse();
+    }
+
+    @Test
+    void acceptsCategoryCursorWithoutKeywordOnlyForUnsearchedRequest() {
+        IngredientListCursor cursor = IngredientListCursor.first(IngredientSortType.NAME_ASC, 10L, null,
+                IngredientCategory.TOFU_BEAN, null, TODAY).after(ingredient(TODAY));
+        String json = new String(Base64.getUrlDecoder().decode(codec.encode(cursor)), StandardCharsets.UTF_8)
+                .replace(",\"keyword\":null", "");
+        IngredientListCursor legacy = codec.decode(Base64.getUrlEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(json).contains("category").doesNotContain("keyword");
+        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, null, TODAY)).isTrue();
+        assertThat(legacy.matches(IngredientSortType.NAME_ASC, 10L, null, IngredientCategory.TOFU_BEAN, "두부", TODAY)).isFalse();
     }
 
     private IngredientListCursor cursor(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
-        return new IngredientListCursor(sortType, refrigeratorId, null, null, baseDate, POSITION);
+        return new IngredientListCursor(sortType, refrigeratorId, null, null, null, baseDate, POSITION);
     }
 
     private Ingredient ingredient(LocalDate expirationDate) {
