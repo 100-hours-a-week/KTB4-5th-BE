@@ -10,6 +10,7 @@ import com.dameokja.backend.user.application.AuthenticatedUser;
 import com.dameokja.backend.user.application.UserAuthenticationService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class AuthService {
     private final UserAuthenticationService userAuthenticationService;
     private final JwtProvider jwtProvider;
     private final RefreshSessionStore refreshSessionStore;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public TokenPair login(String loginId, String password) {
@@ -27,6 +29,16 @@ public class AuthService {
         TokenPair tokenPair = issue(authenticatedUser, UUID.randomUUID());
         refreshSessionStore.create(jwtProvider.parseRefreshTokenPayload(tokenPair.refreshToken()));
         return tokenPair;
+    }
+
+    @Transactional
+    public TokenPair loginSocial(Long userId) {
+        AuthenticatedUser user = userAuthenticationService.findActiveForUpdate(userId);
+        TokenPair tokens = issue(user, UUID.randomUUID());
+        RefreshTokenPayload payload = jwtProvider.parseRefreshTokenPayload(tokens.refreshToken());
+        events.publishEvent(new RefreshSessionCreationRequested(payload));
+        refreshSessionStore.create(payload);
+        return tokens;
     }
 
     @Transactional
@@ -86,4 +98,5 @@ public class AuthService {
         return new TokenPair(accessToken, refreshToken, authenticatedUser.id());
     }
 
+    public record RefreshSessionCreationRequested(RefreshTokenPayload payload) {}
 }

@@ -32,6 +32,10 @@ public class AuthCookies {
                 cookie("refreshToken", tokenPair.refreshToken(), REFRESH_PATH, refreshLifetime));
     }
 
+    public void clearRegistration(HttpServletResponse response) {
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie("registrationToken", "", "/", Duration.ZERO));
+    }
+
     public void clear(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookie("accessToken", "", ACCESS_PATH, Duration.ZERO));
