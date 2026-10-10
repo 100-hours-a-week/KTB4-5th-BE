@@ -15,6 +15,8 @@ public class UserRegistrationFactory {
         this.defaultProfileImageKey = defaultProfileImageKey;
     }
 
+    public User createSocial(String nickname) { return new User(nickname, defaultProfileImageKey); }
+
     public User create(RegisterUserCommand command, String nickname, String passwordHash, LocalDateTime registeredAt) {
         String profileImageKey = command.profileImageKey() == null
                 ? defaultProfileImageKey : command.profileImageKey();

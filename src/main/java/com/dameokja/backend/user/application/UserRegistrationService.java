@@ -1,18 +1,21 @@
 package com.dameokja.backend.user.application;
 
+import com.dameokja.backend.auth.domain.OAuthIdentity;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
+import com.dameokja.backend.user.domain.SocialAccount;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,7 @@ public class UserRegistrationService {
     private final NicknamePolicy nicknamePolicy;
     private final LoginIdPolicy loginIdPolicy;
     private final PasswordEncoder passwordEncoder;
+    private final SocialAccountRepository socialAccountRepository;
 
     public RegistrationResult register(RegisterUserCommand registerUserCommand) {
         LocalDateTime registeredAt = now();
@@ -45,6 +49,27 @@ public class UserRegistrationService {
             return new RegistrationResult(user.getId(), refrigeratorId);
         } catch (DataIntegrityViolationException dataIntegrityViolationException) {
             throw UserConstraintExceptionTranslator.translate(dataIntegrityViolationException);
+        }
+    }
+
+    public RegistrationResult registerSocial(OAuthIdentity identity, String nickname, boolean notificationSetting) {
+        nicknamePolicy.validate(nickname);
+        if (userRepository.existsByNickname(nickname)) {
+            throw new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
+        }
+        if (socialAccountRepository.findByProviderAndProviderUserId(identity.provider(), identity.providerUserId()).isPresent()) {
+            throw new CustomException(UserExceptionCode.SOCIAL_ACCOUNT_DUPLICATE);
+        }
+        try {
+            User user = userRepository.save(userRegistrationFactory.createSocial(nickname));
+            socialAccountRepository.save(new SocialAccount(
+                    user, identity.provider(), identity.providerUserId(), identity.email()));
+            Long refrigeratorId = refrigeratorLifecycleService.createPersonal(user, YearMonth.from(now()).toString());
+            notificationPreferenceService.create(user, notificationSetting);
+            userRepository.flush();
+            return new RegistrationResult(user.getId(), refrigeratorId);
+        } catch (DataIntegrityViolationException exception) {
+            throw UserConstraintExceptionTranslator.translate(exception);
         }
     }
 

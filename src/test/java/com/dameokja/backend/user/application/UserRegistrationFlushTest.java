@@ -5,6 +5,7 @@ import com.dameokja.backend.notification.application.NotificationPreferenceServi
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,7 +49,8 @@ class UserRegistrationFlushTest {
         userRegistrationService = new UserRegistrationService(
                 userRepository, refrigeratorLifecycleService, notificationPreferenceService,
                 new UserRegistrationFactory("default.png"), clock,
-                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder());
+                nicknamePolicy, loginIdPolicy, new BCryptPasswordEncoder(),
+                mock(SocialAccountRepository.class));
     }
 
     @ParameterizedTest

@@ -22,6 +22,12 @@ public class NotificationPreferenceService {
         }
     }
 
+    public void create(User user, boolean enabled) {
+        for (NotificationPreferenceType type : NotificationPreferenceType.values()) {
+            notificationPreferenceRepository.save(NotificationPreference.onSignup(user, type, enabled));
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<NotificationPreferenceView> getPreferences(Long userId) {
         return notificationPreferenceRepository.findAllByUserId(userId).stream()
