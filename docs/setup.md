@@ -54,6 +54,12 @@
 - 앱은 현재 시각·날짜를 `BusinessTime.now(clock)`·`BusinessTime.today(clock)`로 만든다. JPA Auditing(`created_at`·`updated_at`)도 같은 기준이다.
 - DB 기본값 `CURRENT_TIMESTAMP(6)`은 MySQL 세션 시간대로 표현되므로 앱이 값을 넣지 않는 경로(직접 SQL 등)에서는 서버 설정에 따라 기준이 달라질 수 있다. [M2]
 
+## OAuth 프론트 리다이렉트 설정
+
+`OAUTH_FRONTEND_BASE_URL`은 OAuth 완료·실패 후 이동할 프론트 기본 주소이며, 기본값 없이 외부 주입한다. [B3]
+로컬에서는 `http://localhost:3000` 등 개발 프론트 주소를 명시하고, 배포 환경에서는 실제 프론트 주소를 설정한다.
+설정이 누락되면 애플리케이션이 기동하지 않는다. 테스트 주소는 테스트 전용 설정에서만 지정한다.
+
 ## 이미지 S3 업로드 설정
 
 AWS SDK for Java 2.x는 BOM으로 버전을 맞추고 S3 모듈을 사용한다. [AWS1]
