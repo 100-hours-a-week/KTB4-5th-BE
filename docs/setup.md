@@ -144,6 +144,22 @@ Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함�
 객체를 JSON으로 저장할 때는 `ObjectMapper`로 문자열 변환 후 `StringRedisTemplate`을 사용하고,
 키 구조·TTL·역직렬화 대상 타입은 해당 도메인의 저장소에서 정한다.
 
+## 카카오 로그인 설정
+
+| 환경변수 | 내용 |
+|---|---|
+| `KAKAO_REST_API_KEY` | 카카오 앱의 REST API 키 |
+| `KAKAO_CLIENT_SECRET` | 해당 REST API 키의 활성화된 클라이언트 시크릿 |
+| `KAKAO_REDIRECT_URI` | 카카오에 등록한 외부 공개 BE 콜백 URL. 예: `https://v2.dameokja.com/api/v1/auth/oauth/code/kakao` |
+| `OAUTH_FRONTEND_BASE_URL` | 성공·실패 후 브라우저가 이동할 프론트 기본 URL. 예: `https://v2.dameokja.com` |
+
+모두 기본값 없이 주입한다. 카카오 로그인을 활성화하고 REST API 키의 클라이언트 시크릿을 ON으로 설정한다.
+콜백 URL을 카카오 앱에 정확히 등록하고 `account_email` 동의항목 사용 권한과 사용자 동의를 확보한다. [K1]
+`GET /api/v1/auth/oauth/kakao`로 시작하며, 콜백은 Spring Security가 코드 교환·사용자 정보 조회 후 처리한다.
+유효하고 인증된 이메일이 없는 카카오 계정은 로그인을 완료할 수 없다.
+제공자 토큰·OAuth 인증 컨텍스트는 저장하지 않으며 HttpSession을 만들지 않는다. 서비스 JWT 쿠키로 인증한다.
+state와 가입 대기 토큰은 10분간 단일 프로세스에 저장하므로 여러 BE 인스턴스 운영 전 공유 저장소로 전환해야 한다.
+
 ## DDL
 
 - `schema.sql`은 제공된 ERD·스키마 명세로만 작성한다. 없는 테이블을 만들지 않는다.
@@ -199,3 +215,4 @@ Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함�
 | AWS6 | [AWS SDK for Java — 콘솔 로그인 자격 증명](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-temporary.html) (확인 2026-10-06) | `aws login` 공유 프로필 사용에 필요한 `signin` 모듈 및 자동 갱신 |
 | R1 | [Spring Boot — Redis](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis) (확인 2026-10-08) | Redis starter의 기본 Lettuce 클라이언트, 연결 팩토리·템플릿 자동 설정 |
 | R2 | [Spring Boot — Common Application Properties](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) (확인 2026-10-08) | Redis 연결·인증·타임아웃·TLS·Repository 및 health check 설정 |
+| K1 | [카카오 REST API](https://developers.kakao.com/docs/ko/kakaologin/rest-api), [앱 설정](https://developers.kakao.com/docs/ko/kakaologin/prerequisite) | 코드 교환·시크릿·콜백·이메일 동의 설정 (확인 2026-10-10) |
