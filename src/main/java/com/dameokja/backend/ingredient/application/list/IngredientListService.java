@@ -5,6 +5,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
@@ -31,10 +32,10 @@ public class IngredientListService {
     private final Clock clock;
 
     public IngredientListResult getList(Long userId, Long refrigeratorId, IngredientSortType sortType,
-                                        IngredientFilter filter, String cursorToken, int size) {
+                                        IngredientFilter filter, IngredientCategory category, String cursorToken, int size) {
         LocalDate today = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
-        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter, today);
+        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter, category, today);
         List<Ingredient> rows = ingredientPageReader.read(cursor, size + LOOKAHEAD);
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
@@ -48,16 +49,16 @@ public class IngredientListService {
         IngredientFilter filter = cursor.filter();
         LocalDate expirationFrom = filter == null ? null : filter.expirationFrom(cursor.baseDate());
         LocalDate expirationTo = filter == null ? null : filter.expirationTo(cursor.baseDate());
-        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType());
+        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category());
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
-                                          IngredientFilter filter, LocalDate today) {
+                                          IngredientFilter filter, IngredientCategory category, LocalDate today) {
         if (cursorToken == null) {
-            return IngredientListCursor.first(sortType, refrigeratorId, filter, today);
+            return IngredientListCursor.first(sortType, refrigeratorId, filter, category, today);
         }
         IngredientListCursor cursor = cursorCodec.decode(cursorToken);
-        if (!cursor.matches(sortType, refrigeratorId, filter, today)) {
+        if (!cursor.matches(sortType, refrigeratorId, filter, category, today)) {
             throw new CustomException(INVALID_CURSOR);
         }
         return cursor;

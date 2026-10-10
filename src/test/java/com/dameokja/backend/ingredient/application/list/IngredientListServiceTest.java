@@ -65,9 +65,9 @@ class IngredientListServiceTest {
         Ingredient last = ingredient(2L, TODAY);
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(expired, last, ingredient(3L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
-        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, null, null, null)).thenReturn(5L);
+        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, null, null, null, IngredientCategory.TOFU_BEAN)).thenReturn(5L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, IngredientCategory.TOFU_BEAN, null, 2);
 
         assertThat(result.ingredients()).containsExactly(expired, last);
         assertThat(result.businessDate()).isEqualTo(TODAY);
@@ -76,17 +76,17 @@ class IngredientListServiceTest {
         assertThat(result.refrigeratorCapacity()).isEqualTo((short) 100);
         assertThat(readCursor().position()).isNull();
         assertThat(cursorCodec.decode(result.nextCursor())).isEqualTo(new IngredientListCursor(IngredientSortType.NAME_ASC,
-                REFRIGERATOR_ID, null, TODAY, IngredientCursor.from(last)));
+                REFRIGERATOR_ID, null, IngredientCategory.TOFU_BEAN, TODAY, IngredientCursor.from(last)));
     }
 
     @Test
     void countsOnlyIngredientsMatchingFilter() {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
-        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, TODAY, TODAY.plusDays(3), null)).thenReturn(2L);
+        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, TODAY, TODAY.plusDays(3), null, IngredientCategory.TOFU_BEAN)).thenReturn(2L);
 
         IngredientListResult result = ingredientListService.getList(
-                USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, IngredientFilter.EXPIRING_SOON, null, 2);
+                USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, IngredientFilter.EXPIRING_SOON, IngredientCategory.TOFU_BEAN, null, 2);
 
         assertThat(result.ingredientsNum()).isEqualTo(5L);
         assertThat(result.filteredCount()).isEqualTo(2L);
@@ -97,7 +97,7 @@ class IngredientListServiceTest {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(1L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, null, 2);
 
         assertThat(result.nextCursor()).isNull();
     }
@@ -108,7 +108,7 @@ class IngredientListServiceTest {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of());
         when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(0L);
 
-        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, token, 2);
+        IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, null, token, 2);
 
         assertThat(result.businessDate()).isEqualTo(TODAY.minusDays(1));
         assertThat(readCursor().baseDate()).isEqualTo(TODAY.minusDays(1));
@@ -119,7 +119,17 @@ class IngredientListServiceTest {
         String token = token(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, TODAY);
 
         assertThatThrownBy(() -> ingredientListService.getList(
-                USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, token, 2))
+                USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, null, token, 2))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getExceptionCode()).isEqualTo(INVALID_CURSOR));
+    }
+
+    @Test
+    void rejectsCursorWhenCategoryIsAdded() {
+        String token = token(IngredientSortType.NAME_ASC, REFRIGERATOR_ID, TODAY);
+
+        assertThatThrownBy(() -> ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC,
+                null, IngredientCategory.VEGETABLE, token, 2))
                 .isInstanceOfSatisfying(CustomException.class,
                         exception -> assertThat(exception.getExceptionCode()).isEqualTo(INVALID_CURSOR));
     }
@@ -133,7 +143,7 @@ class IngredientListServiceTest {
     private String token(IngredientSortType sortType, Long refrigeratorId, LocalDate baseDate) {
         IngredientCursor position = new IngredientCursor(baseDate, LocalDateTime.of(2026, 9, 20, 9, 0), "두부", 7L);
         return cursorCodec.encode(new IngredientListCursor(
-                sortType, refrigeratorId, null, baseDate, position));
+                sortType, refrigeratorId, null, null, baseDate, position));
     }
 
     private Ingredient ingredient(Long id, LocalDate expirationDate) {

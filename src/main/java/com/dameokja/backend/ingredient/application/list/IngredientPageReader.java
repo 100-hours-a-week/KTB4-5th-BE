@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.application.list;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
@@ -29,7 +30,7 @@ class IngredientPageReader {
         String name = position == null ? null : position.name();
         Long ingredientId = position == null ? null : position.ingredientId();
         SortedPageQuery query = queryOf(cursor.sortType());
-        return query.find(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(),
+        return query.find(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(),
                 expirationDate, createdAt, name, ingredientId, Limit.of(limit));
     }
 
@@ -45,7 +46,7 @@ class IngredientPageReader {
     // 정렬별 조회 메서드는 모두 같은 인자를 받으므로, 어떤 메서드를 쓸지만 고르고 호출은 한 번에 한다.
     @FunctionalInterface
     private interface SortedPageQuery {
-        List<Ingredient> find(Long refrigeratorId, LocalDate expirationFrom, LocalDate expirationTo, StorageType storageType,
+        List<Ingredient> find(Long refrigeratorId, LocalDate expirationFrom, LocalDate expirationTo, StorageType storageType, IngredientCategory category,
                               LocalDate expirationDate, LocalDateTime createdAt, String name, Long ingredientId, Limit limit);
     }
 }
