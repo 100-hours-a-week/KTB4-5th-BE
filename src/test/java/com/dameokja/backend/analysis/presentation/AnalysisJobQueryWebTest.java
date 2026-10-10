@@ -23,6 +23,7 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
+import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.user.domain.UserRole;
@@ -44,6 +45,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -59,6 +61,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+@MockitoBean(types = OAuthSecurityConfig.class)
 @SpringJUnitConfig(AnalysisJobQueryWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",

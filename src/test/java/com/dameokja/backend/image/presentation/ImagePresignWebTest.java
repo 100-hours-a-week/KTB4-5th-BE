@@ -11,6 +11,7 @@ import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.AuthPrincipal;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
+import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.image.application.ImagePresignService;
 import com.dameokja.backend.image.application.ImageUploadResult;
@@ -30,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -38,6 +40,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
+@MockitoBean(types = OAuthSecurityConfig.class)
 @SpringJUnitConfig(ImagePresignWebTest.WebConfiguration.class)
 @WebAppConfiguration
 class ImagePresignWebTest {
