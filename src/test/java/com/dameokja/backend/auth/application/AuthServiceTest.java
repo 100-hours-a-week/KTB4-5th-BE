@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,7 +37,7 @@ class AuthServiceTest {
     private final RefreshSessionStore refreshSessionStore =
             new CaffeineRefreshSessionStore(clock);
     private final AuthService service =
-            new AuthService(userAuthenticationService, jwtProvider, refreshSessionStore);
+            new AuthService(userAuthenticationService, jwtProvider, refreshSessionStore, mock(ApplicationEventPublisher.class));
 
     @BeforeEach
     void userAuthenticationService() {
@@ -68,6 +69,7 @@ class AuthServiceTest {
                 .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
         assertCode(() -> service.refresh(tokens.refreshToken()),
                 UserExceptionCode.USER_NOT_ACTIVE);
+        assertCode(() -> service.loginSocial(1L), UserExceptionCode.USER_NOT_ACTIVE);
         doReturn(new AuthenticatedUser(1L, UserRole.USER))
                 .when(userAuthenticationService).findActiveForUpdate(1L);
         assertCode(() -> service.refresh(tokens.refreshToken()),
@@ -99,7 +101,7 @@ class AuthServiceTest {
     void storageFailuresNeverReturnTokens() {
         RefreshSessionStore unavailable = mock(RefreshSessionStore.class);
         doThrow(new IllegalStateException("storage unavailable")).when(unavailable).create(any());
-        AuthService failing = new AuthService(userAuthenticationService, jwtProvider, unavailable);
+        AuthService failing = new AuthService(userAuthenticationService, jwtProvider, unavailable, mock(ApplicationEventPublisher.class));
         assertThatThrownBy(() -> failing.login("user", "password"))
                 .isInstanceOf(IllegalStateException.class);
     }
