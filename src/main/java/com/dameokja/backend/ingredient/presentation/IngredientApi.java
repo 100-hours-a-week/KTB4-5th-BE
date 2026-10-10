@@ -11,6 +11,7 @@ import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
@@ -34,11 +35,10 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "재고", description = "냉장고 재고 API")
 public interface IngredientApi {
-
     @Operation(
             summary = "냉장고 재고 목록 조회",
             description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 만료 여부와 관계없이 선택한 정렬 기준을 적용합니다. "
-                    + "다음 페이지는 같은 sort·filter·category와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
+                    + "다음 페이지는 같은 sort·filter·category·keyword와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
                     + "baseDate는 첫 페이지 요청 날짜(KST)이며 상태·D-day·상태 필터는 다음 페이지도 같은 날짜로 계산합니다. "
                     + "기준일이 요청 시점의 KST 날짜보다 이전이면 outdated는 true입니다. "
                     + "자정 이후에도 기존 커서는 유효하며, 오늘 기준으로 갱신하려면 cursor 없이 첫 페이지부터 조회합니다."
@@ -49,7 +49,7 @@ public interface IngredientApi {
                     description = "냉장고 재고 목록 조회 성공",
                     content = @Content(mediaType = "application/json", examples = @ExampleObject(value = LIST_RESPONSE))
             ),
-            @ApiResponse(responseCode = "400", description = "size·sort·filter·category 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
+            @ApiResponse(responseCode = "400", description = "size·sort·filter·category 형식 오류 또는 공백 제거 후 1자 검색어 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
@@ -78,8 +78,8 @@ public interface IngredientApi {
                     schema = @Schema(allowableValues = {"NORMAL", "EXPIRING_SOON", "EXPIRED", "REFRIGERATED", "FROZEN"})
             )
             String filter,
-            @Parameter(description = "단일 선택. 생략 시 전체. filter와 AND. 변경 시 커서 초기화", schema = @Schema(implementation = com.dameokja.backend.ingredient.domain.IngredientCategory.class)) String category);
-
+            @Parameter(description = "단일 선택. 생략 시 전체. filter와 AND. 변경 시 커서 초기화", schema = @Schema(implementation = IngredientCategory.class)) String category,
+            @Parameter(description = "이름 부분검색. 앞뒤 공백 제거 후 2자 이상, 빈 입력은 전체. %, _는 문자 그대로 검색. category·filter와 AND. 변경 시 커서 초기화") String keyword);
     @Operation(
             summary = "재고 상세 조회",
             description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. "

@@ -13,7 +13,8 @@ final class IngredientListJpql {
             + " and (:expirationFrom is null or i.expirationDate >= :expirationFrom)"
             + " and (:expirationTo is null or i.expirationDate <= :expirationTo)"
             + " and (:storageType is null or i.storageType = :storageType)"
-            + " and (:category is null or i.category = :category)";
+            + " and (:category is null or i.category = :category)"
+            + " and (:keywordPattern is null or i.name like :keywordPattern escape '!')";
 
     // 커서가 없으면(첫 페이지) 커서 조건 전체를 생략한다.
     private static final String GROUP_CONDITION = "select i" + FILTER_CONDITION + " and (:cursorId is null";

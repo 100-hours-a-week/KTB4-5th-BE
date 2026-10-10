@@ -44,6 +44,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -67,12 +68,12 @@ class IngredientControllerTest {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
         IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 100, "next");
-        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, 10)).thenReturn(result);
+        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
 
-        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null, null);
+        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null, null, null);
 
         IngredientListResponse data = response.getBody().data();
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");
@@ -103,14 +104,33 @@ class IngredientControllerTest {
     @NullSource
     void bindsSingleCategoryOrOmission(IngredientCategory category) throws Exception {
         IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
-        when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, 10)).thenReturn(result);
+        when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, null, 10)).thenReturn(result);
         MockHttpServletRequestBuilder request = get("/api/v1/refrigerators/10/ingredients");
         if (category != null) {
             request.param("category", category.name());
         }
 
         listMvc().perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.ingredientsNum").value(5));
-        verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, 10);
+        verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, null, 10);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"두", " 두 "})
+    void rejectsOneCharacterKeyword(String keyword) throws Exception {
+        listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INGREDIENT-400-003"));
+        verifyNoInteractions(ingredientListService);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"'  두부  ',두부", "'',", "'   ',"})
+    void bindsNormalizedKeyword(String keyword, String expected) throws Exception {
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
+
+        listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());
+        verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10);
     }
 
     private MockMvc listMvc() {

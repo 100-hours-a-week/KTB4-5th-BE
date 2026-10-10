@@ -49,26 +49,26 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     @Query(IngredientListJpql.FILTERED_COUNT)
     long countFiltered(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category);
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern);
 
     @Query(IngredientListJpql.EXPIRATION_ASC)
     List<Ingredient> findExpirationAscPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.CREATED_DESC)
     List<Ingredient> findCreatedDescPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.NAME_ASC)
     List<Ingredient> findNameAscPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 }
