@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AuthCookies {
+    private static final Duration REGISTRATION_LIFETIME = Duration.ofSeconds(600);
     private static final String ACCESS_PATH = "/";
     private static final String REFRESH_PATH = "/";
     private final boolean secure;
@@ -30,6 +31,11 @@ public class AuthCookies {
                 cookie("accessToken", tokenPair.accessToken(), ACCESS_PATH, accessLifetime));
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookie("refreshToken", tokenPair.refreshToken(), REFRESH_PATH, refreshLifetime));
+    }
+
+    public void writeRegistration(HttpServletResponse response, String token) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie("registrationToken", token, "/", REGISTRATION_LIFETIME));
     }
 
     public void clearRegistration(HttpServletResponse response) {
