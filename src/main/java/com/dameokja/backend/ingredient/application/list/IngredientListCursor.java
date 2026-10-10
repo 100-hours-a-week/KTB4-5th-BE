@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.application.list;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientCursor;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
@@ -15,16 +16,17 @@ public record IngredientListCursor(
         IngredientSortType sortType,
         Long refrigeratorId,
         IngredientFilter filter,
+        IngredientCategory category,
         LocalDate baseDate,
         IngredientCursor position) {
 
-    static IngredientListCursor first(IngredientSortType sortType, Long refrigeratorId, IngredientFilter filter,
+    static IngredientListCursor first(IngredientSortType sortType, Long refrigeratorId, IngredientFilter filter, IngredientCategory category,
                                       LocalDate baseDate) {
-        return new IngredientListCursor(sortType, refrigeratorId, filter, baseDate, null);
+        return new IngredientListCursor(sortType, refrigeratorId, filter, category, baseDate, null);
     }
 
     IngredientListCursor after(Ingredient last) {
-        return new IngredientListCursor(sortType, refrigeratorId, filter, baseDate, IngredientCursor.from(last));
+        return new IngredientListCursor(sortType, refrigeratorId, filter, category, baseDate, IngredientCursor.from(last));
     }
 
     StorageType storageType() {
@@ -32,11 +34,12 @@ public record IngredientListCursor(
     }
 
     boolean matches(IngredientSortType requestedSort, Long requestedRefrigeratorId, IngredientFilter requestedFilter,
-                    LocalDate today) {
+                    IngredientCategory requestedCategory, LocalDate today) {
         return isComplete()
                 && sortType == requestedSort
                 && refrigeratorId.equals(requestedRefrigeratorId)
                 && filter == requestedFilter
+                && category == requestedCategory
                 && !baseDate.isAfter(today);
     }
 

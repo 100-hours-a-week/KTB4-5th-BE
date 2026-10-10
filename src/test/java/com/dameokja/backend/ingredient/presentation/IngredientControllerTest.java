@@ -2,8 +2,13 @@ package com.dameokja.backend.ingredient.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
@@ -35,6 +40,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,12 +67,12 @@ class IngredientControllerTest {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
         IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 100, "next");
-        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, 10)).thenReturn(result);
+        when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
 
-        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null);
+        ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null, null);
 
         IngredientListResponse data = response.getBody().data();
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");
@@ -73,6 +86,38 @@ class IngredientControllerTest {
             assertThat(item.status()).isEqualTo(IngredientStatus.EXPIRED);
             assertThat(item.daysUntilExpiration()).isEqualTo(-1);
         });
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"'',", "vegetable,", "UNKNOWN,", "VEGETABLE,FRUIT", "VEGETABLE,VEGETABLE"})
+    void rejectsInvalidOrRepeatedCategoryQuery(String first, String second) throws Exception {
+        String[] categories = second == null ? new String[] {first} : new String[] {first, second};
+        listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("category", categories))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INGREDIENT-400-003"));
+        verifyNoInteractions(ingredientListService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(IngredientCategory.class)
+    @NullSource
+    void bindsSingleCategoryOrOmission(IngredientCategory category) throws Exception {
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, 10)).thenReturn(result);
+        MockHttpServletRequestBuilder request = get("/api/v1/refrigerators/10/ingredients");
+        if (category != null) {
+            request.param("category", category.name());
+        }
+
+        listMvc().perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.ingredientsNum").value(5));
+        verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, 10);
+    }
+
+    private MockMvc listMvc() {
+        IngredientController controller = new IngredientController(ingredientCreateService, ingredientDetailService,
+                ingredientUpdateService, ingredientExpireService, ingredientListService);
+        return MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
     }
 
     @Test
