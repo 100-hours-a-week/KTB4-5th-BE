@@ -3,6 +3,7 @@ package com.dameokja.backend.user.infrastructure;
 import com.dameokja.backend.auth.domain.OAuthIdentity;
 import com.dameokja.backend.auth.domain.OAuthProvider;
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.RegistrationClaim;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.time.Clock;
@@ -15,17 +16,22 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatus;
+import tools.jackson.databind.json.JsonMapper;
 
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(RedisTestSupport.class)
 class OAuthRegistrationStoreTest {
+    private final JsonMapper mapper = JsonMapper.builder().build();
     private final Clock clock = mock(Clock.class);
     private final Instant start = Instant.parse("2026-10-09T00:00:00Z");
     private final OAuthIdentity identity = new OAuthIdentity(OAuthProvider.KAKAO, "123", "member@example.com");
@@ -34,7 +40,20 @@ class OAuthRegistrationStoreTest {
     @BeforeEach
     void setup() {
         when(clock.instant()).thenReturn(start);
-        store = new OAuthRegistrationStore(clock);
+        store = new OAuthRegistrationStore(clock, redisTemplate(), mapper);
+    }
+
+    @Test
+    void anotherInstanceClaimsAndReleasesWithoutRenewingRedisTtl() {
+        String token = store.create(identity);
+        OAuthRegistrationStore other = new OAuthRegistrationStore(clock, redisTemplate(), mapper);
+        Long before = redisTemplate().getExpire("oauth:registration:" + token, TimeUnit.MILLISECONDS);
+        RegistrationClaim claim = other.claim(token);
+        assertInvalid(token);
+        store.release(claim);
+        assertThat(redisTemplate().getExpire("oauth:registration:" + token, TimeUnit.MILLISECONDS)).isBetween(1L, before);
+        other.consume(store.claim(token));
+        assertInvalid(token);
     }
 
     @Test
