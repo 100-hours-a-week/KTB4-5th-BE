@@ -1,5 +1,6 @@
 package com.dameokja.backend.auth.infrastructure;
 
+import com.dameokja.backend.support.RedisTestSupport;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import java.time.Instant;
@@ -10,15 +11,20 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import tools.jackson.databind.json.JsonMapper;
 
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(RedisTestSupport.class)
 class BrowserAuthorizationRequestRepositoryTest {
+    private final JsonMapper mapper = JsonMapper.builder().build();
     private final Clock clock = mock(Clock.class);
     private BrowserAuthorizationRequestRepository repository;
     private Cookie browser;
@@ -28,7 +34,7 @@ class BrowserAuthorizationRequestRepositoryTest {
     @BeforeEach
     void setup() {
         when(clock.instant()).thenReturn(start);
-        repository = new BrowserAuthorizationRequestRepository(clock, true);
+        repository = new BrowserAuthorizationRequestRepository(clock, true, redisTemplate(), mapper);
         authorization = OAuth2AuthorizationRequest.authorizationCode().clientId("test-client")
                 .authorizationUri("https://provider.example.com/authorize")
                 .redirectUri("https://service.example.com/api/v1/auth/oauth/code/kakao")
@@ -46,11 +52,27 @@ class BrowserAuthorizationRequestRepositoryTest {
     }
 
     @Test
+    void anotherInstancePreservesPkceAndConsumesSharedRequest() {
+        OAuth2AuthorizationRequest withPkce = OAuth2AuthorizationRequest.from(authorization)
+                .attributes(attributes -> attributes.put("code_verifier", "test-verifier"))
+                .additionalParameters(parameters -> parameters.put("code_challenge", "test-challenge")).build();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        repository.saveAuthorizationRequest(withPkce, new MockHttpServletRequest(), response);
+        Cookie pkceBrowser = response.getCookie("oauthRequest");
+        BrowserAuthorizationRequestRepository other = new BrowserAuthorizationRequestRepository(clock, true, redisTemplate(), mapper);
+        OAuth2AuthorizationRequest restored = other.removeAuthorizationRequest(callback(pkceBrowser, "kakao", "test-state"), new MockHttpServletResponse());
+        assertThat(restored.getAttribute("code_verifier").toString()).isEqualTo("test-verifier");
+        assertThat(restored.getAdditionalParameters()).containsEntry("code_challenge", "test-challenge");
+        assertThat(restored.getAuthorizationRequestUri()).isEqualTo(withPkce.getAuthorizationRequestUri());
+        assertThat(repository.loadAuthorizationRequest(callback(pkceBrowser, "kakao", "test-state"))).isNull();
+    }
+
+    @Test
     void consumesOnceAndMarksValidatedCallback() {
         MockHttpServletRequest request = callback(browser, "kakao", "test-state");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        assertThat(repository.loadAuthorizationRequest(request)).isSameAs(authorization);
-        assertThat(repository.removeAuthorizationRequest(request, response)).isSameAs(authorization);
+        assertThat(repository.loadAuthorizationRequest(request)).usingRecursiveComparison().isEqualTo(authorization);
+        assertThat(repository.removeAuthorizationRequest(request, response)).usingRecursiveComparison().isEqualTo(authorization);
         assertThat(request.getAttribute(BrowserAuthorizationRequestRepository.VALIDATED)).isEqualTo(true);
         assertThat(response.getCookie("oauthRequest").getMaxAge()).isZero();
         assertThat(repository.removeAuthorizationRequest(request, response)).isNull();
@@ -67,7 +89,7 @@ class BrowserAuthorizationRequestRepositoryTest {
         assertThat(repository.removeAuthorizationRequest(callback(new Cookie("oauthRequest", "invalid"), "kakao", "test-state"),
                 new MockHttpServletResponse())).isNull();
         assertThat(repository.removeAuthorizationRequest(callback(browser, "kakao", "test-state"),
-                new MockHttpServletResponse())).isSameAs(authorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(authorization);
     }
 
     @Test
@@ -87,7 +109,7 @@ class BrowserAuthorizationRequestRepositoryTest {
         assertThat(replacement.getValue()).isNotEqualTo(browser.getValue());
         assertThat(repository.loadAuthorizationRequest(callback(browser, "kakao", "test-state"))).isNull();
         assertThat(repository.removeAuthorizationRequest(callback(replacement, "kakao", "test-state"),
-                new MockHttpServletResponse())).isSameAs(authorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(authorization);
     }
 
     @Test
@@ -101,14 +123,14 @@ class BrowserAuthorizationRequestRepositoryTest {
         assertThat(repository.removeAuthorizationRequest(missingState, new MockHttpServletResponse())).isNull();
         assertThat(missingState.getAttribute(BrowserAuthorizationRequestRepository.VALIDATED)).isNull();
         assertThat(repository.removeAuthorizationRequest(callback(browser, "kakao", "test-state"),
-                new MockHttpServletResponse())).isSameAs(authorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(authorization);
     }
 
     @Test
     void acceptsCallbackImmediatelyBeforeExpiry() {
         when(clock.instant()).thenReturn(start.plusSeconds(599));
         assertThat(repository.removeAuthorizationRequest(callback(browser, "kakao", "test-state"),
-                new MockHttpServletResponse())).isSameAs(authorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(authorization);
     }
 
     @Test
@@ -133,9 +155,9 @@ class BrowserAuthorizationRequestRepositoryTest {
         assertThat(repository.removeAuthorizationRequest(callback(browser, "kakao", "other-state"),
                 new MockHttpServletResponse())).isNull();
         assertThat(repository.removeAuthorizationRequest(callback(browser, "kakao", "test-state"),
-                new MockHttpServletResponse())).isSameAs(authorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(authorization);
         assertThat(repository.removeAuthorizationRequest(callback(otherBrowser, "kakao", "other-state"),
-                new MockHttpServletResponse())).isSameAs(otherAuthorization);
+                new MockHttpServletResponse())).usingRecursiveComparison().isEqualTo(otherAuthorization);
     }
 
     @Test
