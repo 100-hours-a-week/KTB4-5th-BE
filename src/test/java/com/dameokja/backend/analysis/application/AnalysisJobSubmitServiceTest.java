@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.application;
 
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,23 +23,27 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
+import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(RedisTestSupport.class)
 class AnalysisJobSubmitServiceTest {
     private final Clock clock = mock(Clock.class);
     private final Instant instant = Instant.parse("2026-10-08T01:00:00Z");
     private final Duration duration = Duration.ofMinutes(1);
-    private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration);
+    private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
     private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, duration);
     private final AiAnalysisClient aiAnalysisClient = mock(AiAnalysisClient.class);
     private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, aiAnalysisClient);

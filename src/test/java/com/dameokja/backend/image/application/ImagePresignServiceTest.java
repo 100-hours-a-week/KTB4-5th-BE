@@ -1,5 +1,6 @@
 package com.dameokja.backend.image.application;
 
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -8,10 +9,13 @@ import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageStorageProperties;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.image.infrastructure.S3ImageUploadSigner;
+import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.Set;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -19,11 +23,13 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(RedisTestSupport.class)
 class ImagePresignServiceTest {
     private final ImageStorageProperties properties = new ImageStorageProperties("test-bucket", "us-east-1",
             "test-images/", Duration.ofMinutes(5), 2048, Set.of("image/jpeg", "image/png", "image/webp"));
-    private final ImageUploadMetadataStore uploads = new ImageUploadMetadataStore(Clock.systemUTC(), Duration.ofHours(1));
+    private final ImageUploadMetadataStore uploads = new ImageUploadMetadataStore(Clock.systemUTC(), Duration.ofHours(1), redisTemplate(), JsonMapper.builder().build());
 
     @ParameterizedTest
     @CsvSource({"ANALYSIS,image/jpeg,jpg", "ANALYSIS,image/png,png", "PROFILE,image/webp,webp"})
@@ -32,7 +38,7 @@ class ImagePresignServiceTest {
             S3ImageUploadSigner signer = new S3ImageUploadSigner(properties, presigner);
             ImagePresignService service = new ImagePresignService(properties, signer, uploads);
             ImageUploadResult result = service.issue(7L, purpose, contentType, 2048L, "ab".repeat(32));
-            assertThat(result.objectKey()).matches("test-images/" + purpose.name().toLowerCase(java.util.Locale.ROOT)
+            assertThat(result.objectKey()).matches("test-images/" + purpose.name().toLowerCase(Locale.ROOT)
                     + "/7/[0-9a-f-]{36}\\." + extension);
             assertThat(result.method()).isEqualTo("PUT");
             assertThat(result.headers()).containsEntry("Content-Type", contentType)
