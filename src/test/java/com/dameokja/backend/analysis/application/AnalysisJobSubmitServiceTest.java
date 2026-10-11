@@ -14,9 +14,9 @@ import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -44,7 +44,7 @@ class AnalysisJobSubmitServiceTest {
     private final Instant instant = Instant.parse("2026-10-08T01:00:00Z");
     private final Duration duration = Duration.ofMinutes(1);
     private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
-    private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, duration);
+    private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
     private final AiAnalysisClient aiAnalysisClient = mock(AiAnalysisClient.class);
     private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, aiAnalysisClient);
 

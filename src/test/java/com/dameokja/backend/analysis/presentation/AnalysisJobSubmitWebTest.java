@@ -15,19 +15,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
+import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.auth.presentation.CsrfController;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.OAuthSecurityConfig;
+import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
@@ -72,6 +72,7 @@ import tools.jackson.databind.json.JsonMapper;
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
         "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h"})
+@ExtendWith(RedisTestSupport.class)
 class AnalysisJobSubmitWebTest {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";
     @Autowired WebApplicationContext webApplicationContext;
