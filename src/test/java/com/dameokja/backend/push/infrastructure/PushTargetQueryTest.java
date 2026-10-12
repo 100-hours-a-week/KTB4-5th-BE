@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,7 +87,29 @@ class PushTargetQueryTest extends MySqlJpaTest {
 
     private List<PushInboxTarget> findTargets() {
         return pushNotificationRepository.findInboxPushTargets(
-                SEOUL_TODAY_START, SEOUL_TODAY_START.plusDays(1));
+                SEOUL_TODAY_START, SEOUL_TODAY_START.plusDays(1), 0, 0, PageRequest.of(0, 100));
+    }
+
+    @Test
+    void pagesByNotificationAndDeviceWithoutSkippingTargetsAfterInsert() {
+        PageRequest page = PageRequest.of(0, 1);
+        List<PushInboxTarget> first = pushNotificationRepository.findInboxPushTargets(
+                SEOUL_TODAY_START, SEOUL_TODAY_START.plusDays(1), 0, 0, page);
+        PushInboxTarget target = first.getFirst();
+        assertThat(target.notification().getId()).isEqualTo(950001L);
+        assertThat(target.device().getId()).isEqualTo(950001L);
+        pushNotificationRepository.save(PushNotification.inbox(target.notification(), target.device().getUser(),
+                target.device(), "{}", SEND_AT, SEND_AT.withHour(12)));
+        entityManager.flush();
+
+        assertThat(pushNotificationRepository.findInboxPushTargets(SEOUL_TODAY_START,
+                SEOUL_TODAY_START.plusDays(1), 950001L, 950001L, page))
+                .extracting(next -> next.notification().getId(), next -> next.device().getId())
+                .containsExactly(tuple(950001L, 950002L));
+        assertThat(pushNotificationRepository.findInboxPushTargets(SEOUL_TODAY_START,
+                SEOUL_TODAY_START.plusDays(1), 950001L, 950002L, page))
+                .extracting(next -> next.notification().getId(), next -> next.device().getId())
+                .containsExactly(tuple(950002L, 950001L));
     }
 
     private void device(long deviceId, long userId, String status) {

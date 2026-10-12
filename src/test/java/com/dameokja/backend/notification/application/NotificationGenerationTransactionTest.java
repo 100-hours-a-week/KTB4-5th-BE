@@ -13,6 +13,7 @@ import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
 import java.util.List;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -55,7 +56,8 @@ class NotificationGenerationTransactionTest extends NotificationGenerationTestSu
         });
         when(dispatch.dispatchDueJobs()).thenReturn(Optional.empty());
         NotificationScheduler scheduler = new NotificationScheduler(pushCreation, dispatch,
-                refrigeratorService, generationService, mock(NotificationRecipientService.class), mock(NotificationService.class), clock, true);
+                refrigeratorService, generationService, mock(NotificationRecipientService.class), mock(NotificationService.class), clock,
+                new NotificationBatchMetrics(new SimpleMeterRegistry()), true);
 
         scheduler.runExpirationNotificationBatch();
 

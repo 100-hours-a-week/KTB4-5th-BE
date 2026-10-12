@@ -1,0 +1,382 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "sequence",
+  "quality": "showcase",
+  "startedAt": "2026-09-30T12:39:23.291Z",
+  "specification": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+    "sha256": "c3ba5cc30500d7f48eb7b5b8befc4c9b5ab46c5743d96f4d0556804b0e4012c5",
+    "bytes": 5425
+  },
+  "artifact": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+    "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+    "bytes": 759253
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "/Users/jeongminju/.nvm/versions/node/v24.18.0/bin/node",
+        "/Users/jeongminju/.agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "sequence",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "c3ba5cc30500d7f48eb7b5b8befc4c9b5ab46c5743d96f4d0556804b0e4012c5",
+          "bytes": 5425
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 301,
+      "command": [
+        "/Users/jeongminju/.nvm/versions/node/v24.18.0/bin/node",
+        "/Users/jeongminju/.agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "sequence",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "24ae1f08-869c-4bc0-ae49-28cf75ccbff4",
+        "ok": true,
+        "command": "deliver",
+        "type": "sequence",
+        "input": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+        "output": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "specification": {
+          "sha256": "c3ba5cc30500d7f48eb7b5b8befc4c9b5ab46c5743d96f4d0556804b0e4012c5",
+          "bytes": 5425
+        },
+        "artifact": {
+          "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+          "bytes": 759253
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "evidence": {
+          "verified": true,
+          "repository": "https://github.com/100-hours-a-week/KTB4-5th-BE",
+          "revision": "618f2d1e7b2f3d936f1413472d95ae50fb3d3eca",
+          "references": 6
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 103,
+      "command": [
+        "/Users/jeongminju/.nvm/versions/node/v24.18.0/bin/node",
+        "/Users/jeongminju/.agents/skills/archify/bin/archify.mjs",
+        "check",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "artifact": {
+          "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+          "bytes": 759253
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 13,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6,
+            "maxBends": 0,
+            "routesOverSuggestedBends": 0,
+            "maxStretch": 1,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 94,
+            "minInteriorSegmentPx": null,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": []
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "sequenceColumnSpace": {
+            "measured": true,
+            "columnFit": "fixed",
+            "participantCount": 6,
+            "occupiedRight": 645,
+            "viewBoxLeft": 0,
+            "canvasWidth": 1085,
+            "emptyRightPx": 440,
+            "emptyRightRatio": 0.406,
+            "typicalParticipantWidth": 86,
+            "reviewSuggested": true
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "node",
+              "id": "client"
+            },
+            "minimumSourceTextPx": 7,
+            "minimumProjectedTextPx": 6,
+            "semanticTextCount": 22
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "24ae1f08-869c-4bc0-ae49-28cf75ccbff4"
+      }
+    },
+    "browser-check": {
+      "status": "fail",
+      "exitCode": 1,
+      "durationMs": 3200,
+      "command": [
+        "/Users/jeongminju/.nvm/versions/node/v24.18.0/bin/node",
+        "/Users/jeongminju/.agents/skills/archify/bin/archify.mjs",
+        "browser-check",
+        "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "fail",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "24ae1f08-869c-4bc0-ae49-28cf75ccbff4",
+        "artifact": {
+          "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+          "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+          "bytes": 759253
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        },
+        "diagnostics": [
+          {
+            "code": "viewer/browser-check-runtime",
+            "severity": "error",
+            "message": "browser-check could not complete its Chrome inspection.",
+            "subject": {
+              "artifact": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html"
+            },
+            "evidence": {
+              "reason": "Chrome DevTools read pipe failed: stream ended\nChrome process: still running.\nChrome transport: Node v24.18.0, libuv 1.52.1, darwin; pid=67932, exitCode=null, signalCode=null.\nChrome read pipe: readable=false, ended=true, destroyed=false, receivedBytes=0, messages=0, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=1, writtenBytes=50, bufferedBytes=0."
+            },
+            "supportedFixes": [
+              "resolve the reported Chrome inspection error, then rerun browser-check"
+            ]
+          }
+        ],
+        "containment": {
+          "status": "fail",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": []
+        },
+        "themeStates": {
+          "status": "fail",
+          "viewports": []
+        },
+        "readability": {
+          "status": "fail",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": []
+        },
+        "viewerChrome": {
+          "status": "fail",
+          "viewports": []
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "notification-get-sequence.browser-check.json",
+          "files": []
+        },
+        "error": "Chrome DevTools read pipe failed: stream ended\nChrome process: still running.\nChrome transport: Node v24.18.0, libuv 1.52.1, darwin; pid=67932, exitCode=null, signalCode=null.\nChrome read pipe: readable=false, ended=true, destroyed=false, receivedBytes=0, messages=0, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=1, writtenBytes=50, bufferedBytes=0."
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/browser-check-runtime",
+      "severity": "error",
+      "message": "browser-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html"
+      },
+      "evidence": {
+        "reason": "Chrome DevTools read pipe failed: stream ended\nChrome process: still running.\nChrome transport: Node v24.18.0, libuv 1.52.1, darwin; pid=67932, exitCode=null, signalCode=null.\nChrome read pipe: readable=false, ended=true, destroyed=false, receivedBytes=0, messages=0, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=1, writtenBytes=50, bufferedBytes=0."
+      },
+      "supportedFixes": [
+        "resolve the reported Chrome inspection error, then rerun browser-check"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.finalize.json",
+    "summaryReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.finalize-summary.json",
+    "browserCheckReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "browser-check",
+  "finishedAt": "2026-09-30T12:39:27.034Z",
+  "durationMs": 3742,
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "188f349b-bb72-4574-a253-dd98b0ec51a4",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-classes.json",
+  "output": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.html",
+  "specification": {
+    "sha256": "77d112609c44847b7067fabefdac611b57e470907d801b45a9c435d9388532af",
+    "bytes": 7469
+  },
+  "artifact": {
+    "sha256": "77f5d2e9e90e6b1c16bec2d9ef1e95218c45bb47feebbffcc2321826794f6e70",
+    "bytes": 770741
+  }
+}

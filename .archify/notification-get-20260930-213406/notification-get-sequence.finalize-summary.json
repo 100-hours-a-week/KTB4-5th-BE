@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "sequence",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+    "sha256": "c3ba5cc30500d7f48eb7b5b8befc4c9b5ab46c5743d96f4d0556804b0e4012c5",
+    "bytes": 5425
+  },
+  "artifact": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+    "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+    "bytes": 759253
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/browser-check-runtime",
+      "severity": "error",
+      "message": "browser-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html"
+      },
+      "evidence": {
+        "reason": "Chrome DevTools read pipe failed: stream ended\nChrome process: still running.\nChrome transport: Node v24.18.0, libuv 1.52.1, darwin; pid=67932, exitCode=null, signalCode=null.\nChrome read pipe: readable=false, ended=true, destroyed=false, receivedBytes=0, messages=0, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=1, writtenBytes=50, bufferedBytes=0."
+      },
+      "supportedFixes": [
+        "resolve the reported Chrome inspection error, then rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.finalize.json",
+    "summaryReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.finalize-summary.json",
+    "browserCheckReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.browser-check.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 3742
+}

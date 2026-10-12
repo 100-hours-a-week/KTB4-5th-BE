@@ -21,6 +21,7 @@ import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
+import com.dameokja.backend.ingredient.infrastructure.IngredientListCounts;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
@@ -64,13 +65,13 @@ class IngredientListServiceTest {
         Ingredient expired = ingredient(1L, TODAY.minusDays(1));
         Ingredient last = ingredient(2L, TODAY);
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(expired, last, ingredient(3L, TODAY)));
-        when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
-        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, null, null, null, IngredientCategory.TOFU_BEAN, "%두부%")).thenReturn(5L);
+        when(ingredientRepository.countList(REFRIGERATOR_ID, null, null, null, IngredientCategory.TOFU_BEAN, "%두부%")).thenReturn(new IngredientListCounts(5, 5));
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, IngredientCategory.TOFU_BEAN, "두부", null, 2);
 
         assertThat(result.ingredients()).containsExactly(expired, last);
         assertThat(result.businessDate()).isEqualTo(TODAY);
+        assertThat(result.outdated()).isFalse();
         assertThat(result.ingredientsNum()).isEqualTo(5L);
         assertThat(result.filteredCount()).isEqualTo(5L);
         assertThat(result.refrigeratorCapacity()).isEqualTo((short) 100);
@@ -82,8 +83,7 @@ class IngredientListServiceTest {
     @Test
     void countsOnlyIngredientsMatchingFilter() {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
-        when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(5L);
-        when(ingredientRepository.countFiltered(REFRIGERATOR_ID, TODAY, TODAY.plusDays(3), null, IngredientCategory.TOFU_BEAN, "%두부%")).thenReturn(2L);
+        when(ingredientRepository.countList(REFRIGERATOR_ID, TODAY, TODAY.plusDays(3), null, IngredientCategory.TOFU_BEAN, "%두부%")).thenReturn(new IngredientListCounts(5, 2));
 
         IngredientListResult result = ingredientListService.getList(
                 USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, IngredientFilter.EXPIRING_SOON, IngredientCategory.TOFU_BEAN, "두부", null, 2);
@@ -95,7 +95,7 @@ class IngredientListServiceTest {
     @Test
     void returnsNoCursorOnLastPage() {
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of(ingredient(1L, TODAY)));
-        when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(1L);
+        when(ingredientRepository.countList(REFRIGERATOR_ID, null, null, null, null, null)).thenReturn(new IngredientListCounts(1, 1));
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, null, null, 2);
 
@@ -106,11 +106,12 @@ class IngredientListServiceTest {
     void keepsBaseDateOfCursorAfterMidnight() {
         String token = token(IngredientSortType.CREATED_DESC, REFRIGERATOR_ID, TODAY.minusDays(1));
         when(ingredientPageReader.read(any(), eq(3))).thenReturn(List.of());
-        when(ingredientRepository.countByRefrigeratorId(REFRIGERATOR_ID)).thenReturn(0L);
+        when(ingredientRepository.countList(REFRIGERATOR_ID, null, null, null, null, null)).thenReturn(new IngredientListCounts(0, 0));
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, null, null, token, 2);
 
         assertThat(result.businessDate()).isEqualTo(TODAY.minusDays(1));
+        assertThat(result.outdated()).isTrue();
         assertThat(readCursor().baseDate()).isEqualTo(TODAY.minusDays(1));
     }
 

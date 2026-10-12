@@ -9,6 +9,7 @@ import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
+import com.dameokja.backend.ingredient.infrastructure.IngredientListCounts;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
@@ -39,17 +40,17 @@ public class IngredientListService {
         List<Ingredient> rows = ingredientPageReader.read(cursor, size + LOOKAHEAD);
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
-        long ingredientsNum = ingredientRepository.countByRefrigeratorId(refrigeratorId);
-        return new IngredientListResult(page, cursor.baseDate(), cursor.baseDate().isBefore(today), ingredientsNum, countFiltered(cursor),
+        IngredientListCounts counts = countList(cursor);
+        return new IngredientListResult(page, cursor.baseDate(), cursor.baseDate().isBefore(today), counts.total(), counts.filtered(),
                 refrigerator.getCapacity(), nextCursor);
     }
 
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
-    private long countFiltered(IngredientListCursor cursor) {
+    private IngredientListCounts countList(IngredientListCursor cursor) {
         IngredientFilter filter = cursor.filter();
         LocalDate expirationFrom = filter == null ? null : filter.expirationFrom(cursor.baseDate());
         LocalDate expirationTo = filter == null ? null : filter.expirationTo(cursor.baseDate());
-        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(), cursor.keywordPattern());
+        return ingredientRepository.countList(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(), cursor.keywordPattern());
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,

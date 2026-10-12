@@ -4,10 +4,12 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.PushNotificationErrorCode;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,15 +27,21 @@ public class PushDispatchService {
     private final PushSendService pushSendService;
     private final Clock clock;
     private final int concurrency;
+    private final MeterRegistry meterRegistry;
 
     public PushDispatchService(PushNotificationRepository pushNotificationRepository,
             PushNotificationUpdater pushNotificationUpdater, PushSendService pushSendService, Clock clock,
+            MeterRegistry meterRegistry,
             @Value("${push.dispatch.concurrency:20}") int concurrency) {
         this.pushNotificationRepository = pushNotificationRepository;
         this.pushNotificationUpdater = pushNotificationUpdater;
         this.pushSendService = pushSendService;
         this.clock = clock;
         this.concurrency = concurrency;
+        this.meterRegistry = meterRegistry;
+        for (PushSendResult result : PushSendResult.values()) {
+            meterRegistry.counter("push.dispatch.send.results", "result", result.name().toLowerCase(Locale.ROOT));
+        }
     }
 
     public Optional<LocalDateTime> dispatchDueJobs() {
@@ -87,11 +95,19 @@ public class PushDispatchService {
             pushNotificationUpdater.cancel(jobId, PushNotificationErrorCode.RECIPIENT_UNAVAILABLE);
             return;
         }
-        switch (send(job, now)) {
+        PushSendResult result = send(job, now);
+        recordSendResult(jobId, result);
+        switch (result) {
             case ACCEPTED -> pushNotificationUpdater.accept(jobId, now());
             case UNAVAILABLE -> pushNotificationUpdater.cancel(jobId, PushNotificationErrorCode.SUBSCRIPTION_UNAVAILABLE);
             case FAILED -> pushNotificationUpdater.fail(jobId, now());
         }
+    }
+
+    private void recordSendResult(Long jobId, PushSendResult result) {
+        // DB 상태 반영이 실패해도 이미 수락된 외부 전송 결과를 계측에서 잃지 않는다.
+        meterRegistry.counter("push.dispatch.send.results", "result", result.name().toLowerCase(Locale.ROOT)).increment();
+        log.info("event=push_dispatch_send_result push_notification_id={} result={} completed_at={}", jobId, result, now());
     }
 
     private PushSendResult send(PushNotification job, LocalDateTime now) {

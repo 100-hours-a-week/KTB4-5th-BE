@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "알림 목록 조회 · 클래스 관계",
+    "output": ".archify/notification-get-20260930-213406/notification-get-classes.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/100-hours-a-week/KTB4-5th-BE.git",
+      "revision": "618f2d1e7b2f3d936f1413472d95ae50fb3d3eca",
+      "provider": "github"
+    }
+  },
+  "components": [
+    {
+      "id": "controller",
+      "type": "backend",
+      "label": "NotificationController",
+      "sublabel": "+ getNotifications(userId, refrigeratorId, request)",
+      "pos": [
+        405,
+        40
+      ],
+      "size": [
+        310,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/presentation/NotificationController.java",
+          "line": 25,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "request",
+      "type": "frontend",
+      "label": "NotificationListRequest",
+      "sublabel": "type · cursor · typeOrDefault()",
+      "pos": [
+        25,
+        210
+      ],
+      "size": [
+        255,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/presentation/request/NotificationListRequest.java",
+          "line": 5,
+          "end_line": 13
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "NotificationService",
+      "sublabel": "+ getNotifications(...) : NotificationListResult",
+      "pos": [
+        405,
+        210
+      ],
+      "size": [
+        300,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/application/NotificationService.java",
+          "line": 24,
+          "end_line": 51
+        }
+      ]
+    },
+    {
+      "id": "response",
+      "type": "frontend",
+      "label": "NotificationListResponse",
+      "sublabel": "+ from(result) · notifications · nextCursor · hasNext",
+      "pos": [
+        790,
+        210
+      ],
+      "size": [
+        295,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/presentation/response/NotificationListResponse.java",
+          "line": 6,
+          "end_line": 14
+        }
+      ]
+    },
+    {
+      "id": "access",
+      "type": "security",
+      "label": "RefrigeratorAccessService",
+      "sublabel": "+ validateReadAccess(userId, refrigeratorId)",
+      "pos": [
+        20,
+        410
+      ],
+      "size": [
+        260,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/refrigerator/application/RefrigeratorAccessService.java",
+          "line": 29,
+          "end_line": 44
+        }
+      ]
+    },
+    {
+      "id": "cursor",
+      "type": "backend",
+      "label": "NotificationCursor",
+      "sublabel": "createdAt · notificationId · shownCount",
+      "pos": [
+        300,
+        410
+      ],
+      "size": [
+        250,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/application/NotificationCursor.java",
+          "line": 9,
+          "end_line": 28
+        }
+      ]
+    },
+    {
+      "id": "repo",
+      "type": "database",
+      "label": "NotificationRecipientRepository",
+      "sublabel": "+ findPage(...) : List<NotificationRecipient>",
+      "pos": [
+        570,
+        410
+      ],
+      "size": [
+        290,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/infrastructure/NotificationRecipientRepository.java",
+          "line": 13,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "expired",
+      "type": "backend",
+      "label": "ExpiredIngredientCountService",
+      "sublabel": "+ count(refrigeratorId) : long",
+      "pos": [
+        885,
+        410
+      ],
+      "size": [
+        270,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/ingredient/application/ExpiredIngredientCountService.java",
+          "line": 14,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "result",
+      "type": "backend",
+      "label": "NotificationListResult",
+      "sublabel": "recipients · nextCursor · expiredIngredientsNum",
+      "pos": [
+        370,
+        620
+      ],
+      "size": [
+        320,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/application/NotificationListResult.java",
+          "line": 6,
+          "end_line": 7
+        }
+      ]
+    },
+    {
+      "id": "recipient",
+      "type": "database",
+      "label": "NotificationRecipient",
+      "sublabel": "readAt · user · notification",
+      "pos": [
+        730,
+        620
+      ],
+      "size": [
+        250,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/domain/NotificationRecipient.java",
+          "line": 23,
+          "end_line": 38
+        }
+      ]
+    },
+    {
+      "id": "notification",
+      "type": "database",
+      "label": "Notification",
+      "sublabel": "type · title · body · refrigerator",
+      "pos": [
+        730,
+        820
+      ],
+      "size": [
+        250,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/domain/Notification.java",
+          "line": 25,
+          "end_line": 46
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "controller-request",
+      "from": "controller",
+      "to": "request",
+      "label": "입력 DTO"
+    },
+    {
+      "id": "controller-service",
+      "from": "controller",
+      "to": "service",
+      "label": "호출",
+      "variant": "emphasis"
+    },
+    {
+      "id": "controller-response",
+      "from": "controller",
+      "to": "response",
+      "label": "변환·반환"
+    },
+    {
+      "id": "service-access",
+      "from": "service",
+      "to": "access",
+      "label": "권한 검증",
+      "variant": "security"
+    },
+    {
+      "id": "service-cursor",
+      "from": "service",
+      "to": "cursor",
+      "label": "파싱·생성"
+    },
+    {
+      "id": "service-repo",
+      "from": "service",
+      "to": "repo",
+      "label": "페이지 조회"
+    },
+    {
+      "id": "service-expired",
+      "from": "service",
+      "to": "expired",
+      "label": "만료 수 집계"
+    },
+    {
+      "id": "service-result",
+      "from": "service",
+      "to": "result",
+      "label": "생성"
+    },
+    {
+      "id": "repo-recipient",
+      "from": "repo",
+      "to": "recipient",
+      "label": "조회"
+    },
+    {
+      "id": "recipient-notification",
+      "from": "recipient",
+      "to": "notification",
+      "label": "N:1 연관"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "읽는 방향",
+      "items": [
+        "위에서 아래로 Controller → Service → 의존 클래스·조회 모델",
+        "선은 해당 메서드에서 실제 사용하는 관계"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "범위",
+      "items": [
+        "알림 목록 조회 GET 경로에 직접 연결된 클래스만 표시",
+        "미커밋 변경은 호출 위임 방식과 주석이며 조회 동작은 HEAD와 동일"
+      ]
+    }
+  ]
+}

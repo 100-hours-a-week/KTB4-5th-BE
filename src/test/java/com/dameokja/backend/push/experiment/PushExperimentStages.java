@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @RequiredArgsConstructor
@@ -76,8 +77,8 @@ final class PushExperimentStages {
 
     private void queryPushTargets(Map<String, Object> report) throws Exception {
         LocalDateTime from = businessNow().toLocalDate().atStartOfDay();
-        List<PushInboxTarget> targets = plans.measureQuery(report, "pushTargetQuery", new Object[] {from, from.plusDays(1)},
-                () -> pushRepository.findInboxPushTargets(from, from.plusDays(1)));
+        List<PushInboxTarget> targets = plans.measureQuery(report, "pushTargetQuery", new Object[] {from, from.plusDays(1), 0L, 0L, 0L},
+                () -> pushRepository.findInboxPushTargets(from, from.plusDays(1), 0L, 0L, Pageable.unpaged()));
         report.put("pushTargetQueryRows", targets.size());
     }
 

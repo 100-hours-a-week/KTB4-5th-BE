@@ -7,6 +7,7 @@ import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,8 +41,9 @@ class PushDispatchServiceTest {
     private final PushSendService pushSendService = mock(PushSendService.class);
     // 서울 2026-09-25 08:00
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneOffset.UTC);
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final PushDispatchService service = new PushDispatchService(
-            pushNotificationRepository, pushNotificationUpdater, pushSendService, clock, 2);
+            pushNotificationRepository, pushNotificationUpdater, pushSendService, clock, meterRegistry, 2);
     private UserDevice device;
 
     @BeforeEach
@@ -63,6 +66,8 @@ class PushDispatchServiceTest {
         verify(pushNotificationUpdater).accept(100L, SEND_AT);
         verify(pushNotificationUpdater).accept(101L, SEND_AT);
         verify(pushNotificationUpdater).accept(102L, SEND_AT);
+        assertThat(meterRegistry.get("push.dispatch.send.results")
+                .tag("result", "accepted").counter().count()).isEqualTo(3);
     }
 
     @Test
@@ -104,6 +109,8 @@ class PushDispatchServiceTest {
         service.dispatchDueJobs();
 
         verify(pushNotificationUpdater).fail(100L, SEND_AT);
+        assertThat(meterRegistry.get("push.dispatch.send.results")
+                .tag("result", "failed").counter().count()).isEqualTo(1);
     }
 
     @Test
@@ -157,6 +164,19 @@ class PushDispatchServiceTest {
 
         verify(pushNotificationUpdater).cancel(100L, PushNotificationErrorCode.RECIPIENT_UNAVAILABLE);
         verify(pushSendService, never()).send(anyLong(), any(), any());
+    }
+
+    @Test
+    void retainsExternalAcceptanceCountWhenDatabaseStateUpdateFails() {
+        givenDueJobs(job(100L, DEADLINE));
+        givenSendResult(PushSendResult.ACCEPTED);
+        doThrow(new IllegalStateException("상태 저장 실패")).when(pushNotificationUpdater).accept(100L, SEND_AT);
+
+        service.dispatchDueJobs();
+
+        assertThat(meterRegistry.get("push.dispatch.send.results")
+                .tag("result", "accepted").counter().count()).isEqualTo(1);
+        verify(pushNotificationUpdater, never()).fail(anyLong(), any());
     }
 
     private PushNotification job(Long id, LocalDateTime expiresAt) {

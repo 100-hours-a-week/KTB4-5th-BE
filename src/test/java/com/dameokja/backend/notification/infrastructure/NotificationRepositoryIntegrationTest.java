@@ -33,7 +33,8 @@ class NotificationRepositoryIntegrationTest extends MySqlJpaTest {
 
     @Test
     void pageFiltersRecipientAndFridgeAndCountsUnread() {
-        var page = recipientRepository.findPage(930001L, 930001L, "UNREAD", null, null,
+        var page = recipientRepository.findPageByCursor(
+                930001L, 930001L, "UNREAD", null, null,
                 PageRequest.of(0, 10));
 
         assertThat(page).extracting(row -> row.getNotification().getId()).containsExactly(930002L);

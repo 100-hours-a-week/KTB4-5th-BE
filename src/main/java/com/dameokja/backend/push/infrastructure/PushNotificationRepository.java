@@ -4,6 +4,7 @@ import com.dameokja.backend.push.domain.PushNotification;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,7 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
     // 회원마다 설정 행이 종류별로 있으므로 설정 종류(p.type)를 함께 걸어야 끈 알림이 가지 않고 대상이 중복되지 않는다.
     // 현재 구독 버전으로 이미 만든 작업은 제외하므로 다시 실행해도 작업이 중복되지 않는다.
     // select의 n, d는 Spring Data JPA가 반환 타입인 PushInboxTarget(notification, device) 생성자에 순서대로 넣는다.
+    // 저장한 대상이 not exists에서 사라지므로 OFFSET 대신 마지막 (알림 ID, 기기 ID) 다음부터 읽는다.
     @Query("""
             select n, d
             from NotificationRecipient r
@@ -24,13 +26,16 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
                 and n.createdAt >= :from and n.createdAt < :to
                 and d.status = ACTIVE
                 and p.type = EXPIRATION and p.isEnabled = true
+                and (n.id > :notificationId or (n.id = :notificationId and d.id > :deviceId))
                 and not exists (
                     select 1 from PushNotification job
                     where job.notification = n
                         and job.userDevice = d
                         and job.subscriptionVersion = d.subscriptionVersion)
+            order by n.id, d.id
             """)
-    List<PushInboxTarget> findInboxPushTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+    List<PushInboxTarget> findInboxPushTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
+            @Param("notificationId") long notificationId, @Param("deviceId") long deviceId, Pageable pageable);
 
     // 전송은 트랜잭션 밖에서 하므로 구독 버전 확인에 쓸 구독을 함께 읽는다.
     @Query("""

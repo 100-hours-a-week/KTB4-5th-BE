@@ -18,7 +18,7 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
             + "and (:cursorTime is null or n.createdAt < :cursorTime "
             + "or (n.createdAt = :cursorTime and n.id < :cursorId)) "
             + "order by n.createdAt desc, n.id desc")
-    List<NotificationRecipient> findPage(@Param("userId") Long userId,
+    List<NotificationRecipient> findPageByCursor(@Param("userId") Long userId,
             @Param("refrigeratorId") Long refrigeratorId, @Param("readFilter") String readFilter,
             @Param("cursorTime") LocalDateTime cursorTime, @Param("cursorId") Long cursorId,
             Pageable pageable);

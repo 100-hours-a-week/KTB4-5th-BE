@@ -3,10 +3,12 @@ package com.dameokja.backend.refrigerator.application;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
-import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
+import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorReadAccess;
 import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.domain.UserExceptionCode;
+import com.dameokja.backend.user.domain.UserStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,17 +29,19 @@ public class RefrigeratorAccessService {
     }
 
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
-        userAccessService.validateActive(userId);
-        Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)
-                .orElseThrow(() -> new CustomException(
-                        RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND));
+        RefrigeratorReadAccess access = refrigeratorRepository.findReadAccess(userId, refrigeratorId)
+                .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
+        if (access.userStatus() != UserStatus.ACTIVE) {
+            throw new CustomException(UserExceptionCode.USER_NOT_ACTIVE);
+        }
+        Refrigerator refrigerator = access.refrigerator();
+        if (refrigerator == null) {
+            throw new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND);
+        }
         if (refrigerator.getDeletedAt() != null) {
             throw new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
         }
-        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository
-                .findByUserIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
-        if (!refrigeratorMember.getRefrigerator().getId().equals(refrigeratorId)) {
+        if (access.activeMembershipId() == null) {
             throw new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED);
         }
         return refrigerator;

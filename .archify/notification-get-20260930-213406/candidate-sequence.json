@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "알림 목록 조회 · 시퀀스",
+    "output": ".archify/notification-get-20260930-213406/notification-get-sequence.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/100-hours-a-week/KTB4-5th-BE.git",
+      "revision": "618f2d1e7b2f3d936f1413472d95ae50fb3d3eca",
+      "provider": "github"
+    },
+    "column_fit": "fixed",
+    "viewBox": [
+      1085,
+      700
+    ]
+  },
+  "participants": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "클라이언트",
+      "sublabel": "GET 요청",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/presentation/NotificationController.java",
+          "line": 34,
+          "end_line": 42
+        }
+      ]
+    },
+    {
+      "id": "controller",
+      "type": "backend",
+      "label": "Controller",
+      "sublabel": "getNotifications",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/presentation/NotificationController.java",
+          "line": 34,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "Service",
+      "sublabel": "getNotifications",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/application/NotificationService.java",
+          "line": 34,
+          "end_line": 51
+        }
+      ]
+    },
+    {
+      "id": "access",
+      "type": "security",
+      "label": "Access",
+      "sublabel": "validateReadAccess",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/refrigerator/application/RefrigeratorAccessService.java",
+          "line": 29,
+          "end_line": 44
+        }
+      ]
+    },
+    {
+      "id": "repository",
+      "type": "database",
+      "label": "Repository",
+      "sublabel": "findPage",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/notification/infrastructure/NotificationRecipientRepository.java",
+          "line": 13,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "expired",
+      "type": "backend",
+      "label": "CountService",
+      "sublabel": "count",
+      "sources": [
+        {
+          "path": "src/main/java/com/dameokja/backend/ingredient/application/ExpiredIngredientCountService.java",
+          "line": 20,
+          "end_line": 24
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 290,
+      "label": "접근 권한과 커서 검증"
+    },
+    {
+      "from": 291,
+      "to": 490,
+      "label": "페이지 조회와 만료 재료 집계"
+    },
+    {
+      "from": 491,
+      "to": 600,
+      "label": "응답 변환"
+    }
+  ],
+  "messages": [
+    {
+      "id": "request",
+      "from": "client",
+      "to": "controller",
+      "y": 170,
+      "label": "GET 알림 목록",
+      "variant": "emphasis"
+    },
+    {
+      "id": "invoke",
+      "from": "controller",
+      "to": "service",
+      "y": 208,
+      "label": "getNotifications(userId, id, request)"
+    },
+    {
+      "id": "access",
+      "from": "service",
+      "to": "access",
+      "y": 245,
+      "label": "validateReadAccess(userId, id)",
+      "variant": "security"
+    },
+    {
+      "id": "access-return",
+      "from": "access",
+      "to": "service",
+      "y": 278,
+      "label": "접근 허용",
+      "variant": "return"
+    },
+    {
+      "id": "query",
+      "from": "service",
+      "to": "repository",
+      "y": 335,
+      "label": "findPage(type, cursor, size+1)",
+      "note": "표시 한도에 도달한 경우 이 조회를 생략합니다."
+    },
+    {
+      "id": "rows",
+      "from": "repository",
+      "to": "service",
+      "y": 371,
+      "label": "NotificationRecipient 목록",
+      "variant": "return"
+    },
+    {
+      "id": "count",
+      "from": "service",
+      "to": "expired",
+      "y": 430,
+      "label": "count(refrigeratorId)",
+      "note": "표시 한도 도달 시에도 집계합니다."
+    },
+    {
+      "id": "count-return",
+      "from": "expired",
+      "to": "service",
+      "y": 465,
+      "label": "expiredIngredientsNum",
+      "variant": "return"
+    },
+    {
+      "id": "result",
+      "from": "service",
+      "to": "controller",
+      "y": 510,
+      "label": "NotificationListResult",
+      "variant": "return"
+    },
+    {
+      "id": "response",
+      "from": "controller",
+      "to": "client",
+      "y": 570,
+      "label": "200 · 알림 목록 응답",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "커서와 페이지",
+      "items": [
+        "type은 ALL·READ·UNREAD, 미지정 시 ALL",
+        "커서 파싱·검증 후 최대 10개를 반환하고 1개를 추가 조회해 hasMore를 판별",
+        "누적 99개에 도달하면 알림 조회를 생략"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "응답",
+      "items": [
+        "NotificationListResponse.from이 각 NotificationRecipient를 NotificationResponse로 변환",
+        "nextCursor 존재 여부로 hasNext 결정",
+        "응답 코드 NOTI-200-001"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "예외",
+      "items": [
+        "접근 권한이 없거나 커서가 잘못되면 정상 응답 경로가 중단됨"
+      ]
+    }
+  ]
+}

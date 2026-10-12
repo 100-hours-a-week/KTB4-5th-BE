@@ -26,6 +26,7 @@ public class NotificationScheduler {
     private final NotificationRecipientService notificationRecipientService;
     private final NotificationService notificationService;
     private final Clock clock;
+    private final NotificationBatchMetrics metrics;
     private final boolean expirationPushEnabled;
 
     public NotificationScheduler(PushNotificationCreationService pushNotificationCreationService,
@@ -33,7 +34,7 @@ public class NotificationScheduler {
                                  RefrigeratorService refrigeratorService,
                                  ExpirationNotificationService expirationNotificationService,
                                  NotificationRecipientService notificationRecipientService,
-                                 NotificationService notificationService, Clock clock,
+                                 NotificationService notificationService, Clock clock, NotificationBatchMetrics metrics,
                                  @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled) {
         this.pushNotificationCreationService = pushNotificationCreationService;
         this.pushDispatchService = pushDispatchService;
@@ -42,14 +43,22 @@ public class NotificationScheduler {
         this.notificationRecipientService = notificationRecipientService;
         this.notificationService = notificationService;
         this.clock = clock;
+        this.metrics = metrics;
         this.expirationPushEnabled = expirationPushEnabled;
     }
 
     @Scheduled(cron = "0 0 8 * * *", zone = "Asia/Seoul")
     public void runExpirationNotificationBatch() {
+        metrics.measure(NotificationBatchMetrics.Stage.BATCH, this::generateAndSendNotifications);
+    }
+
+    private void generateAndSendNotifications() {
         long startedAtNanos = recordBatchStart();
-        List<Long> refrigeratorIds = refrigeratorService.findNotificationTargetRefrigeratorIds();
-        int failedRefrigeratorCount = generateNotifications(refrigeratorIds);
+        List<Long> refrigeratorIds = metrics.measureResult(NotificationBatchMetrics.Stage.TARGET_LOOKUP,
+                refrigeratorService::findNotificationTargetRefrigeratorIds);
+        int failedRefrigeratorCount = metrics.measureResult(NotificationBatchMetrics.Stage.GENERATION,
+                () -> generateNotifications(refrigeratorIds));
+        metrics.recordGeneration(refrigeratorIds.size(), failedRefrigeratorCount);
         recordGenerationResult(startedAtNanos, refrigeratorIds.size(), failedRefrigeratorCount);
         sendPushNotifications();
     }
@@ -94,8 +103,14 @@ public class NotificationScheduler {
         if (!expirationPushEnabled) {
             return;
         }
-        int createdCount = pushNotificationCreationService.createExpirationJobs();
+        int createdCount = metrics.measureResult(NotificationBatchMetrics.Stage.JOB_CREATION,
+                pushNotificationCreationService::createExpirationJobs);
+        metrics.recordCreatedJobs(createdCount);
         log.info("만료·임박 알림 푸시 발송 작업을 {}건 만들었습니다.", createdCount);
+        metrics.measure(NotificationBatchMetrics.Stage.DISPATCH, this::dispatchPushNotifications);
+    }
+
+    private void dispatchPushNotifications() {
         LocalDateTime deadline = now().toLocalDate().atTime(PushNotificationCreationService.SEND_DEADLINE);
         Optional<LocalDateTime> nextAttemptAt = pushDispatchService.dispatchDueJobs();
         // 상태 저장이 계속 실패해 같은 작업이 남더라도 기한이 지나면 멈춘다.

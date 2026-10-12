@@ -4,14 +4,14 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.ExceptionCode;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
-import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
+import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorReadAccess;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import com.dameokja.backend.user.application.UserAccessService;
-import com.dameokja.backend.user.domain.User;
+
 import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.user.domain.UserExceptionCode;
-import com.dameokja.backend.user.infrastructure.UserRepository;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,11 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class RefrigeratorAccessServiceTest {
     @Mock
-    private UserRepository userRepository;
+    private UserAccessService userAccessService;
     @Mock
     private RefrigeratorRepository refrigeratorRepository;
     @Mock
@@ -40,36 +41,24 @@ class RefrigeratorAccessServiceTest {
     @BeforeEach
     void setUp() {
         refrigeratorAccessService = new RefrigeratorAccessService(
-                new UserAccessService(userRepository), refrigeratorRepository,
+                userAccessService, refrigeratorRepository,
                 refrigeratorMemberRepository);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void activeOwnerAndMemberCanReadAndWrite(boolean ownerMembershipRequested) {
-        User user = activeUser();
+    @org.junit.jupiter.api.Test
+    void activeMembershipCanReadAndWrite() {
         Refrigerator refrigerator = availableRefrigerator();
-        RefrigeratorMember refrigeratorMember = ownerMembershipRequested
-                ? RefrigeratorMember.owner(user, refrigerator)
-                : new RefrigeratorMember(user, refrigerator);
-        refrigeratorMember.changeActiveStatus(true);
-        when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L))
-                .thenReturn(Optional.of(refrigeratorMember));
+        when(refrigeratorRepository.findReadAccess(1L, 10L))
+                .thenReturn(Optional.of(new RefrigeratorReadAccess(UserStatus.ACTIVE, refrigerator, 1L)));
+        assertThat(refrigeratorAccessService.validateReadAccess(1L, 10L)).isSameAs(refrigerator);
+        verifyNoInteractions(refrigeratorMemberRepository);
         assertThatCode(() -> refrigeratorAccessService.validateWriteAccess(1L, 10L))
                 .doesNotThrowAnyException();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"none", "inactive", "different"})
-    void rejectsUnavailableMembership(String unavailableState) {
-        User user = activeUser();
+    @org.junit.jupiter.api.Test
+    void rejectsUnavailableMembership() {
         availableRefrigerator();
-        if (unavailableState.equals("different")) {
-            Refrigerator otherRefrigerator = new Refrigerator("other", "2026-09");
-            ReflectionTestUtils.setField(otherRefrigerator, "id", 20L);
-            when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L))
-                    .thenReturn(Optional.of(RefrigeratorMember.owner(user, otherRefrigerator)));
-        }
         assertDenied(RefrigeratorExceptionCode.ACCESS_DENIED);
     }
 
@@ -80,13 +69,15 @@ class RefrigeratorAccessServiceTest {
             assertDenied(UserExceptionCode.USER_NOT_FOUND);
             return;
         }
-        User user = activeUser();
         if (unavailableState.equals("withdrawn")) {
-            ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
+            when(refrigeratorRepository.findReadAccess(1L, 10L))
+                    .thenReturn(Optional.of(new RefrigeratorReadAccess(UserStatus.WITHDRAWN, null, null)));
             assertDenied(UserExceptionCode.USER_NOT_ACTIVE);
             return;
         }
         if (unavailableState.equals("missingRefrigerator")) {
+            when(refrigeratorRepository.findReadAccess(1L, 10L))
+                    .thenReturn(Optional.of(new RefrigeratorReadAccess(UserStatus.ACTIVE, null, null)));
             assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND);
             return;
         }
@@ -94,16 +85,11 @@ class RefrigeratorAccessServiceTest {
         assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
     }
 
-    private User activeUser() {
-        User user = new User("User1", "default.png");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        return user;
-    }
-
     private Refrigerator availableRefrigerator() {
         Refrigerator refrigerator = new Refrigerator("fridge", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
-        when(refrigeratorRepository.findById(10L)).thenReturn(Optional.of(refrigerator));
+        when(refrigeratorRepository.findReadAccess(1L, 10L))
+                .thenReturn(Optional.of(new RefrigeratorReadAccess(UserStatus.ACTIVE, refrigerator, null)));
         return refrigerator;
     }
 

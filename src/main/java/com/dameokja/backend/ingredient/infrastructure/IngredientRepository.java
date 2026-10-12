@@ -26,6 +26,22 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     long countByRefrigeratorId(Long refrigeratorId);
 
+    @Query("""
+            select new com.dameokja.backend.ingredient.infrastructure.IngredientListCounts(
+                count(i), coalesce(sum(case when
+                    (:expirationFrom is null or i.expirationDate >= :expirationFrom)
+                    and (:expirationTo is null or i.expirationDate <= :expirationTo)
+                    and (:storageType is null or i.storageType = :storageType)
+                    and (:category is null or i.category = :category)
+                    and (:keywordPattern is null or i.name like :keywordPattern escape '!')
+                then 1L else 0L end), 0L))
+            from Ingredient i where i.refrigerator.id = :refrigeratorId
+            """)
+    IngredientListCounts countList(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
+            @Param("storageType") StorageType storageType,
+            @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern);
+
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
             + "and i.expirationDate <= :expirationThrough order by i.expirationDate, i.id")
     List<Ingredient> findExpirationNotificationTargets(@Param("refrigeratorId") Long refrigeratorId,

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class NotificationController implements NotificationApi {
+    //todo : [수정] Controller에 상수 별로. 성공시 enum 클래스 만드는 거 어때?
     private static final String LIST_CODE = "NOTI-200-001";
     private static final String LIST_MESSAGE = "알림 목록 조회 성공";
     private static final String UNREAD_COUNT_MESSAGE = "미읽음 알림 개수 조회 성공";
@@ -36,8 +37,10 @@ public class NotificationController implements NotificationApi {
             @CurrentUserId Long userId,
             @PathVariable Long refrigeratorId,
             @Valid @ModelAttribute NotificationListRequest request) {
+        //Todo : [수정] from을 명시적으로 컨트롤러에서 읽히는 거 별로. 서비스에서 from으로 반환으로 변경
         NotificationListResponse response = NotificationListResponse.from(
                 notificationService.getNotifications(userId, refrigeratorId, request));
+        //todo : [질문] of함수 명시적으로 하는 거 별론디. 인자로 넘기고 of로 내부 변환후 반환하는거 별로인가?
         return ResponseEntity.ok(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, response));
     }
 

@@ -1,0 +1,23 @@
+app:
+  scheduling:
+    enabled: false
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+logging:
+  file:
+    name: build/logs/backend-loadtest.log
+
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        hikaricp.connections.acquire: true
+
+sentry:
+  enabled: false

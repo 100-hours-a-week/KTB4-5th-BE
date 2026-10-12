@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "24ae1f08-869c-4bc0-ae49-28cf75ccbff4",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-sequence.json",
+  "output": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-sequence.html",
+  "specification": {
+    "sha256": "c3ba5cc30500d7f48eb7b5b8befc4c9b5ab46c5743d96f4d0556804b0e4012c5",
+    "bytes": 5425
+  },
+  "artifact": {
+    "sha256": "caa4f262348dfa8c7a9b2e50ef00ecebd758dce3d198f280279303d0c8a4829b",
+    "bytes": 759253
+  }
+}

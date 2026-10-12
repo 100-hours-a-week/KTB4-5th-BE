@@ -85,6 +85,30 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     @Test
+    void combinesTotalAndFilteredCountsWithoutLosingEmptyOrBoundaryCases() {
+        ingredient("어제", -1, 1);
+        ingredient("오늘", 0, 1);
+        ingredient("나흘뒤", 4, 1);
+        ingredient("냉동만두", 0, 1, StorageType.FROZEN);
+        Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
+        persist(new Ingredient(other, details("두부", 0), RegistrationSource.DIRECT));
+        flushAndClear();
+        Long refrigeratorId = refrigerator.getId();
+        assertThat(ingredientRepository.countList(refrigeratorId, null, null, null, null, null))
+                .isEqualTo(new IngredientListCounts(4, 4));
+        assertThat(ingredientRepository.countList(refrigeratorId, null, BASE_DATE.minusDays(1), null, null, null))
+                .isEqualTo(new IngredientListCounts(4, 1));
+        assertThat(ingredientRepository.countList(refrigeratorId, BASE_DATE, BASE_DATE.plusDays(3), null, null, null))
+                .isEqualTo(new IngredientListCounts(4, 2));
+        assertThat(ingredientRepository.countList(refrigeratorId, null, null, StorageType.FROZEN, null, null))
+                .isEqualTo(new IngredientListCounts(4, 1));
+        assertThat(ingredientRepository.countList(refrigeratorId, BASE_DATE.plusDays(100), null, null, null, null))
+                .isEqualTo(new IngredientListCounts(4, 0));
+        assertThat(ingredientRepository.countList(Long.MAX_VALUE, null, null, null, null, null))
+                .isEqualTo(new IngredientListCounts(0, 0));
+    }
+
+    @Test
     void excludesOtherRefrigerators() {
         ingredient("우유", 1, 1);
         Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
@@ -153,6 +177,11 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, IngredientCategory.FRUIT, "%두부%")).isZero();
         assertThat(readAllPages(sortType, null, null, null, IngredientCategory.FRUIT, "%두부%")).isEmpty();
         assertThat(ingredientRepository.countByRefrigeratorId(refrigerator.getId())).isEqualTo(6L);
+        assertThat(ingredientRepository.countList(refrigerator.getId(), BASE_DATE, BASE_DATE.plusDays(3),
+                StorageType.FROZEN, IngredientCategory.OTHER, "%두부%"))
+                .isEqualTo(new IngredientListCounts(6, 2));
+        assertThat(ingredientRepository.countList(refrigerator.getId(), null, null, null, IngredientCategory.FRUIT, "%두부%"))
+                .isEqualTo(new IngredientListCounts(6, 0));
     }
 
     @ParameterizedTest
@@ -167,6 +196,8 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
         assertThat(readAllPages(IngredientSortType.NAME_ASC, null, null, null, null, pattern)).containsExactly("앞" + keyword + "뒤");
         assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, null, pattern)).isEqualTo(1L);
+        assertThat(ingredientRepository.countList(refrigerator.getId(), null, null, null, null, pattern))
+                .isEqualTo(new IngredientListCounts(3, 1));
         assertThat(readAllPages(IngredientSortType.NAME_ASC, null, null, null, null, "%없는이름%")).isEmpty();
         assertThat(ingredientRepository.countFiltered(refrigerator.getId(), null, null, null, null, "%없는이름%")).isZero();
     }

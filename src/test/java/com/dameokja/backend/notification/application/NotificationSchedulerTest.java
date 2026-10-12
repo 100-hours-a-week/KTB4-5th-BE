@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -17,12 +18,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class NotificationSchedulerTest {
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    private final NotificationBatchMetrics metrics = new NotificationBatchMetrics(meterRegistry);
     private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
 
     private final PushNotificationCreationService pushNotificationCreationService =
@@ -90,7 +94,7 @@ class NotificationSchedulerTest {
         when(refrigeratorService.findNotificationTargetRefrigeratorIds()).thenReturn(List.of(1L, 2L));
         Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneOffset.UTC);
         NotificationScheduler scheduler = new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, metrics, false);
 
         scheduler.runExpirationNotificationBatch();
 
@@ -106,7 +110,7 @@ class NotificationSchedulerTest {
         assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
         Clock clock = Clock.fixed(Instant.parse("2026-09-24T18:00:00Z"), ZoneOffset.UTC);
         NotificationScheduler scheduler = new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, metrics, false);
 
         scheduler.runNotificationCleanup();
 
@@ -126,10 +130,27 @@ class NotificationSchedulerTest {
         verifyNoInteractions(notificationService, pushNotificationCreationService, pushDispatchService);
     }
 
+    @Test
+    void recordsPartialGenerationWithoutCountingTheFailedFridgeAsCompleted() {
+        when(refrigeratorService.findNotificationTargetRefrigeratorIds()).thenReturn(List.of(1L, 2L));
+        doThrow(new IllegalStateException("생성 실패")).when(expirationNotificationService).generate(1L);
+        when(pushNotificationCreationService.createExpirationJobs()).thenReturn(2);
+        when(pushDispatchService.dispatchDueJobs()).thenReturn(Optional.empty());
+
+        scheduler("2026-09-24T23:00:00Z").runExpirationNotificationBatch();
+
+        assertThat(meterRegistry.get("notification.batch.refrigerators")
+                .tag("result", "completed").counter().count()).isEqualTo(1);
+        assertThat(meterRegistry.get("notification.batch.refrigerators")
+                .tag("result", "failed").counter().count()).isEqualTo(1);
+        assertThat(meterRegistry.get("notification.batch.push.jobs.created").counter().count()).isEqualTo(2);
+        verify(pushDispatchService).dispatchDueJobs();
+    }
+
     // UTC 시각으로 Clock을 만들어도 기한은 서울 기준 12:00으로 계산해야 한다.
     private NotificationScheduler scheduler(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC);
         return new NotificationScheduler(pushNotificationCreationService, pushDispatchService,
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, true);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, metrics, true);
     }
 }

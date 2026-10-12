@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "fail",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/candidate-classes.json",
+    "sha256": "77d112609c44847b7067fabefdac611b57e470907d801b45a9c435d9388532af",
+    "bytes": 7469
+  },
+  "artifact": {
+    "path": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.html",
+    "sha256": "77f5d2e9e90e6b1c16bec2d9ef1e95218c45bb47feebbffcc2321826794f6e70",
+    "bytes": 770741
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "fail"
+  },
+  "failedStage": "browser-check",
+  "diagnostics": [
+    {
+      "code": "viewer/browser-check-runtime",
+      "severity": "error",
+      "message": "browser-check could not complete its Chrome inspection.",
+      "subject": {
+        "artifact": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.html"
+      },
+      "evidence": {
+        "reason": "Chrome DevTools read pipe failed: stream ended\nChrome process: still running.\nChrome transport: Node v24.18.0, libuv 1.52.1, darwin; pid=68451, exitCode=null, signalCode=null.\nChrome read pipe: readable=false, ended=true, destroyed=false, receivedBytes=0, messages=0, bufferedBytes=0.\nChrome write pipe: writable=true, ended=false, destroyed=false, completedWrites=1, writtenBytes=50, bufferedBytes=0."
+      },
+      "supportedFixes": [
+        "resolve the reported Chrome inspection error, then rerun browser-check"
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.finalize.json",
+    "summaryReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.finalize-summary.json",
+    "browserCheckReceipt": "/Users/jeongminju/Desktop/카테부/팀프로젝트/KTB4-5th-BE/.archify/notification-get-20260930-213406/notification-get-classes.browser-check.json"
+  },
+  "update": {
+    "status": "unavailable",
+    "installedVersion": null,
+    "availableVersion": null,
+    "releaseNotes": null,
+    "checkedAt": null,
+    "source": null,
+    "noticeRequired": false,
+    "noticeText": null,
+    "reason": "cache-unavailable"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 610
+}
