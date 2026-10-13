@@ -44,7 +44,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -115,12 +114,13 @@ class IngredientControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"두", " 두 "})
-    void rejectsOneCharacterKeyword(String keyword) throws Exception {
-        listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INGREDIENT-400-003"));
-        verifyNoInteractions(ingredientListService);
+    @CsvSource(value = {"두,두", "' 두 ',두", "😀,😀", "' 😀 ',😀"})
+    void bindsOneCharacterKeyword(String keyword, String expected) throws Exception {
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
+
+        listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());
+        verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10);
     }
 
     @ParameterizedTest

@@ -156,7 +156,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"A%", "A_", "A!", "A\\"})
+    @ValueSource(strings = {"A%", "A_", "A!", "A\\", "%", "_", "!"})
     void searchesWildcardEscapeAndBackslashAsLiteralCharacters(String keyword) {
         ingredient("앞" + keyword + "뒤", 0, 1);
         ingredient("앞AX뒤", 0, 1);

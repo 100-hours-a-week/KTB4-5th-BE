@@ -74,9 +74,9 @@ class IngredientListRequestTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"두", " 두 ", "😀"})
-    void rejectsOneCharacterAfterStrippingKeyword(String keyword) {
-        assertInvalidInput(() -> new IngredientListRequest(null, null, null, null, null, keyword).keywordValue());
+    @CsvSource(value = {"두,두", "' 두 ',두", "😀,😀", "' 😀 ',😀"})
+    void acceptsOneCharacterAfterStrippingKeyword(String keyword, String expected) {
+        assertThat(new IngredientListRequest(null, null, null, null, null, keyword).keywordValue()).isEqualTo(expected);
     }
 
     private void assertInvalidInput(Runnable action) {

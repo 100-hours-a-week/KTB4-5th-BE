@@ -49,7 +49,7 @@ public interface IngredientApi {
                     description = "냉장고 재고 목록 조회 성공",
                     content = @Content(mediaType = "application/json", examples = @ExampleObject(value = LIST_RESPONSE))
             ),
-            @ApiResponse(responseCode = "400", description = "size·sort·filter·category 형식 오류 또는 공백 제거 후 1자 검색어 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
+            @ApiResponse(responseCode = "400", description = "size·sort·filter·category 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
@@ -79,7 +79,7 @@ public interface IngredientApi {
             )
             String filter,
             @Parameter(description = "단일 선택. 생략 시 전체. filter와 AND. 변경 시 커서 초기화", schema = @Schema(implementation = IngredientCategory.class)) String category,
-            @Parameter(description = "이름 부분검색. 앞뒤 공백 제거 후 2자 이상, 빈 입력은 전체. %, _는 문자 그대로 검색. category·filter와 AND. 변경 시 커서 초기화") String keyword);
+            @Parameter(description = "이름 부분검색. 앞뒤 공백 제거 후 1자 이상, 빈 입력은 전체. %, _는 문자 그대로 검색. category·filter와 AND. 변경 시 커서 초기화") String keyword);
     @Operation(
             summary = "재고 상세 조회",
             description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. "
