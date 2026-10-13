@@ -1,44 +1,50 @@
 package com.dameokja.backend.auth.infrastructure;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.util.WebUtils;
+import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class BrowserAuthorizationRequestRepository implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
     public static final String VALIDATED = "oauth.state.validated";
-    private static final long MAX_PENDING_REQUESTS = 10000;
+    private static final String PREFIX = "oauth:request:";
+    private static final RedisScript<Long> CONSUME = RedisScript.of(
+            new ClassPathResource("redis/auth/consume-authorization-request.lua"), Long.class);
     private static final Duration LIFETIME = Duration.ofSeconds(600);
     private static final String COOKIE = "oauthRequest";
     private static final String COOKIE_PATH = "/api/v1/auth/oauth";
-    private final Cache<UUID, PendingAuthorization> requests = Caffeine.newBuilder()
-            .expireAfterWrite(LIFETIME).maximumSize(MAX_PENDING_REQUESTS).build();
+    private final StringRedisTemplate redis;
+    private final ObjectMapper mapper;
     private final Clock clock;
     private final boolean secure;
 
-    public BrowserAuthorizationRequestRepository(Clock clock, @Value("${auth.cookie.secure:true}") boolean secure) {
+    public BrowserAuthorizationRequestRepository(Clock clock, @Value("${auth.cookie.secure:true}") boolean secure,
+            StringRedisTemplate redis, ObjectMapper mapper) {
         this.clock = clock;
         this.secure = secure;
+        this.redis = redis;
+        this.mapper = mapper;
     }
 
     @Override
     public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {
         UUID key = browserKey(request);
-        PendingAuthorization pending = key == null ? null : requests.getIfPresent(key);
+        StoredAuthorizationRequest pending = key == null ? null : read(redis.opsForValue().get(PREFIX + key));
         return matches(pending, request) ? pending.authorization() : null;
     }
 
@@ -51,10 +57,11 @@ public class BrowserAuthorizationRequestRepository implements AuthorizationReque
         }
         UUID previous = browserKey(request);
         if (previous != null) {
-            requests.invalidate(previous);
+            redis.delete(PREFIX + previous);
         }
         UUID key = UUID.randomUUID();
-        requests.put(key, new PendingAuthorization(authorization, clock.instant().plus(LIFETIME)));
+        StoredAuthorizationRequest pending = StoredAuthorizationRequest.from(authorization, clock.instant().plus(LIFETIME));
+        redis.opsForValue().set(PREFIX + key, mapper.writeValueAsString(pending), LIFETIME);
         writeCookie(response, key.toString(), LIFETIME);
     }
 
@@ -64,30 +71,25 @@ public class BrowserAuthorizationRequestRepository implements AuthorizationReque
         if (key == null) {
             return null;
         }
-        AtomicReference<OAuth2AuthorizationRequest> consumed = new AtomicReference<>();
-        requests.asMap().computeIfPresent(key, (ignored, pending) -> {
-            if (!matches(pending, request)) {
-                return pending;
-            }
-            consumed.set(pending.authorization());
+        String stored = redis.opsForValue().get(PREFIX + key);
+        StoredAuthorizationRequest pending = read(stored);
+        if (!matches(pending, request) || !Long.valueOf(1).equals(redis.execute(CONSUME, List.of(PREFIX + key), stored))) {
             return null;
-        });
-        if (consumed.get() != null) {
-            request.setAttribute(VALIDATED, true);
-            writeCookie(response, "", Duration.ZERO);
         }
-        return consumed.get();
+        request.setAttribute(VALIDATED, true);
+        writeCookie(response, "", Duration.ZERO);
+        return pending.authorization();
     }
 
     public void clear(HttpServletRequest request, HttpServletResponse response) {
         UUID key = browserKey(request);
         if (key != null) {
-            requests.invalidate(key);
+            redis.delete(PREFIX + key);
         }
         writeCookie(response, "", Duration.ZERO);
     }
 
-    private boolean matches(PendingAuthorization pending, HttpServletRequest request) {
+    private boolean matches(StoredAuthorizationRequest pending, HttpServletRequest request) {
         if (pending == null || !clock.instant().isBefore(pending.expiresAt())) {
             return false;
         }
@@ -115,5 +117,7 @@ public class BrowserAuthorizationRequestRepository implements AuthorizationReque
                 .secure(secure).sameSite("Lax").path(COOKIE_PATH).maxAge(lifetime).build().toString());
     }
 
-    private record PendingAuthorization(OAuth2AuthorizationRequest authorization, Instant expiresAt) {}
+    private StoredAuthorizationRequest read(String stored) {
+        return stored == null ? null : mapper.readValue(stored, StoredAuthorizationRequest.class);
+    }
 }
