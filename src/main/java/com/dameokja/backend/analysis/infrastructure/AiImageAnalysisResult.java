@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.infrastructure;
 
+import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,7 +12,11 @@ public record AiImageAnalysisResult(DocumentType documentType, ImageQuality imag
     public record ImageQuality(double score, List<String> issues) {}
 
     public record Item(String itemId, String displayStatus, Name name, Category category, String storageType,
-            String measureType, Quantity quantity, Weight weight, Expiration expiration, List<String> reviewReasons) {}
+            String measureType, Quantity quantity, Weight weight, Expiration expiration, List<AnalysisReviewReason> reviewReasons) {
+        public Item {
+            reviewReasons = List.copyOf(reviewReasons);
+        }
+    }
 
     public record Name(String value, String normalizedValue, String source, double confidence, String evidenceText) {}
 

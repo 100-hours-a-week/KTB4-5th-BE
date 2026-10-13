@@ -41,10 +41,13 @@ public interface AnalysisApi {
             + "UNRECOGNIZED, NEEDS_REVIEW, AI_ESTIMATED, RECOGNIZED 순이며 빈 결과는 UNRECOGNIZED입니다. 모두 대기 중이면 QUEUED, "
             + "대기·처리 중 이미지가 남으면 PROCESSING입니다. 모든 이미지가 종료되면 COMPLETED, PARTIALLY_COMPLETED 또는 FAILED입니다. "
             + "pollAfterMs는 진행 중 1000, 종료 시 null입니다. 값만 있는 필드는 직접 반환하며 weight는 value·unit 객체입니다. confidence와 imageQuality는 반환하지 않습니다. "
+            + "reviewReasons는 field·code·messages 객체 배열이며 사유가 없으면 빈 배열입니다. messages는 하나 이상의 비어 있지 않은 문자열입니다. "
             + "AI 조회 장애는 분석 실패와 구분하여 오류 응답으로 반환합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 인식 결과 조회 성공 (IMAGE-200-002)", content = @Content(
-                    mediaType = "application/json", examples = @ExampleObject(value = AnalysisApiExamples.QUERY_RESPONSE))),
+                    mediaType = "application/json",
+                    examples = {@ExampleObject(name = "분석 대기", value = AnalysisApiExamples.QUERY_RESPONSE),
+                            @ExampleObject(name = "항목 확인 필요", value = AnalysisApiExamples.REVIEW_RESPONSE)})),
             @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
             @ApiResponse(responseCode = "403", description = "다른 사용자의 작업 (GLOBAL-403-001)"),
             @ApiResponse(responseCode = "404", description = "작업 없음 또는 만료 (IMAGE-404-001)"),
