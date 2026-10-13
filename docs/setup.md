@@ -110,14 +110,14 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 
 ## 이미지 업로드 발급 내역
 
-업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Caffeine에 저장한다.
+업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
 `ANALYSIS_JOB_TTL`로 발급 내역의 유효기간을 외부 주입한다. ISO-8601 Duration 형식이며 양수여야 한다. 기본값은 두지 않는다.
 발급 내역은 발급 시각부터 만료되며, 후속 분석 접수 구현에서도 같은 TTL 설정을 사용한다.
-임시 상태는 프로세스별로 보관하므로 BE 재시작 시 사라지고 다른 BE 인스턴스와 공유되지 않는다.
+발급 내역은 Redis TTL과 저장된 만료 시각으로 검사하며 BE 인스턴스 간 공유한다. 조회는 TTL을 연장하지 않는다.
 발급 내역은 업로드 완료를 의미하지 않는다. 실제 이미지의 존재·해시 일치는 AI에서 검증한다.
 분석 접수 서비스는 저장된 SHA-256으로 묶음 작업을 생성하고 이미지별 AI 접수 ID를 순차 저장한다. GET 요청마다 AI의 현재 상태·결과를 조회한다.
 진행 중에는 `pollAfterMs=1000`, 종료 후에는 `null`을 반환한다. 일부 이미지가 실패하면 `PARTIALLY_COMPLETED`, 전부 실패하면 `FAILED`로 응답한다.
-이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. BE 재시작 후에는 URL을 다시 발급해야 한다.
+이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. 분석 작업 상태의 공유 여부는 `AnalysisJobStore` 구현을 따른다.
 
 ## Redis 접속 설정
 
@@ -137,7 +137,7 @@ Spring Boot가 연결 팩토리와 `StringRedisTemplate`을 자동 등록하므�
 | `REDIS_HEALTH_ENABLED` | Actuator Redis health check 사용 여부 | `false` |
 
 서버 주소와 포트는 기본값 없이 환경변수로 주입한다.
-현재는 단일 Redis 서버 연결 준비만 포함하며 실제 저장·조회 기능은 연결하지 않는다.
+단일 Redis 서버에 연결하며 저장·조회 전환 범위는 각 도메인 저장소 구현을 따른다.
 Redis Repository를 사용하지 않으므로 자동 탐색을 끈다. [R2]
 Redis health check는 기본적으로 꺼 두어 서버 연결 여부가 기존 health 응답에 영향을 주지 않게 한다.
 Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함께 `REDIS_HEALTH_ENABLED=true`를 적용한다. [R2]

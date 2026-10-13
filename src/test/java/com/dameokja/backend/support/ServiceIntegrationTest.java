@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -35,7 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.config.import=",
         "app.user.default-profile-image-key=profiles/default.png"
 })
-@Import(ServiceIntegrationTest.TimeConfiguration.class)
+@ExtendWith(RedisTestSupport.class)
+@Import({ServiceIntegrationTest.TimeConfiguration.class, RedisTestSupport.Configuration.class})
 public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     @Autowired
     protected UserRepository userRepository;

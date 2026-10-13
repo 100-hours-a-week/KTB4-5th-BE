@@ -33,21 +33,25 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
+import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.convert.ConversionService;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -62,6 +66,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+@ExtendWith(RedisTestSupport.class)
 @MockitoBean(types = OAuthSecurityConfig.class)
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
@@ -163,11 +168,12 @@ class AnalysisJobSubmitWebTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
-    @Import({SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, CsrfController.class, GlobalExceptionHandler.class,
+    @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class,
+            CsrfController.class, GlobalExceptionHandler.class,
             AnalysisController.class, AnalysisJobSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
     static class WebConfiguration {
         @Bean
-        static org.springframework.core.convert.ConversionService conversionService() { return new org.springframework.boot.convert.ApplicationConversionService(); }
+        static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean
         AnalysisJobQueryService analysisJobQueryService() { return mock(AnalysisJobQueryService.class); }
         @Bean
