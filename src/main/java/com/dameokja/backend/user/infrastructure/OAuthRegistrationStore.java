@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 @Repository
 public class OAuthRegistrationStore {
     private static final Duration LIFETIME = Duration.ofSeconds(600);
-    private static final int MAX_ATTEMPTS = 32;
+    private static final int MAX_ATTEMPTS = 3;
     private static final String PREFIX = "oauth:registration:";
     private static final RedisScript<Long> REPLACE = RedisScript.of(
             new ClassPathResource("redis/user/replace-registration.lua"), Long.class);

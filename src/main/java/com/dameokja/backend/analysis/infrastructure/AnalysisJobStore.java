@@ -23,7 +23,7 @@ import tools.jackson.databind.cfg.DateTimeFeature;
 @Repository
 public class AnalysisJobStore {
     private static final String PREFIX = "analysis:job:";
-    private static final int MAX_ATTEMPTS = 32;
+    private static final int MAX_ATTEMPTS = 3;
     private static final RedisScript<Long> REPLACE = RedisScript.of(new ClassPathResource("redis/analysis/replace-analysis-job.lua"), Long.class);
     private final Clock clock;
     private final Duration duration;

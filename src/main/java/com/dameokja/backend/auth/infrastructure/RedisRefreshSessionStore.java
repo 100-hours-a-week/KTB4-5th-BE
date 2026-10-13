@@ -25,7 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 @Primary
 @RequiredArgsConstructor
 public class RedisRefreshSessionStore implements RefreshSessionStore {
-    private static final int MAX_ATTEMPTS = 32;
+    private static final int MAX_ATTEMPTS = 3;
     private static final RedisScript<Long> REPLACE = RedisScript.of(
             new ClassPathResource("redis/auth/replace-refresh-sessions.lua"), Long.class);
     private final Clock clock;
