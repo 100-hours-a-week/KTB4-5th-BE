@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
@@ -155,13 +156,35 @@ class AnalysisJobQueryServiceTest {
         assertThat(item.quantity()).isEqualTo(2);
         assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, "NONE"));
         assertThat(item.expiration()).isEqualTo(LocalDate.parse("2026-10-12"));
-        assertThat(item.reviewReasons()).containsExactly("DATE_REVIEW");
+        assertThat(item.reviewReasons()).containsExactly(
+                new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
+                        List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
+                new AnalysisReviewReason(AnalysisReviewReason.Field.QUANTITY, AnalysisReviewReason.Code.QUANTITY_DEFAULTED, List.of("수량을 확인해 주세요.")));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"UNKNOWN", ""})
     void rejectsInvalidItemDisplayStatus(String displayStatus) {
         expectView("ai-first", "COMPLETED", createItem(displayStatus));
+        assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
+                .extracting("exceptionCode.code").isEqualTo("IMAGE-503-002");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "[null]", "[\"DATE_REVIEW\"]",
+            "[{\"field\":\"UNKNOWN\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\"확인\"]}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"UNKNOWN\",\"messages\":[\"확인\"]}]",
+            "[{\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\"확인\"]}]",
+            "[{\"field\":\"EXPIRATION\",\"messages\":[\"확인\"]}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"message\":\"확인\"}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":null}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[]}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[null]}]",
+            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\" \"]}]"})
+    void rejectsMalformedReviewReasonsAsLookupError(String reasons) {
+        ObjectNode item = createItem("NEEDS_REVIEW");
+        item.set("reviewReasons", jsonMapper.readTree(reasons));
+        expectView("ai-first", "COMPLETED", item);
         assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode.code").isEqualTo("IMAGE-503-002");
     }
@@ -203,7 +226,8 @@ class AnalysisJobQueryServiceTest {
                  "category":{"value":"DAIRY","source":"MODEL_INFERENCE","confidence":0.8},"storageType":"REFRIGERATED","measureType":"COUNT",
                  "quantity":{"value":2,"source":"OCR","confidence":0.7},"weight":{"value":null,"unit":"NONE","source":"BUSINESS_RULE","confidence":0.0},
                  "expiration":{"date":"2026-10-12","dateType":"USE_BY","source":"OCR","confidence":0.6},
-                 "reviewReasons":["DATE_REVIEW"]}
+                 "reviewReasons":[{"field":"EXPIRATION","code":"EXPIRATION_ESTIMATED","messages":["보관 조건으로 예상했습니다.","소비기한을 확인해 주세요."]},
+                   {"field":"QUANTITY","code":"QUANTITY_DEFAULTED","messages":["수량을 확인해 주세요."]}]}
                 """)).put("displayStatus", displayStatus);
     }
 

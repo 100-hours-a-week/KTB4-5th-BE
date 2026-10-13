@@ -187,8 +187,23 @@ class AnalysisJobQueryWebTest {
                 .andExpect(jsonPath("$.data.results[0].items[0].category").value("DAIRY"))
                 .andExpect(jsonPath("$.data.results[0].items[0].quantity").value(2))
                 .andExpect(jsonPath("$.data.results[0].items[0].expiration").value("2026-10-12"))
-                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0]").value("DATE_REVIEW"))
+                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].field").value("EXPIRATION"))
+                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].code").value("EXPIRATION_ESTIMATED"))
+                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].messages[0]").value("보관 조건으로 예상했습니다."))
+                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].messages[1]").value("소비기한을 확인해 주세요."))
+                .andExpect(jsonPath("$.data.results[0].items[1].reviewReasons[0].field").value("EXPIRATION"))
                 .andExpect(jsonPath("$.data.results[0].modelTrace").doesNotExist());
+    }
+
+    @Test
+    void returnsEmptyReviewReasonsWhenNoReviewIsNeeded() throws Exception {
+        ObjectNode item = createItem("RECOGNIZED");
+        item.putArray("reviewReasons");
+        expectView("ai-first", "COMPLETED", item);
+        expectView("ai-second", "QUEUED");
+        mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.results[0].items[0].reviewReasons").isArray())
+                .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons").isEmpty());
     }
 
     @Test
@@ -223,7 +238,9 @@ class AnalysisJobQueryWebTest {
                 {"itemId":"item-1","name":{"value":"우유","normalizedValue":"우유","source":"OCR","confidence":0.9,"evidenceText":"우유"},
                  "category":{"value":"DAIRY","source":"MODEL_INFERENCE","confidence":0.8},"storageType":"REFRIGERATED","measureType":"COUNT",
                  "quantity":{"value":2,"source":"OCR","confidence":0.7},"weight":{"value":null,"unit":"NONE","source":"BUSINESS_RULE","confidence":0.0},
-                 "expiration":{"date":"2026-10-12","dateType":"USE_BY","source":"OCR","confidence":0.6},"reviewReasons":["DATE_REVIEW"]}
+                 "expiration":{"date":"2026-10-12","dateType":"USE_BY","source":"OCR","confidence":0.6},
+                 "reviewReasons":[{"field":"EXPIRATION","code":"EXPIRATION_ESTIMATED",
+                   "messages":["보관 조건으로 예상했습니다.","소비기한을 확인해 주세요."]}]}
                 """);
         return objectNode.put("displayStatus", displayStatus);
     }

@@ -1,9 +1,10 @@
 package com.dameokja.backend.analysis.application;
 
+import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResult;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResponse;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,7 +28,11 @@ public record AnalysisImageResult(String imageObjectKey, AnalysisStatus status, 
     }
 
     public record Item(String itemId, RecognitionStatus displayStatus, String name, String category, String storageType, String measureType,
-            Integer quantity, Weight weight, LocalDate expiration, List<String> reviewReasons) {
+            Integer quantity, Weight weight, LocalDate expiration, List<AnalysisReviewReason> reviewReasons) {
+        public Item {
+            reviewReasons = List.copyOf(reviewReasons);
+        }
+
         public static Item from(AiImageAnalysisResult.Item item) {
             if (item.displayStatus() == null) {
                 throw new IllegalArgumentException("AI 항목 표시 상태가 없습니다.");
