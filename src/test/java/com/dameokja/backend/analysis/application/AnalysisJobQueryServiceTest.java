@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.application;
 
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,6 +20,7 @@ import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.support.RedisTestSupport;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
@@ -28,6 +30,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -39,6 +42,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+@ExtendWith(RedisTestSupport.class)
 class AnalysisJobQueryServiceTest {
     private static final Instant INSTANT = Instant.parse("2026-10-08T01:00:00Z");
     private static final String RESULT = """
@@ -47,7 +51,7 @@ class AnalysisJobQueryServiceTest {
             """;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final Clock clock = mock(Clock.class);
-    private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, Duration.ofHours(1));
+    private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, Duration.ofHours(1), redisTemplate(), JsonMapper.builder().build());
     private MockRestServiceServer mockRestServiceServer;
     private AnalysisJobQueryService analysisJobQueryService;
     private AnalysisJob analysisJob;

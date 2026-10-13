@@ -22,10 +22,11 @@ import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.OAuthSecurityConfig;
+import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
@@ -35,12 +36,15 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -66,6 +70,7 @@ import tools.jackson.databind.node.ObjectNode;
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
         "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "analysis.job-ttl=1h"})
+@ExtendWith(RedisTestSupport.class)
 class AnalysisJobQueryWebTest {
     private static final Instant INSTANT = Instant.parse("2026-10-08T01:00:00Z");
     private static final String RESULT = """
@@ -244,11 +249,11 @@ class AnalysisJobQueryWebTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
-    @Import({SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, GlobalExceptionHandler.class,
+    @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, GlobalExceptionHandler.class,
             AnalysisController.class, AnalysisJobQueryService.class, AnalysisJobStore.class})
     static class WebConfiguration {
         @Bean
-        static org.springframework.core.convert.ConversionService conversionService() { return new org.springframework.boot.convert.ApplicationConversionService(); }
+        static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean
         Clock clock() { return mock(Clock.class); }
         @Bean
