@@ -3,6 +3,7 @@ package com.dameokja.backend.support;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.mysql.MySQLContainer;
+import org.testcontainers.containers.GenericContainer;
 
 public abstract class MySqlDatabaseTest {
     private static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.8")
@@ -12,6 +13,8 @@ public abstract class MySqlDatabaseTest {
             // 운영과 같은 연결 시간대를 써야 JVM 시간대에 따른 저장값 변환이 테스트에서도 드러난다.
             .withUrlParam("serverTimezone", "Asia/Seoul")
             .withInitScript("db/schema.sql");
+    private static final GenericContainer<?> REDIS = new GenericContainer<>("redis:8.8.0-alpine")
+            .withExposedPorts(6379).withReuse(false);
     private static final String TEST_VAPID_PUBLIC_KEY =
             "BBsm6R4Q8Y7zDW6IP3LwAqDKguIYBLa83eH8r18Jd9ts8Dyt3xmcoSyL91wjkGIPymgWPJZPeol1iwrLafmJczY";
     private static final String TEST_VAPID_PRIVATE_KEY = "CaYwQ9blK0k4N0J-5tPLIQzYBpSJj24S6sWadUP7wCg";
@@ -26,6 +29,9 @@ public abstract class MySqlDatabaseTest {
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         MYSQL.start();
+        REDIS.start();
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         imageStorage(registry);
         registry.add("analysis.job-ttl", () -> "PT1H");
         registry.add("ai.analysis.base-url", () -> "http://ai.example.com");
