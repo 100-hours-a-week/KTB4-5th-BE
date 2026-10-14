@@ -9,7 +9,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum NotificationPreferenceType {
     EXPIRATION(true),
-    RECIPE(false);
+    RECIPE(false),
+    ANALYSIS(true);
 
     private final boolean enabledOnSignup;
 }

@@ -9,7 +9,8 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum NotificationExceptionCode implements ExceptionCode {
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "NOTI-400-001", "알림 조회 요청이 올바르지 않습니다."),
-    NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI-404-001", "알림을 찾을 수 없습니다.");
+    NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI-404-001", "알림을 찾을 수 없습니다."),
+    PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTI-404-002", "알림 설정을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

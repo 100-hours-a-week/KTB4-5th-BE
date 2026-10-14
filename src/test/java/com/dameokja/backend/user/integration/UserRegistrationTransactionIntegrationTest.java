@@ -87,7 +87,8 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
                 .extracting(row -> row.get("user_id"), row -> row.get("type"), row -> row.get("is_enabled"))
                 .containsExactlyInAnyOrder(
                         tuple(result.userId(), "EXPIRATION", true),
-                        tuple(result.userId(), "RECIPE", false));
+                        tuple(result.userId(), "RECIPE", false),
+                        tuple(result.userId(), "ANALYSIS", true));
     }
 
     @Test
