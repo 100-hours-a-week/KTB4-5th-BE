@@ -1,13 +1,19 @@
 package com.dameokja.backend.analysis.infrastructure;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
 import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
@@ -119,14 +125,14 @@ class AnalysisCompletionStoreTest {
     void preservesNullableFieldsDatesDecimalMeasurementsAndReviewReasons() {
         registeredJob("ai-first");
         AnalysisCompletionItem item = new AnalysisCompletionItem("item-1", RecognitionStatus.NEEDS_REVIEW,
-                null, "DAIRY", "REFRIGERATED", "WEIGHT", null, new AnalysisCompletionItem.Weight(new BigDecimal("150.50"), "ML"),
-                new AnalysisCompletionItem.Expiration(null, "ESTIMATED_CONSUMPTION_WINDOW",
+                null, IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new AnalysisCompletionItem.Weight(new BigDecimal("150.50"), WeightUnit.ML),
+                new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.ESTIMATED_CONSUMPTION_WINDOW,
                         new AnalysisCompletionItem.EstimatedRange(LocalDate.parse("2026-10-14"), LocalDate.parse("2026-10-16"))),
                 List.of(new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
                         List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
                         new AnalysisReviewReason(AnalysisReviewReason.Field.ITEM, AnalysisReviewReason.Code.ITEM_REVIEW_REQUIRED, List.of("상품명을 확인해 주세요."))));
         AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, completed().completedAt(),
-                new AnalysisCompletionSuccess("PRODUCT", List.of(item)), null);
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of(item)), null);
         store.complete("ai-first", completion);
         assertThat(newStore(NOW).findByAiAnalysisId("ai-first").analysisImages().getFirst().completion()).isEqualTo(completion);
     }
@@ -195,7 +201,7 @@ class AnalysisCompletionStoreTest {
 
     private AnalysisCompletion completed() {
         return new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T01:00:10Z"),
-                new AnalysisCompletionSuccess("PRODUCT", List.of()), null);
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of()), null);
     }
 
     private AnalysisCompletion failed() {
