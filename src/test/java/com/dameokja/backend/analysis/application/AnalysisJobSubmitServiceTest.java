@@ -65,7 +65,7 @@ class AnalysisJobSubmitServiceTest {
         assertThat(analysisJob.id()).isNotBlank().isNotIn("ai-first", "ai-second");
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
         assertThat(analysisJob.submittedAt()).isEqualTo(instant.atZone(BusinessTime.ZONE).toOffsetDateTime());
-        assertThat(analysisJob.expiresAt()).isEqualTo(analysisJob.submittedAt().plus(duration));
+        assertThat(analysisJob.expiresAt()).isNull();
         verifyNoMoreInteractions(aiAnalysisClient);
     }
 

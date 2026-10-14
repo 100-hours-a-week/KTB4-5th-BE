@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.domain;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 
 public record AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
         OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending) {
@@ -23,7 +24,7 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending);
     }
 
-    public AnalysisJob complete(String analysisId, AnalysisCompletion completion) {
+    public AnalysisJob complete(String analysisId, AnalysisCompletion completion, OffsetDateTime resultExpiresAt) {
         if (analysisId == null || analysisImages.stream().noneMatch(image -> analysisId.equals(image.aiAnalysisId()))) {
             throw new IllegalArgumentException("작업에 속하지 않은 AI 분석입니다.");
         }
@@ -31,6 +32,7 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
                 .map(image -> analysisId.equals(image.aiAnalysisId()) ? image.complete(completion) : image).toList();
         boolean newlyCompleted = images.stream().allMatch(image -> image.completion() != null)
                 && analysisImages.stream().anyMatch(image -> image.completion() == null);
-        return new AnalysisJob(id, userId, inputHint, images, submittedAt, expiresAt, notificationPending || newlyCompleted);
+        OffsetDateTime deadline = newlyCompleted ? Objects.requireNonNull(resultExpiresAt) : expiresAt;
+        return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted);
     }
 }

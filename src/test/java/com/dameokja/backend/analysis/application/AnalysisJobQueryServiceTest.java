@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
@@ -102,6 +103,10 @@ class AnalysisJobQueryServiceTest {
     @CsvSource({"OWNER,GLOBAL-403-001", "MISSING,IMAGE-404-001", "EXPIRED,IMAGE-404-001"})
     void rejectsUnavailableJobsBeforeCallingAi(String scenario, String code) {
         if (scenario.equals("EXPIRED")) {
+            AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                    new AnalysisCompletion.Result("RECEIPT", List.of()), null);
+            analysisJobStore.complete("ai-first", completion);
+            analysisJobStore.complete("ai-second", completion);
             when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));
         }
         String analysisId = analysisJob.id();

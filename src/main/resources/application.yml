@@ -112,6 +112,7 @@ ai:
 
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
+  result-ttl: ${ANALYSIS_RESULT_TTL:1h}
 
 management:
   health:
