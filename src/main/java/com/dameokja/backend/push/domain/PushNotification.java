@@ -121,6 +121,7 @@ public class PushNotification extends BaseEntity {
         this.status = PushNotificationStatus.ACCEPTED;
         this.acceptedAt = acceptedAt;
         this.nextAttemptAt = null;
+        clearLease();
     }
 
     public void fail(LocalDateTime failedAt) {
@@ -137,6 +138,7 @@ public class PushNotification extends BaseEntity {
         }
         this.status = PushNotificationStatus.RETRY;
         this.nextAttemptAt = retryAt;
+        clearLease();
     }
 
     // 취소는 전송 전에 수신 자격을 다시 확인하다 결정되기도 하므로 시도 횟수를 세지 않는다.
@@ -154,9 +156,21 @@ public class PushNotification extends BaseEntity {
         return !now.isBefore(this.expiresAt);
     }
 
+    public boolean matchesSubscription(UserDevice device) {
+        return device.getStatus() == UserDeviceStatus.ACTIVE
+                && device.getSubscriptionVersion().equals(this.subscriptionVersion)
+                && device.getUser().getId().equals(this.user.getId());
+    }
+
     private void finish(PushNotificationStatus finalStatus) {
         this.status = finalStatus;
         this.nextAttemptAt = null;
+        clearLease();
+    }
+
+    private void clearLease() {
+        this.leaseToken = null;
+        this.leaseUntil = null;
     }
 
     public void lease(String token, LocalDateTime leaseUntil) {
