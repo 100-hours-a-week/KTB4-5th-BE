@@ -44,7 +44,8 @@ public interface AnalysisApi {
             + "pollAfterMs는 진행 중 1000, 종료 시 null입니다. 값만 있는 필드는 직접 반환하며 weight는 value·unit 객체입니다. confidence와 imageQuality는 반환하지 않습니다. "
             + "reviewReasons는 field·code·messages 객체 배열이며 사유가 없으면 빈 배열입니다. messages는 하나 이상의 비어 있지 않은 문자열입니다. "
             + "expiresAt은 묶음 종료 결과 저장 전 null이며, 전체 종료를 확정해 저장한 시점부터 기본 7일입니다. 조회로 연장하지 않습니다. "
-            + "AI 조회 장애는 분석 실패와 구분하여 오류 응답으로 반환합니다.")
+            + "Redis에 보관한 결과를 반환하며 사용자 조회에서 AI API를 호출하지 않습니다. AI 접수 전에는 QUEUED, 접수 후 종료 결과가 없으면 PROCESSING입니다. "
+            + "expiration은 확정 날짜만 반환하며 예상 소비기한 범위만 있으면 null입니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 인식 결과 조회 성공 (IMAGE-200-002)", content = @Content(
                     mediaType = "application/json",
@@ -53,9 +54,7 @@ public interface AnalysisApi {
             @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
             @ApiResponse(responseCode = "403", description = "다른 사용자의 작업 (GLOBAL-403-001)"),
             @ApiResponse(responseCode = "404", description = "작업 없음 또는 만료 (IMAGE-404-001)"),
-            @ApiResponse(responseCode = "429", description = "AI 조회 횟수 제한 (IMAGE-429-002)"),
-            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)"),
-            @ApiResponse(responseCode = "503", description = "AI 분석 조회 일시 불가 (IMAGE-503-002)")
+            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<AnalysisJobResponse>> get(@Parameter(hidden = true) Long userId,
             @Parameter(description = "백엔드가 발급한 이미지 묶음 작업 ID", required = true) String analysisId);

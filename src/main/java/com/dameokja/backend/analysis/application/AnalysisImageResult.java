@@ -1,63 +1,57 @@
 package com.dameokja.backend.analysis.application;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.dameokja.backend.analysis.domain.AnalysisImage;
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResponse;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-public record AnalysisImageResult(String imageObjectKey, AnalysisStatus status, RecognitionStatus recognitionStatus, String documentType,
+public record AnalysisImageResult(String imageObjectKey, AnalysisStatus status, RecognitionStatus recognitionStatus, AnalysisDocumentType documentType,
         List<Item> items, Error error) {
-    public static AnalysisImageResult from(String imageObjectKey, AnalysisStatus analysisStatus, AiImageAnalysisResult aiImageAnalysisResult, AiImageAnalysisResponse.Error error) {
-        if (aiImageAnalysisResult == null) {
-            return new AnalysisImageResult(imageObjectKey, analysisStatus, null, null, List.of(), Error.from(error));
+    public static AnalysisImageResult fromStored(AnalysisImage image) {
+        AnalysisCompletion completion = image.completion();
+        if (completion == null) {
+            AnalysisStatus status = image.aiAnalysisId() == null ? AnalysisStatus.QUEUED : AnalysisStatus.PROCESSING;
+            return new AnalysisImageResult(image.objectKey(), status, null, null, List.of(), null);
         }
-        String documentType = null;
-        if (aiImageAnalysisResult.documentType() != null) {
-            documentType = aiImageAnalysisResult.documentType().value();
+        if (completion.result() == null) {
+            return new AnalysisImageResult(image.objectKey(), completion.status(), null, null, List.of(), Error.from(completion.error()));
         }
-        List<Item> items = aiImageAnalysisResult.items().stream().map(Item::from).toList();
-        List<RecognitionStatus> recognitionStatuses = items.stream().map(Item::displayStatus).toList();
-        RecognitionStatus recognitionStatus = List.of(RecognitionStatus.UNRECOGNIZED, RecognitionStatus.NEEDS_REVIEW,
-                RecognitionStatus.AI_ESTIMATED, RecognitionStatus.RECOGNIZED).stream()
-                .filter(recognitionStatuses::contains).findFirst().orElse(RecognitionStatus.UNRECOGNIZED);
-        return new AnalysisImageResult(imageObjectKey, analysisStatus, recognitionStatus, documentType, items, Error.from(error));
+        List<Item> items = completion.result().items().stream().map(Item::from).toList();
+        RecognitionStatus recognition = RecognitionStatus.aggregate(items.stream().map(Item::displayStatus).toList());
+        return new AnalysisImageResult(image.objectKey(), completion.status(), recognition, completion.result().documentType(), items, Error.from(completion.error()));
     }
 
-    public record Item(String itemId, RecognitionStatus displayStatus, String name, String category, String storageType, String measureType,
+    public record Item(String itemId, RecognitionStatus displayStatus, String name, IngredientCategory category, StorageType storageType, MeasureType measureType,
             Integer quantity, Weight weight, LocalDate expiration, List<AnalysisReviewReason> reviewReasons) {
         public Item {
             reviewReasons = List.copyOf(reviewReasons);
         }
 
-        public static Item from(AiImageAnalysisResult.Item item) {
-            if (item.displayStatus() == null) {
-                throw new IllegalArgumentException("AI 항목 표시 상태가 없습니다.");
-            }
-            RecognitionStatus recognitionStatus = RecognitionStatus.valueOf(item.displayStatus());
-            String name = item.name().value();
-            String category = item.category().value();
-            Integer quantity = null;
-            if (item.quantity() != null) {
-                quantity = item.quantity().value();
-            }
-            Weight weight = null;
-            if (item.weight() != null) {
-                weight = new Weight(item.weight().value(), item.weight().unit());
-            }
-            LocalDate expiration = null;
-            if (item.expiration() != null) {
-                expiration = item.expiration().date();
-            }
-            return new Item(item.itemId(), recognitionStatus, name, category, item.storageType(), item.measureType(), quantity, weight, expiration, item.reviewReasons());
+        public static Item from(AnalysisCompletionItem item) {
+            return new Item(item.itemId(), item.displayStatus(), item.name(), item.category(), item.storageType(), item.measureType(),
+                    item.quantity(), Weight.from(item.weight()), item.expiration().date(), item.reviewReasons());
         }
     }
-    public record Weight(BigDecimal value, String unit) {}
+
+    public record Weight(BigDecimal value, WeightUnit unit) {
+        public static Weight from(AnalysisCompletionItem.Weight weight) {
+            return new Weight(weight.value(), weight.unit());
+        }
+    }
+
     public record Error(String code, String message, boolean retryable, Integer retryAfterMs) {
-        public static Error from(AiImageAnalysisResponse.Error error) {
+        public static Error from(AnalysisCompletionFailure error) {
             if (error == null) {
                 return null;
             }

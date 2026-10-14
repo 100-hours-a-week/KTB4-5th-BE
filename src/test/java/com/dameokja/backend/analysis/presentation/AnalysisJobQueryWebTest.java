@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -7,11 +8,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,9 +45,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -73,10 +66,10 @@ import tools.jackson.databind.node.ObjectNode;
 @SpringJUnitConfig(AnalysisJobQueryWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "analysis.job-ttl=1h"})
+        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "analysis.job-ttl=1h", "analysis.result-ttl=1h"})
 @ExtendWith(RedisTestSupport.class)
 class AnalysisJobQueryWebTest {
-    private static final Instant INSTANT = Instant.parse("2026-10-08T01:00:00Z");
+    private static final Instant INSTANT = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     private static final String RESULT = """
             {"documentType":{"value":"RECEIPT","confidence":0.9},"imageQuality":{"score":0.8,"issues":[]},
              "items":[],"modelTrace":{"pipelineVersion":"v1","ocrVersion":"v1","llmModel":"test","normalizerVersion":"v1","policyVersion":"v1"}}
@@ -108,8 +101,8 @@ class AnalysisJobQueryWebTest {
     void verifyAiRequests() { mockRestServiceServer.verify(); }
 
     @ParameterizedTest
-    @CsvSource({"QUEUED,QUEUED,QUEUED,", "PROCESSING,QUEUED,PROCESSING,", "COMPLETED,QUEUED,PROCESSING,UNRECOGNIZED", "FAILED,PROCESSING,PROCESSING,",
-            "COMPLETED,COMPLETED,COMPLETED,UNRECOGNIZED", "COMPLETED,FAILED,PARTIALLY_COMPLETED,UNRECOGNIZED", "FAILED,FAILED,FAILED,", "FAILED,QUEUED,PROCESSING,"})
+    @CsvSource({"PROCESSING,PROCESSING,PROCESSING,", "COMPLETED,PROCESSING,PROCESSING,UNRECOGNIZED", "FAILED,PROCESSING,PROCESSING,",
+            "COMPLETED,COMPLETED,COMPLETED,UNRECOGNIZED", "COMPLETED,FAILED,PARTIALLY_COMPLETED,UNRECOGNIZED", "FAILED,FAILED,FAILED,"})
     void aggregatesStatusesAndPreservesImageOrder(String firstStatus, String secondStatus, String groupStatus, String recognitionStatus) throws Exception {
         expectView("ai-first", firstStatus);
         expectView("ai-second", secondStatus);
@@ -117,8 +110,7 @@ class AnalysisJobQueryWebTest {
                 .andExpect(status().isOk()).andExpect(MockMvcResultMatchers.header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.code").value("IMAGE-200-002"))
                 .andExpect(jsonPath("$.data.analysisId").value(analysisJob.id())).andExpect(jsonPath("$.data.status").value(groupStatus))
-                .andExpect(jsonPath("$.data.submittedAt").value("2026-10-08T10:00:00+09:00"))
-                .andExpect(jsonPath("$.data.expiresAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.submittedAt").value(INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime().toString()))
                 .andExpect(jsonPath("$.data.results[0].imageObjectKey").value("first"))
                 .andExpect(jsonPath("$.data.results[1].imageObjectKey").value("second"))
                 .andExpect(jsonPath("$..imageQuality").isEmpty()).andExpect(jsonPath("$..confidence").isEmpty())
@@ -163,22 +155,6 @@ class AnalysisJobQueryWebTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"401,503,IMAGE-503-002", "403,503,IMAGE-503-002", "404,503,IMAGE-503-002", "429,429,IMAGE-429-002", "500,503,IMAGE-503-002", "503,503,IMAGE-503-002"})
-    void mapsUpstreamLookupErrorsWithoutMarkingAnalysisFailed(int upstreamStatus, int status, String code) throws Exception {
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/ai-first"))
-                .andRespond(withStatus(HttpStatusCode.valueOf(upstreamStatus)));
-        mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
-                .andExpect(status().is(status)).andExpect(jsonPath("$.code").value(code)).andExpect(jsonPath("$.data").doesNotExist());
-    }
-
-    @Test
-    void rejectsMalformedAiResponseInsteadOfReturningMisleadingResults() throws Exception {
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/ai-first")).andRespond(withSuccess("{", MediaType.APPLICATION_JSON));
-        mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("IMAGE-503-002"));
-    }
-
-    @ParameterizedTest
     @CsvSource({"RECOGNIZED,RECOGNIZED,RECOGNIZED", "UNRECOGNIZED,RECOGNIZED,UNRECOGNIZED", "NEEDS_REVIEW,AI_ESTIMATED,NEEDS_REVIEW",
             "AI_ESTIMATED,RECOGNIZED,AI_ESTIMATED", "RECOGNIZED,UNRECOGNIZED,UNRECOGNIZED", "AI_ESTIMATED,NEEDS_REVIEW,NEEDS_REVIEW"})
     void aggregatesLowestRecognitionStatusAndPreservesItemFields(String firstDisplayStatus, String secondDisplayStatus, String recognitionStatus) throws Exception {
@@ -193,6 +169,7 @@ class AnalysisJobQueryWebTest {
                 .andExpect(jsonPath("$.data.results[0].items[0].storageType").value("REFRIGERATED"))
                 .andExpect(jsonPath("$.data.results[0].items[0].name").value("우유"))
                 .andExpect(jsonPath("$.data.results[0].items[0].category").value("DAIRY"))
+                .andExpect(jsonPath("$.data.results[0].items[0].measureType").value("COUNT"))
                 .andExpect(jsonPath("$.data.results[0].items[0].quantity").value(2))
                 .andExpect(jsonPath("$.data.results[0].items[0].expiration").value("2026-10-12"))
                 .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].field").value("EXPIRATION"))
@@ -215,13 +192,13 @@ class AnalysisJobQueryWebTest {
     }
 
     @Test
-    void queriesAiAgainOnLaterPoll() throws Exception {
+    void readsNewCallbacksOnLaterPollWithoutCallingAi() throws Exception {
         expectView("ai-first", "QUEUED");
         expectView("ai-second", "QUEUED");
+        mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("PROCESSING"));
         expectView("ai-first", "COMPLETED");
         expectView("ai-second", "COMPLETED");
-        mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
@@ -239,6 +216,29 @@ class AnalysisJobQueryWebTest {
         JsonNode jsonNode = objectMapper.readTree(response).path("data").path("results").get(0).path("items").get(0);
         assertThat(jsonNode.has("quantity") && jsonNode.path("quantity").isNull()).isTrue();
         assertThat(jsonNode.has("expiration") && jsonNode.path("expiration").isNull()).isTrue();
+    }
+
+    @Test
+    void preservesEstimatedRangeInStorageAndReturnsNullableDateAndItemFields() throws Exception {
+        ObjectNode item = createItem("AI_ESTIMATED").putNull("name").putNull("category").putNull("quantity").putNull("storageType").putNull("measureType");
+        ((ObjectNode) item.get("weight")).putNull("unit");
+        ObjectNode expiration = item.putObject("expiration").putNull("date").put("dateType", "ESTIMATED_CONSUMPTION_WINDOW");
+        expiration.putObject("estimatedRange").put("from", "2026-10-15").put("to", "2026-10-18");
+        expectView("ai-first", "COMPLETED", item);
+        String response = mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("PROCESSING"))
+                .andReturn().getResponse().getContentAsString();
+        JsonNode result = objectMapper.readTree(response).path("data");
+        JsonNode returnedItem = result.path("results").get(0).path("items").get(0);
+        for (String field : List.of("name", "category", "storageType", "measureType", "quantity", "expiration")) {
+            assertThat(returnedItem.has(field) && returnedItem.path(field).isNull()).as(field).isTrue();
+        }
+        assertThat(result.path("expiresAt").isNull()).isTrue();
+        assertThat(returnedItem.path("weight").path("value").isNull()).isTrue();
+        assertThat(returnedItem.path("weight").path("unit").isNull()).isTrue();
+        AnalysisCompletionItem stored = analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion().result().items().getFirst();
+        assertThat(stored.expiration().estimatedRange().from()).isEqualTo(java.time.LocalDate.parse("2026-10-15"));
+        assertThat(stored.expiration().estimatedRange().to()).isEqualTo(java.time.LocalDate.parse("2026-10-18"));
     }
 
     private ObjectNode createItem(String displayStatus) {
@@ -267,9 +267,7 @@ class AnalysisJobQueryWebTest {
         if (status.equals("FAILED")) {
             objectNode.set("error", objectMapper.readTree(ERROR));
         }
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/" + analysisId)).andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Internal-API-Key", "test-key"))
-                .andRespond(withSuccess(objectMapper.writeValueAsString(objectNode), MediaType.APPLICATION_JSON));
+        com.dameokja.backend.analysis.AnalysisStoredResultFixture.store(analysisJobStore, objectNode, INSTANT);
     }
 
     @TestConfiguration(proxyBeanMethods = false)

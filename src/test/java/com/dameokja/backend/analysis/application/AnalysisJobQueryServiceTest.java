@@ -2,17 +2,16 @@ package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
 import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
@@ -20,7 +19,6 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -37,10 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
@@ -48,7 +42,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 @ExtendWith(RedisTestSupport.class)
 class AnalysisJobQueryServiceTest {
-    private static final Instant INSTANT = Instant.parse("2026-10-08T01:00:00Z");
+    private static final Instant INSTANT = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     private static final String RESULT = """
             {"documentType":{"value":"RECEIPT","confidence":0.9},"imageQuality":{"score":0.8,"issues":[]},"items":[],
              "modelTrace":{"pipelineVersion":"v1","ocrVersion":"v1","llmModel":"test","normalizerVersion":"v1","policyVersion":"v1"}}
@@ -66,7 +60,7 @@ class AnalysisJobQueryServiceTest {
         when(clock.withZone(any())).thenReturn(Clock.fixed(INSTANT, BusinessTime.ZONE));
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl("http://ai.example.com").defaultHeader("X-Internal-API-Key", "test-key");
         mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder).build();
-        analysisJobQueryService = new AnalysisJobQueryService(analysisJobStore, new AiAnalysisClient(restClientBuilder.build()));
+        analysisJobQueryService = new AnalysisJobQueryService(analysisJobStore);
         analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
@@ -76,8 +70,8 @@ class AnalysisJobQueryServiceTest {
     void verifyAiRequests() { mockRestServiceServer.verify(); }
 
     @ParameterizedTest
-    @CsvSource({"QUEUED,QUEUED,QUEUED", "PROCESSING,QUEUED,PROCESSING", "COMPLETED,QUEUED,PROCESSING", "FAILED,PROCESSING,PROCESSING",
-            "COMPLETED,COMPLETED,COMPLETED", "COMPLETED,FAILED,PARTIALLY_COMPLETED", "FAILED,FAILED,FAILED", "FAILED,QUEUED,PROCESSING"})
+    @CsvSource({"PROCESSING,PROCESSING,PROCESSING", "COMPLETED,PROCESSING,PROCESSING", "FAILED,PROCESSING,PROCESSING",
+            "COMPLETED,COMPLETED,COMPLETED", "COMPLETED,FAILED,PARTIALLY_COMPLETED", "FAILED,FAILED,FAILED"})
     void aggregatesStatusesAndPreservesImageOrder(AnalysisStatus firstAnalysisStatus, AnalysisStatus secondAnalysisStatus, AnalysisStatus analysisStatus) {
         expectView("ai-first", firstAnalysisStatus.name());
         expectView("ai-second", secondAnalysisStatus.name());
@@ -89,7 +83,7 @@ class AnalysisJobQueryServiceTest {
         AnalysisImageResult analysisImageResult = analysisJobResult.analysisImageResults().getFirst();
         if (firstAnalysisStatus == AnalysisStatus.COMPLETED) {
             assertThat(analysisImageResult.recognitionStatus()).isEqualTo(RecognitionStatus.UNRECOGNIZED);
-            assertThat(analysisImageResult.documentType()).isEqualTo("RECEIPT");
+            assertThat(analysisImageResult.documentType()).isEqualTo(AnalysisDocumentType.RECEIPT);
         } else {
             assertThat(analysisImageResult.recognitionStatus()).isNull();
             assertThat(analysisImageResult.items()).isEmpty();
@@ -126,27 +120,6 @@ class AnalysisJobQueryServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"404,IMAGE-503-002", "429,IMAGE-429-002", "500,IMAGE-503-002", "503,IMAGE-503-002"})
-    void mapsLookupErrorsAndLeavesStoredRegistrationsIntact(int upstreamStatus, String code) {
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/ai-first"))
-                .andRespond(withStatus(HttpStatusCode.valueOf(upstreamStatus)));
-        assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
-                .extracting("exceptionCode.code").isEqualTo(code);
-        assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"", "{", "{\"analysisId\":\"ai-first\"}", "{\"analysisId\":\"wrong-id\",\"status\":\"QUEUED\"}",
-            "{\"analysisId\":\"ai-first\",\"status\":\"UNKNOWN\"}", "{\"analysisId\":\"ai-first\",\"status\":\"COMPLETED\"}",
-            "{\"analysisId\":\"ai-first\",\"status\":\"COMPLETED\",\"result\":{}}", "{\"analysisId\":\"ai-first\",\"status\":\"FAILED\"}",
-            "{\"analysisId\":\"ai-first\",\"status\":\"PARTIALLY_COMPLETED\"}"})
-    void rejectsInvalidAiResponses(String body) {
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/ai-first")).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
-                .extracting("exceptionCode.code").isEqualTo("IMAGE-503-002");
-    }
-
-    @ParameterizedTest
     @CsvSource({"RECOGNIZED,RECOGNIZED,RECOGNIZED", "UNRECOGNIZED,RECOGNIZED,UNRECOGNIZED", "NEEDS_REVIEW,AI_ESTIMATED,NEEDS_REVIEW",
             "AI_ESTIMATED,RECOGNIZED,AI_ESTIMATED", "RECOGNIZED,UNRECOGNIZED,UNRECOGNIZED", "AI_ESTIMATED,NEEDS_REVIEW,NEEDS_REVIEW"})
     void selectsLowestRecognitionStatusAndConvertsItemFields(String firstDisplayStatus, String secondDisplayStatus, RecognitionStatus recognitionStatus) {
@@ -158,42 +131,16 @@ class AnalysisJobQueryServiceTest {
                 .containsExactly(RecognitionStatus.valueOf(firstDisplayStatus), RecognitionStatus.valueOf(secondDisplayStatus));
         AnalysisImageResult.Item item = analysisImageResult.items().getFirst();
         assertThat(item.name()).isEqualTo("우유");
-        assertThat(item.category()).isEqualTo("DAIRY");
-        assertThat(item.storageType()).isEqualTo("REFRIGERATED");
+        assertThat(item.category()).isEqualTo(IngredientCategory.DAIRY);
+        assertThat(item.storageType()).isEqualTo(StorageType.REFRIGERATED);
+        assertThat(item.measureType()).isEqualTo(MeasureType.COUNT);
         assertThat(item.quantity()).isEqualTo(2);
-        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, "NONE"));
+        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, WeightUnit.NONE));
         assertThat(item.expiration()).isEqualTo(LocalDate.parse("2026-10-12"));
         assertThat(item.reviewReasons()).containsExactly(
                 new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
                         List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
                 new AnalysisReviewReason(AnalysisReviewReason.Field.QUANTITY, AnalysisReviewReason.Code.QUANTITY_DEFAULTED, List.of("수량을 확인해 주세요.")));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"UNKNOWN", ""})
-    void rejectsInvalidItemDisplayStatus(String displayStatus) {
-        expectView("ai-first", "COMPLETED", createItem(displayStatus));
-        assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
-                .extracting("exceptionCode.code").isEqualTo("IMAGE-503-002");
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"null", "[null]", "[\"DATE_REVIEW\"]",
-            "[{\"field\":\"UNKNOWN\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\"확인\"]}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"UNKNOWN\",\"messages\":[\"확인\"]}]",
-            "[{\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\"확인\"]}]",
-            "[{\"field\":\"EXPIRATION\",\"messages\":[\"확인\"]}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"message\":\"확인\"}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":null}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[]}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[null]}]",
-            "[{\"field\":\"EXPIRATION\",\"code\":\"EXPIRATION_ESTIMATED\",\"messages\":[\" \"]}]"})
-    void rejectsMalformedReviewReasonsAsLookupError(String reasons) {
-        ObjectNode item = createItem("NEEDS_REVIEW");
-        item.set("reviewReasons", jsonMapper.readTree(reasons));
-        expectView("ai-first", "COMPLETED", item);
-        assertThatThrownBy(() -> analysisJobQueryService.get(7L, analysisJob.id())).isInstanceOf(CustomException.class)
-                .extracting("exceptionCode.code").isEqualTo("IMAGE-503-002");
     }
 
     @Test
@@ -205,12 +152,24 @@ class AnalysisJobQueryServiceTest {
     }
 
     @Test
-    void queriesAiAgainOnLaterPoll() {
+    void reportsProcessingWhenOnlySomeImagesHaveAiRegistrations() {
+        AnalysisJob pending = analysisJobStore.create(7L, "AUTO",
+                List.of(AnalysisImage.pending("registered", "ef".repeat(32)), AnalysisImage.pending("pending", "12".repeat(32))));
+        analysisJobStore.register(pending.id(), 7L, pending.analysisImages().getFirst().requestId(), "ai-third");
+        AnalysisJobResult result = analysisJobQueryService.get(7L, pending.id());
+        assertThat(result.status()).isEqualTo(AnalysisStatus.PROCESSING);
+        assertThat(result.analysisImageResults()).extracting(AnalysisImageResult::status)
+                .containsExactly(AnalysisStatus.PROCESSING, AnalysisStatus.QUEUED);
+        assertThat(result.analysisJob().expiresAt()).isNull();
+    }
+
+    @Test
+    void readsNewCallbacksOnLaterPollWithoutCallingAi() {
         expectView("ai-first", "QUEUED");
         expectView("ai-second", "QUEUED");
+        assertThat(analysisJobQueryService.get(7L, analysisJob.id()).status()).isEqualTo(AnalysisStatus.PROCESSING);
         expectView("ai-first", "COMPLETED");
         expectView("ai-second", "COMPLETED");
-        assertThat(analysisJobQueryService.get(7L, analysisJob.id()).status()).isEqualTo(AnalysisStatus.QUEUED);
         assertThat(analysisJobQueryService.get(7L, analysisJob.id()).status()).isEqualTo(AnalysisStatus.COMPLETED);
     }
 
@@ -223,7 +182,7 @@ class AnalysisJobQueryServiceTest {
         expectView("ai-second", "QUEUED");
         AnalysisImageResult.Item item = analysisJobQueryService.get(7L, analysisJob.id()).analysisImageResults().getFirst().items().getFirst();
         assertThat(item.quantity()).isNull();
-        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(new BigDecimal("1750.5"), "G"));
+        assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(new BigDecimal("1750.5"), WeightUnit.G));
         assertThat(item.name()).isEqualTo("우유 \"특가\"\\냉장\n");
     }
 
@@ -249,7 +208,6 @@ class AnalysisJobQueryServiceTest {
         if (status.equals("FAILED")) {
             objectNode.putObject("error").put("code", "MODEL_UNAVAILABLE").put("message", "분석 실패").put("retryable", true).put("retryAfterMs", 30000);
         }
-        mockRestServiceServer.expect(requestTo("http://ai.example.com/ai/v1/analyses/" + analysisId)).andExpect(method(HttpMethod.GET))
-                .andExpect(header("X-Internal-API-Key", "test-key")).andRespond(withSuccess(jsonMapper.writeValueAsString(objectNode), MediaType.APPLICATION_JSON));
+        com.dameokja.backend.analysis.AnalysisStoredResultFixture.store(analysisJobStore, objectNode, INSTANT);
     }
 }
