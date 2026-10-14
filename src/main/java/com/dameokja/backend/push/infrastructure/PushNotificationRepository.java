@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,6 +42,28 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
                 and job.nextAttemptAt <= :now
             """)
     List<PushNotification> findDueJobs(@Param("now") LocalDateTime now);
+
+    @Query(value = """
+            SELECT push_notification_id
+            FROM push_notifications
+            WHERE (status IN ('PENDING', 'RETRY') AND next_attempt_at <= :now)
+                OR (status = 'PROCESSING' AND lease_until <= :now)
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Long> findLeaseableJobIdsWithSkipLock(@Param("now") LocalDateTime now, @Param("limit") int limit);
+
+    @Modifying
+    @Query(value = """
+            UPDATE push_notifications
+            SET status = 'PROCESSING',
+                lease_token = :leaseToken,
+                lease_until = :endAt,
+                updated_at = :startAt
+            WHERE push_notification_id IN (:ids)
+            """, nativeQuery = true)
+    int leasePushJobs(@Param("ids") List<Long> ids, @Param("leaseToken") String leaseToken,
+            @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt);
 
     @Query("select min(job.nextAttemptAt) from PushNotification job where job.status in (PENDING, RETRY)")
     Optional<LocalDateTime> findNextAttemptAt();
