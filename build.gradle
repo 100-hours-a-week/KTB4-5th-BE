@@ -69,6 +69,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform { excludeTags 'push-experiment' }
+	// Docker 실행 JVM과 같은 서울 시간대로 CI·로컬 테스트를 실행한다.
+	systemProperty 'user.timezone', 'Asia/Seoul'
 }
 
 tasks.register('pushExperiment', Test) {
