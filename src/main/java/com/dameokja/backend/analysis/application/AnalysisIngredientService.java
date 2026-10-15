@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,22 +35,36 @@ public class AnalysisIngredientService {
 
     private List<Feedback> prepareRegistration(AnalysisJob job, AnalysisIngredientCommand request) {
         List<Feedback> feedbacks = new ArrayList<>();
-        Set<String> keys = new HashSet<>();
+        Set<String> imageKeys = new HashSet<>();
         for (AnalysisIngredientCommand.Image input : request.images()) {
-            validateRegistration(keys.add(input.imageObjectKey()) && !input.items().isEmpty());
-            AnalysisImage image = job.analysisImages().stream().filter(candidate -> candidate.objectKey().equals(input.imageObjectKey()))
-                    .findFirst().orElseThrow(() -> new CustomException(AnalysisExceptionCode.INVALID_REGISTRATION));
-            validateRegistration(image.completion() != null && image.completion().status() == AnalysisStatus.COMPLETED);
-            AnalysisCompletionSuccess result = image.completion().result();
-            validateRegistration(result.documentType() == AnalysisDocumentType.RECEIPT || result.documentType() == AnalysisDocumentType.PRODUCT);
-            Set<String> ids = new HashSet<>();
-            for (AnalysisIngredientCommand.Item item : input.items()) {
-                validateRegistration(ids.add(item.itemId()) && result.items().stream().anyMatch(original -> original.itemId().equals(item.itemId())));
-                RegistrationSource source = result.documentType() == AnalysisDocumentType.RECEIPT ? RegistrationSource.RECEIPT : RegistrationSource.FOOD_IMAGE;
-                feedbacks.add(new Feedback(image.aiAnalysisId(), item.itemId(), item.toCommand(source)));
-            }
+            validateRegistration(imageKeys.add(input.imageObjectKey()) && !input.items().isEmpty());
+            AnalysisImage image = findRegistrableImage(job, input.imageObjectKey());
+            feedbacks.addAll(prepareImageRegistration(image, input.items()));
         }
         validateRegistration(!feedbacks.isEmpty() && feedbacks.size() <= MAX_ITEMS);
+        return feedbacks;
+    }
+
+    private AnalysisImage findRegistrableImage(AnalysisJob job, String imageObjectKey) {
+        AnalysisImage image = job.analysisImages().stream()
+                .filter(candidate -> candidate.objectKey().equals(imageObjectKey))
+                .findFirst().orElseThrow(() -> new CustomException(AnalysisExceptionCode.INVALID_REGISTRATION));
+        validateRegistration(image.completion() != null && image.completion().status() == AnalysisStatus.COMPLETED);
+        AnalysisDocumentType documentType = image.completion().result().documentType();
+        validateRegistration(documentType == AnalysisDocumentType.RECEIPT || documentType == AnalysisDocumentType.PRODUCT);
+        return image;
+    }
+
+    private List<Feedback> prepareImageRegistration(AnalysisImage image, List<AnalysisIngredientCommand.Item> items) {
+        AnalysisCompletionSuccess result = image.completion().result();
+        Set<String> originalItemIds = result.items().stream().map(AnalysisCompletionItem::itemId).collect(Collectors.toSet());
+        Set<String> requestedItemIds = new HashSet<>();
+        RegistrationSource source = result.documentType() == AnalysisDocumentType.RECEIPT ? RegistrationSource.RECEIPT : RegistrationSource.FOOD_IMAGE;
+        List<Feedback> feedbacks = new ArrayList<>();
+        for (AnalysisIngredientCommand.Item item : items) {
+            validateRegistration(requestedItemIds.add(item.itemId()) && originalItemIds.contains(item.itemId()));
+            feedbacks.add(new Feedback(image.aiAnalysisId(), item.itemId(), item.toCommand(source)));
+        }
         return feedbacks;
     }
 
