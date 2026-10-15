@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
@@ -115,15 +118,15 @@ class AnalysisCompletionStoreTest {
     @Test
     void preservesNullableFieldsDatesDecimalMeasurementsAndReviewReasons() {
         registeredJob("ai-first");
-        AnalysisCompletion.Item item = new AnalysisCompletion.Item("item-1", RecognitionStatus.NEEDS_REVIEW,
-                null, "DAIRY", "REFRIGERATED", "WEIGHT", null, new AnalysisCompletion.Weight(new BigDecimal("150.50"), "ML"),
-                new AnalysisCompletion.Expiration(null, "ESTIMATED_CONSUMPTION_WINDOW",
-                        new AnalysisCompletion.EstimatedRange(LocalDate.parse("2026-10-14"), LocalDate.parse("2026-10-16"))),
+        AnalysisCompletionItem item = new AnalysisCompletionItem("item-1", RecognitionStatus.NEEDS_REVIEW,
+                null, "DAIRY", "REFRIGERATED", "WEIGHT", null, new AnalysisCompletionItem.Weight(new BigDecimal("150.50"), "ML"),
+                new AnalysisCompletionItem.Expiration(null, "ESTIMATED_CONSUMPTION_WINDOW",
+                        new AnalysisCompletionItem.EstimatedRange(LocalDate.parse("2026-10-14"), LocalDate.parse("2026-10-16"))),
                 List.of(new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
                         List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
                         new AnalysisReviewReason(AnalysisReviewReason.Field.ITEM, AnalysisReviewReason.Code.ITEM_REVIEW_REQUIRED, List.of("상품명을 확인해 주세요."))));
         AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, completed().completedAt(),
-                new AnalysisCompletion.Result("PRODUCT", List.of(item)), null);
+                new AnalysisCompletionSuccess("PRODUCT", List.of(item)), null);
         store.complete("ai-first", completion);
         assertThat(newStore(NOW).findByAiAnalysisId("ai-first").analysisImages().getFirst().completion()).isEqualTo(completion);
     }
@@ -192,11 +195,11 @@ class AnalysisCompletionStoreTest {
 
     private AnalysisCompletion completed() {
         return new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T01:00:10Z"),
-                new AnalysisCompletion.Result("PRODUCT", List.of()), null);
+                new AnalysisCompletionSuccess("PRODUCT", List.of()), null);
     }
 
     private AnalysisCompletion failed() {
         return new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-13T01:00:10Z"), null,
-                new AnalysisCompletion.Error("MODEL_UNAVAILABLE", "분석을 수행하지 못했습니다.", true, 1000));
+                new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석을 수행하지 못했습니다.", true, 1000));
     }
 }

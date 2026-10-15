@@ -4,6 +4,7 @@ import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
@@ -63,7 +64,7 @@ class AnalysisResultRetentionTest {
 
     private AnalysisCompletion completed() {
         return new AnalysisCompletion(AnalysisStatus.COMPLETED, NOW.minus(Duration.ofHours(3)).atZone(BusinessTime.ZONE).toOffsetDateTime(),
-                new AnalysisCompletion.Result("RECEIPT", List.of()), null);
+                new AnalysisCompletionSuccess("RECEIPT", List.of()), null);
     }
 
     private List<String> keys(AnalysisJob job) { return List.of("analysis:job:" + job.id(), "analysis:ai:first", "analysis:ai:second"); }
