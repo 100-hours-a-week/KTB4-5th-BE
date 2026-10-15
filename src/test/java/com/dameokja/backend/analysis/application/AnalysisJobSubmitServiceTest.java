@@ -98,6 +98,7 @@ class AnalysisJobSubmitServiceTest {
                 .hasCause(restClientException).extracting("exceptionCode.code").isEqualTo(code);
         verify(aiAnalysisClient, times(2)).submit(argThat(aiImageAnalysisSubmitRequest -> "AUTO".equals(aiImageAnalysisSubmitRequest.inputHint())));
         verifyNoMoreInteractions(aiAnalysisClient);
+        assertNoStoredJob();
     }
 
     @Test
@@ -106,6 +107,25 @@ class AnalysisJobSubmitServiceTest {
         when(aiAnalysisClient.submit(any())).thenReturn(accepted(" "));
         assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode.code").isEqualTo("IMAGE-503-001");
+        assertNoStoredJob();
+    }
+
+    @Test
+    void discardsTheGroupWhenAnAcceptedIdCannotBeRegistered() {
+        issue("first", "ab");
+        issue("second", "cd");
+        analysisJobStore.create(8L, "AUTO", List.of(AnalysisImage.pending("other", "ef".repeat(32))));
+        String otherJobId = redisTemplate().keys("analysis:job:*").iterator().next().substring("analysis:job:".length());
+        analysisJobStore.register(otherJobId, 8L, analysisJobStore.findOwned(otherJobId, 8L).analysisImages().getFirst().requestId(), "ai-taken");
+        when(aiAnalysisClient.submit(any())).thenReturn(accepted("ai-first"), accepted("ai-taken"));
+        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first", "second"), null)).isInstanceOf(IllegalStateException.class);
+        assertThat(redisTemplate().keys("analysis:job:*")).containsExactly("analysis:job:" + otherJobId);
+        assertThat(redisTemplate().keys("analysis:ai:*")).containsExactly("analysis:ai:ai-taken");
+    }
+
+    private void assertNoStoredJob() {
+        assertThat(redisTemplate().keys("analysis:job:*")).isEmpty();
+        assertThat(redisTemplate().keys("analysis:ai:*")).isEmpty();
     }
 
     private void issue(String objectKey, String sha256Prefix) {
