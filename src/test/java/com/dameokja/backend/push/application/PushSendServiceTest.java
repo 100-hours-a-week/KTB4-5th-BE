@@ -3,6 +3,7 @@ package com.dameokja.backend.push.application;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
 import com.dameokja.backend.push.domain.UserDevice;
+import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.push.infrastructure.WebPushResult;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -127,5 +129,34 @@ class PushSendServiceTest {
                 .isInstanceOfSatisfying(CustomException.class, exception ->
                         assertThat(exception.getExceptionCode()).isEqualTo(PushExceptionCode.SUBSCRIPTION_FORBIDDEN));
         verify(webPushSender, never()).send(any(WebPushTarget.class), any(String.class), any(Duration.class));
+    }
+    @Test
+    void skipsJobsWhoseSubscriptionNoLongerMatches() {
+        PushNotification job = leasedJob();
+        when(userDeviceRepository.findMatchingSubscription(1L, 1L, 10L)).thenReturn(Optional.empty());
+
+        assertThat(service.send(job, TTL)).isEqualTo(PushSendResult.UNAVAILABLE);
+
+        verify(webPushSender, never()).send(any(), any(), any());
+    }
+
+    @Test
+    void invalidatesOnlyTheVersionUsedForTheExpiredRequest() {
+        PushNotification job = leasedJob();
+        when(job.getPayload()).thenReturn(PAYLOAD);
+        when(userDeviceRepository.findMatchingSubscription(1L, 1L, 10L)).thenReturn(Optional.of(device));
+        when(webPushSender.send(any(), eq(PAYLOAD), eq(TTL))).thenReturn(WebPushResult.EXPIRED);
+
+        assertThat(service.send(job, TTL)).isEqualTo(PushSendResult.UNAVAILABLE);
+
+        verify(pushSubscriptionService).invalidate(1L, 1L);
+    }
+
+    private PushNotification leasedJob() {
+        PushNotification job = mock(PushNotification.class);
+        when(job.getUserDevice()).thenReturn(device);
+        when(job.getUser()).thenReturn(device.getUser());
+        when(job.getSubscriptionVersion()).thenReturn(1L);
+        return job;
     }
 }

@@ -91,4 +91,11 @@ public class PushSubscriptionService {
     public void invalidate(Long subscriptionId) {
         userDeviceRepository.findById(subscriptionId).ifPresent(UserDevice::invalidate);
     }
+
+    public void invalidate(Long subscriptionId, Long subscriptionVersion) {
+        // 전송 도중 갱신된 새 구독을 옛 요청의 만료 응답으로 무효화하지 않는다.
+        userDeviceRepository.findByIdForUpdate(subscriptionId)
+                .filter(device -> device.getSubscriptionVersion().equals(subscriptionVersion))
+                .ifPresent(UserDevice::invalidate);
+    }
 }

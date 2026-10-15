@@ -221,4 +221,25 @@ class PushSubscriptionServiceTest {
 
         verifyNoInteractions(userAccessService);
     }
+    @Test
+    void preservesARenewedSubscriptionWhenAnOldRequestExpires() {
+        UserDevice existing = existingDevice(userWithId(1L), "endpoint", "old", "old-secret");
+        existing.renew("new", encryptor.encrypt("new-secret"), "enc-v1", "vapid-v1");
+        when(userDeviceRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+
+        service.invalidate(1L, 1L);
+
+        assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.ACTIVE);
+        assertThat(existing.getSubscriptionVersion()).isEqualTo(2L);
+    }
+
+    @Test
+    void invalidatesAnUnchangedSubscriptionUnderTheRowLock() {
+        UserDevice existing = existingDevice(userWithId(1L), "endpoint", "key", "secret");
+        when(userDeviceRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+
+        service.invalidate(1L, 1L);
+
+        assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.INVALID);
+    }
 }
