@@ -18,6 +18,7 @@ import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -87,8 +88,8 @@ public class PushNotification extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "refrigerator_id", nullable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refrigerator_id", updatable = false)
     private Refrigerator refrigerator;
 
     //todo : 64길이 생각 다시 해보기
@@ -113,6 +114,26 @@ public class PushNotification extends BaseEntity {
         job.notification = notification;
         job.user = recipient;
         job.refrigerator = notification.getRefrigerator();
+        return job;
+    }
+
+    public static PushNotification analysis(String analysisId, User recipient, UserDevice device,
+            String payload, LocalDateTime now, LocalDateTime expiresAt) {
+        User owner = device.getUser();
+        if (recipient != owner && (recipient.getId() == null || !recipient.getId().equals(owner.getId()))) {
+            throw new IllegalArgumentException("분석 푸시 수신자와 기기 소유자가 일치해야 합니다.");
+        }
+        PushNotification job = new PushNotification();
+        job.dispatchKey = "ANALYSIS:" + Objects.requireNonNull(analysisId);
+        job.kind = PushNotificationKind.ANALYSIS;
+        job.userDevice = device;
+        job.subscriptionVersion = device.getSubscriptionVersion();
+        job.payload = payload;
+        job.status = PushNotificationStatus.PENDING;
+        job.attemptCount = 0;
+        job.nextAttemptAt = now;
+        job.expiresAt = expiresAt;
+        job.user = recipient;
         return job;
     }
 

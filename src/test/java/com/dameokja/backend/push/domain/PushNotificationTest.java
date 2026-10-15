@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +46,31 @@ class PushNotificationTest {
         assertThat(job.getAttemptCount()).isZero();
         assertThat(job.getNextAttemptAt()).isEqualTo(SEND_AT);
         assertThat(job.getRefrigerator()).isSameAs(refrigerator);
+    }
+
+    @Test
+    void createsAnalysisJobWithoutInboxOrRefrigerator() {
+        PushNotification job = PushNotification.analysis("batch-1", recipient, device, PAYLOAD, SEND_AT, EXPIRES_AT);
+
+        assertThat(job.getDispatchKey()).isEqualTo("ANALYSIS:batch-1");
+        assertThat(job.getKind()).isEqualTo(PushNotificationKind.ANALYSIS);
+        assertThat(job.getUser()).isSameAs(recipient);
+        assertThat(job.getUserDevice()).isSameAs(device);
+        assertThat(job.getSubscriptionVersion()).isEqualTo(2L);
+        assertThat(job.getNotification()).isNull();
+        assertThat(job.getRefrigerator()).isNull();
+        assertThat(job.getStatus()).isEqualTo(PushNotificationStatus.PENDING);
+        assertThat(job.getPayload()).isEqualTo(PAYLOAD);
+        assertThat(job.getNextAttemptAt()).isEqualTo(SEND_AT);
+        assertThat(job.getExpiresAt()).isEqualTo(EXPIRES_AT);
+    }
+
+    @Test
+    void rejectsAnalysisJobForAnotherUsersDevice() {
+        User another = new User("다른 회원", "default.png");
+
+        assertThatThrownBy(() -> PushNotification.analysis("batch-1", another, device, PAYLOAD, SEND_AT, EXPIRES_AT))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
