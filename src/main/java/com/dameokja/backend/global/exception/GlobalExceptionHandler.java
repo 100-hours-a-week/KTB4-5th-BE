@@ -5,6 +5,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -76,6 +77,8 @@ public class GlobalExceptionHandler {
             List<FieldError> fieldErrors) {
         HttpStatus httpStatus = exceptionCode.getStatus();
         ErrorResponse errorResponse = ErrorResponse.of(exceptionCode, fieldErrors);
-        return ResponseEntity.status(httpStatus).body(errorResponse);
+        return ResponseEntity.status(httpStatus)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(errorResponse);
     }
 }
