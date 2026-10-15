@@ -1,5 +1,6 @@
 package com.dameokja.backend.global.security;
 
+import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.DispatcherTypeRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.context.NullSecurityContextRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
@@ -27,6 +32,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private static final RequestMatcher SSE_ASYNC = new AndRequestMatcher(
+            new DispatcherTypeRequestMatcher(DispatcherType.ASYNC),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v2/refrigerators/*/notifications/stream"));
     private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
 
@@ -88,6 +96,8 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        // SSE 종료 시 async redispatch는 최초 요청의 인증을 이미 통과했다.
+                        .requestMatchers(SSE_ASYNC).permitAll()
                         .requestMatchers(AuthenticationRoutes.PUBLIC).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()
