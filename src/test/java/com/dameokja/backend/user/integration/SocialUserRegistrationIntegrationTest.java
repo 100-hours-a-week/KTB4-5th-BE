@@ -55,7 +55,8 @@ class SocialUserRegistrationIntegrationTest extends ServiceIntegrationTest {
         List<Map<String, Object>> preferences = jdbcTemplate.queryForList(
                 "SELECT user_id, type, is_enabled FROM notification_preferences");
         assertThat(preferences).extracting(row -> row.get("user_id"), row -> row.get("type"), row -> row.get("is_enabled"))
-                .containsExactlyInAnyOrder(tuple(created.getId(), "EXPIRATION", enabled), tuple(created.getId(), "RECIPE", enabled));
+                .containsExactlyInAnyOrder(tuple(created.getId(), "EXPIRATION", enabled), tuple(created.getId(), "RECIPE", enabled),
+                        tuple(created.getId(), "ANALYSIS", enabled));
         Map<String, Object> membership = jdbcTemplate.queryForMap(
                 "SELECT user_id, refrigerator_id, is_active, role FROM refrigerator_members");
         assertThat(membership).containsEntry("user_id", created.getId()).containsEntry("refrigerator_id", result.refrigeratorId())
@@ -74,7 +75,7 @@ class SocialUserRegistrationIntegrationTest extends ServiceIntegrationTest {
         assertThat(rows("users")).isEqualTo(2);
         assertThat(rows("refrigerators")).isEqualTo(2);
         assertThat(rows("refrigerator_members")).isEqualTo(2);
-        assertThat(rows("notification_preferences")).isEqualTo(4);
+        assertThat(rows("notification_preferences")).isEqualTo(6);
     }
 
     @Test
@@ -88,7 +89,7 @@ class SocialUserRegistrationIntegrationTest extends ServiceIntegrationTest {
         assertThat(rows("social_accounts")).isEqualTo(1);
         assertThat(rows("refrigerators")).isEqualTo(1);
         assertThat(rows("refrigerator_members")).isEqualTo(1);
-        assertThat(rows("notification_preferences")).isEqualTo(2);
+        assertThat(rows("notification_preferences")).isEqualTo(3);
     }
 
     @Test
@@ -133,7 +134,7 @@ class SocialUserRegistrationIntegrationTest extends ServiceIntegrationTest {
         assertThat(rows("social_accounts")).isEqualTo(1);
         assertThat(rows("refrigerators")).isEqualTo(1);
         assertThat(rows("refrigerator_members")).isEqualTo(1);
-        assertThat(rows("notification_preferences")).isEqualTo(2);
+        assertThat(rows("notification_preferences")).isEqualTo(3);
     }
 
     private OAuthIdentity identity() { return new OAuthIdentity(OAuthProvider.KAKAO, "123", "member@example.com"); }

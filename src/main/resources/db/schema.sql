@@ -219,13 +219,13 @@ CREATE TABLE notification_recipients (
 CREATE TABLE notification_preferences (
     preference_id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    type VARCHAR(20) NOT NULL COMMENT 'EXPIRATION / RECIPE',
+    type VARCHAR(20) NOT NULL COMMENT 'EXPIRATION / RECIPE / ANALYSIS',
     is_enabled TINYINT(1) NOT NULL DEFAULT TRUE COMMENT '수신 설정 변경은 UPDATE. 행 삭제하지 않음',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (preference_id),
     UNIQUE KEY uk_preferences_user_type (user_id, type),
-    CONSTRAINT ck_preferences_type CHECK (type IN ('EXPIRATION','RECIPE')),
+    CONSTRAINT ck_preferences_type CHECK (type IN ('EXPIRATION','RECIPE','ANALYSIS')),
     CONSTRAINT ck_preferences_enabled CHECK (is_enabled IN (0,1)),
     CONSTRAINT fk_preferences_user FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;

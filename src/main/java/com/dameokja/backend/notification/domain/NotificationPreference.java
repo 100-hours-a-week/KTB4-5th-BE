@@ -39,6 +39,10 @@ public class NotificationPreference extends BaseEntity {
     @Column(name = "is_enabled", nullable = false, columnDefinition = "tinyint(1)")
     private Boolean isEnabled;
 
+    public void changeEnabled(boolean enabled) {
+        isEnabled = enabled;
+    }
+
     public static NotificationPreference onSignup(User user, NotificationPreferenceType type) {
         return onSignup(user, type, type.isEnabledOnSignup());
     }
