@@ -14,6 +14,8 @@ import com.dameokja.backend.support.ServiceIntegrationTest.TestClock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -46,7 +48,7 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     private static final long OWNER = 998001L;
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 25, 8, 0);
     @Autowired JdbcTemplate jdbc;
-    @MockitoBean NotificationScheduler batch;
+    @Autowired NotificationScheduler batch;
     @Autowired PushDispatchWorker worker;
     @Autowired PushNotificationUpdater updater;
     @Autowired WorkerSlots slots;
@@ -88,6 +90,32 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
         jdbc.update("DELETE FROM refrigerators WHERE refrigerator_id=?", OWNER);
         jdbc.update("DELETE FROM users WHERE user_id=?", OWNER);
         http.close();
+    }
+
+    @Test
+    void batchReturnsBeforeHttpFinishesAndScheduledWorkerDrainsAllJobsWithinCapacity() throws Exception {
+        devices(8);
+        jdbc.update("INSERT INTO ingredients(refrigerator_id,name,category,quantity,expiration_date,registration_source) "
+                + "VALUES (?,'우유','OTHER',1,'2026-09-25','DIRECT')", OWNER);
+        http.block(4);
+        CompletableFuture.runAsync(batch::runExpirationNotificationBatch).get(3, TimeUnit.SECONDS);
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(slots.freeSlotCount()).isZero());
+        WorkerSlots otherSlots = new WorkerSlots(2);
+        PushDispatchWorker otherWorker = new PushDispatchWorker(leases, jobs, updater, sender, clock, otherSlots, Duration.ofSeconds(30));
+        try {
+            assertThat(otherWorker.poll()).hasSize(2);
+            assertThat(http.awaitRequests()).isTrue();
+            assertThat(count("PROCESSING")).isEqualTo(4);
+            assertThat(count("PENDING")).isEqualTo(4);
+            assertThat(otherSlots.freeSlotCount()).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT lease_token) FROM push_notifications WHERE user_id=?", Integer.class, OWNER)).isEqualTo(2);
+            http.unblock();
+            awaitStatus("ACCEPTED", 8);
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(otherSlots.freeSlotCount()).isEqualTo(2));
+            assertThat(http.requestCount()).isEqualTo(8);
+        } finally {
+            otherWorker.shutdown();
+        }
     }
 
     @Test

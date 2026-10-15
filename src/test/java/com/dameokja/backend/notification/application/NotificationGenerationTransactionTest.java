@@ -8,12 +8,10 @@ import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.domain.NotificationType;
-import com.dameokja.backend.push.application.PushDispatchService;
 import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.transaction.IllegalTransactionStateException;
@@ -48,21 +46,18 @@ class NotificationGenerationTransactionTest extends NotificationGenerationTestSu
         ingredient(970004L, 970003L, "C만료", -1);
         failExpiredRecipient(970004L);
         PushNotificationCreationService pushCreation = mock(PushNotificationCreationService.class);
-        PushDispatchService dispatch = mock(PushDispatchService.class);
         when(pushCreation.createExpirationJobs()).thenAnswer(invocation -> {
             assertCommittedResults();
             return 0;
         });
-        when(dispatch.dispatchDueJobs()).thenReturn(Optional.empty());
-        NotificationScheduler scheduler = new NotificationScheduler(pushCreation, dispatch,
+        NotificationScheduler scheduler = new NotificationScheduler(pushCreation,
                 refrigeratorService, generationService, mock(NotificationRecipientService.class), mock(NotificationService.class), clock, true);
 
         scheduler.runExpirationNotificationBatch();
 
         assertCommittedResults();
-        InOrder order = inOrder(pushCreation, dispatch);
+        InOrder order = inOrder(pushCreation);
         order.verify(pushCreation).createExpirationJobs();
-        order.verify(dispatch).dispatchDueJobs();
     }
 
     @Test
