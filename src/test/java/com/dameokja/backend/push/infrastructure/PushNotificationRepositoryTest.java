@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.UncategorizedSQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,4 +90,67 @@ class PushNotificationRepositoryTest extends MySqlJpaTest {
             entityManager.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
     }
+    @Test
+    void savesAnalysisWithoutCreatingInboxRows() {
+        long notificationsBefore = jdbc.queryForObject("SELECT COUNT(*) FROM notifications", Long.class);
+        long recipientsBefore = jdbc.queryForObject("SELECT COUNT(*) FROM notification_recipients", Long.class);
+        PushNotification saved = pushNotificationRepository.save(analysis());
+        flushAndClear();
+
+        PushNotification found = pushNotificationRepository.findById(saved.getId()).orElseThrow();
+        assertThat(found.getDispatchKey()).isEqualTo("ANALYSIS:batch-1");
+        assertThat(found.getNotification()).isNull();
+        assertThat(found.getRefrigerator()).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notifications", Long.class)).isEqualTo(notificationsBefore);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification_recipients", Long.class)).isEqualTo(recipientsBefore);
+    }
+
+    @Test
+    void rejectsDuplicateAnalysisForSameSubscriptionVersion() {
+        pushNotificationRepository.saveAndFlush(analysis());
+
+        assertThatThrownBy(() -> pushNotificationRepository.saveAndFlush(analysis()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void permitsSameAnalysisForAnotherDeviceOrRenewedSubscription() {
+        pushNotificationRepository.saveAndFlush(analysis());
+        device.renew("p256dh", "encrypted".getBytes(), "enc-v1", "vapid-v1");
+        pushNotificationRepository.saveAndFlush(analysis());
+        UserDevice secondDevice = userDeviceRepository.save(new UserDevice(recipient, "https://push.example.com/2",
+                "p256dh", "encrypted".getBytes(), "enc-v1", "vapid-v1"));
+        pushNotificationRepository.saveAndFlush(PushNotification.analysis("batch-1", recipient, secondDevice, PAYLOAD, SEND_AT, EXPIRES_AT));
+
+        assertThat(pushNotificationRepository.count()).isEqualTo(3);
+    }
+
+    @Test
+    void rejectsAnalysisWithRefrigerator() {
+        PushNotification saved = pushNotificationRepository.saveAndFlush(analysis());
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE push_notifications SET refrigerator_id=? WHERE push_notification_id=?",
+                notification.getRefrigerator().getId(), saved.getId())).isInstanceOf(UncategorizedSQLException.class).hasMessageContaining("ck_push_refrigerator");
+    }
+
+    @Test
+    void rejectsAnalysisWithInboxNotification() {
+        PushNotification saved = pushNotificationRepository.saveAndFlush(analysis());
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE push_notifications SET notification_id=? WHERE push_notification_id=?",
+                notification.getId(), saved.getId())).isInstanceOf(UncategorizedSQLException.class).hasMessageContaining("ck_push_notification");
+    }
+
+    @Test
+    void rejectsInboxWithoutRefrigerator() {
+        PushNotification saved = pushNotificationRepository.saveAndFlush(pending());
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE push_notifications SET refrigerator_id=NULL WHERE push_notification_id=?",
+                saved.getId())).isInstanceOf(UncategorizedSQLException.class).hasMessageContaining("ck_push_refrigerator");
+    }
+
+    private PushNotification analysis() {
+        return PushNotification.analysis("batch-1", recipient, device, PAYLOAD, SEND_AT, EXPIRES_AT);
+    }
+
 }

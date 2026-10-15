@@ -179,6 +179,12 @@ state와 가입 대기 토큰은 최초 발급부터 10분간 보관한다. 공�
 - 개발 DB: Workbench 또는 `mysql` CLI로 빈 DB에 수동 적용한다.
 - 테스트: 컨테이너에 같은 `schema.sql`을 `withInitScript`로 적용하고, `ddl-auto=validate`, `spring.sql.init.mode=never`로 재정의한다. Boot SQL 초기화와 중복 사용하지 않는다. 스키마 생성 방식은 하나만 쓰는 것이 권장된다. [B2]
 
+## 분석 완료 푸시 저장 기반
+
+분석 완료 푸시는 알림함 행을 만들지 않고 요청자·기기별 `ANALYSIS:<분석 요청 ID>` 발송 작업만 저장한다.
+`notification_id`·`refrigerator_id`는 ANALYSIS에서 null이며, 기존 INBOX 작업은 두 값을 모두 유지한다.
+빈 DB는 최신 `schema.sql`을 적용한다. 이 저장 기반의 실제 작업 생성·수신 설정 확인·발송 연결은 후속 구현 범위다.
+
 ## 테스트 DB
 
 - Repository 테스트는 `support.MySqlJpaTest`, 전체 컨텍스트 테스트는 `support.MySqlDatabaseTest`를 상속한다. 컨테이너는 테스트 JVM당 1개이며 종료 시 제거된다.
