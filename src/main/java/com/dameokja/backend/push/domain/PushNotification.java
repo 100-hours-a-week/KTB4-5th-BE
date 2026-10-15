@@ -25,7 +25,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 // 구독(기기) 하나에 보낼 푸시 한 건의 발송 작업이다. 재시도는 새 행을 만들지 않고 이 행의 상태를 바꾼다.
-// 단일 인스턴스 전제라 선점용 lease_until·claim_token 컬럼은 매핑하지 않는다.
 @Getter
 @Entity
 @Table(name = "push_notifications")
@@ -67,7 +66,6 @@ public class PushNotification extends BaseEntity {
     @Column(name = "attempt_count", nullable = false)
     private Integer attemptCount;
 
-    // 이 시각부터 보낼 수 있다. 첫 발송은 생성 시각, 재시도는 다음 발송 시각이다.
     @Column(name = "next_attempt_at")
     private LocalDateTime nextAttemptAt;
 
@@ -92,6 +90,13 @@ public class PushNotification extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "refrigerator_id", nullable = false, updatable = false)
     private Refrigerator refrigerator;
+
+    //todo : 64길이 생각 다시 해보기
+    @Column(name = "lease_token", length = 64)
+    private String leaseToken;
+
+    @Column(name = "lease_until")
+    private LocalDateTime leaseUntil;
 
     public static PushNotification inbox(Notification notification, User recipient, UserDevice device,
             String payload, LocalDateTime now, LocalDateTime expiresAt) {
@@ -152,5 +157,11 @@ public class PushNotification extends BaseEntity {
     private void finish(PushNotificationStatus finalStatus) {
         this.status = finalStatus;
         this.nextAttemptAt = null;
+    }
+
+    public void lease(String token, LocalDateTime leaseUntil) {
+        this.status = PushNotificationStatus.PROCESSING;
+        this.leaseToken = token;
+        this.leaseUntil = leaseUntil;
     }
 }
