@@ -22,7 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(RedisTestSupport.class)
 class AnalysisResultRetentionTest {
     private static final Instant NOW = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-    private static final Duration RETENTION = Duration.ofHours(1);
+    private static final Duration RETENTION = Duration.ofDays(7);
     private final AnalysisJobStore store = storeAt(NOW);
 
     @Test

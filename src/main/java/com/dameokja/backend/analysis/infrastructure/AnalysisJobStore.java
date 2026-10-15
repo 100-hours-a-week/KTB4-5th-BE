@@ -33,7 +33,7 @@ public class AnalysisJobStore {
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
 
-    public AnalysisJobStore(Clock clock, @Value("${analysis.result-ttl:1h}") Duration resultTtl,
+    public AnalysisJobStore(Clock clock, @Value("${analysis.result-ttl:7d}") Duration resultTtl,
             StringRedisTemplate redis, ObjectMapper mapper) {
         if (resultTtl == null || resultTtl.toMillis() < 1) {
             throw new IllegalArgumentException("분석 결과 보관 TTL은 1밀리초 이상이어야 합니다.");
