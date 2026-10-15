@@ -5,6 +5,7 @@ import com.dameokja.backend.notification.application.NotificationPreferenceServi
 import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ class AnalysisPushCreationTest extends MySqlJpaTest {
     @Autowired JdbcTemplate jdbc;
     private final NotificationPreferenceService preferences = mock(NotificationPreferenceService.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-14T03:00:00Z"), BusinessTime.ZONE);
+    private static final Duration PUSH_TTL = Duration.ofHours(1);
     private final OffsetDateTime deadline = clock.instant().plusSeconds(3600).atZone(BusinessTime.ZONE).toOffsetDateTime();
     private PushAnalysisCreationService service;
 
@@ -31,7 +33,7 @@ class AnalysisPushCreationTest extends MySqlJpaTest {
         jdbc.update("INSERT INTO user_devices(endpoint,p256dh_key,auth_secret_encrypted,encryption_key_version,vapid_key_version,created_at,updated_at,user_id) "
                 + "VALUES ('https://push.example.com/analysis','key','secret','v1','v1',NOW(6),NOW(6),980001)");
         when(preferences.isAnalysisEnabled(980001L)).thenReturn(true);
-        service = new PushAnalysisCreationService(repository, preferences, JsonMapper.builder().build(), clock);
+        service = new PushAnalysisCreationService(repository, preferences, JsonMapper.builder().build(), clock, PUSH_TTL);
     }
 
     @Test
@@ -61,5 +63,19 @@ class AnalysisPushCreationTest extends MySqlJpaTest {
         service.create("group-withdrawn", 980001L, deadline);
         service.create("group-expired", 980001L, deadline.minusHours(1));
         assertThat(repository.findAll()).isEmpty();
+    }
+
+    @Test
+    void expiresPushBeforeLongResultRetentionWithoutRecreatingIt() {
+        OffsetDateTime resultDeadline = clock.instant().plus(Duration.ofDays(7)).atZone(BusinessTime.ZONE).toOffsetDateTime();
+        service.create("group-long", 980001L, resultDeadline);
+        flushAndClear();
+        assertThat(repository.findAll()).singleElement()
+                .satisfies(job -> assertThat(job.getExpiresAt()).isEqualTo(BusinessTime.now(clock).plus(PUSH_TTL)));
+        PushAnalysisCreationService later = new PushAnalysisCreationService(repository, preferences, JsonMapper.builder().build(),
+                Clock.offset(clock, Duration.ofHours(2)), PUSH_TTL);
+        later.create("group-long", 980001L, resultDeadline);
+        flushAndClear();
+        assertThat(repository.findAll()).hasSize(1);
     }
 }

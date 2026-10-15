@@ -97,6 +97,8 @@ push:
   # 만료·임박 푸시 작업 생성 여부. 꺼도 인앱 알림 생성과 보관 정리는 유지한다.
   expiration-batch:
     enabled: ${PUSH_EXPIRATION_BATCH_ENABLED:true}
+  # 분석 완료 푸시 유효기간. 결과 보관기간(analysis.result-ttl)과 별도로 짧게 둔다.
+  analysis-ttl: ${PUSH_ANALYSIS_TTL:1h}
   dispatch:
     enabled: ${PUSH_DISPATCH_ENABLED:true}
     poll-interval: ${PUSH_DISPATCH_POLL_INTERVAL:1s}
