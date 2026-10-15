@@ -25,7 +25,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"spring.config.import=", "spring.jpa.show-sql=false"})
+        properties = {"spring.config.import=",
+        "push.dispatch.enabled=false", "spring.jpa.show-sql=false"})
 class NotificationApiIntegrationTest extends MySqlDatabaseTest {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;

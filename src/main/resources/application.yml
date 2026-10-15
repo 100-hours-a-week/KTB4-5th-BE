@@ -26,6 +26,11 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:2}
+
   data:
     redis:
       host: ${SPRING_DATA_REDIS_HOST}
@@ -75,6 +80,10 @@ oauth:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
+notification:
+  expiration-batch:
+    cron: ${NOTIFICATION_EXPIRATION_CRON:0 0 8 * * *}
+
 push:
   auth-encryption:
     key: ${PUSH_AUTH_ENCRYPTION_KEY}
@@ -85,10 +94,13 @@ push:
     key-version: ${PUSH_VAPID_KEY_VERSION}
     # 비워 두면 VAPID JWT에서 sub 클레임을 생략한다. 값을 넣을 때는 mailto: 또는 https: 형식이다.
     subject: ${PUSH_VAPID_SUBJECT:}
-  # 매일 8시(서울) 만료·임박 알림 푸시 배치. 끄면 스케줄러 빈을 등록하지 않는다.
+  # 만료·임박 푸시 작업 생성 여부. 꺼도 인앱 알림 생성과 보관 정리는 유지한다.
   expiration-batch:
     enabled: ${PUSH_EXPIRATION_BATCH_ENABLED:true}
   dispatch:
+    enabled: ${PUSH_DISPATCH_ENABLED:true}
+    poll-interval: ${PUSH_DISPATCH_POLL_INTERVAL:1s}
+    lease-duration: ${PUSH_DISPATCH_LEASE_DURATION:30s}
     concurrency: ${PUSH_DISPATCH_CONCURRENCY:20}
   test-api:
     # 로컬 수동 검증용 발송 API(PushTestController). 배포 환경은 기본값 false를 유지하고, 로컬에서만 .env로 켠다.
