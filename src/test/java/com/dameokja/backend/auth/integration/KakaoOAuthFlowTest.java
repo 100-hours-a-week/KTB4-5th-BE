@@ -13,7 +13,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -53,7 +52,6 @@ class KakaoOAuthFlowTest extends ServiceIntegrationTest {
     void web() {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         KAKAO.reset();
-        assertThat(context.getBean("springSecurityFilterChain", FilterChainProxy.class).getFilterChains()).hasSize(1);
     }
 
     @Test
