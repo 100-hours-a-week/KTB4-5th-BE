@@ -1,3 +1,5 @@
 package com.dameokja.backend.analysis.domain;
 
-public record AnalysisCompletionFailure(String code, String message, boolean retryable, Integer retryAfterMs) {}
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record AnalysisCompletionFailure(String code, String message, @JsonProperty(required = true) boolean retryable, Integer retryAfterMs) {}

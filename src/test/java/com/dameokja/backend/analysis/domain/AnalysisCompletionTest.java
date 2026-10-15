@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.domain;
 
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -10,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class AnalysisCompletionTest {
     private final OffsetDateTime completedAt = OffsetDateTime.parse("2026-10-13T10:00:00+09:00");
-    private final AnalysisCompletionSuccess result = new AnalysisCompletionSuccess("RECEIPT", List.of());
+    private final AnalysisCompletionSuccess result = new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of());
     private final AnalysisCompletionFailure error = new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", false, null);
 
     @Test
@@ -30,7 +31,7 @@ class AnalysisCompletionTest {
         assertThat(completion.completedAt().toInstant()).isEqualTo(completedAt.toInstant());
         assertThat(completion).isEqualTo(new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T01:00:00Z"), result, null));
         List<AnalysisCompletionItem> items = new ArrayList<>();
-        AnalysisCompletionSuccess snapshot = new AnalysisCompletionSuccess("PRODUCT", items);
+        AnalysisCompletionSuccess snapshot = new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, items);
         items.add(null);
         assertThat(snapshot.items()).isEmpty();
         assertThatThrownBy(() -> snapshot.items().add(null)).isInstanceOf(UnsupportedOperationException.class);
