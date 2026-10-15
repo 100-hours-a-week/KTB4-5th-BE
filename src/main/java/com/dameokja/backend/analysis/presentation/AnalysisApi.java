@@ -1,6 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
 import com.dameokja.backend.analysis.presentation.request.AnalysisJobSubmitRequest;
+import com.dameokja.backend.analysis.presentation.response.AnalysisJobListResponse;
 import com.dameokja.backend.analysis.presentation.response.AnalysisJobResponse;
 import com.dameokja.backend.analysis.presentation.response.AnalysisJobSubmitResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
@@ -36,6 +37,18 @@ public interface AnalysisApi {
     ResponseEntity<SuccessResponse<AnalysisJobSubmitResponse>> submit(@Parameter(hidden = true) Long userId,
             @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AnalysisJobSubmitRequest.class),
                     examples = @ExampleObject(value = AnalysisApiExamples.REQUEST))) AnalysisJobSubmitRequest analysisJobSubmitRequest);
+
+    @Operation(summary = "내 이미지 분석 작업 목록 조회", description = "accessToken 쿠키로 로그인한 사용자의 보관 중인 작업을 최근 접수 순으로 반환합니다. "
+            + "작업마다 전체·성공·실패 이미지 수와 이미지별 상태·인식 항목 수를 반환하며 항목 상세는 단건 조회로 확인합니다. "
+            + "itemCount는 성공한 이미지의 항목 수로 UNRECOGNIZED 항목도 포함하고, 실패하면 0, 진행 중이면 null입니다. "
+            + "작업은 모든 이미지가 종료된 시점부터 기본 7일간 보관하며 만료된 작업은 목록에서 제외합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "이미지 분석 작업 목록 조회 성공 (IMAGE-200-004)", content = @Content(
+                    mediaType = "application/json", examples = @ExampleObject(value = AnalysisApiExamples.LIST_RESPONSE))),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
+            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<AnalysisJobListResponse>> list(@Parameter(hidden = true) Long userId);
 
     @Operation(summary = "이미지 분석 결과 조회", description = "accessToken 쿠키로 로그인하고 접수 응답의 작업 ID로 조회합니다. "
             + "항목별 displayStatus를 그대로 반환하고 이미지별 recognitionStatus는 가장 낮은 항목 상태로 집계합니다. "

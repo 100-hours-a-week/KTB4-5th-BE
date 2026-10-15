@@ -7,8 +7,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -90,6 +93,41 @@ class AnalysisJobStoreTest {
         assertThat(analysisJobStore.findOwned(job.id(), 7L).expiresAt()).isNull();
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id())).isEqualTo(-1L);
         assertThat(redisTemplate().getExpire("analysis:ai:ai-id")).isEqualTo(-1L);
+    }
+
+    @Test
+    void listsOnlyTheUsersJobsNewestFirst() {
+        AnalysisJobStore analysisJobStore = createAnalysisJobStore();
+        AnalysisJob older = analysisJobStore.create(7L, "AUTO", List.of(image("first")));
+        when(clock.instant()).thenReturn(instant.plusSeconds(1));
+        AnalysisJob newer = analysisJobStore.create(7L, "AUTO", List.of(image("second")));
+        analysisJobStore.create(8L, "AUTO", List.of(image("other")));
+        assertThat(analysisJobStore.findAllOwned(7L)).extracting(AnalysisJob::id).containsExactly(newer.id(), older.id());
+        assertThat(analysisJobStore.findAllOwned(9L)).isEmpty();
+    }
+
+    @Test
+    void removesExpiredAndMissingJobsFromTheUserIndex() {
+        AnalysisJobStore analysisJobStore = createAnalysisJobStore();
+        AnalysisJob missing = analysisJobStore.create(7L, "AUTO", List.of(image("missing")));
+        AnalysisJob expired = analysisJobStore.create(7L, "AUTO", List.of(image("expired")));
+        AnalysisJob active = analysisJobStore.create(7L, "AUTO", List.of(image("active")));
+        redisTemplate().delete("analysis:job:" + missing.id());
+        analysisJobStore.register(expired.id(), 7L, expired.analysisImages().getFirst().requestId(), "ai-expired");
+        analysisJobStore.complete("ai-expired", new AnalysisCompletion(AnalysisStatus.FAILED, instant.atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", false, null)));
+        when(clock.instant()).thenReturn(instant.plus(duration));
+        assertThat(analysisJobStore.findAllOwned(7L)).extracting(AnalysisJob::id).containsExactly(active.id());
+        assertThat(redisTemplate().opsForZSet().range("analysis:user:7", 0, -1)).containsExactly(active.id());
+    }
+
+    @Test
+    void removesDeletedJobFromTheUserIndex() {
+        AnalysisJobStore analysisJobStore = createAnalysisJobStore();
+        AnalysisJob deleted = analysisJobStore.create(7L, "AUTO", List.of(image("deleted")));
+        AnalysisJob kept = analysisJobStore.create(7L, "AUTO", List.of(image("kept")));
+        analysisJobStore.delete(deleted.id());
+        assertThat(redisTemplate().opsForZSet().range("analysis:user:7", 0, -1)).containsExactly(kept.id());
     }
 
     private AnalysisJobStore createAnalysisJobStore() {

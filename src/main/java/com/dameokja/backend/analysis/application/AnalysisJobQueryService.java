@@ -12,7 +12,14 @@ public class AnalysisJobQueryService {
     private final AnalysisJobStore analysisJobStore;
 
     public AnalysisJobResult get(Long userId, String analysisId) {
-        AnalysisJob job = analysisJobStore.findOwned(analysisId, userId);
+        return toResult(analysisJobStore.findOwned(analysisId, userId));
+    }
+
+    public List<AnalysisJobResult> list(Long userId) {
+        return analysisJobStore.findAllOwned(userId).stream().map(this::toResult).toList();
+    }
+
+    private AnalysisJobResult toResult(AnalysisJob job) {
         List<AnalysisImageResult> results = job.analysisImages().stream().map(AnalysisImageResult::fromStored).toList();
         return new AnalysisJobResult(job, results);
     }

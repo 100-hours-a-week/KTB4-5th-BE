@@ -10,7 +10,10 @@ import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +29,7 @@ import tools.jackson.databind.cfg.DateTimeFeature;
 public class AnalysisJobStore {
     private static final String PREFIX = "analysis:job:";
     private static final String AI_PREFIX = "analysis:ai:";
+    private static final String USER_PREFIX = "analysis:user:";
     private static final int MAX_ATTEMPTS = 3;
     private static final RedisScript<Long> REPLACE = RedisScript.of(new ClassPathResource("redis/analysis/replace-analysis-job.lua"), Long.class);
     private final Clock clock;
@@ -48,7 +52,24 @@ public class AnalysisJobStore {
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
         AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, null, false);
         redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job));
+        // 작업을 먼저 저장해야 목록 조회의 만료 정리가 생성 중인 작업을 색인에서 지우지 않는다.
+        redis.opsForZSet().add(USER_PREFIX + userId, job.id(), submittedAt.toInstant().toEpochMilli());
         return job;
+    }
+
+    public List<AnalysisJob> findAllOwned(Long userId) {
+        String key = USER_PREFIX + userId;
+        List<String> ids = List.copyOf(Objects.requireNonNullElse(redis.opsForZSet().reverseRange(key, 0, -1), Set.<String>of()));
+        if (ids.isEmpty()) { return List.of(); }
+        List<String> stored = redis.opsForValue().multiGet(ids.stream().map(id -> PREFIX + id).toList());
+        List<AnalysisJob> jobs = new ArrayList<>();
+        List<String> stale = new ArrayList<>();
+        for (int index = 0; index < ids.size(); index++) {
+            AnalysisJob job = readActive(stored.get(index));
+            if (job == null) { stale.add(ids.get(index)); } else { jobs.add(job); }
+        }
+        if (!stale.isEmpty()) { redis.opsForZSet().remove(key, stale.toArray()); }
+        return jobs;
     }
 
     public AnalysisJob findOwned(String analysisJobId, Long userId) {
@@ -107,7 +128,9 @@ public class AnalysisJobStore {
         String key = PREFIX + analysisJobId;
         String stored = redis.opsForValue().get(key);
         if (stored != null) {
-            redis.delete(keys(key, requireActive(stored)));
+            AnalysisJob job = requireActive(stored);
+            redis.delete(keys(key, job));
+            redis.opsForZSet().remove(USER_PREFIX + job.userId(), analysisJobId);
         }
     }
 
@@ -130,10 +153,18 @@ public class AnalysisJobStore {
     }
 
     private AnalysisJob requireActive(String stored) {
+        AnalysisJob job = readActive(stored);
+        if (job == null) {
+            throw new CustomException(AnalysisExceptionCode.NOT_FOUND);
+        }
+        return job;
+    }
+
+    private AnalysisJob readActive(String stored) {
         AnalysisJob job = stored == null ? null : mapper.readerFor(AnalysisJob.class)
                 .without(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE).readValue(stored);
         if (job == null || (job.expiresAt() != null && !clock.instant().isBefore(job.expiresAt().toInstant()))) {
-            throw new CustomException(AnalysisExceptionCode.NOT_FOUND);
+            return null;
         }
         return job;
     }
