@@ -70,7 +70,7 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
                 join fetch job.userDevice device
                 join fetch device.user
                 join fetch job.user
-                join fetch job.refrigerator
+                left join fetch job.refrigerator
             where job.id = :jobId
                 and job.status = PROCESSING
                 and job.leaseToken = :leaseToken
@@ -154,6 +154,16 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
 
     @Query("select min(job.nextAttemptAt) from PushNotification job where job.status in (PENDING, RETRY)")
     Optional<LocalDateTime> findNextAttemptAt();
+
+    // 대기 중 변경된 소유자·구독 버전·활성 상태와 독립적인 분석 수신 설정을 실제 전송 직전에 확인한다.
+    @Query("""
+            select count(job) > 0 from PushNotification job
+                join job.userDevice d join NotificationPreference p on p.user = job.user
+            where job.id = :jobId and job.kind = ANALYSIS
+                and job.user.status = ACTIVE and p.type = ANALYSIS and p.isEnabled = true
+                and d.status = ACTIVE and d.user = job.user and d.subscriptionVersion = job.subscriptionVersion
+            """)
+    boolean canReceiveAnalysisPush(@Param("jobId") Long jobId);
 
     // 작업 생성 뒤 탈퇴, 냉장고 탈퇴·삭제, 수신 끔이 있었을 수 있으므로 발송 직전에 다시 확인한다.
     @Query("""

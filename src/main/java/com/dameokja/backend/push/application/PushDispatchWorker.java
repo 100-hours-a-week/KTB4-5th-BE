@@ -4,6 +4,7 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.domain.LeaseDuration;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.PushNotificationErrorCode;
+import com.dameokja.backend.push.domain.PushNotificationKind;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
@@ -96,11 +97,18 @@ public class PushDispatchWorker {
             pushNotificationUpdater.cancel(leasedJob, PushNotificationErrorCode.SUBSCRIPTION_UNAVAILABLE, checkedAt);
             return false;
         }
-        if (!repository.canReceiveExpirationPush(job.getUser().getId(), job.getRefrigerator().getId())) {
+        if (!canReceive(job)) {
             pushNotificationUpdater.cancel(leasedJob, PushNotificationErrorCode.RECIPIENT_UNAVAILABLE, BusinessTime.now(clock));
             return false;
         }
         return true;
+    }
+
+    private boolean canReceive(PushNotification job) {
+        if (job.getKind() == PushNotificationKind.ANALYSIS) {
+            return repository.canReceiveAnalysisPush(job.getId());
+        }
+        return repository.canReceiveExpirationPush(job.getUser().getId(), job.getRefrigerator().getId());
     }
 
     private PushSendResult send(PushNotification job, LocalDateTime sendAt) {
