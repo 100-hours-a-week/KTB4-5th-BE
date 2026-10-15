@@ -179,6 +179,26 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
         assertThat(jdbc.queryForObject("SELECT attempt_count FROM push_notifications WHERE user_id=?", Integer.class, OWNER)).isZero();
     }
 
+    @Test
+    void sendsAnalysisJobWithoutRefrigeratorThroughTheSameWorker() {
+        devices(1);
+        jdbc.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES (?,'ANALYSIS',1)", OWNER);
+        insertAnalysisJob();
+        awaitStatus("ACCEPTED", 1);
+        assertThat(http.requestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void cancelsAnalysisJobWithoutHttpWhenAnalysisPushIsOff() {
+        devices(1);
+        jdbc.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES (?,'ANALYSIS',0)", OWNER);
+        insertAnalysisJob();
+        awaitStatus("CANCELLED", 1);
+        assertThat(http.requestCount()).isZero();
+        assertThat(jdbc.queryForObject("SELECT last_error_code FROM push_notifications WHERE user_id=?", String.class, OWNER))
+                .isEqualTo("RECIPIENT_UNAVAILABLE");
+    }
+
     private void devices(int count) {
         for (int index = 0; index < count; index++) {
             jdbc.update("INSERT INTO user_devices(endpoint,p256dh_key,auth_secret_encrypted,encryption_key_version,"
@@ -195,6 +215,15 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
                 SELECT 'E2E','INBOX',user_device_id,1,'{}',?,0,?,?,?,?,?,?,?,?,?
                 FROM user_devices WHERE user_id=?
                 """, status, NOW, token, leaseUntil, NOW.withHour(12), NOW, NOW, OWNER, OWNER, OWNER, OWNER);
+    }
+
+    private void insertAnalysisJob() {
+        jdbc.update("""
+                INSERT INTO push_notifications(dispatch_key,kind,user_device_id,subscription_version,payload,status,
+                    attempt_count,next_attempt_at,expires_at,created_at,updated_at,user_id)
+                SELECT 'ANALYSIS:e2e','ANALYSIS',user_device_id,1,'{}','PENDING',0,?,?,?,?,?
+                FROM user_devices WHERE user_id=?
+                """, NOW, NOW.plusHours(1), NOW, NOW, OWNER, OWNER);
     }
 
     private int count(String status) {
