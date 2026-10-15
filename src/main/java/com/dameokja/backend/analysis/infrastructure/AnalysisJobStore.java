@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.infrastructure;
 
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
@@ -23,6 +24,7 @@ import tools.jackson.databind.cfg.DateTimeFeature;
 @Repository
 public class AnalysisJobStore {
     private static final String PREFIX = "analysis:job:";
+    private static final String AI_PREFIX = "analysis:ai:";
     private static final int MAX_ATTEMPTS = 3;
     private static final RedisScript<Long> REPLACE = RedisScript.of(new ClassPathResource("redis/analysis/replace-analysis-job.lua"), Long.class);
     private final Clock clock;
@@ -43,7 +45,7 @@ public class AnalysisJobStore {
 
     public AnalysisJob create(Long userId, String inputHint, List<AnalysisImage> analysisImages) {
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
-        AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, submittedAt.plus(duration));
+        AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, submittedAt.plus(duration), false);
         redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job), Duration.ofMillis(Math.max(1, duration.toMillis())));
         return job;
     }
@@ -58,21 +60,51 @@ public class AnalysisJobStore {
             String previous = redis.opsForValue().get(key);
             AnalysisJob updated = requireOwned(previous, userId).register(requestId, analysisId);
             // 다른 인스턴스의 등록 결과를 덮어쓰지 않고 최초 TTL을 유지한다.
-            if (Long.valueOf(1).equals(redis.execute(REPLACE, List.of(key), previous, mapper.writeValueAsString(updated)))) {
+            Long replaced = redis.execute(REPLACE, List.of(key, AI_PREFIX + analysisId), previous, mapper.writeValueAsString(updated), analysisJobId);
+            if (Long.valueOf(-1).equals(replaced)) {
+                throw new IllegalStateException("다른 작업에 접수된 AI 작업 ID입니다.");
+            }
+            if (Long.valueOf(1).equals(replaced)) {
                 return;
             }
         }
         throw new ConcurrencyFailureException("분석 작업 등록이 동시 변경과 충돌했습니다.");
     }
 
+    public AnalysisJob findByAiAnalysisId(String analysisId) {
+        String jobId = redis.opsForValue().get(AI_PREFIX + analysisId);
+        return requireActive(jobId == null ? null : redis.opsForValue().get(PREFIX + jobId));
+    }
+
+    public AnalysisJob complete(String analysisId, AnalysisCompletion completion) {
+        String key = PREFIX + findByAiAnalysisId(analysisId).id();
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            AnalysisJob updated = job.complete(analysisId, completion);
+            if (updated.equals(job)) {
+                return job;
+            }
+            if (Long.valueOf(1).equals(redis.execute(REPLACE, List.of(key), previous, mapper.writeValueAsString(updated)))) {
+                return updated;
+            }
+        }
+        throw new ConcurrencyFailureException("분석 결과 저장이 동시 변경과 충돌했습니다.");
+    }
+
     private AnalysisJob requireOwned(String stored, Long userId) {
+        AnalysisJob job = requireActive(stored);
+        if (!job.userId().equals(userId)) {
+            throw new CustomException(GlobalExceptionCode.FORBIDDEN);
+        }
+        return job;
+    }
+
+    private AnalysisJob requireActive(String stored) {
         AnalysisJob job = stored == null ? null : mapper.readerFor(AnalysisJob.class)
                 .without(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE).readValue(stored);
         if (job == null || !clock.instant().isBefore(job.expiresAt().toInstant())) {
             throw new CustomException(AnalysisExceptionCode.NOT_FOUND);
-        }
-        if (!job.userId().equals(userId)) {
-            throw new CustomException(GlobalExceptionCode.FORBIDDEN);
         }
         return job;
     }
