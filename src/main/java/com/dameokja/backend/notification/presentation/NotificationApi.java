@@ -64,7 +64,10 @@ public interface NotificationApi {
             @Parameter(name = "refrigeratorId", in = ParameterIn.PATH,
                     description = "활성 냉장고 식별자", required = true) Long refrigeratorId);
 
-    @Operation(summary = "최신 알림 확인", description = "v1 polling용 API입니다. 새 ID를 확인하면 목록과 미읽음 수를 다시 조회합니다.")
+    @Operation(summary = "최신 알림 확인", description = """
+            v1 polling용 API입니다. 새 ID를 확인하면 목록과 미읽음 수를 다시 조회합니다.
+            V2는 /api/v2/refrigerators/{refrigeratorId}/notifications/stream SSE로 전환하며 이 JSON API는 호환용으로 유지합니다.
+            """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "최신 알림 확인 성공",
                     content = @Content(examples = @ExampleObject(value = POLLING_RESPONSE))),
@@ -78,7 +81,7 @@ public interface NotificationApi {
                     description = "활성 냉장고 식별자", required = true) Long refrigeratorId);
 
     @Operation(summary = "미읽음 알림 수 조회",
-            description = "요청 시점의 본인·활성 냉장고 미읽음 수를 반환합니다. v1 polling에서 사용합니다.")
+            description = "요청 시점의 본인·활성 냉장고 미읽음 수를 반환합니다. v1 polling과 V2 SSE 최초 연결·재연결·변경 이벤트 수신 시 사용합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "미읽음 수 조회 성공",
                     content = @Content(examples = @ExampleObject(value = UNREAD_COUNT_RESPONSE))),
