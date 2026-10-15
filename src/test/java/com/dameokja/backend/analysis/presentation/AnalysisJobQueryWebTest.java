@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
@@ -139,7 +140,7 @@ class AnalysisJobQueryWebTest {
     void rejectsUnavailableJobsBeforeCallingAi(String scenario, int status, String code) throws Exception {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
-                    new AnalysisCompletion.Result("RECEIPT", List.of()), null);
+                    new AnalysisCompletionSuccess("RECEIPT", List.of()), null);
             analysisJobStore.complete("ai-first", completion);
             analysisJobStore.complete("ai-second", completion);
             when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));

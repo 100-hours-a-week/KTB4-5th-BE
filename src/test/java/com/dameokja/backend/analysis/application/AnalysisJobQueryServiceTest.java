@@ -13,6 +13,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
@@ -104,7 +105,7 @@ class AnalysisJobQueryServiceTest {
     void rejectsUnavailableJobsBeforeCallingAi(String scenario, String code) {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
-                    new AnalysisCompletion.Result("RECEIPT", List.of()), null);
+                    new AnalysisCompletionSuccess("RECEIPT", List.of()), null);
             analysisJobStore.complete("ai-first", completion);
             analysisJobStore.complete("ai-second", completion);
             when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));

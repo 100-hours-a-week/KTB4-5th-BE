@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 class AnalysisCompletionTest {
     private final OffsetDateTime completedAt = OffsetDateTime.parse("2026-10-13T10:00:00+09:00");
-    private final AnalysisCompletion.Result result = new AnalysisCompletion.Result("RECEIPT", List.of());
-    private final AnalysisCompletion.Error error = new AnalysisCompletion.Error("MODEL_UNAVAILABLE", "분석 실패", false, null);
+    private final AnalysisCompletionSuccess result = new AnalysisCompletionSuccess("RECEIPT", List.of());
+    private final AnalysisCompletionFailure error = new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", false, null);
 
     @Test
     void rejectsUnfinishedStatesAndInconsistentTerminalBodies() {
@@ -29,8 +29,8 @@ class AnalysisCompletionTest {
         assertThat(completion.completedAt().getOffset()).isEqualTo(completedAt.getOffset());
         assertThat(completion.completedAt().toInstant()).isEqualTo(completedAt.toInstant());
         assertThat(completion).isEqualTo(new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T01:00:00Z"), result, null));
-        List<AnalysisCompletion.Item> items = new ArrayList<>();
-        AnalysisCompletion.Result snapshot = new AnalysisCompletion.Result("PRODUCT", items);
+        List<AnalysisCompletionItem> items = new ArrayList<>();
+        AnalysisCompletionSuccess snapshot = new AnalysisCompletionSuccess("PRODUCT", items);
         items.add(null);
         assertThat(snapshot.items()).isEmpty();
         assertThatThrownBy(() -> snapshot.items().add(null)).isInstanceOf(UnsupportedOperationException.class);
