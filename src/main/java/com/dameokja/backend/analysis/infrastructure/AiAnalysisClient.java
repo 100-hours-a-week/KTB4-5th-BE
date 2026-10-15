@@ -22,6 +22,12 @@ public class AiAnalysisClient {
         return requireBody(aiImageAnalysisResponse);
     }
 
+    public AiAnalysisFeedbackResponse feedback(String analysisId, AiAnalysisFeedbackRequest aiAnalysisFeedbackRequest) {
+        AiAnalysisFeedbackResponse aiAnalysisFeedbackResponse = restClient.post().uri(ANALYSES_PATH + "/{analysisId}/feedback", analysisId)
+                .contentType(MediaType.APPLICATION_JSON).body(aiAnalysisFeedbackRequest).retrieve().body(AiAnalysisFeedbackResponse.class);
+        return requireBody(aiAnalysisFeedbackResponse);
+    }
+
     private <T> T requireBody(T response) {
         if (response == null) {
             throw new RestClientException("AI API 응답 본문이 없습니다.");

@@ -1,8 +1,14 @@
 package com.dameokja.backend.analysis.infrastructure;
 
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.LocalDate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,5 +91,35 @@ class AiAnalysisClientTest {
         server.expect(requestTo(URL + "/ai/v1/analyses/analysis-1")).andRespond(withSuccess());
         assertThatThrownBy(() -> client.get("analysis-1")).isInstanceOf(RestClientException.class);
         server.verify();
+    }
+
+    @Test
+    void sendsUserConfirmedItemAsFeedbackToImageAnalysis() {
+        server.expect(requestTo(URL + "/ai/v1/analyses/analysis-3/feedback")).andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-API-Key", "test-key"))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().json("""
+                        {"itemId":"item_001","action":"CORRECTED","consentForModelImprovement":true,
+                         "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED","measureType":"WEIGHT","quantity":null,
+                          "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}
+                        """, true))
+                .andRespond(withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON).body("""
+                        {"feedbackId":"feedback-1","analysisId":"analysis-3","status":"RECORDED"}
+                        """));
+        AiAnalysisFeedbackResponse aiAnalysisFeedbackResponse = client.feedback("analysis-3", milkFeedback());
+        assertThat(aiAnalysisFeedbackResponse).extracting(AiAnalysisFeedbackResponse::status).isEqualTo("RECORDED");
+        server.verify();
+    }
+
+    @Test
+    void rejectsEmptyFeedbackResponse() {
+        server.expect(requestTo(URL + "/ai/v1/analyses/analysis-3/feedback")).andRespond(withStatus(HttpStatus.CREATED));
+        assertThatThrownBy(() -> client.feedback("analysis-3", milkFeedback())).isInstanceOf(RestClientException.class);
+        server.verify();
+    }
+
+    private AiAnalysisFeedbackRequest milkFeedback() {
+        return AiAnalysisFeedbackRequest.corrected("item_001", AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new BigDecimal("1000"), WeightUnit.ML, LocalDate.of(2026, 10, 20)));
     }
 }
