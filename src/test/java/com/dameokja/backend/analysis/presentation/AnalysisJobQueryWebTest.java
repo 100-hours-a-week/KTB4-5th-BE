@@ -32,6 +32,7 @@ import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,7 +111,8 @@ class AnalysisJobQueryWebTest {
                 .andExpect(status().isOk()).andExpect(MockMvcResultMatchers.header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.code").value("IMAGE-200-002"))
                 .andExpect(jsonPath("$.data.analysisId").value(analysisJob.id())).andExpect(jsonPath("$.data.status").value(groupStatus))
-                .andExpect(jsonPath("$.data.submittedAt").value(INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime().toString()))
+                // 응답은 초가 0이어도 초를 표기하므로, 초를 생략하는 toString 대신 같은 ISO 형식으로 비교한다.
+                .andExpect(jsonPath("$.data.submittedAt").value(INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)))
                 .andExpect(jsonPath("$.data.results[0].imageObjectKey").value("first"))
                 .andExpect(jsonPath("$.data.results[1].imageObjectKey").value("second"))
                 .andExpect(jsonPath("$..imageQuality").isEmpty()).andExpect(jsonPath("$..confidence").isEmpty())
