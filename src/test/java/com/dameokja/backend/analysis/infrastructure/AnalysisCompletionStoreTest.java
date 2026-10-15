@@ -19,6 +19,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
+import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -72,7 +73,8 @@ class AnalysisCompletionStoreTest {
         AnalysisCompletion sameInstant = new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T10:00:10+09:00"), completed().result(), null);
         store.complete("ai-first", sameInstant);
         assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
-        assertThatThrownBy(() -> store.complete("ai-first", failed())).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> store.complete("ai-first", failed())).isInstanceOf(CustomException.class)
+                .extracting("exceptionCode").isEqualTo(AnalysisExceptionCode.RESULT_CONFLICT);
         assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
     }
 

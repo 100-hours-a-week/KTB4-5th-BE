@@ -27,9 +27,12 @@ public class AnalysisCallbackService {
         AnalysisJob job;
         try {
             job = store.complete(analysisId, completion);
-        } catch (IllegalStateException exception) {
-            throw new CustomException(AnalysisExceptionCode.RESULT_CONFLICT);
-        } catch (DataAccessException | CustomException exception) {
+        } catch (CustomException exception) {
+            if (exception.getExceptionCode() == AnalysisExceptionCode.RESULT_CONFLICT) {
+                throw exception;
+            }
+            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
+        } catch (DataAccessException exception) {
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
         }
         if (job.notificationPending()) {
