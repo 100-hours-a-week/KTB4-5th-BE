@@ -32,10 +32,25 @@ public class AnalysisJobSubmitService {
         List<AnalysisImage> analysisImages = objectKeys.stream()
                 .map(objectKey -> AnalysisImage.pending(objectKey, imageAnalysisInputService.findAnalysisSha256(userId, objectKey))).toList();
         AnalysisJob analysisJob = analysisJobStore.create(userId, inputHint, analysisImages);
-        for (AnalysisImage analysisImage : analysisJob.analysisImages()) {
-            analysisJobStore.register(analysisJob.id(), userId, analysisImage.requestId(), submitImage(analysisImage, inputHint));
+        try {
+            for (AnalysisImage analysisImage : analysisJob.analysisImages()) {
+                analysisJobStore.register(analysisJob.id(), userId, analysisImage.requestId(), submitImage(analysisImage, inputHint));
+            }
+        } catch (RuntimeException exception) {
+            discard(analysisJob, exception);
+            throw exception;
         }
         return analysisJobStore.findOwned(analysisJob.id(), userId);
+    }
+
+    // 접수에 실패하면 클라이언트는 작업 ID를 받지 못하고, 남은 이미지는 끝나지 않아 보관기간도 시작되지 않는다.
+    // 그래서 묶음과 AI ID 색인을 지우며, 이미 접수된 이미지의 콜백은 버린다.
+    private void discard(AnalysisJob analysisJob, RuntimeException cause) {
+        try {
+            analysisJobStore.delete(analysisJob.id());
+        } catch (RuntimeException deleteFailure) {
+            cause.addSuppressed(deleteFailure);
+        }
     }
 
     private String submitImage(AnalysisImage analysisImage, String inputHint) {

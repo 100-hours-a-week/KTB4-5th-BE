@@ -103,6 +103,14 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("분석 완료 알림 확인이 동시 변경과 충돌했습니다.");
     }
 
+    public void delete(String analysisJobId) {
+        String key = PREFIX + analysisJobId;
+        String stored = redis.opsForValue().get(key);
+        if (stored != null) {
+            redis.delete(keys(key, requireActive(stored)));
+        }
+    }
+
     private AnalysisJob requireOwned(String stored, Long userId) {
         AnalysisJob job = requireActive(stored);
         if (!job.userId().equals(userId)) {
@@ -112,10 +120,13 @@ public class AnalysisJobStore {
     }
 
     private Long replace(String key, String previous, AnalysisJob updated) {
-        List<String> keys = Stream.concat(Stream.of(key), updated.analysisImages().stream()
-                .filter(image -> image.aiAnalysisId() != null).map(image -> AI_PREFIX + image.aiAnalysisId())).toList();
         String deadline = updated.expiresAt() == null ? "" : Long.toString(updated.expiresAt().toInstant().toEpochMilli());
-        return redis.execute(REPLACE, keys, previous, mapper.writeValueAsString(updated), updated.id(), deadline);
+        return redis.execute(REPLACE, keys(key, updated), previous, mapper.writeValueAsString(updated), updated.id(), deadline);
+    }
+
+    private List<String> keys(String key, AnalysisJob job) {
+        return Stream.concat(Stream.of(key), job.analysisImages().stream()
+                .filter(image -> image.aiAnalysisId() != null).map(image -> AI_PREFIX + image.aiAnalysisId())).toList();
     }
 
     private AnalysisJob requireActive(String stored) {
