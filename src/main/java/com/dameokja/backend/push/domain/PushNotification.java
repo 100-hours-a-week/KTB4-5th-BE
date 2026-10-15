@@ -117,6 +117,10 @@ public class PushNotification extends BaseEntity {
         return job;
     }
 
+    public static String analysisDispatchKey(String analysisId) {
+        return "ANALYSIS:" + Objects.requireNonNull(analysisId);
+    }
+
     public static PushNotification analysis(String analysisId, User recipient, UserDevice device,
             String payload, LocalDateTime now, LocalDateTime expiresAt) {
         User owner = device.getUser();
@@ -124,7 +128,7 @@ public class PushNotification extends BaseEntity {
             throw new IllegalArgumentException("분석 푸시 수신자와 기기 소유자가 일치해야 합니다.");
         }
         PushNotification job = new PushNotification();
-        job.dispatchKey = "ANALYSIS:" + Objects.requireNonNull(analysisId);
+        job.dispatchKey = analysisDispatchKey(analysisId);
         job.kind = PushNotificationKind.ANALYSIS;
         job.userDevice = device;
         job.subscriptionVersion = device.getSubscriptionVersion();

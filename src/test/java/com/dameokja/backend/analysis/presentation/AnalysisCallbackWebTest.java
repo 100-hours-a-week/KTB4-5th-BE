@@ -1,6 +1,13 @@
 package com.dameokja.backend.analysis.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,9 +22,11 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +38,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.test.context.TestPropertySource;
@@ -53,12 +63,14 @@ class AnalysisCallbackWebTest {
             """;
     @Autowired WebApplicationContext context;
     @Autowired AnalysisJobStore store;
+    @Autowired PushAnalysisCreationService pushes;
     private MockMvc mvc;
     private AnalysisJob job;
 
     @BeforeEach
     void setup() {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        reset(pushes);
         job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-first");
     }
@@ -81,7 +93,28 @@ class AnalysisCallbackWebTest {
         String failed = BODY.replace("COMPLETED", "FAILED").replace("{\"documentType\":\"PRODUCT\",\"items\":[]}", "null")
                 .replace("\"error\":null", "\"error\":{\"code\":\"MODEL_UNAVAILABLE\",\"message\":\"failed\",\"retryable\":true}");
         send(failed, "local-ai-test", 200);
-        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isTrue();
+        verify(pushes, times(2)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+    }
+
+    @Test
+    void createsCompletionPushOnceWhenTheLastResultIsSaved() throws Exception {
+        send(BODY, "local-ai-test", 200);
+        send(BODY, "local-ai-test", 200);
+        verify(pushes, times(1)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+    }
+
+    @Test
+    void keepsSavedResultAndRetriesPushCreationOnTheNextCallback() throws Exception {
+        doThrow(new DataAccessResourceFailureException("db")).doNothing().when(pushes).create(any(), any(), any());
+        send(BODY, "local-ai-test", 503);
+        AnalysisJob saved = store.findOwned(job.id(), 7L);
+        assertThat(saved.analysisImages().getFirst().completion()).isNotNull();
+        assertThat(saved.notificationPending()).isTrue();
+        send(BODY, "local-ai-test", 200);
+        verify(pushes, times(2)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
     }
 
     @Test
@@ -178,6 +211,11 @@ class AnalysisCallbackWebTest {
     @Import({AnalysisCallbackController.class, AnalysisCallbackSecurityConfig.class, AnalysisCallbackService.class,
             AnalysisCompletionValidator.class, GlobalExceptionHandler.class})
     static class Config {
+        @Bean
+        PushAnalysisCreationService pushes() {
+            return mock(PushAnalysisCreationService.class);
+        }
+
         @Bean
         AnalysisJobStore store() {
             return new AnalysisJobStore(Clock.system(BusinessTime.ZONE), Duration.ofHours(1), RedisTestSupport.redisTemplate(), JsonMapper.builder().build());

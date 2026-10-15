@@ -1,6 +1,7 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.domain.PushNotification;
+import com.dameokja.backend.push.domain.UserDevice;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -154,6 +155,11 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
 
     @Query("select min(job.nextAttemptAt) from PushNotification job where job.status in (PENDING, RETRY)")
     Optional<LocalDateTime> findNextAttemptAt();
+
+    boolean existsByDispatchKey(String dispatchKey);
+
+    @Query("select d from UserDevice d join fetch d.user u where u.id = :userId and u.status = ACTIVE and d.status = ACTIVE")
+    List<UserDevice> findActiveAnalysisDevices(@Param("userId") Long userId);
 
     // 대기 중 변경된 소유자·구독 버전·활성 상태와 독립적인 분석 수신 설정을 실제 전송 직전에 확인한다.
     @Query("""

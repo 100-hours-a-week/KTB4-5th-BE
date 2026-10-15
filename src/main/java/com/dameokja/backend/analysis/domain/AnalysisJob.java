@@ -35,4 +35,8 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         OffsetDateTime deadline = newlyCompleted ? Objects.requireNonNull(resultExpiresAt) : expiresAt;
         return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted);
     }
+
+    public AnalysisJob acknowledgeNotification() {
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false);
+    }
 }

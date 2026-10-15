@@ -93,6 +93,16 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("분석 결과 저장이 동시 변경과 충돌했습니다.");
     }
 
+    public void acknowledgeNotification(String id) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            if (Long.valueOf(1).equals(replace(key, previous, job.acknowledgeNotification()))) { return; }
+        }
+        throw new ConcurrencyFailureException("분석 완료 알림 확인이 동시 변경과 충돌했습니다.");
+    }
+
     private AnalysisJob requireOwned(String stored, Long userId) {
         AnalysisJob job = requireActive(stored);
         if (!job.userId().equals(userId)) {
