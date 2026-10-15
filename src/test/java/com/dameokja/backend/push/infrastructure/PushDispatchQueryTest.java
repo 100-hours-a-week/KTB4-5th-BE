@@ -136,6 +136,76 @@ class PushDispatchQueryTest extends MySqlJpaTest {
         assertThat(updated).isZero();
     }
 
+    @Test
+    void rejectsEveryLateResultAfterAnotherWorkerReplacesTheToken() {
+        PushNotification job = job(960001L, SEND_AT);
+        LocalDateTime noon = SEND_AT.withHour(12);
+        job.lease("old-token", noon.plusMinutes(1));
+        flushAndClear();
+        pushNotificationRepository.leasePushJobs(List.of(job.getId()), "new-token", SEND_AT, noon.plusMinutes(1));
+
+        assertRejectedResults(job.getId(), "old-token", noon);
+
+        assertThat(pushNotificationRepository.findById(job.getId()).orElseThrow().getLeaseToken()).isEqualTo("new-token");
+    }
+
+    @Test
+    void rejectsEveryResultAtTheExactLeaseDeadline() {
+        PushNotification job = job(960001L, SEND_AT);
+        LocalDateTime noon = SEND_AT.withHour(12);
+        job.lease("token", noon);
+        flushAndClear();
+
+        assertRejectedResults(job.getId(), "token", noon);
+    }
+
+    private void assertRejectedResults(Long id, String token, LocalDateTime now) {
+        assertThat(pushNotificationRepository.acceptLeasedPushJob(id, token, now)).isZero();
+        assertThat(pushNotificationRepository.failLeasedPushJob(id, token, "RETRY", 1, now.plusMinutes(5), now)).isZero();
+        assertThat(pushNotificationRepository.cancelLeasedPushJob(id, token, "SUBSCRIPTION_UNAVAILABLE", now)).isZero();
+        assertThat(pushNotificationRepository.expireLeasedPushJob(id, token, now)).isZero();
+        PushNotification unchanged = pushNotificationRepository.findById(id).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(PushNotificationStatus.PROCESSING);
+        assertThat(unchanged.getAttemptCount()).isZero();
+    }
+
+    @Test
+    void acceptsOnlyOnceAndClearsTheLease() {
+        PushNotification job = job(960001L, SEND_AT);
+        job.lease("token", SEND_AT.plusSeconds(30));
+        flushAndClear();
+
+        assertThat(pushNotificationRepository.findLeasedPushJob(job.getId(), "wrong", SEND_AT)).isEmpty();
+        assertThat(pushNotificationRepository.findLeasedPushJob(job.getId(), "token", SEND_AT)).isPresent();
+        assertThat(pushNotificationRepository.acceptLeasedPushJob(job.getId(), "token", SEND_AT)).isEqualTo(1);
+        assertThat(pushNotificationRepository.acceptLeasedPushJob(job.getId(), "token", SEND_AT)).isZero();
+        entityManager.clear();
+        PushNotification accepted = pushNotificationRepository.findById(job.getId()).orElseThrow();
+        assertThat(accepted.getAttemptCount()).isEqualTo(1);
+        assertThat(accepted.getStatus()).isEqualTo(PushNotificationStatus.ACCEPTED);
+        assertThat(accepted.getLeaseToken()).isNull();
+        assertThat(accepted.getLeaseUntil()).isNull();
+    }
+
+    @Test
+    void recordsRetryCancellationAndExpirationForTheCurrentLease() {
+        PushNotification retry = job(960001L, SEND_AT);
+        PushNotification cancel = job(960002L, SEND_AT);
+        PushNotification expire = job(960003L, SEND_AT);
+        for (PushNotification job : List.of(retry, cancel, expire)) job.lease("token", SEND_AT.withHour(12).plusMinutes(1));
+        flushAndClear();
+        retry.fail(SEND_AT);
+
+        assertThat(pushNotificationRepository.failLeasedPushJob(retry.getId(), "token", retry.getStatus().name(),
+                retry.getAttemptCount(), retry.getNextAttemptAt(), SEND_AT)).isEqualTo(1);
+        assertThat(pushNotificationRepository.cancelLeasedPushJob(cancel.getId(), "token", "SUBSCRIPTION_UNAVAILABLE", SEND_AT)).isEqualTo(1);
+        assertThat(pushNotificationRepository.expireLeasedPushJob(expire.getId(), "token", SEND_AT)).isZero();
+        assertThat(pushNotificationRepository.expireLeasedPushJob(expire.getId(), "token", SEND_AT.withHour(12))).isEqualTo(1);
+        assertThat(pushNotificationRepository.findById(retry.getId()).orElseThrow().getNextAttemptAt()).isEqualTo(SEND_AT.plusMinutes(5));
+        assertThat(pushNotificationRepository.findById(cancel.getId()).orElseThrow().getStatus()).isEqualTo(PushNotificationStatus.CANCELLED);
+        assertThat(pushNotificationRepository.findById(expire.getId()).orElseThrow().getStatus()).isEqualTo(PushNotificationStatus.FAILED);
+    }
+
     private void assertLease(List<Long> ids, String token, LocalDateTime endAt) {
         assertThat(pushNotificationRepository.findAllById(ids)).allSatisfy(leased -> {
             assertThat(leased.getStatus()).isEqualTo(PushNotificationStatus.PROCESSING);

@@ -4,8 +4,8 @@ import com.dameokja.backend.push.domain.PushNotification;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -33,7 +33,6 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
             """)
     List<PushInboxTarget> findInboxPushTargets(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
-    // 전송은 트랜잭션 밖에서 하므로 구독 버전 확인에 쓸 구독을 함께 읽는다.
     @Query("""
             select job
             from PushNotification job
@@ -64,6 +63,94 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
             """, nativeQuery = true)
     int leasePushJobs(@Param("ids") List<Long> ids, @Param("leaseToken") String leaseToken,
             @Param("startAt") LocalDateTime startAt, @Param("endAt") LocalDateTime endAt);
+
+    @Query("""
+            select job
+            from PushNotification job
+                join fetch job.userDevice device
+                join fetch device.user
+                join fetch job.user
+                join fetch job.refrigerator
+            where job.id = :jobId
+                and job.status = PROCESSING
+                and job.leaseToken = :leaseToken
+                and job.leaseUntil > :now
+            """)
+    Optional<PushNotification> findLeasedPushJob(@Param("jobId") Long jobId,
+                                                 @Param("leaseToken") String leaseToken,
+                                                 @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE push_notifications
+            SET status = 'FAILED',
+                last_error_code = 'SEND_WINDOW_EXPIRED',
+                next_attempt_at = NULL,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE push_notification_id = :jobId
+                AND status = 'PROCESSING'
+                AND lease_token = :leaseToken
+                AND lease_until > :now
+                AND expires_at <= :now
+            """, nativeQuery = true)
+    int expireLeasedPushJob(@Param("jobId") Long jobId, @Param("leaseToken") String leaseToken,
+            @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE push_notifications
+            SET status = 'CANCELLED',
+                last_error_code = :reason,
+                next_attempt_at = NULL,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE push_notification_id = :jobId
+                AND status = 'PROCESSING'
+                AND lease_token = :leaseToken
+                AND lease_until > :now
+            """, nativeQuery = true)
+    int cancelLeasedPushJob(@Param("jobId") Long jobId, @Param("leaseToken") String leaseToken,
+            @Param("reason") String reason, @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE push_notifications
+            SET status = 'ACCEPTED',
+                attempt_count = attempt_count + 1,
+                accepted_at = :now,
+                next_attempt_at = NULL,
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE push_notification_id = :jobId
+                AND status = 'PROCESSING'
+                AND lease_token = :leaseToken
+                AND lease_until > :now
+            """, nativeQuery = true)
+    int acceptLeasedPushJob(@Param("jobId") Long jobId, @Param("leaseToken") String leaseToken,
+            @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE push_notifications
+            SET status = :status,
+                attempt_count = :attemptCount,
+                next_attempt_at = :nextAttemptAt,
+                last_error_code = 'SEND_FAILED',
+                lease_token = NULL,
+                lease_until = NULL,
+                updated_at = :now
+            WHERE push_notification_id = :jobId
+                AND status = 'PROCESSING'
+                AND lease_token = :leaseToken
+                AND lease_until > :now
+            """, nativeQuery = true)
+    int failLeasedPushJob(@Param("jobId") Long jobId, @Param("leaseToken") String leaseToken,
+            @Param("status") String status, @Param("attemptCount") int attemptCount,
+            @Param("nextAttemptAt") LocalDateTime nextAttemptAt, @Param("now") LocalDateTime now);
 
     @Query("select min(job.nextAttemptAt) from PushNotification job where job.status in (PENDING, RETRY)")
     Optional<LocalDateTime> findNextAttemptAt();

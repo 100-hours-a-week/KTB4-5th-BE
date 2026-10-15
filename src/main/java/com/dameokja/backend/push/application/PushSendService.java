@@ -2,6 +2,7 @@ package com.dameokja.backend.push.application;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.PushAuthEncryptor;
+import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.exception.PushExceptionCode;
@@ -29,6 +30,14 @@ public class PushSendService {
         return send(getDevice(userDeviceId), payloadJson, ttl);
     }
 
+    public PushSendResult send(PushNotification job, Duration ttl) {
+        // 워커 조회 이후 변경된 구독으로 옛 작업의 payload를 보내지 않도록 다시 읽는다.
+        return userDeviceRepository.findMatchingSubscription(job.getUserDevice().getId(),
+                        job.getSubscriptionVersion(), job.getUser().getId())
+                .map(device -> send(job, device, ttl))
+                .orElse(PushSendResult.UNAVAILABLE);
+    }
+
     // 로컬 수동 검증용 PushTestController(push.test-api.enabled=true)에서만 호출하기 위해 추가했다.
     // 사용자가 요청하는 발송이므로 사용자 활성 여부와 구독 소유자를 검증한다.
     public PushSendResult sendToOwnDevice(Long userId, Long userDeviceId, String payloadJson, Duration ttl) {
@@ -52,6 +61,14 @@ public class PushSendService {
         WebPushResult result = webPushSender.send(toTarget(device), payloadJson, ttl);
         if (result == WebPushResult.EXPIRED) {
             pushSubscriptionService.invalidate(device.getId());
+        }
+        return toSendResult(result);
+    }
+
+    private PushSendResult send(PushNotification job, UserDevice device, Duration ttl) {
+        WebPushResult result = webPushSender.send(toTarget(device), job.getPayload(), ttl);
+        if (result == WebPushResult.EXPIRED) {
+            pushSubscriptionService.invalidate(device.getId(), job.getSubscriptionVersion());
         }
         return toSendResult(result);
     }
