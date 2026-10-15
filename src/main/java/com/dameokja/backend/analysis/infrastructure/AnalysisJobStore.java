@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -28,25 +29,25 @@ public class AnalysisJobStore {
     private static final int MAX_ATTEMPTS = 3;
     private static final RedisScript<Long> REPLACE = RedisScript.of(new ClassPathResource("redis/analysis/replace-analysis-job.lua"), Long.class);
     private final Clock clock;
-    private final Duration duration;
+    private final Duration resultTtl;
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
 
-    public AnalysisJobStore(Clock clock, @Value("${analysis.job-ttl}") Duration duration,
+    public AnalysisJobStore(Clock clock, @Value("${analysis.result-ttl:7d}") Duration resultTtl,
             StringRedisTemplate redis, ObjectMapper mapper) {
-        if (duration == null || duration.isZero() || duration.isNegative()) {
-            throw new IllegalArgumentException("분석 작업 TTL은 양수여야 합니다.");
+        if (resultTtl == null || resultTtl.toMillis() < 1) {
+            throw new IllegalArgumentException("분석 결과 보관 TTL은 1밀리초 이상이어야 합니다.");
         }
         this.clock = clock;
-        this.duration = duration;
+        this.resultTtl = resultTtl;
         this.redis = redis;
         this.mapper = mapper;
     }
 
     public AnalysisJob create(Long userId, String inputHint, List<AnalysisImage> analysisImages) {
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
-        AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, submittedAt.plus(duration), false);
-        redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job), Duration.ofMillis(Math.max(1, duration.toMillis())));
+        AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, null, false);
+        redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job));
         return job;
     }
 
@@ -59,8 +60,7 @@ public class AnalysisJobStore {
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             String previous = redis.opsForValue().get(key);
             AnalysisJob updated = requireOwned(previous, userId).register(requestId, analysisId);
-            // 다른 인스턴스의 등록 결과를 덮어쓰지 않고 최초 TTL을 유지한다.
-            Long replaced = redis.execute(REPLACE, List.of(key, AI_PREFIX + analysisId), previous, mapper.writeValueAsString(updated), analysisJobId);
+            Long replaced = replace(key, previous, updated);
             if (Long.valueOf(-1).equals(replaced)) {
                 throw new IllegalStateException("다른 작업에 접수된 AI 작업 ID입니다.");
             }
@@ -81,11 +81,12 @@ public class AnalysisJobStore {
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             String previous = redis.opsForValue().get(key);
             AnalysisJob job = requireActive(previous);
-            AnalysisJob updated = job.complete(analysisId, completion);
+            OffsetDateTime expiresAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime().plus(resultTtl);
+            AnalysisJob updated = job.complete(analysisId, completion, expiresAt);
             if (updated.equals(job)) {
                 return job;
             }
-            if (Long.valueOf(1).equals(redis.execute(REPLACE, List.of(key), previous, mapper.writeValueAsString(updated)))) {
+            if (Long.valueOf(1).equals(replace(key, previous, updated))) {
                 return updated;
             }
         }
@@ -100,10 +101,17 @@ public class AnalysisJobStore {
         return job;
     }
 
+    private Long replace(String key, String previous, AnalysisJob updated) {
+        List<String> keys = Stream.concat(Stream.of(key), updated.analysisImages().stream()
+                .filter(image -> image.aiAnalysisId() != null).map(image -> AI_PREFIX + image.aiAnalysisId())).toList();
+        String deadline = updated.expiresAt() == null ? "" : Long.toString(updated.expiresAt().toInstant().toEpochMilli());
+        return redis.execute(REPLACE, keys, previous, mapper.writeValueAsString(updated), updated.id(), deadline);
+    }
+
     private AnalysisJob requireActive(String stored) {
         AnalysisJob job = stored == null ? null : mapper.readerFor(AnalysisJob.class)
                 .without(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE).readValue(stored);
-        if (job == null || !clock.instant().isBefore(job.expiresAt().toInstant())) {
+        if (job == null || (job.expiresAt() != null && !clock.instant().isBefore(job.expiresAt().toInstant()))) {
             throw new CustomException(AnalysisExceptionCode.NOT_FOUND);
         }
         return job;

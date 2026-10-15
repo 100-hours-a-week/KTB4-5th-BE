@@ -16,8 +16,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -114,7 +116,7 @@ class AnalysisJobQueryWebTest {
                 .andExpect(jsonPath("$.code").value("IMAGE-200-002"))
                 .andExpect(jsonPath("$.data.analysisId").value(analysisJob.id())).andExpect(jsonPath("$.data.status").value(groupStatus))
                 .andExpect(jsonPath("$.data.submittedAt").value("2026-10-08T10:00:00+09:00"))
-                .andExpect(jsonPath("$.data.expiresAt").value("2026-10-08T11:00:00+09:00"))
+                .andExpect(jsonPath("$.data.expiresAt").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.results[0].imageObjectKey").value("first"))
                 .andExpect(jsonPath("$.data.results[1].imageObjectKey").value("second"))
                 .andExpect(jsonPath("$..imageQuality").isEmpty()).andExpect(jsonPath("$..confidence").isEmpty())
@@ -136,6 +138,10 @@ class AnalysisJobQueryWebTest {
     @CsvSource({"LOGIN,401,GLOBAL-401-001", "OWNER,403,GLOBAL-403-001", "MISSING,404,IMAGE-404-001", "EXPIRED,404,IMAGE-404-001"})
     void rejectsUnavailableJobsBeforeCallingAi(String scenario, int status, String code) throws Exception {
         if (scenario.equals("EXPIRED")) {
+            AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                    new AnalysisCompletion.Result("RECEIPT", List.of()), null);
+            analysisJobStore.complete("ai-first", completion);
+            analysisJobStore.complete("ai-second", completion);
             when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));
         }
         String analysisId = analysisJob.id();

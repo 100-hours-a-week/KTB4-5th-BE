@@ -105,7 +105,7 @@ class AnalysisJobSubmitWebTest {
                 .andExpect(jsonPath("$.message").value("이미지 인식 시작"))
                 .andExpect(jsonPath("$.data.status").value("QUEUED"))
                 .andExpect(jsonPath("$.data.submittedAt").value("2026-10-08T10:00:00+09:00"))
-                .andExpect(jsonPath("$.data.expiresAt").value("2026-10-08T11:00:00+09:00"))
+                .andExpect(jsonPath("$.data.expiresAt").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.pollAfterMs").value(1000)).andReturn().getResponse().getContentAsString();
         JsonNode jsonNode = objectMapper.readTree(response).path("data");
         assertThat(jsonNode.size()).isEqualTo(5);

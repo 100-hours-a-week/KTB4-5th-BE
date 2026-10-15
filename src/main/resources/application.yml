@@ -124,6 +124,7 @@ ai:
 
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
+  result-ttl: ${ANALYSIS_RESULT_TTL:7d}
 
 management:
   health:

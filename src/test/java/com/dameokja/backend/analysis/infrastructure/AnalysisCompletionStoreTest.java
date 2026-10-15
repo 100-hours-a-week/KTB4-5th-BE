@@ -33,14 +33,14 @@ import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(RedisTestSupport.class)
 class AnalysisCompletionStoreTest {
-    private static final Instant NOW = Instant.parse("2026-10-13T01:00:00Z");
+    private static final Instant NOW = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     private static final Duration TTL = Duration.ofHours(1);
     private final AnalysisJobStore store = newStore(NOW);
 
     @Test
-    void persistsAResultForAnotherInstanceAndRetainsTheOriginalDeadline() {
+    void persistsAResultForAnotherInstanceAndStartsItsRetentionDeadline() {
         AnalysisJob job = registeredJob("ai-first");
-        Long before = redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS);
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isEqualTo(-1L);
         AnalysisCompletion result = completed();
         store.complete("ai-first", result);
         String stored = redisTemplate().opsForValue().get("analysis:job:" + job.id());
@@ -50,9 +50,9 @@ class AnalysisCompletionStoreTest {
         assertThat(restored.userId()).isEqualTo(7L);
         assertThat(restored.analysisImages().getFirst().completion()).isEqualTo(result);
         assertThat(restored.notificationPending()).isTrue();
-        assertThat(restored.expiresAt()).isEqualTo(job.expiresAt());
-        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, before);
-        assertThat(redisTemplate().getExpire("analysis:ai:ai-first", TimeUnit.MILLISECONDS)).isBetween(1L, before);
+        assertThat(restored.expiresAt().toInstant()).isEqualTo(NOW.plus(TTL));
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
+        assertThat(redisTemplate().getExpire("analysis:ai:ai-first", TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
     }
 
     @Test
@@ -107,7 +107,7 @@ class AnalysisCompletionStoreTest {
         assertThat(store.complete("ai-first", failed()).notificationPending()).isFalse();
         AnalysisJob completedJob = store.complete("ai-second", failed());
         assertThat(completedJob.notificationPending()).isTrue();
-        AnalysisJob handled = new AnalysisJob(job.id(), job.userId(), job.inputHint(), completedJob.analysisImages(), job.submittedAt(), job.expiresAt(), false);
+        AnalysisJob handled = new AnalysisJob(job.id(), job.userId(), job.inputHint(), completedJob.analysisImages(), job.submittedAt(), completedJob.expiresAt(), false);
         redisTemplate().opsForValue().set("analysis:job:" + job.id(), JsonMapper.builder().build().writeValueAsString(handled), TTL);
         assertThat(store.complete("ai-second", failed()).notificationPending()).isFalse();
     }
@@ -142,8 +142,9 @@ class AnalysisCompletionStoreTest {
     void refusesUnregisteredAndExpiredResultsWithoutRestoringExpiredJobs() {
         assertThatThrownBy(() -> store.complete("unknown", completed())).isInstanceOf(CustomException.class);
         AnalysisJob job = registeredJob("ai-first");
+        store.complete("ai-first", completed());
         assertThatThrownBy(() -> newStore(NOW.plus(TTL)).complete("ai-first", completed())).isInstanceOf(CustomException.class);
-        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isNull();
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(completed());
         redisTemplate().delete("analysis:job:" + job.id());
         assertThatThrownBy(() -> store.complete("ai-first", completed())).isInstanceOf(CustomException.class);
         assertThat(redisTemplate().hasKey("analysis:job:" + job.id())).isFalse();
