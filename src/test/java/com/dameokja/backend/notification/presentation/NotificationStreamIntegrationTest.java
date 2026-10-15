@@ -115,11 +115,11 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
 
     @Test
     void cookieAuthenticationAndActiveFridgeAuthorizationAreRequired() throws Exception {
-        assertThat(json(STREAM, 0).statusCode()).isEqualTo(401);
-        assertThat(json(STREAM.replace("950001", "950002"), 950001).statusCode()).isEqualTo(403);
-        assertThat(json(STREAM.replace("950001", "999999"), 950001).statusCode()).isEqualTo(404);
+        expectStreamError(STREAM, 0, 401, "GLOBAL-401-001");
+        expectStreamError(STREAM.replace("950001", "950002"), 950001, 403, "REFRIGERATOR-403-001");
+        expectStreamError(STREAM.replace("950001", "999999"), 950001, 404, "REFRIGERATOR-404-001");
         jdbc.update("UPDATE refrigerators SET deleted_at=NOW() WHERE refrigerator_id=950001");
-        assertThat(json(STREAM, 950001).statusCode()).isEqualTo(410);
+        expectStreamError(STREAM, 950001, 410, "REFRIGERATOR-410-001");
     }
 
     @Test
@@ -171,6 +171,14 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
 
     private HttpResponse<String> json(String path, long userId) throws Exception {
         return client.send(request(path, userId).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private void expectStreamError(String path, long userId, int status, String code) throws Exception {
+        HttpRequest streamRequest = request(path, userId).header("Accept", "text/event-stream").build();
+        HttpResponse<String> response = client.send(streamRequest, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(status);
+        assertThat(response.headers().firstValue("Content-Type").orElseThrow()).contains("application/json");
+        assertThat(response.body()).contains("\"code\":\"" + code + "\"");
     }
 
     private HttpRequest.Builder request(String path, long userId) { return requestAt(port, path, userId); }
