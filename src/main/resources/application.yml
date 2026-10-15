@@ -89,6 +89,9 @@ push:
   expiration-batch:
     enabled: ${PUSH_EXPIRATION_BATCH_ENABLED:true}
   dispatch:
+    enabled: ${PUSH_DISPATCH_ENABLED:false}
+    poll-interval: ${PUSH_DISPATCH_POLL_INTERVAL:1s}
+    lease-duration: ${PUSH_DISPATCH_LEASE_DURATION:30s}
     concurrency: ${PUSH_DISPATCH_CONCURRENCY:20}
   test-api:
     # 로컬 수동 검증용 발송 API(PushTestController). 배포 환경은 기본값 false를 유지하고, 로컬에서만 .env로 켠다.
