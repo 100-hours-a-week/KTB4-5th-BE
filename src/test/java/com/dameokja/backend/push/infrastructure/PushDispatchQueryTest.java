@@ -2,6 +2,7 @@ package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.push.domain.PushNotification;
+import com.dameokja.backend.push.domain.PushNotificationStatus;
 import com.dameokja.backend.push.domain.UserDevice;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.LocalDateTime;
@@ -74,6 +75,74 @@ class PushDispatchQueryTest extends MySqlJpaTest {
 
         jdbc.update("DELETE FROM refrigerator_members WHERE user_id=960001");
         assertThat(canReceive()).isFalse();
+    }
+
+    @Test
+    void findsDueJobsAndExpiredLeasesButExcludesFutureJobsAndActiveLeases() {
+        PushNotification pending = job(960001L, SEND_AT);
+        PushNotification expiredLease = job(960002L, SEND_AT);
+        expiredLease.lease("expired-lease", SEND_AT.minusSeconds(1));
+        job(960003L, SEND_AT).lease("active-lease", SEND_AT.plusMinutes(1));
+        job(960004L, SEND_AT.plusMinutes(1));
+        flushAndClear();
+
+        assertThat(pushNotificationRepository.findLeaseableJobIdsWithSkipLock(SEND_AT, 20))
+                .containsExactlyInAnyOrder(pending.getId(), expiredLease.getId());
+        assertThat(pushNotificationRepository.findLeaseableJobIdsWithSkipLock(SEND_AT, 1)).hasSize(1);
+    }
+
+    @Test
+    void includesDueRetriesButExcludesAcceptedJobs() {
+        PushNotification retry = job(960001L, SEND_AT.minusMinutes(10));
+        retry.fail(SEND_AT.minusMinutes(10));
+        job(960002L, SEND_AT).accept(SEND_AT);
+        flushAndClear();
+
+        assertThat(pushNotificationRepository.findLeaseableJobIdsWithSkipLock(SEND_AT, 20))
+                .containsExactly(retry.getId());
+    }
+
+    @Test
+    void leasesOnlySelectedJobsAndPreservesAttemptCounts() {
+        PushNotification pending = job(960001L, SEND_AT);
+        PushNotification retry = job(960002L, SEND_AT.minusMinutes(10));
+        retry.fail(SEND_AT.minusMinutes(10));
+        PushNotification expiredLease = job(960003L, SEND_AT);
+        expiredLease.lease("previous-lease", SEND_AT.minusSeconds(1));
+        PushNotification future = job(960004L, SEND_AT.plusMinutes(1));
+        flushAndClear();
+        List<Long> ids = pushNotificationRepository.findLeaseableJobIdsWithSkipLock(SEND_AT, 3);
+        LocalDateTime endAt = SEND_AT.plusMinutes(1);
+
+        int updated = pushNotificationRepository.leasePushJobs(ids, "new-lease", SEND_AT, endAt);
+        entityManager.clear();
+
+        assertThat(updated).isEqualTo(3);
+        assertThat(ids).containsExactlyInAnyOrder(pending.getId(), retry.getId(), expiredLease.getId());
+        assertLease(ids, "new-lease", endAt);
+        assertThat(pushNotificationRepository.findById(pending.getId()).orElseThrow().getAttemptCount()).isZero();
+        assertThat(pushNotificationRepository.findById(retry.getId()).orElseThrow().getAttemptCount()).isEqualTo(1);
+        PushNotification untouched = pushNotificationRepository.findById(future.getId()).orElseThrow();
+        assertThat(untouched.getStatus()).isEqualTo(PushNotificationStatus.PENDING);
+        assertThat(untouched.getLeaseToken()).isNull();
+        assertThat(untouched.getLeaseUntil()).isNull();
+    }
+
+    @Test
+    void reportsZeroUpdatesForMissingJobs() {
+        int updated = pushNotificationRepository.leasePushJobs(
+                List.of(Long.MAX_VALUE), "new-lease", SEND_AT, SEND_AT.plusMinutes(1));
+
+        assertThat(updated).isZero();
+    }
+
+    private void assertLease(List<Long> ids, String token, LocalDateTime endAt) {
+        assertThat(pushNotificationRepository.findAllById(ids)).allSatisfy(leased -> {
+            assertThat(leased.getStatus()).isEqualTo(PushNotificationStatus.PROCESSING);
+            assertThat(leased.getLeaseToken()).isEqualTo(token);
+            assertThat(leased.getLeaseUntil()).isEqualTo(endAt);
+            assertThat(leased.getUpdatedAt()).isEqualTo(SEND_AT);
+        });
     }
 
     private boolean canReceive() {
