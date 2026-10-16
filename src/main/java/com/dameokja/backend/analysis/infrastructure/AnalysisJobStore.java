@@ -3,6 +3,7 @@ package com.dameokja.backend.analysis.infrastructure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
@@ -112,6 +113,17 @@ public class AnalysisJobStore {
             }
         }
         throw new ConcurrencyFailureException("분석 결과 저장이 동시 변경과 충돌했습니다.");
+    }
+
+    public AnalysisJob selectNotificationChannel(String id, AnalysisNotificationChannel channel) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            AnalysisJob selected = job.selectNotificationChannel(channel);
+            if (selected == job || Long.valueOf(1).equals(replace(key, previous, selected))) { return selected; }
+        }
+        throw new ConcurrencyFailureException("분석 완료 알림 경로 선택이 동시 변경과 충돌했습니다.");
     }
 
     public void acknowledgeNotification(String id) {
