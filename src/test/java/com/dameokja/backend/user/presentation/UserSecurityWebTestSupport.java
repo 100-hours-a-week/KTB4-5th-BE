@@ -10,6 +10,8 @@ import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.user.application.NicknameValidationService;
 import com.dameokja.backend.user.application.UserSignupService;
+import com.dameokja.backend.user.application.UserProfileService;
+import com.dameokja.backend.image.application.ProfileImageService;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,11 +48,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 abstract class UserSecurityWebTestSupport {
     @Autowired WebApplicationContext context;
     @Autowired UserSignupService userSignupService;
+    @Autowired NicknameValidationService nicknameValidationService;
+    @Autowired UserProfileService userProfileService;
+    @Autowired ProfileImageService profileImageService;
     MockMvc mockMvc;
 
     @BeforeEach
     void setup() {
-        reset(userSignupService);
+        reset(userSignupService, nicknameValidationService, userProfileService, profileImageService);
         mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 
@@ -75,5 +80,9 @@ abstract class UserSecurityWebTestSupport {
         UserSignupService userSignupService() { return mock(UserSignupService.class); }
         @Bean
         NicknameValidationService nicknameValidationService() { return mock(NicknameValidationService.class); }
+        @Bean
+        UserProfileService userProfileService() { return mock(UserProfileService.class); }
+        @Bean
+        ProfileImageService profileImageService() { return mock(ProfileImageService.class); }
     }
 }

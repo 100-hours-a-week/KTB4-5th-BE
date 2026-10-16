@@ -166,6 +166,21 @@ SSE emitter는 각 서버 메모리에 유지하고, 사용자별 `fridgely:noti
 
 ## 카카오 로그인 설정
 
+프로필 사진 복사를 사용하려면 카카오 앱의 동의항목에서 `profile_image`를 활성화한다.
+현재 코드의 scope는 `account_email,profile_image`이며 사용자 정보 조회에 `secure_resource=true`를 전달한다.
+사진 URL은 가입 대기 정보와 함께 최대 10분 보관한다.
+회원가입 시 사진을 S3로 복사해 키를 DB에 저장하며, 사진 미제공·다운로드·S3 저장 실패 시에는 기존 기본 이미지로 가입을 계속한다.
+가입이 롤백되면 이번에 업로드한 사진을 삭제한다. 삭제 실패는 경고 로그를 남기며 가입 결과를 덮어쓰지 않는다.
+`GET /api/v1/users/me`는 저장된 키로 S3 임시 GET URL을 발급해 `profileImageUrl`에 반환한다.
+URL 만료 시 회원정보 API를 다시 호출해야 한다. 기존 회원의 사진을 일괄 가져오거나 로그인마다 갱신하지 않는다.
+
+사진 다운로드의 전체 제한 시간은 `image.profile.download-timeout`(기본 `5s`),
+S3 전체 호출·개별 시도 제한은 `image.profile.storage-timeout`(기본 `10s`)과
+`image.profile.storage-attempt-timeout`(기본 `5s`)으로 설정한다.
+용량·타입·버킷·리전·GET URL 유효기간은 기존 `image.storage` 설정을 재사용한다.
+배포 역할에 대상 프로필 경로의 `s3:PutObject`, `s3:GetObject`, 정리용 `s3:DeleteObject` 권한이 필요하다.
+기본 프로필 키가 가리키는 객체도 같은 버킷에 준비해야 한다. 실제 권한·객체 존재는 아직 검증하지 않았다.
+
 | 환경변수 | 내용 |
 |---|---|
 | `KAKAO_REST_API_KEY` | 카카오 앱의 REST API 키 |
