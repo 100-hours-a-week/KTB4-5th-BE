@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -56,7 +57,7 @@ class AnalysisCompletionDeliveryTest {
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
     @Test
-    void publishesOnlyOnceForConnectedUsersAfterAllImagesEndIncludingFailures() {
+    void publishesImageThenFinalEventWhenTheLastImageCompletesWithMixedResults() {
         AnalysisJob job = registeredJob(2);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         AnalysisCompletion success = new AnalysisCompletion(AnalysisStatus.COMPLETED, failure.completedAt(),
@@ -65,17 +66,30 @@ class AnalysisCompletionDeliveryTest {
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 0);
         verifyNoInteractions(notificationStreamService, pushes);
         callbacks.receive("ai-1", failure);
-        callbacks.receive("ai-0", success);
         AnalysisJob stored = store.findOwned(job.id(), 7L);
         InOrder order = inOrder(analysisFinishedEventService);
         order.verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 0);
         order.verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 2, 1, 1);
         order.verify(analysisFinishedEventService).publish(7L, job.id(), AnalysisStatus.PARTIALLY_COMPLETED, 2, 1, 1, stored.expiresAt());
-        order.verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 1);
         order.verifyNoMoreInteractions();
         verifyNoInteractions(pushes);
         assertThat(stored.notificationPending()).isFalse();
         assertThat(stored.notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
+    }
+
+    @Test
+    void duplicateCallbackAfterCompletionRepeatsOnlyTheImageEvent() {
+        AnalysisJob job = registeredJob(2);
+        when(notificationStreamService.isConnected(7L)).thenReturn(true);
+        AnalysisCompletion success = new AnalysisCompletion(AnalysisStatus.COMPLETED, failure.completedAt(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of()), null);
+        callbacks.receive("ai-0", success);
+        callbacks.receive("ai-1", failure);
+        clearInvocations(analysisFinishedEventService, notificationStreamService, pushes);
+        callbacks.receive("ai-0", success);
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 1);
+        verifyNoMoreInteractions(analysisFinishedEventService);
+        verifyNoInteractions(notificationStreamService, pushes);
     }
 
     @Test
