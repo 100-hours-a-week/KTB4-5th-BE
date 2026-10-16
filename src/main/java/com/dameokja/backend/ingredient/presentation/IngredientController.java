@@ -2,7 +2,9 @@ package com.dameokja.backend.ingredient.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireResult;
@@ -23,6 +25,7 @@ import com.dameokja.backend.ingredient.presentation.response.IngredientExpireRes
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -132,10 +135,10 @@ public class IngredientController implements IngredientApi {
     public ResponseEntity<SuccessResponse<IngredientCreateResponse>> create(
             @CurrentUserId Long userId, @PathVariable Long refrigeratorId,
             @Valid @RequestBody IngredientCreateRequest request) {
-        var commands = request.toCommands();
-        var result = ingredientCreateService.create(userId, refrigeratorId, commands);
-        var response = IngredientCreateResponse.from(result);
-        var body = SuccessResponse.of(CREATED_CODE, CREATED_MESSAGE, response);
+        List<IngredientCreateCommand> commands = request.toCommands();
+        IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, commands);
+        IngredientCreateResponse response = IngredientCreateResponse.from(result);
+        SuccessResponse<IngredientCreateResponse> body = SuccessResponse.of(CREATED_CODE, CREATED_MESSAGE, response);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 }
