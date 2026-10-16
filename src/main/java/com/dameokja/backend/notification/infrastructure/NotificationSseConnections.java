@@ -1,5 +1,7 @@
 package com.dameokja.backend.notification.infrastructure;
 
+import com.dameokja.backend.notification.domain.AnalysisFinished;
+import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
@@ -57,6 +59,25 @@ public class NotificationSseConnections {
         }
         group.notifyChanged(new NotificationChanged(userId, refrigeratorId));
         removeEmptyGroup(userId);
+    }
+
+    /** 냉장고와 관계없이 작업 소유자의 모든 로컬 연결에 분석 종료를 전달한다. */
+    public void notifyAnalysisFinished(AnalysisFinished finished) {
+        UserSseConnections group = connections.get(finished.userId());
+        if (group == null) {
+            return;
+        }
+        group.notifyAnalysisFinished(finished);
+        removeEmptyGroup(finished.userId());
+    }
+
+    public void notifyAnalysisImageFinished(AnalysisImageFinished imageFinished) {
+        UserSseConnections group = connections.get(imageFinished.userId());
+        if (group == null) {
+            return;
+        }
+        group.notifyAnalysisImageFinished(imageFinished);
+        removeEmptyGroup(imageFinished.userId());
     }
 
     @Scheduled(fixedDelay = 25_000L)

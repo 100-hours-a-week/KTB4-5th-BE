@@ -1,5 +1,7 @@
 package com.dameokja.backend.notification.infrastructure;
 
+import com.dameokja.backend.notification.domain.AnalysisFinished;
+import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import java.io.IOException;
 import java.util.Map;
@@ -60,6 +62,20 @@ final class NotificationSseConnection {
                 .name("notifications-changed")
                 .data(Map.of("refrigeratorId", changed.refrigeratorId().toString()));
         emitter.send(event);
+    }
+
+    public void sendAnalysisImageFinished(AnalysisImageFinished imageFinished) throws IOException {
+        if (!userId.equals(imageFinished.userId())) {
+            return;
+        }
+        emitter.send(SseEmitter.event().name("image-analysis.image-finished").data(imageFinished.payload()));
+    }
+
+    public void sendAnalysisFinished(AnalysisFinished finished) throws IOException {
+        if (!userId.equals(finished.userId())) {
+            return;
+        }
+        emitter.send(SseEmitter.event().name("image-analysis.finished").data(finished.payload()));
     }
 
     /**
