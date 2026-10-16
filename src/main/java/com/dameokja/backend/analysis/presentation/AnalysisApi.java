@@ -71,4 +71,20 @@ public interface AnalysisApi {
     })
     ResponseEntity<SuccessResponse<AnalysisJobResponse>> get(@Parameter(hidden = true) Long userId,
             @Parameter(description = "백엔드가 발급한 이미지 묶음 작업 ID", required = true) String analysisId);
+
+    @Operation(summary = "이미지 분석 작업·결과 삭제", description = "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. "
+            + "재고 등록 여부와 관계없이 모든 이미지가 종료된 작업(COMPLETED, PARTIALLY_COMPLETED, FAILED)을 삭제합니다. "
+            + "대기·처리 중 이미지가 하나라도 있으면 삭제하지 않습니다. 묶음 전체의 BE 작업·저장 결과와 조회용 색인을 지우며 "
+            + "AI 작업 취소, AI 피드백 전송, 원본 이미지 삭제는 하지 않고 이미 등록된 재고에는 영향을 주지 않습니다. "
+            + "삭제 후 같은 작업 ID로 조회·재고 등록·삭제를 요청하면 404입니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공, 응답 Body 없음"),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
+            @ApiResponse(responseCode = "403", description = "다른 사용자의 작업 (GLOBAL-403-001), CSRF 검증 실패 (COMMON-403-CSRF-001)"),
+            @ApiResponse(responseCode = "404", description = "작업 없음·만료·이미 삭제됨 (IMAGE-404-001)"),
+            @ApiResponse(responseCode = "409", description = "진행 중인 분석 작업 (IMAGE-409-002)"),
+            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<Void> delete(@Parameter(hidden = true) Long userId,
+            @Parameter(description = "백엔드가 발급한 이미지 묶음 작업 ID", required = true) String analysisId);
 }

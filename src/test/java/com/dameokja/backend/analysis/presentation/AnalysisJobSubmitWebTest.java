@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
@@ -177,6 +178,8 @@ class AnalysisJobSubmitWebTest {
         static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean
         AnalysisJobQueryService analysisJobQueryService() { return mock(AnalysisJobQueryService.class); }
+        @Bean
+        AnalysisJobDeleteService analysisJobDeleteService() { return mock(AnalysisJobDeleteService.class); }
         @Bean
         Clock clock() { return Clock.fixed(Instant.parse("2026-10-08T01:00:00Z"), BusinessTime.ZONE); }
         @Bean
