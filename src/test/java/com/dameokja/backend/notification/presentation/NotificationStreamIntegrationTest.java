@@ -1,9 +1,11 @@
 package com.dameokja.backend.notification.presentation;
 
+import static com.dameokja.backend.analysis.domain.AnalysisStatus.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.BackendApplication;
 import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationService;
 import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
 import com.dameokja.backend.support.MySqlDatabaseTest;
@@ -17,10 +19,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +47,7 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
     @Autowired JwtProvider jwt;
     @Autowired NotificationService notifications;
     @Autowired NotificationSseConnections connections;
+    @Autowired AnalysisFinishedEventService analysisEvents;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private static final String STREAM = "/api/v2/refrigerators/950001/notifications/stream";
 
@@ -70,13 +76,13 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
             notifications.readNotification(950001L, 950001L);
             first.expectChanged();
             second.expectChanged();
-            assertThat(other.events.poll(200, TimeUnit.MILLISECONDS)).isNull();
+            other.expectNoEvent();
             assertThat(jdbc.queryForObject("SELECT read_at FROM notification_recipients WHERE user_id=950002", Object.class)).isNull();
             jdbc.update("UPDATE notification_recipients SET read_at=NULL WHERE user_id=950001");
             notifications.readAllNotifications(950001L, 950001L);
             first.expectChanged();
             second.expectChanged();
-            assertThat(other.events.poll(200, TimeUnit.MILLISECONDS)).isNull();
+            other.expectNoEvent();
         }
         try (Probe reconnected = open(950001)) {
             HttpResponse<String> count = json("/api/v1/refrigerators/950001/notifications/unread-count", 950001);
@@ -100,6 +106,39 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
                 remote.expectChanged();
             }
         }
+    }
+
+    @Test
+    void analysisCompletionReusesExistingStreamsOnBothServersWithoutDatabaseTransaction() throws Exception {
+        try (ConfigurableApplicationContext remoteServer = startSecondServer()) {
+            int remotePort = ((WebServerApplicationContext) remoteServer).getWebServer().getPort();
+            try (Probe local = open(950001); Probe remote = openAt(remotePort, STREAM, 950001); Probe other = open(950002)) {
+                analysisEvents.publishImageFinished(950001L, "analysis-id", "first-key", COMPLETED, 2, 1, 0);
+                for (Probe recipient : new Probe[] {local, remote}) {
+                    expectAnalysisEvent(recipient.nextEvent(), "image-analysis.image-finished",
+                            "{\"analysisId\":\"analysis-id\",\"imageObjectKey\":\"first-key\",\"imageStatus\":\"COMPLETED\","
+                                    + "\"totalImageCount\":2,\"completedImageCount\":1,\"failedImageCount\":0,\"expiresAt\":null}");
+                }
+                analysisEvents.publishImageFinished(950001L, "analysis-id", "last-key", FAILED, 2, 1, 1);
+                analysisEvents.publish(950001L, "analysis-id", PARTIALLY_COMPLETED, 2, 1, 1, OffsetDateTime.parse("2026-10-22T10:00:00Z"));
+                for (Probe recipient : new Probe[] {local, remote}) {
+                    assertThat(List.of(recipient.nextEvent(), recipient.nextEvent())).satisfiesExactlyInAnyOrder(
+                            event -> expectAnalysisEvent(event, "image-analysis.image-finished",
+                                    "{\"analysisId\":\"analysis-id\",\"imageObjectKey\":\"last-key\",\"imageStatus\":\"FAILED\","
+                                            + "\"totalImageCount\":2,\"completedImageCount\":1,\"failedImageCount\":1,\"expiresAt\":null}"),
+                            event -> expectAnalysisEvent(event, "image-analysis.finished", "{\"analysisId\":\"analysis-id\",\"status\":\"PARTIALLY_COMPLETED\","
+                                    + "\"totalImageCount\":2,\"completedImageCount\":1,\"failedImageCount\":1,\"expiresAt\":\"2026-10-22T19:00:00+09:00\"}"));
+                }
+                other.expectNoEvent();
+            }
+        }
+    }
+
+    private void expectAnalysisEvent(String event, String eventName, String expectedJson) {
+        assertThat(event).startsWith("event:" + eventName + "\n");
+        String json = event.lines().filter(line -> line.startsWith("data:")).findFirst().orElseThrow().substring(5);
+        JsonMapper mapper = new JsonMapper();
+        assertThat(mapper.readTree(json)).isEqualTo(mapper.readTree(expectedJson));
     }
 
     private ConfigurableApplicationContext startSecondServer() {
@@ -128,7 +167,7 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
             connections.notifyChanged(950002L, 111L);
             connections.notifyChanged(950001L, 950001L);
             own.expectChanged();
-            assertThat(own.events.poll(200, TimeUnit.MILLISECONDS)).isNull();
+            own.expectNoEvent();
         }
     }
 
@@ -136,10 +175,11 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
     void aSignalForAnotherFridgeIsNotSentToTheHttpConnection() throws Exception {
         try (Probe own = open(950001)) {
             connections.notifyChanged(950001L, 950002L);
-            assertThat(own.events.poll(200, TimeUnit.MILLISECONDS)).isNull();
+            connections.heartbeat();
+            own.expectNoEvent();
 
             connections.notifyChanged(950001L, 950001L);
-
+            connections.heartbeat();
             own.expectChanged();
         }
     }
@@ -165,7 +205,7 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
         assertThat(response.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
         assertThat(response.headers().firstValue("X-Accel-Buffering").orElseThrow()).isEqualTo("no");
         Probe probe = new Probe(response.body());
-        assertThat(probe.next()).contains("event:connected", "retry:3000", "data:{}");
+        assertThat(probe.nextEvent()).contains("event:connected", "retry:3000", "data:{}");
         return probe;
     }
 
@@ -222,8 +262,29 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
             return event;
         }
 
+        String nextEvent() throws InterruptedException {
+            String event = pollEvent(Duration.ofSeconds(5));
+            assertThat(event).as("SSE event within 5 seconds").isNotNull();
+            return event;
+        }
+
+        void expectNoEvent() throws InterruptedException {
+            assertThat(pollEvent(Duration.ofMillis(200))).isNull();
+        }
+
+        private String pollEvent(Duration timeout) throws InterruptedException {
+            long deadline = System.nanoTime() + timeout.toNanos();
+            for (long remaining = timeout.toNanos(); remaining > 0; remaining = deadline - System.nanoTime()) {
+                String event = events.poll(remaining, TimeUnit.NANOSECONDS);
+                if (event == null || !event.lines().allMatch(line -> line.startsWith(":"))) {
+                    return event;
+                }
+            }
+            return null;
+        }
+
         void expectChanged() throws InterruptedException {
-            assertThat(next()).contains("event:notifications-changed", "data:{\"refrigeratorId\":\"950001\"}").doesNotContain("userId");
+            assertThat(nextEvent()).contains("event:notifications-changed", "data:{\"refrigeratorId\":\"950001\"}").doesNotContain("userId");
         }
 
         @Override

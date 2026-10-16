@@ -10,10 +10,13 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 public class NotificationPubSubConfig {
     @Bean
     public RedisMessageListenerContainer notificationListenerContainer(
-            RedisConnectionFactory connectionFactory, NotificationRedisPubSub notificationPubSub) {
+            RedisConnectionFactory connectionFactory, NotificationRedisPubSub notificationPubSub,
+            AnalysisFinishedRedisPubSub analysisPubSub) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(notificationPubSub, new ChannelTopic(NotificationRedisPubSub.CHANNEL));
+        container.addMessageListener(analysisPubSub, new ChannelTopic(AnalysisFinishedRedisPubSub.CHANNEL));
+        container.addMessageListener(analysisPubSub, new ChannelTopic(AnalysisFinishedRedisPubSub.IMAGE_FINISHED_CHANNEL));
         return container;
     }
 }

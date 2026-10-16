@@ -1,5 +1,7 @@
 package com.dameokja.backend.notification.infrastructure;
 
+import com.dameokja.backend.notification.domain.AnalysisFinished;
+import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import java.io.IOException;
 import java.util.Set;
@@ -35,6 +37,26 @@ final class UserSseConnections {
         connections.forEach(connection -> {
             try {
                 connection.sendChanged(changed);
+            } catch (IOException | IllegalStateException exception) {
+                removeFailedConnection(connection, exception);
+            }
+        });
+    }
+
+    public void notifyAnalysisFinished(AnalysisFinished finished) {
+        connections.forEach(connection -> {
+            try {
+                connection.sendAnalysisFinished(finished);
+            } catch (IOException | IllegalStateException exception) {
+                removeFailedConnection(connection, exception);
+            }
+        });
+    }
+
+    public void notifyAnalysisImageFinished(AnalysisImageFinished imageFinished) {
+        connections.forEach(connection -> {
+            try {
+                connection.sendAnalysisImageFinished(imageFinished);
             } catch (IOException | IllegalStateException exception) {
                 removeFailedConnection(connection, exception);
             }
