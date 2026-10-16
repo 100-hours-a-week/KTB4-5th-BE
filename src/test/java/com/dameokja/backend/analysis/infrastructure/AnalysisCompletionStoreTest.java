@@ -16,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
@@ -63,6 +64,30 @@ class AnalysisCompletionStoreTest {
         assertThat(restored.expiresAt().toInstant()).isEqualTo(NOW.plus(TTL));
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
         assertThat(redisTemplate().getExpire("analysis:ai:ai-first", TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
+    }
+
+    @Test
+    void atomicallyKeepsOneChannelAcrossConcurrentSelectionsAndPreservesRetention() throws Exception {
+        AnalysisJob job = registeredJob("ai-first");
+        AnalysisJob completed = store.complete("ai-first", completed());
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<AnalysisJob> sse = executor.submit(() -> {
+                start.await();
+                return newStore(NOW).selectNotificationChannel(job.id(), AnalysisNotificationChannel.SSE);
+            });
+            Future<AnalysisJob> push = executor.submit(() -> {
+                start.await();
+                return newStore(NOW).selectNotificationChannel(job.id(), AnalysisNotificationChannel.PUSH);
+            });
+            start.countDown();
+            assertThat(sse.get(5, TimeUnit.SECONDS).notificationChannel()).isEqualTo(push.get(5, TimeUnit.SECONDS).notificationChannel());
+        }
+        store.acknowledgeNotification(job.id());
+        AnalysisJob handled = store.selectNotificationChannel(job.id(), AnalysisNotificationChannel.SSE);
+        assertThat(handled.notificationPending()).isFalse();
+        assertThat(handled.expiresAt()).isEqualTo(completed.expiresAt());
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
     }
 
     @Test
@@ -165,9 +190,10 @@ class AnalysisCompletionStoreTest {
     void readsExistingJobJsonAndBuildsItsIndexWithoutLosingTheRequest() {
         AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first")));
         String key = "analysis:job:" + job.id();
-        String legacy = redisTemplate().opsForValue().get(key).replace(",\"notificationPending\":false", "").replace(",\"completion\":null", "");
+        String legacy = redisTemplate().opsForValue().get(key).replace(",\"notificationPending\":false", "").replace(",\"completion\":null", "").replace(",\"notificationChannel\":null", "");
         redisTemplate().opsForValue().set(key, legacy, TTL);
         assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+        assertThat(store.findOwned(job.id(), 7L).notificationChannel()).isNull();
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-first");
         assertThat(store.findByAiAnalysisId("ai-first").analysisImages().getFirst().requestId()).isEqualTo(job.analysisImages().getFirst().requestId());
     }

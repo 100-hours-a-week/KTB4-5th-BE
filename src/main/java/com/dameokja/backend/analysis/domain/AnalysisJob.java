@@ -1,15 +1,27 @@
 package com.dameokja.backend.analysis.domain;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 
 public record AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
-        OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending) {
+        OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending,
+        @JsonInclude(JsonInclude.Include.NON_NULL) AnalysisNotificationChannel notificationChannel) {
     public AnalysisJob {
         analysisImages = List.copyOf(analysisImages);
         // 배포 전에 저장된 작업에는 알림 대기 필드가 없다.
         notificationPending = Boolean.TRUE.equals(notificationPending);
+    }
+
+    public AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
+            OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending) {
+        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, null);
+    }
+
+    public AnalysisJob selectNotificationChannel(AnalysisNotificationChannel channel) {
+        if (!notificationPending || notificationChannel != null) { return this; }
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, Objects.requireNonNull(channel));
     }
 
     public AnalysisJob register(String requestId, String analysisId) {
@@ -21,7 +33,7 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         }
         List<AnalysisImage> analysisImages = this.analysisImages.stream()
                 .map(analysisImage -> analysisImage.requestId().equals(requestId) ? analysisImage.register(analysisId) : analysisImage).toList();
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel);
     }
 
     public AnalysisJob complete(String analysisId, AnalysisCompletion completion, OffsetDateTime resultExpiresAt) {
@@ -33,10 +45,10 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         boolean newlyCompleted = images.stream().allMatch(image -> image.completion() != null)
                 && analysisImages.stream().anyMatch(image -> image.completion() == null);
         OffsetDateTime deadline = newlyCompleted ? Objects.requireNonNull(resultExpiresAt) : expiresAt;
-        return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted);
+        return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted, notificationChannel);
     }
 
     public AnalysisJob acknowledgeNotification() {
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel);
     }
 }

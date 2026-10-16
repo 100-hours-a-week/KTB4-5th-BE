@@ -23,6 +23,8 @@ import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.application.PushAnalysisCreationService;
+import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
+import com.dameokja.backend.notification.application.NotificationStreamService;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
 import java.time.Duration;
@@ -215,6 +217,12 @@ class AnalysisCallbackWebTest {
         PushAnalysisCreationService pushes() {
             return mock(PushAnalysisCreationService.class);
         }
+
+        @Bean
+        AnalysisFinishedEventService events() { return mock(AnalysisFinishedEventService.class); }
+
+        @Bean
+        NotificationStreamService connections() { return mock(NotificationStreamService.class); }
 
         @Bean
         AnalysisJobStore store() {
