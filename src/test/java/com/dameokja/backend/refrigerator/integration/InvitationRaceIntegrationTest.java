@@ -13,15 +13,11 @@ import java.security.SecureRandom;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-// Spy 전용 컨텍스트의 DB 연결을 다음 통합 테스트까지 보관하지 않는다.
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class InvitationRaceIntegrationTest extends ServiceIntegrationTest {
-    @MockitoSpyBean InvitationService invitations;
+    @Autowired InvitationService invitations;
     @Autowired InviteCodeRepository codes;
     @Autowired MembershipService membershipService;
     @Autowired RefrigeratorService queries;
