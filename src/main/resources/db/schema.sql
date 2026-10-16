@@ -45,6 +45,7 @@ CREATE TABLE refrigerators (
     deleted_at DATETIME(6) NULL COMMENT '마지막 구성원 탈퇴 시 soft delete. 접근, 가입, 재고 변경, 추천, 푸시 차단. 보관 종료 및 FK 정리 후 hard delete',
     expired_count INT NOT NULL DEFAULT 0 COMMENT '이번 달 만료 재고 행 누적. 재고 삭제 후에도 유지',
     expired_count_month CHAR(7) NOT NULL COMMENT 'YYYY-MM. 생성 시 현재 월. 월 변경 시 카운트와 원자 갱신. 과거 월 미보관',
+    expired_counted_on DATE NULL COMMENT '이 한국 날짜 00시까지의 만료 반영 완료. 미집계는 NULL',
     PRIMARY KEY (refrigerator_id),
     CONSTRAINT ck_refrigerators_capacity CHECK (capacity > 0),
     CONSTRAINT ck_refrigerators_expired_count CHECK (expired_count >= 0),
