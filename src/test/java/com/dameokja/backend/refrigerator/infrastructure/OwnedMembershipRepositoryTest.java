@@ -52,7 +52,9 @@ class OwnedMembershipRepositoryTest extends MySqlJpaTest {
 
     private RefrigeratorMember ownership(User user, boolean active) {
         RefrigeratorMember membership = RefrigeratorMember.owner(user, refrigerator());
-        membership.changeActiveStatus(active);
+        if (!active) {
+            membership.deactivate();
+        }
         entityManager.persist(membership);
         return membership;
     }

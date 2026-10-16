@@ -57,6 +57,7 @@ CREATE TABLE refrigerator_members (
     user_id BIGINT NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 0 COMMENT '현재 사용 중인 냉장고. 전환 시 개인 관계 보존',
     active_marker BIGINT GENERATED ALWAYS AS (IF(is_active=1,user_id,NULL)) STORED COMMENT '회원당 활성 냉장고 최대 1개. 가입 자격과 무관',
+    ended_at DATETIME(6) NULL COMMENT 'NULL이면 유효 참여. 현재 선택 is_active와 구분',
     role VARCHAR(20) NOT NULL DEFAULT 'MEMBER' COMMENT 'OWNER / MEMBER. 냉장고에 소유자 FK 중복 저장하지 않음',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -65,6 +66,7 @@ CREATE TABLE refrigerator_members (
     UNIQUE KEY uk_members_active_marker (active_marker),
     KEY ix_members_user (user_id),
     CONSTRAINT ck_members_active CHECK (is_active IN (0,1)),
+    CONSTRAINT ck_members_ended CHECK (ended_at IS NULL OR is_active = 0),
     CONSTRAINT ck_members_role CHECK (role IN ('OWNER','MEMBER')),
     CONSTRAINT fk_members_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
     CONSTRAINT fk_members_user FOREIGN KEY (user_id) REFERENCES users (user_id)
