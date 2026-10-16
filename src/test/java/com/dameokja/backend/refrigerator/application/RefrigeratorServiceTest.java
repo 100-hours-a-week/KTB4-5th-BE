@@ -24,6 +24,9 @@ class RefrigeratorServiceTest {
     private RefrigeratorMemberRepository refrigeratorMemberRepository;
 
     @Mock
+    private MonthlyExpirationService monthlyExpirationService;
+
+    @Mock
     private RefrigeratorAccessService refrigeratorAccessService;
 
     @Test
@@ -32,7 +35,7 @@ class RefrigeratorServiceTest {
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         when(refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(1L))
                 .thenReturn(List.of(refrigerator));
-        RefrigeratorService refrigeratorService = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService);
+        RefrigeratorService refrigeratorService = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService, monthlyExpirationService);
 
         List<RefrigeratorView> views = refrigeratorService.getActiveRefrigerators(1L);
 
@@ -45,7 +48,7 @@ class RefrigeratorServiceTest {
     void returnsEmptyListWhenUserHasNoActiveRefrigerator() {
         when(refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(1L))
                 .thenReturn(List.of());
-        RefrigeratorService refrigeratorService = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService);
+        RefrigeratorService refrigeratorService = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService, monthlyExpirationService);
 
         assertThat(refrigeratorService.getActiveRefrigerators(1L)).isEmpty();
     }
@@ -57,7 +60,7 @@ class RefrigeratorServiceTest {
         RefrigeratorMember owner = RefrigeratorMember.owner(user, refrigerator);
         when(refrigeratorAccessService.validateReadAccess(1L, 10L)).thenReturn(refrigerator);
         when(refrigeratorMemberRepository.findLiveMembers(10L)).thenReturn(List.of(owner));
-        RefrigeratorService service = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService);
+        RefrigeratorService service = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService, monthlyExpirationService);
 
         MemberListView result = service.getMembers(1L, 10L);
 
@@ -71,7 +74,7 @@ class RefrigeratorServiceTest {
     void rejectedReadAccessDoesNotQueryMembers() {
         CustomException denied = new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED);
         when(refrigeratorAccessService.validateReadAccess(1L, 10L)).thenThrow(denied);
-        RefrigeratorService service = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService);
+        RefrigeratorService service = new RefrigeratorService(refrigeratorMemberRepository, refrigeratorAccessService, monthlyExpirationService);
 
         assertThatThrownBy(() -> service.getMembers(1L, 10L)).isSameAs(denied);
 

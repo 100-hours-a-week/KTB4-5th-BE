@@ -1,6 +1,13 @@
 package com.dameokja.backend.refrigerator.presentation;
 
 final class RefrigeratorApiExamples {
+    static final String MONTHLY_EXPIRATION_RESPONSE = """
+            {
+              "code": "INGREDIENT-200-001",
+              "message": "이번 달 만료된 재고 목록 조회 성공",
+              "data": {"expiredIngredientsNum": 30}
+            }
+            """;
     static final String ACTIVE_LIST_RESPONSE = """
             {
               "code": "REFRIGERATOR-200-001",

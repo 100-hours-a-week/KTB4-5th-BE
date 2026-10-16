@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RefrigeratorService {
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
     private final RefrigeratorAccessService refrigeratorAccessService;
+    private final MonthlyExpirationService monthlyExpirationService;
 
     public MemberListView getMembers(Long userId, Long refrigeratorId) {
         Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
@@ -35,7 +36,7 @@ public class RefrigeratorService {
 
     public List<RefrigeratorView> getActiveRefrigerators(Long userId) {
         return refrigeratorMemberRepository.findActiveRefrigeratorsByUserId(userId).stream()
-                .map(RefrigeratorView::from)
+                .map(refrigerator -> RefrigeratorView.from(refrigerator, monthlyExpirationService.currentCount(refrigerator)))
                 .toList();
     }
 }
