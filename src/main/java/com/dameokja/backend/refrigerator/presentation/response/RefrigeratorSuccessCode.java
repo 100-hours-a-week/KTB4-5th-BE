@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum RefrigeratorSuccessCode implements SuccessCode {
+    MYPAGE("REFRIGERATOR-200-007", "마이페이지 조회 성공"),
     INVITATION_ISSUED("REFRIGERATOR-200-002", "초대코드 발급 성공"),
     INVITATION_RETRIEVED("REFRIGERATOR-200-006", "초대코드 조회 성공"),
     MEMBERS_LIST("REFRIGERATOR-200-003", "냉장고 공유 참여자 목록 조회 성공"),
