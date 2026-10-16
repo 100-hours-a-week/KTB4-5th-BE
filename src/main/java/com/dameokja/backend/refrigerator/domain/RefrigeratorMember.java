@@ -173,7 +173,7 @@ public class RefrigeratorMember extends BaseEntity {
         role = RefrigeratorMemberRole.OWNER;
     }
 
-    public void changeActiveStatus(boolean active) {
+    private void changeActiveStatus(boolean active) {
         if (active && endedAt != null) {
             throw new CustomException(INTERNAL_SERVER_ERROR);
         }
