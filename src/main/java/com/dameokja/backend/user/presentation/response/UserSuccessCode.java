@@ -8,7 +8,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum UserSuccessCode implements SuccessCode {
     SIGNUP("USER-201-001", "회원가입 성공"),
-    SOCIAL_SIGNUP("USER-201-002", "회원가입 성공");
+    SOCIAL_SIGNUP("USER-201-002", "회원가입 성공"),
+    NICKNAME_VALIDATION("USER-200-001", "닉네임 검사 성공");
 
     private final String code;
     private final String message;

@@ -13,8 +13,12 @@ public class NicknamePolicy {
     private final ProhibitedWordChecker prohibitedWordChecker;
 
     public void validate(String nickname) {
-        if (prohibitedWordChecker.containsProhibitedWord(nickname)) {
+        if (isProhibited(nickname)) {
             throw new CustomException(NICKNAME_PROHIBITED);
         }
+    }
+
+    public boolean isProhibited(String nickname) {
+        return prohibitedWordChecker.containsProhibitedWord(nickname);
     }
 }

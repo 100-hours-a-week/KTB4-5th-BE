@@ -1,9 +1,16 @@
 package com.dameokja.backend.user.presentation;
 
+import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_AVAILABLE;
+import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_DUPLICATE;
+import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_INVALID_FORMAT;
+import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_PROHIBITED;
+import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
+import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
+import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -65,4 +72,40 @@ public interface UserApi {
             SignupRequest request,
             @Parameter(hidden = true) HttpServletRequest httpRequest,
             @Parameter(hidden = true) HttpServletResponse httpResponse);
+
+    @Operation(
+            summary = "닉네임 검사",
+            description = "공백을 제거한 닉네임의 형식·금칙어·중복을 차례로 검사합니다. "
+                    + "사용할 수 없는 닉네임도 200으로 응답하고 data.valid·data.reason으로 결과를 알립니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "검사 완료 (USER-200-001)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(name = "사용 가능", value = NICKNAME_VALIDATION_AVAILABLE),
+                                    @ExampleObject(name = "형식 위반", value = NICKNAME_VALIDATION_INVALID_FORMAT),
+                                    @ExampleObject(name = "금칙어", value = NICKNAME_VALIDATION_PROHIBITED),
+                                    @ExampleObject(name = "중복", value = NICKNAME_VALIDATION_DUPLICATE)
+                            }
+                    )
+            ),
+            @ApiResponse(responseCode = "400", description = "nickname 누락 또는 요청 형식 오류 (GLOBAL-400-001)"),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "CSRF 토큰이 없거나 올바르지 않음 (COMMON-403-CSRF-001)"
+            ),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<NicknameValidationResponse>> validateNickname(
+            @RequestBody(
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = NicknameValidationRequest.class),
+                            examples = @ExampleObject(name = "닉네임 검사 요청", value = NICKNAME_VALIDATION_REQUEST)
+                    )
+            )
+            NicknameValidationRequest request);
 }

@@ -8,6 +8,7 @@ import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
+import com.dameokja.backend.user.application.NicknameValidationService;
 import com.dameokja.backend.user.application.UserSignupService;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
@@ -72,5 +73,7 @@ abstract class UserSecurityWebTestSupport {
         Clock clock() { return Clock.systemUTC(); }
         @Bean
         UserSignupService userSignupService() { return mock(UserSignupService.class); }
+        @Bean
+        NicknameValidationService nicknameValidationService() { return mock(NicknameValidationService.class); }
     }
 }
