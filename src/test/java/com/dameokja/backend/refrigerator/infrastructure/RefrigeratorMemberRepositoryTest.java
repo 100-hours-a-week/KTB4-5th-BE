@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -132,10 +133,12 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
     void rejectsMissingRelationship(String invalidField) {
         User user = user("회원이름");
         Refrigerator refrigerator = refrigerator("냉장고");
+        RefrigeratorMember refrigeratorMember = new RefrigeratorMember(user, refrigerator);
+        // 생성자 검증과 별개로 영속 계층의 누락 관계 거절을 확인한다.
+        ReflectionTestUtils.setField(refrigeratorMember, invalidField, null);
+
         assertThatThrownBy(() -> {
-            refrigeratorMemberRepository.save(new RefrigeratorMember(
-                    invalidField.equals("user") ? null : user,
-                    invalidField.equals("refrigerator") ? null : refrigerator));
+            refrigeratorMemberRepository.save(refrigeratorMember);
             entityManager.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
     }
@@ -190,14 +193,14 @@ class RefrigeratorMemberRepositoryTest extends MySqlJpaTest {
                 new RefrigeratorMember(user, refrigerator("둘째냉장고")));
         flushAndClear();
         refrigeratorMemberRepository.findById(firstMembership.getId())
-                .orElseThrow().changeActiveStatus(true);
+                .orElseThrow().activate();
         flushAndClear();
         assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(user.getId())).get()
                 .extracting(RefrigeratorMember::getId).isEqualTo(firstMembership.getId());
         assertThat(refrigeratorMemberRepository.findById(secondMembership.getId())
                 .orElseThrow().getIsActive()).isFalse();
         refrigeratorMemberRepository.findById(firstMembership.getId())
-                .orElseThrow().changeActiveStatus(false);
+                .orElseThrow().deactivate();
         flushAndClear();
         assertThat(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(user.getId()))
                 .isEmpty();

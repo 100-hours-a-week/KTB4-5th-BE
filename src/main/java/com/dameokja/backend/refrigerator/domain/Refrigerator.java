@@ -1,6 +1,9 @@
 package com.dameokja.backend.refrigerator.domain;
 
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.REFRIGERATOR_DELETED;
+
 import com.dameokja.backend.global.common.BaseEntity;
+import com.dameokja.backend.global.exception.CustomException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -42,6 +45,12 @@ public class Refrigerator extends BaseEntity {
 
     public void rename(String name) {
         this.name = name;
+    }
+
+    public void validateAvailable() {
+        if (deletedAt != null) {
+            throw new CustomException(REFRIGERATOR_DELETED);
+        }
     }
 
     public void delete(LocalDateTime deletedAt) {
