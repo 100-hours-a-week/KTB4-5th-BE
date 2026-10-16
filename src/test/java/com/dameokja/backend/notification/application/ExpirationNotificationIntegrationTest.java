@@ -67,10 +67,10 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
     }
 
     @Test
-    void skipsWhenRecipientBecomesInactiveAfterTargetLookup() {
+    void skipsWhenParticipationEndsAfterTargetLookup() {
         ingredient(970001L, FRIDGE, "우유", 0);
         assertThat(refrigeratorService.findNotificationTargetRefrigeratorIds()).contains(FRIDGE);
-        jdbc.update("UPDATE refrigerator_members SET is_active=0 WHERE user_id=?", USER);
+        jdbc.update("UPDATE refrigerator_members SET is_active=0, ended_at=NOW() WHERE user_id=?", USER);
 
         generationService.generate(FRIDGE);
 
@@ -79,7 +79,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
     }
 
     @Test
-    void selectsOnlyActiveNonWithdrawnRecipientsEvenWhenPushPreferenceIsOff() {
+    void includesUnselectedLiveRecipientsAndExcludesWithdrawnUsers() {
         member(970002L, FRIDGE, true);
         member(970003L, FRIDGE, false);
         member(970004L, FRIDGE, true);
@@ -89,11 +89,11 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
 
         generationService.generate(FRIDGE);
 
-        assertThat(recipientIds(FRIDGE)).containsExactly(USER, 970002L);
+        assertThat(recipientIds(FRIDGE)).containsExactly(USER, 970002L, 970003L);
     }
 
     @Test
-    void targetIdsAreDistinctAndExcludeInactiveWithdrawnAndDeletedFridges() {
+    void targetIdsIncludeUnselectedSpacesAndExcludeWithdrawnAndDeletedFridges() {
         member(970002L, FRIDGE, true);
         refrigerator(970002L);
         member(970003L, 970002L, false);
@@ -104,8 +104,9 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         member(970005L, 970004L, true);
         jdbc.update("UPDATE refrigerators SET deleted_at=NOW() WHERE refrigerator_id=970004");
 
-        assertThat(refrigeratorService.findNotificationTargetRefrigeratorIds()).containsExactly(FRIDGE);
-        assertThat(refrigeratorService.findNotificationRecipients(970002L)).isEmpty();
+        assertThat(refrigeratorService.findNotificationTargetRefrigeratorIds()).containsExactly(FRIDGE, 970002L);
+        assertThat(refrigeratorService.findNotificationRecipients(970002L))
+                .extracting(member -> member.getUser().getId()).containsExactly(970003L);
         assertThat(refrigeratorService.findNotificationRecipients(970003L)).isEmpty();
         assertThat(refrigeratorService.findNotificationRecipients(970004L)).isEmpty();
     }

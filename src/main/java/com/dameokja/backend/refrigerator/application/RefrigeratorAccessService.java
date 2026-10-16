@@ -1,8 +1,10 @@
 package com.dameokja.backend.refrigerator.application;
 
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND;
+
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
-import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
@@ -29,17 +31,14 @@ public class RefrigeratorAccessService {
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
         Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)
-                .orElseThrow(() -> new CustomException(
-                        RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND));
-        if (refrigerator.getDeletedAt() != null) {
-            throw new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
-        }
+                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
+        refrigerator.validateAvailable();
+
         RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository
                 .findByUserIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
-        if (!refrigeratorMember.getRefrigerator().getId().equals(refrigeratorId)) {
-            throw new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED);
-        }
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
+        refrigeratorMember.validateSelectedAccessTo(refrigeratorId);
+
         return refrigerator;
     }
 
@@ -49,21 +48,24 @@ public class RefrigeratorAccessService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Refrigerator lockForWrite(Long userId, Long refrigeratorId) {
+        userAccessService.lockActive(userId);
         Refrigerator refrigerator = refrigeratorRepository.findByIdForUpdate(refrigeratorId)
-                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND));
-        if (refrigerator.getDeletedAt() != null) {
-            throw new CustomException(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
-        }
-        refrigeratorMemberRepository.findActiveForUpdate(userId, refrigeratorId)
-                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
+                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
+        refrigerator.validateAvailable();
+
+        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository.findActiveForUpdate(userId, refrigeratorId)
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
+        refrigeratorMember.validateSelectedAccessTo(refrigeratorId);
+
         userAccessService.validateActive(userId);
         return refrigerator;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Refrigerator lockCurrentForWrite(Long userId) {
+        userAccessService.lockActive(userId);
         Long refrigeratorId = refrigeratorMemberRepository.findActiveRefrigeratorId(userId)
-                .orElseThrow(() -> new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
         return lockForWrite(userId, refrigeratorId);
     }
 }

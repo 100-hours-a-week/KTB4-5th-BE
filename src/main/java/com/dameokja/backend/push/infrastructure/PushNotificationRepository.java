@@ -177,7 +177,7 @@ public interface PushNotificationRepository extends JpaRepository<PushNotificati
             from RefrigeratorMember m
                 join NotificationPreference p on p.user = m.user
             where m.user.id = :userId and m.refrigerator.id = :refrigeratorId
-                and m.user.status = ACTIVE
+                and m.endedAt is null and m.user.status = ACTIVE
                 and m.refrigerator.deletedAt is null
                 and p.type = EXPIRATION and p.isEnabled = true
             """)
