@@ -136,7 +136,7 @@ final class IngredientApiExamples {
                 "createdCount": 2,
                 "mergedCount": 1,
                 "ingredientsNum": 30,
-                "refrigeratorCapacity": 100,
+                "refrigeratorCapacity": 1500,
                 "mergedItems": [
                   {
                     "ingredientId": 10,
@@ -164,7 +164,7 @@ final class IngredientApiExamples {
                 "outdated": false,
                 "ingredientsNum": 30,
                 "filteredCount": 30,
-                "refrigeratorCapacity": 100,
+                "refrigeratorCapacity": 1500,
                 "ingredients": [
                   {
                     "ingredientId": "1",

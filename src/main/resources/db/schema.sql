@@ -39,7 +39,7 @@ CREATE TABLE users (
 CREATE TABLE refrigerators (
     refrigerator_id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL COMMENT '생성 시 소유자 닉네임으로 초기화. 이후 독립 관리',
-    capacity SMALLINT NOT NULL DEFAULT 100 COMMENT '냉장고당 재고 행 등록 상한. 서비스에서 동시성 제어',
+    capacity SMALLINT NOT NULL DEFAULT 1500 COMMENT '냉장고당 재고 행 등록 상한. 서비스에서 동시성 제어',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     deleted_at DATETIME(6) NULL COMMENT '마지막 구성원 탈퇴 시 soft delete. 접근, 가입, 재고 변경, 추천, 푸시 차단. 보관 종료 및 FK 정리 후 hard delete',

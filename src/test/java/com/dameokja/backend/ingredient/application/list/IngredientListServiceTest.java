@@ -73,7 +73,7 @@ class IngredientListServiceTest {
         assertThat(result.businessDate()).isEqualTo(TODAY);
         assertThat(result.ingredientsNum()).isEqualTo(5L);
         assertThat(result.filteredCount()).isEqualTo(5L);
-        assertThat(result.refrigeratorCapacity()).isEqualTo((short) 100);
+        assertThat(result.refrigeratorCapacity()).isEqualTo((short) 1500);
         assertThat(readCursor().position()).isNull();
         assertThat(cursorCodec.decode(result.nextCursor())).isEqualTo(new IngredientListCursor(IngredientSortType.NAME_ASC,
                 REFRIGERATOR_ID, null, IngredientCategory.TOFU_BEAN, "두부", TODAY, IngredientCursor.from(last)));

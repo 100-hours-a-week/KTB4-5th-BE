@@ -28,7 +28,7 @@ class RefrigeratorServiceTest {
         List<RefrigeratorView> views = refrigeratorService.getActiveRefrigerators(1L);
 
         assertThat(views).containsExactly(
-                new RefrigeratorView(10L, "fridge", (short) 100, 0));
+                new RefrigeratorView(10L, "fridge", (short) 1500, 0));
     }
 
     @Test
