@@ -3,6 +3,7 @@ package com.dameokja.backend.auth.application;
 import com.dameokja.backend.auth.domain.OAuthIdentity;
 import com.dameokja.backend.auth.domain.OAuthProvider;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.regex.Pattern;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -32,13 +33,28 @@ public class SocialOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         }
         OAuth2User user = delegate.loadUser(request);
         return new OAuthPrincipal(new OAuthIdentity(OAuthProvider.KAKAO,
-                user.getName(), user.getAttribute("email")));
+                user.getName(), user.getAttribute("email"), user.getAttribute("profileImageUrl")));
     }
 
     private Map<String, Object> kakaoAttributes(Map<String, Object> attributes) {
         // Spring이 principal을 만들기 전에 필수 식별자와 이메일을 검증한다.
-        return Map.of("id", kakaoUserId(attributes.get("id")),
-                "email", kakaoEmail(attributes.get("kakao_account")));
+        Map<String, Object> converted = new HashMap<>();
+        converted.put("id", kakaoUserId(attributes.get("id")));
+        converted.put("email", kakaoEmail(attributes.get("kakao_account")));
+        String imageUrl = kakaoProfileImage(attributes.get("kakao_account"));
+        if (imageUrl != null) {
+            converted.put("profileImageUrl", imageUrl);
+        }
+        return converted;
+    }
+
+    private String kakaoProfileImage(Object account) {
+        if (account instanceof Map<?, ?> attributes
+                && attributes.get("profile") instanceof Map<?, ?> profile
+                && profile.get("profile_image_url") instanceof String url && !url.isBlank()) {
+            return url;
+        }
+        return null;
     }
 
     private String kakaoUserId(Object id) {

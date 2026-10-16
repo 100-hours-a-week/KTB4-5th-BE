@@ -44,6 +44,21 @@ class OAuthRegistrationStoreTest {
     }
 
     @Test
+    void preservesProfileImageUrlAcrossRegistrationClaim() {
+        OAuthIdentity withImage = new OAuthIdentity(OAuthProvider.KAKAO, "123", "member@example.com",
+                "https://k.kakaocdn.net/dn/example/profile.jpg");
+        RegistrationClaim claim = store.claim(store.create(withImage));
+        assertThat(claim.identity()).isEqualTo(withImage);
+    }
+
+    @Test
+    void readsIdentityWrittenBeforeProfileImageSupport() {
+        OAuthIdentity legacy = mapper.readValue(
+                "{\"provider\":\"KAKAO\",\"providerUserId\":\"123\",\"email\":\"member@example.com\"}", OAuthIdentity.class);
+        assertThat(legacy.profileImageUrl()).isNull();
+    }
+
+    @Test
     void anotherInstanceClaimsAndReleasesWithoutRenewingRedisTtl() {
         String token = store.create(identity);
         OAuthRegistrationStore other = new OAuthRegistrationStore(clock, redisTemplate(), mapper);

@@ -53,6 +53,10 @@ public class UserRegistrationService {
     }
 
     public RegistrationResult registerSocial(OAuthIdentity identity, String nickname, boolean notificationSetting) {
+        return registerSocial(identity, nickname, notificationSetting, null);
+    }
+
+    public RegistrationResult registerSocial(OAuthIdentity identity, String nickname, boolean notificationSetting, String profileImageKey) {
         nicknamePolicy.validate(nickname);
         if (userRepository.existsByNickname(nickname)) {
             throw new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
@@ -61,7 +65,7 @@ public class UserRegistrationService {
             throw new CustomException(UserExceptionCode.SOCIAL_ACCOUNT_DUPLICATE);
         }
         try {
-            User user = userRepository.save(userRegistrationFactory.createSocial(nickname));
+            User user = userRepository.save(userRegistrationFactory.createSocial(nickname, profileImageKey));
             socialAccountRepository.save(new SocialAccount(
                     user, identity.provider(), identity.providerUserId(), identity.email()));
             Long refrigeratorId = refrigeratorLifecycleService.createPersonal(user, YearMonth.from(now()).toString());
