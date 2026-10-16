@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
+import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.application.AnalysisJobResult;
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AnalysisController implements AnalysisApi {
     private final AnalysisJobSubmitService analysisJobSubmitService;
     private final AnalysisJobQueryService analysisJobQueryService;
+    private final AnalysisJobDeleteService analysisJobDeleteService;
 
     @Override
     @PostMapping("/api/v1/image-analyses")
@@ -51,5 +54,12 @@ public class AnalysisController implements AnalysisApi {
         AnalysisJobResult analysisJobResult = analysisJobQueryService.get(userId, analysisId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(SuccessResponse.of("IMAGE-200-002", "이미지 인식 결과 조회 성공", AnalysisJobResponse.from(analysisJobResult)));
+    }
+
+    @Override
+    @DeleteMapping("/api/v1/image-analyses/{analysisId}")
+    public ResponseEntity<Void> delete(@CurrentUserId Long userId, @PathVariable String analysisId) {
+        analysisJobDeleteService.delete(userId, analysisId);
+        return ResponseEntity.noContent().build();
     }
 }
