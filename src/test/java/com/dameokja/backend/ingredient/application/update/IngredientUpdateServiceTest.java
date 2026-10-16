@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.application.UserAccessService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,6 +46,7 @@ class IngredientUpdateServiceTest {
     @Mock private RefrigeratorAccessService accessService;
     @Mock private IngredientRepository ingredientRepository;
     @Mock private ProhibitedWordChecker prohibitedWordChecker;
+    @Mock private UserAccessService userAccessService;
 
     private IngredientUpdateService updateService;
     private Refrigerator refrigerator;
@@ -61,7 +64,7 @@ class IngredientUpdateServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"),
                 ZoneId.of("Asia/Seoul"));
         updateService = new IngredientUpdateService(accessService, ingredientRepository,
-                new IngredientUpdatePolicy(new IngredientPolicy(prohibitedWordChecker)), clock);
+                new IngredientUpdatePolicy(new IngredientPolicy(prohibitedWordChecker)), clock, userAccessService);
     }
 
     @Test
@@ -105,6 +108,19 @@ class IngredientUpdateServiceTest {
                 .extracting(exception -> ((CustomException) exception).getExceptionCode().getCode())
                 .isEqualTo("INGREDIENT-422-002");
         verify(ingredientRepository, never()).flush();
+    }
+
+    @Test
+    void rejectsAllEditsToExpiredIngredient() {
+        ReflectionTestUtils.setField(ingredient, "expirationDate", LocalDate.of(2026, 9, 15));
+        for (IngredientUpdateFields fields : List.of(emptyFields(), fieldsWithExpiration(LocalDate.of(2026, 9, 25)))) {
+            assertThatThrownBy(() -> updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields))
+                    .isInstanceOfSatisfying(CustomException.class,
+                            error -> assertThat(error.getExceptionCode().getCode()).isEqualTo("INGREDIENT-422-004"));
+        }
+        assertThat(ingredient.getExpirationDate()).isEqualTo(LocalDate.of(2026, 9, 15));
+        verify(ingredientRepository, never()).flush();
+        verify(ingredientRepository, never()).deleteAll(any());
     }
 
     @Test
@@ -161,23 +177,60 @@ class IngredientUpdateServiceTest {
     void returnsNoMergedItemsWhenOnlyItselfMatches() {
         when(ingredientRepository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(ingredient));
 
-        IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient), emptyFields());
+        IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient),
+                fieldsWithExpiration(LocalDate.of(2026, 9, 25)));
 
         assertThat(result.mergedItems()).isEmpty();
         verify(ingredientRepository, never()).deleteAll(any());
     }
 
     @Test
-    void rejectsAllEditsToExpiredIngredient() {
-        ReflectionTestUtils.setField(ingredient, "expirationDate", LocalDate.of(2026, 9, 15));
-        for (IngredientUpdateFields fields : List.of(emptyFields(), fieldsWithExpiration(LocalDate.of(2026, 9, 25)))) {
-            assertThatThrownBy(() -> updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields))
-                    .isInstanceOfSatisfying(CustomException.class,
-                            error -> assertThat(error.getExceptionCode().getCode()).isEqualTo("INGREDIENT-422-004"));
-        }
-        assertThat(ingredient.getExpirationDate()).isEqualTo(LocalDate.of(2026, 9, 15));
-        verify(ingredientRepository, never()).flush();
-        verify(ingredientRepository, never()).deleteAll(any());
+    void changesOnlyWeightWithoutRefrigeratorLockOrMerge() {
+        IngredientUpdateFields fields = new IngredientUpdateFields(
+                UpdateField.omitted(), UpdateField.omitted(), UpdateField.omitted(),
+                UpdateField.omitted(), UpdateField.provided(new BigDecimal("250")), UpdateField.omitted(),
+                UpdateField.omitted());
+
+        IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields);
+
+        assertThat(result.ingredient().getMeasurement().getWeightValue()).isEqualByComparingTo("250");
+        assertThat(result.mergedItems()).isEmpty();
+        var order = inOrder(userAccessService, ingredientRepository, accessService);
+        order.verify(userAccessService).lockActive(1L);
+        order.verify(ingredientRepository).findRefrigeratorIdById(20L);
+        order.verify(accessService).validateReadAccess(1L, 10L);
+        order.verify(ingredientRepository).findByIdForUpdate(20L);
+        verify(accessService, never()).lockForWrite(any(), any());
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
+    }
+
+    @Test
+    void weightOnlyUpdateDoesNotNormalizeLegacyName() {
+        ReflectionTestUtils.setField(ingredient, "name", " 두부 ");
+        IngredientUpdateFields fields = new IngredientUpdateFields(
+                UpdateField.omitted(), UpdateField.omitted(), UpdateField.omitted(),
+                UpdateField.omitted(), UpdateField.provided(new BigDecimal("250")), UpdateField.omitted(),
+                UpdateField.omitted());
+
+        updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields);
+
+        assertThat(ingredient.getName()).isEqualTo(" 두부 ");
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
+    }
+
+    @Test
+    void skipsMergeWhenNormalizedNameAndOtherCriteriaAreUnchanged() {
+        IngredientUpdateFields fields = new IngredientUpdateFields(
+                UpdateField.provided(" 두부 "), UpdateField.provided(IngredientCategory.OTHER),
+                UpdateField.provided(StorageType.REFRIGERATED), UpdateField.omitted(), UpdateField.omitted(),
+                UpdateField.omitted(), UpdateField.provided(ingredient.getExpirationDate()));
+
+        IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields);
+
+        assertThat(result.ingredient().getName()).isEqualTo("두부");
+        assertThat(result.ingredient().getCategory()).isEqualTo(IngredientCategory.OTHER);
+        verify(accessService).lockForWrite(1L, 10L);
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
     }
 
     private IngredientUpdateFields fieldsWithExpiration(LocalDate expirationDate) {

@@ -9,6 +9,7 @@ import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.user.application.UserAccessService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -24,26 +25,45 @@ public class IngredientUpdateService {
     private final IngredientRepository ingredientRepository;
     private final IngredientUpdatePolicy ingredientUpdatePolicy;
     private final Clock clock;
+    private final UserAccessService userAccessService;
 
     public IngredientUpdateResult update(Long userId, Long ingredientId, String ifMatch, IngredientUpdateFields fields) {
-        Ingredient ingredient = lockIngredientForUpdate(userId, ingredientId);
+        Ingredient ingredient = lockIngredientForUpdate(userId, ingredientId, fields);
         LocalDate businessDate = BusinessTime.today(clock);
         validateVersion(ingredient, ifMatch);
         ingredient.validateEditable(businessDate);
 
         IngredientDetails updateDetails = ingredientUpdatePolicy.createDetails(ingredient, fields, businessDate);
-        ingredient.updateDetails(updateDetails);
-        List<IngredientWriteItem> mergedItems = mergeDuplicates(ingredient, updateDetails);
+        List<IngredientWriteItem> mergedItems = applyUpdate(ingredient, updateDetails, fields);
         ingredientRepository.flush();
         return new IngredientUpdateResult(ingredient, businessDate, mergedItems);
     }
 
-    // 등록과 같은 순서(냉장고 → 재고)로 잠가 동시 등록·수정이 서로의 잠금을 기다리며 멈추지 않게 한다.
-    private Ingredient lockIngredientForUpdate(Long userId, Long ingredientId) {
+    private Ingredient lockIngredientForUpdate(Long userId, Long ingredientId, IngredientUpdateFields fields) {
+        if (fields.isMeasurementOnly()) {
+            // 권한 변경도 회원을 먼저 잠근다. 첫 일반 조회 전에 획득해 대기 전의 권한 스냅샷을 남기지 않는다.
+            userAccessService.lockActive(userId);
+        }
         Long refrigeratorId = ingredientRepository.findRefrigeratorIdById(ingredientId)
                 .orElseThrow(() -> new CustomException(NOT_FOUND));
-        refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
+        if (fields.isMeasurementOnly()) {
+            refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+        } else {
+            // 합산 가능성이 있는 요청은 등록과 같은 냉장고 → 재고 잠금 순서를 유지한다.
+            refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
+        }
         return ingredientRepository.findByIdForUpdate(ingredientId).orElseThrow(() -> new CustomException(NOT_FOUND));
+    }
+
+    private List<IngredientWriteItem> applyUpdate(Ingredient ingredient, IngredientDetails details, IngredientUpdateFields fields) {
+        if (fields.isMeasurementOnly()) {
+            // 수량 요청이 기존 이름의 정규화까지 적용해 합산 기준을 바꾸지 않도록 측정값만 반영한다.
+            ingredient.updateMeasurement(details.measurement());
+            return List.of();
+        }
+        boolean requiresMerge = ingredient.requiresMergeFor(details);
+        ingredient.updateDetails(details);
+        return requiresMerge ? mergeDuplicates(ingredient, details) : List.of();
     }
 
     private void validateVersion(Ingredient ingredient, String ifMatch) {
