@@ -9,6 +9,7 @@ import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Null;
@@ -18,13 +19,18 @@ import java.time.LocalDate;
 public record IngredientCreateItem(
         @NotBlank String name, @NotNull IngredientCategory category, @NotNull StorageType storageType,
         @NotNull MeasureType measureType, BigDecimal quantity, BigDecimal weightValue, @NotNull WeightUnit weightUnit,
-        @NotNull LocalDate expirationDate, @NotNull RegistrationSource registrationSource, @Null String imageUploadId
+        @NotNull LocalDate expirationDate, @Null String imageUploadId
 ) {
 
     public IngredientCreateCommand toCommand() {
         Integer count = integerQuantity(quantity);
         return new IngredientCreateCommand(name, category, storageType, measureType,
-                count, weightValue, weightUnit, expirationDate, registrationSource);
+                count, weightValue, weightUnit, expirationDate, RegistrationSource.DIRECT);
+    }
+
+    @JsonAnySetter
+    public void rejectUnsupportedField(String fieldName, Object value) {
+        throw new IllegalArgumentException("허용되지 않은 재고 등록 필드입니다: " + fieldName);
     }
 
     // 개수는 정수만 허용한다. 3.5개 같은 입력을 반올림하지 않고 거절하기 위해 여기서 확인한다.

@@ -236,8 +236,10 @@ public interface IngredientApi {
             IngredientExpireSelectedRequest request);
 
     @Operation(
-            summary = "재고 일괄 등록",
-            description = "냉장고에 재고를 1~20건 등록합니다. 동일한 기존 재고가 있으면 별도 확인 요청 없이 자동 합산하고, 합산 내역을 응답합니다."
+            summary = "직접 입력 재고 일괄 등록",
+            description = "직접 입력한 재고를 1~20건 등록하며 서버가 등록 방식을 DIRECT로 지정합니다. registrationSource는 요청에서 받지 않습니다. "
+                    + "사진 인식 등록은 /api/v1/refrigerators/{refrigeratorId}/ingredients/from-analysis를 사용합니다. "
+                    + "동일한 기존 재고가 있으면 자동 합산하고 기존 최초 등록 방식을 유지하며, 합산 내역을 응답합니다."
     )
     @ApiResponses({
             @ApiResponse(

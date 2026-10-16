@@ -36,7 +36,6 @@ final class IngredientApiExamples {
                   "weightValue": 300,
                   "weightUnit": "G",
                   "expirationDate": "2026-09-17",
-                  "registrationSource": "RECEIPT",
                   "imageUploadId": null
                 },
                 {
@@ -48,7 +47,6 @@ final class IngredientApiExamples {
                   "weightValue": null,
                   "weightUnit": "NONE",
                   "expirationDate": "2026-09-17",
-                  "registrationSource": "DIRECT",
                   "imageUploadId": null
                 }
               ]
