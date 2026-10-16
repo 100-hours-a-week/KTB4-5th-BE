@@ -1,6 +1,8 @@
 package com.dameokja.backend.refrigerator.application;
 
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.MEMBER_NOT_FOUND;
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.OWNER_ONLY;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND;
 
 import com.dameokja.backend.global.exception.CustomException;
@@ -66,6 +68,21 @@ public class MembershipService {
         return restorePersonalRefrigerator(leavingRefrigeratorMembership, refrigeratorMemberManager);
     }
 
+    public void kick(Long ownerId, Long refrigeratorId, Long targetUserId) {
+        lockRemovalUsers(ownerId, targetUserId);
+        lockRemovalRefrigerators(List.of(ownerId, targetUserId), refrigeratorId);
+        RefrigeratorMember ownerRefrigeratorMembership = refrigeratorMemberRepository.findLiveMembership(ownerId, refrigeratorId)
+                .orElseThrow(() -> new CustomException(OWNER_ONLY));
+        ownerRefrigeratorMembership.validateOwnerForRemoval();
+
+        RefrigeratorMemberManager targetRefrigeratorMemberManager = loadRefrigeratorMemberManager(targetUserId);
+        RefrigeratorMember targetRefrigeratorMembership = targetRefrigeratorMemberManager.findLiveMembership(refrigeratorId)
+                .orElseThrow(() -> new CustomException(MEMBER_NOT_FOUND));
+        ownerRefrigeratorMembership.validateRemovalTarget(targetRefrigeratorMembership);
+
+        restorePersonalRefrigerator(targetRefrigeratorMembership, targetRefrigeratorMemberManager);
+    }
+
     private void prepareJoin(User user, Refrigerator refrigerator, RefrigeratorMemberManager refrigeratorMemberManager) {
         refrigeratorMemberManager.prepareJoin(user, refrigerator, false);
     }
@@ -101,6 +118,22 @@ public class MembershipService {
                 .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
     }
 
+    private void lockRemovalUsers(Long ownerId, Long targetUserId) {
+        List.of(ownerId, targetUserId).stream().distinct().sorted()
+                .forEachOrdered(userId -> lockRemovalUser(userId, ownerId));
+    }
+
+    private void lockRemovalRefrigerators(List<Long> userIds, Long refrigeratorId) {
+        try {
+            lockRelatedRefrigerators(userIds, refrigeratorId);
+        } catch (CustomException exception) {
+            if (exception.getExceptionCode() == REFRIGERATOR_NOT_FOUND) {
+                throw new CustomException(MEMBER_NOT_FOUND);
+            }
+            throw exception;
+        }
+    }
+
     private List<Long> findOrderedRefrigeratorIds(List<Long> userIds, Long targetRefrigeratorId) {
         List<Long> relatedRefrigeratorIds = refrigeratorMemberRepository.findLiveRefrigeratorIdsForUsers(userIds);
 
@@ -119,4 +152,14 @@ public class MembershipService {
         return refrigerator;
     }
 
+    private void lockRemovalUser(Long userId, Long ownerId) {
+        try {
+            userAccessService.lockActive(userId);
+        } catch (CustomException exception) {
+            if (!userId.equals(ownerId)) {
+                throw new CustomException(MEMBER_NOT_FOUND);
+            }
+            throw exception;
+        }
+    }
 }

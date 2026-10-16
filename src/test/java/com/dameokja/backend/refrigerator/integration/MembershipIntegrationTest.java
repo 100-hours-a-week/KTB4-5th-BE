@@ -110,6 +110,56 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void kickRestoresPersonalAndNonOwnerCannotKick() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        membershipService.join(member.userId(), code);
+        assertError(RefrigeratorExceptionCode.OWNER_ONLY, () -> membershipService.kick(member.userId(), owner.refrigeratorId(), owner.userId()));
+        membershipService.kick(owner.userId(), owner.refrigeratorId(), member.userId());
+        assertThat(activeId(member.userId())).isEqualTo(member.refrigeratorId());
+        assertError(RefrigeratorExceptionCode.ACCESS_DENIED, () -> access.validateReadAccess(member.userId(), owner.refrigeratorId()));
+    }
+
+    @Test
+    void oppositeRemovalRequestsFinishWithoutDeadlockAndKeepBothPersonalSpaces() throws Exception {
+        Fixture first = ownerFixture("First");
+        Fixture second = ownerFixture("Second");
+        List<Object> results = concurrently(List.of(
+                () -> {
+                    membershipService.kick(first.userId(), first.refrigeratorId(), second.userId());
+                    return null;
+                },
+                () -> {
+                    membershipService.kick(second.userId(), second.refrigeratorId(), first.userId());
+                    return null;
+                }));
+        assertThat(results).allSatisfy(result -> assertThat(result).isInstanceOfSatisfying(CustomException.class,
+                exception -> assertThat(exception.getExceptionCode()).isEqualTo(RefrigeratorExceptionCode.MEMBER_NOT_FOUND)));
+        assertThat(activeId(first.userId())).isEqualTo(first.refrigeratorId());
+        assertThat(activeId(second.userId())).isEqualTo(second.refrigeratorId());
+    }
+
+    @Test
+    void missingRemovalTargetAndRefrigeratorUseSpecifiedNotFoundCode() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture target = ownerFixture("Target");
+        assertError(RefrigeratorExceptionCode.MEMBER_NOT_FOUND,
+                () -> membershipService.kick(owner.userId(), owner.refrigeratorId(), Long.MAX_VALUE));
+        assertError(RefrigeratorExceptionCode.MEMBER_NOT_FOUND,
+                () -> membershipService.kick(owner.userId(), Long.MAX_VALUE, target.userId()));
+        assertThat(activeId(owner.userId())).isEqualTo(owner.refrigeratorId());
+        assertThat(activeId(target.userId())).isEqualTo(target.refrigeratorId());
+    }
+
+    @Test
+    void ownerCannotLeaveOrKickSelf() {
+        Fixture owner = ownerFixture("Owner");
+        assertError(RefrigeratorExceptionCode.OWNER_CANNOT_LEAVE, () -> membershipService.leave(owner.userId(), owner.refrigeratorId()));
+        assertError(RefrigeratorExceptionCode.OWNER_ONLY, () -> membershipService.kick(owner.userId(), owner.refrigeratorId(), owner.userId()));
+    }
+
+    @Test
     void rollbackAfterPersonalDeactivationRestoresOriginalState() {
         Fixture owner = ownerFixture("Owner");
         Fixture member = ownerFixture("Member");
@@ -156,6 +206,24 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
         } finally {
             jdbcTemplate.execute("DROP TRIGGER reject_restore");
         }
+    }
+
+    @Test
+    void sharedParticipationKeepsPersonalNotificationTargetAndEndedMemberCannotReceivePush() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        membershipService.join(member.userId(), code);
+        assertThat(refrigeratorMemberRepository.findNotificationTargetRefrigeratorIds())
+                .contains(owner.refrigeratorId(), member.refrigeratorId());
+        assertThat(refrigeratorMemberRepository.findNotificationRecipients(member.refrigeratorId()))
+                .extracting(relation -> relation.getUser().getId()).containsExactly(member.userId());
+        jdbcTemplate.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES (?,'EXPIRATION',1)", member.userId());
+        assertThat(push.canReceiveExpirationPush(member.userId(), owner.refrigeratorId())).isTrue();
+        membershipService.kick(owner.userId(), owner.refrigeratorId(), member.userId());
+        assertThat(push.canReceiveExpirationPush(member.userId(), owner.refrigeratorId())).isFalse();
+        assertThat(refrigeratorMemberRepository.findNotificationRecipients(owner.refrigeratorId()))
+                .extracting(relation -> relation.getUser().getId()).containsExactly(owner.userId());
     }
 
     private void seedMembers(Long refrigeratorId, int count) {
