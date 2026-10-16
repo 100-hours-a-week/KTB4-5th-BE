@@ -55,6 +55,8 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
 
     @BeforeEach
     void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM ingredients");
+        jdbcTemplate.update("DELETE FROM invite_codes");
         jdbcTemplate.update("DELETE FROM social_accounts");
         jdbcTemplate.update("DELETE FROM refrigerator_members");
         jdbcTemplate.update("DELETE FROM refrigerators");
@@ -75,7 +77,11 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
             User user, Refrigerator refrigerator, boolean active, boolean owner) {
         RefrigeratorMember refrigeratorMember = owner ? RefrigeratorMember.owner(user, refrigerator)
                 : new RefrigeratorMember(user, refrigerator);
-        refrigeratorMember.changeActiveStatus(active);
+        if (active) {
+            refrigeratorMember.activate();
+        } else {
+            refrigeratorMember.deactivate();
+        }
         return refrigeratorMemberRepository.save(refrigeratorMember);
     }
 
