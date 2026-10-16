@@ -66,8 +66,8 @@ class NotificationStreamTimeoutIntegrationTest extends MySqlDatabaseTest {
     static class ShortTimeout {
         @Bean
         @Primary
-        NotificationSseConnections shortTimeoutConnections() {
-            return new NotificationSseConnections(() -> new SseEmitter(200L));
+        NotificationSseConnections shortTimeoutConnections(NotificationConnectionPresence presence) {
+            return new NotificationSseConnections(() -> new SseEmitter(200L), presence);
         }
     }
 }

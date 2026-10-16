@@ -37,7 +37,7 @@ final class UserSseConnections {
         connections.forEach(connection -> {
             try {
                 connection.sendChanged(changed);
-            } catch (IOException | IllegalStateException exception) {
+            } catch (IOException | RuntimeException exception) {
                 removeFailedConnection(connection, exception);
             }
         });
@@ -67,7 +67,7 @@ final class UserSseConnections {
         connections.forEach(connection -> {
             try {
                 connection.heartbeat();
-            } catch (IOException | IllegalStateException exception) {
+            } catch (IOException | RuntimeException exception) {
                 removeFailedConnection(connection, exception);
             }
         });

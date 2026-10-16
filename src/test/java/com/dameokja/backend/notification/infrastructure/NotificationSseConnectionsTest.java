@@ -28,7 +28,7 @@ class NotificationSseConnectionsTest {
         emitters.add(first);
         emitters.add(second);
         emitters.add(otherUser);
-        connections = new NotificationSseConnections(emitters::remove);
+        connections = new NotificationSseConnections(emitters::remove, mock(NotificationConnectionPresence.class));
     }
 
     @Test
