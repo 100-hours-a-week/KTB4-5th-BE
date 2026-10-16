@@ -21,8 +21,8 @@ public class AnalysisCallbackService {
     private final AnalysisJobStore store;
     private final AnalysisCompletionValidator validator;
     private final PushAnalysisCreationService pushes;
-    private final AnalysisFinishedEventService events;
-    private final NotificationStreamService connections;
+    private final AnalysisFinishedEventService analysisFinishedEventService;
+    private final NotificationStreamService notificationStreamService;
 
     public void receive(String analysisId, AnalysisCompletion completion) {
         try {
@@ -51,7 +51,7 @@ public class AnalysisCallbackService {
         String objectKey = job.analysisImages().stream().filter(image -> analysisId.equals(image.aiAnalysisId()))
                 .findFirst().orElseThrow().objectKey();
         try {
-            events.publishImageFinished(job.userId(), job.id(), objectKey, completion.status(),
+            analysisFinishedEventService.publishImageFinished(job.userId(), job.id(), objectKey, completion.status(),
                     job.analysisImages().size(), countImages(job, AnalysisStatus.COMPLETED), countImages(job, AnalysisStatus.FAILED));
         } catch (DataAccessException | CustomException exception) {
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
@@ -63,25 +63,25 @@ public class AnalysisCallbackService {
     }
 
     private void publishCompletion(AnalysisJob job) {
-        int completed = countImages(job, AnalysisStatus.COMPLETED);
-        int failed = countImages(job, AnalysisStatus.FAILED);
-        AnalysisStatus status = failed == 0 ? AnalysisStatus.COMPLETED : completed == 0 ? AnalysisStatus.FAILED : AnalysisStatus.PARTIALLY_COMPLETED;
-        events.publish(job.userId(), job.id(), status, job.analysisImages().size(), completed, failed, job.expiresAt());
+        int completedImageCount = countImages(job, AnalysisStatus.COMPLETED);
+        int failedImageCount = countImages(job, AnalysisStatus.FAILED);
+        AnalysisStatus status = failedImageCount == 0 ? AnalysisStatus.COMPLETED : completedImageCount == 0 ? AnalysisStatus.FAILED : AnalysisStatus.PARTIALLY_COMPLETED;
+        analysisFinishedEventService.publish(job.userId(), job.id(), status, job.analysisImages().size(), completedImageCount, failedImageCount, job.expiresAt());
     }
 
     // 경로를 먼저 저장해야 전송·확인 실패 후 연결 상태가 바뀌어도 SSE와 푸시를 함께 보내지 않는다.
     private void notifyCompletion(AnalysisJob job) {
         try {
-            AnalysisJob selected = job;
-            if (selected.notificationChannel() == null) {
-                AnalysisNotificationChannel channel = connections.isConnected(job.userId()) ? AnalysisNotificationChannel.SSE : AnalysisNotificationChannel.PUSH;
-                selected = store.selectNotificationChannel(job.id(), channel);
+            AnalysisJob notificationSelectedJob = job;
+            if (notificationSelectedJob.notificationChannel() == null) {
+                AnalysisNotificationChannel channel = notificationStreamService.isConnected(job.userId()) ? AnalysisNotificationChannel.SSE : AnalysisNotificationChannel.PUSH;
+                notificationSelectedJob = store.selectNotificationChannel(job.id(), channel);
             }
-            if (!selected.notificationPending()) { return; }
-            if (selected.notificationChannel() == AnalysisNotificationChannel.SSE) {
-                publishCompletion(selected);
+            if (!notificationSelectedJob.notificationPending()) { return; }
+            if (notificationSelectedJob.notificationChannel() == AnalysisNotificationChannel.SSE) {
+                publishCompletion(notificationSelectedJob);
             } else {
-                pushes.create(selected.id(), selected.userId(), selected.expiresAt());
+                pushes.create(notificationSelectedJob.id(), notificationSelectedJob.userId(), notificationSelectedJob.expiresAt());
             }
             store.acknowledgeNotification(job.id());
         } catch (DataAccessException | CustomException exception) {
