@@ -48,6 +48,7 @@ public class MembershipService {
         invitationService.validateCurrent(refrigeratorId, inviteCode);
 
         List<RefrigeratorMember> liveRefrigeratorMembers = refrigeratorMemberRepository.findLiveMembersForUpdate(refrigeratorId);
+        refrigeratorPolicy.validateOwnerIsUsingRefrigerator(liveRefrigeratorMembers);
         refrigeratorPolicy.validateCapacity(liveRefrigeratorMembers);
 
         refrigeratorMemberManager.deactivateForJoin(refrigeratorId);
@@ -84,7 +85,14 @@ public class MembershipService {
     }
 
     private void prepareJoin(User user, Refrigerator refrigerator, RefrigeratorMemberManager refrigeratorMemberManager) {
-        refrigeratorMemberManager.prepareJoin(user, refrigerator, false);
+        RefrigeratorMember currentMembership = refrigeratorMemberManager.getSelectedMembership();
+        List<RefrigeratorMember> liveMembers = List.of();
+        // 자기 냉장고·현재 MEMBER는 기존 오류 우선순위대로 관계 검증에서 먼저 거절한다.
+        if (!currentMembership.belongsToRefrigerator(refrigerator.getId()) && currentMembership.isOwner()) {
+            liveMembers = refrigeratorMemberRepository.findLiveMembersForUpdate(currentMembership.getRefrigerator().getId());
+        }
+        boolean hasOtherMembers = refrigeratorPolicy.hasOtherMembers(currentMembership, liveMembers);
+        refrigeratorMemberManager.prepareJoin(user, refrigerator, hasOtherMembers);
     }
 
     private Long restorePersonalRefrigerator(
