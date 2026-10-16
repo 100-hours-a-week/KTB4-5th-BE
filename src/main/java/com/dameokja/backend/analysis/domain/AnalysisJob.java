@@ -48,6 +48,8 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted, notificationChannel);
     }
 
+    public boolean finished() { return analysisImages.stream().allMatch(image -> image.completion() != null); }
+
     public AnalysisJob acknowledgeNotification() {
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel);
     }
