@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Import;
         properties = {
                 "spring.config.import=",
                 "spring.jpa.hibernate.ddl-auto=validate",
-                "spring.sql.init.mode=never"
+                "spring.sql.init.mode=never",
+                // 쿼리 수를 검증하는 테스트가 별도 컨텍스트를 만들지 않도록 공통으로 켠다.
+                "spring.jpa.properties.hibernate.generate_statistics=true"
         })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({JpaAuditingConfig.class, TimeConfig.class})

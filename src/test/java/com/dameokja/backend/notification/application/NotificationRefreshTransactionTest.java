@@ -9,39 +9,29 @@ import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.infrastructure.NotificationRepository;
 import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
-import com.dameokja.backend.notification.infrastructure.NotificationRedisPubSub;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
-@Import({NotificationService.class, NotificationRecipientService.class, NotificationRedisPubSub.class, JsonMapper.class})
-@Transactional(propagation = Propagation.NOT_SUPPORTED)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-class NotificationRefreshTransactionTest extends MySqlJpaTest {
+class NotificationRefreshTransactionTest extends NotificationServiceJpaTest {
     @Autowired NotificationService service;
     @Autowired NotificationRecipientService recipients;
     @Autowired NotificationRepository notifications;
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired JdbcTemplate jdbc;
-    @MockitoBean StringRedisTemplate redis;
-    @MockitoBean NotificationSseConnections connections;
-    @MockitoBean RefrigeratorAccessService access;
-    @MockitoBean ExpiredIngredientCountService expiredCount;
+    @Autowired StringRedisTemplate redis;
+    @Autowired NotificationSseConnections connections;
+    @Autowired RefrigeratorAccessService access;
+    @Autowired ExpiredIngredientCountService expiredCount;
 
     @BeforeEach
     void seed() {
