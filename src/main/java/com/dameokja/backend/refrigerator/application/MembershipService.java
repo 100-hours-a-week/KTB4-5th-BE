@@ -44,6 +44,7 @@ public class MembershipService {
         invitationService.validateCurrent(refrigeratorId, inviteCode);
 
         List<RefrigeratorMember> liveRefrigeratorMembers = refrigeratorMemberRepository.findLiveMembersForUpdate(refrigeratorId);
+        refrigeratorPolicy.validateCapacity(liveRefrigeratorMembers);
 
         refrigeratorMemberManager.deactivateForJoin(refrigeratorId);
         // 활성 관계 UNIQUE를 새 관계의 INSERT보다 먼저 해제한다.
