@@ -9,7 +9,7 @@ final class RefrigeratorApiExamples {
                 {
                   "refrigeratorId": 1,
                   "name": "우리집 냉장고",
-                  "capacity": 100,
+                  "capacity": 1500,
                   "expiredCount": 3
                 }
               ]

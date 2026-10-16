@@ -209,7 +209,7 @@ public interface IngredientApi {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "만료 재고 선택 만료 처리 성공 (본문 없음)"),
-            @ApiResponse(responseCode = "400", description = "ingredientIds 누락·빈 목록·null 포함·100개 초과 (INGREDIENT-400-003)"),
+            @ApiResponse(responseCode = "400", description = "ingredientIds 누락·빈 목록·null 포함·1,500개 초과 (INGREDIENT-400-003)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),

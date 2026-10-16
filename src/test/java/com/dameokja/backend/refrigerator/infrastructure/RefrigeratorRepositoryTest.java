@@ -28,7 +28,7 @@ class RefrigeratorRepositoryTest extends MySqlJpaTest {
         assertThat(foundRefrigerator.getId()).isNotEqualTo(secondRefrigerator.getId());
         assertThat(foundRefrigerator.getName()).isEqualTo("첫냉장고");
         assertThat(foundRefrigerator.getExpiredCountMonth()).isEqualTo("2026-09");
-        assertThat(foundRefrigerator.getCapacity()).isEqualTo((short) 100);
+        assertThat(foundRefrigerator.getCapacity()).isEqualTo((short) 1500);
         assertThat(foundRefrigerator.getExpiredCount()).isZero();
         assertThat(foundRefrigerator.getDeletedAt()).isNull();
         assertThat(foundRefrigerator.getCreatedAt()).isNotNull();
@@ -58,7 +58,7 @@ class RefrigeratorRepositoryTest extends MySqlJpaTest {
                 .findById(savedRefrigerator.getId())
                 .orElseThrow();
         assertThat(updatedRefrigerator.getName()).isEqualTo("수정후");
-        assertThat(updatedRefrigerator.getCapacity()).isEqualTo((short) 100);
+        assertThat(updatedRefrigerator.getCapacity()).isEqualTo((short) 1500);
         assertThat(updatedRefrigerator.getExpiredCount()).isZero();
         assertThat(updatedRefrigerator.getExpiredCountMonth()).isEqualTo("2026-09");
     }

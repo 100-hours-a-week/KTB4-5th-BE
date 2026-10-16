@@ -44,21 +44,24 @@ class IngredientCreateServiceTest {
 
     @Test
     void createsNewIngredientInLastSlot() {
-        when(repository.countByRefrigeratorId(10L)).thenReturn(99L);
+        when(repository.countByRefrigeratorId(10L)).thenReturn(1499L);
         when(repository.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         IngredientWriteResult result = service.create(1L, 10L, List.of(command(30)));
         IngredientWriteItem createdItem = result.items().getFirst();
 
         assertThat(createdItem.created()).isTrue();
-        assertThat(result.ingredientsNum()).isEqualTo(100);
+        assertThat(result.capacity()).isEqualTo(1500);
+        assertThat(result.ingredientsNum()).isEqualTo(1500);
         assertThat(createdItem.ingredient().getMeasurement().getQuantity()).isEqualTo((short) 30);
     }
 
     @Test
     void capacityFailureDoesNotSave() {
-        when(repository.countByRefrigeratorId(10L)).thenReturn(100L);
+        when(repository.countByRefrigeratorId(10L)).thenReturn(1500L);
         assertThatThrownBy(() -> service.create(1L, 10L, List.of(command(1))))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getExceptionCode().getCode())
+                .isEqualTo("INGREDIENT-409-001");
         verify(repository, never()).saveAndFlush(any());
     }
 

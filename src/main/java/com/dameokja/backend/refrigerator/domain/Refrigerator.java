@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "refrigerators")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Refrigerator extends BaseEntity {
+    public static final short DEFAULT_CAPACITY = 1500;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "refrigerator_id")
@@ -38,7 +39,7 @@ public class Refrigerator extends BaseEntity {
 
     public Refrigerator(String name, String expiredCountMonth) {
         this.name = name;
-        this.capacity = 100;
+        this.capacity = DEFAULT_CAPACITY;
         this.expiredCount = 0;
         this.expiredCountMonth = expiredCountMonth;
     }

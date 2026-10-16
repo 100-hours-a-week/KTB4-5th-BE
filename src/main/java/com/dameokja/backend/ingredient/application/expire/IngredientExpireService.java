@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class IngredientExpireService {
-    private static final int MAX_SELECTION = 100; // 냉장고 한 개의 최대 재고 수
+    private static final int MAX_SELECTION = Refrigerator.DEFAULT_CAPACITY; // 냉장고 한 개의 최대 재고 수
 
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final IngredientRepository ingredientRepository;

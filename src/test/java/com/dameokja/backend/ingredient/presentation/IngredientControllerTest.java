@@ -66,7 +66,7 @@ class IngredientControllerTest {
     void returnsListWithDefaultParametersAndStatusOfBusinessDate() {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
-        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 100, "next");
+        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 1500, "next");
         when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
@@ -78,7 +78,7 @@ class IngredientControllerTest {
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");
         assertThat(data.ingredientsNum()).isEqualTo(30L);
         assertThat(data.filteredCount()).isEqualTo(30L);
-        assertThat(data.refrigeratorCapacity()).isEqualTo((short) 100);
+        assertThat(data.refrigeratorCapacity()).isEqualTo((short) 1500);
         assertThat(data.nextCursor()).isEqualTo("next");
         assertThat(data.ingredients()).singleElement().satisfies(item -> {
             assertThat(item.ingredientId()).isEqualTo("1");
@@ -102,7 +102,7 @@ class IngredientControllerTest {
     @EnumSource(IngredientCategory.class)
     @NullSource
     void bindsSingleCategoryOrOmission(IngredientCategory category) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, null, 10)).thenReturn(result);
         MockHttpServletRequestBuilder request = get("/api/v1/refrigerators/10/ingredients");
         if (category != null) {
@@ -116,7 +116,7 @@ class IngredientControllerTest {
     @ParameterizedTest
     @CsvSource(value = {"두,두", "' 두 ',두", "😀,😀", "' 😀 ',😀"})
     void bindsOneCharacterKeyword(String keyword, String expected) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
 
         listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());
@@ -126,7 +126,7 @@ class IngredientControllerTest {
     @ParameterizedTest
     @CsvSource(value = {"'  두부  ',두부", "'',", "'   ',"})
     void bindsNormalizedKeyword(String keyword, String expected) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 100, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
 
         listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());

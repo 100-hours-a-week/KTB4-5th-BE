@@ -72,6 +72,26 @@ class IngredientExpireSelectedTest {
         verifyNoInteractions(refrigeratorAccessService, ingredientRepository);
     }
 
+    @Test
+    void allowsSelectingAll1500Slots() {
+        List<Long> ids = java.util.stream.LongStream.rangeClosed(1, 1500).boxed().toList();
+        when(refrigeratorAccessService.lockForWrite(2L, 10L)).thenReturn(refrigerator);
+
+        assertThat(service.expireSelected(2L, 10L, ids)).isZero();
+        verify(ingredientRepository).findByRefrigerator_IdAndIdInAndExpirationDateBefore(10L, ids, BUSINESS_DATE);
+    }
+
+    @Test
+    void rejects1501DistinctSelectionsBeforeLocking() {
+        List<Long> ids = java.util.stream.LongStream.rangeClosed(1, 1501).boxed().toList();
+
+        assertThatThrownBy(() -> service.expireSelected(2L, 10L, ids))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getExceptionCode().getCode())
+                .isEqualTo("INGREDIENT-400-003");
+        verifyNoInteractions(refrigeratorAccessService, ingredientRepository);
+    }
+
     private Ingredient ingredient(String name) {
         IngredientDetails details = new IngredientDetails(name, IngredientCategory.OTHER, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BUSINESS_DATE.minusDays(1));
