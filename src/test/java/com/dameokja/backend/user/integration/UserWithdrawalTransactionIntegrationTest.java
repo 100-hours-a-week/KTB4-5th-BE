@@ -1,6 +1,5 @@
 package com.dameokja.backend.user.integration;
 
-import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.UserWithdrawalService;
 import com.dameokja.backend.user.domain.User;
@@ -9,7 +8,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,8 +17,6 @@ import static org.mockito.Mockito.mockingDetails;
 class UserWithdrawalTransactionIntegrationTest extends ServiceIntegrationTest {
     @Autowired
     UserWithdrawalService userWithdrawalService;
-    @MockitoSpyBean
-    RefrigeratorMemberRepository refrigeratorMemberRepository;
 
     @Test
     void rollsBackAfterOwnershipTransferReachesDatabase() {

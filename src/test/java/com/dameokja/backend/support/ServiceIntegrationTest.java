@@ -1,10 +1,16 @@
 package com.dameokja.backend.support;
 
+import com.dameokja.backend.auth.infrastructure.RefreshSessionStore;
+import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRepository;
+import com.dameokja.backend.refrigerator.application.InvitationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
+import com.dameokja.backend.user.application.NicknamePolicy;
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
@@ -29,6 +35,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,6 +46,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 @ExtendWith(RedisTestSupport.class)
 @Import({ServiceIntegrationTest.TimeConfiguration.class, RedisTestSupport.Configuration.class})
+// 하위 테스트마다 스파이 조합이 다르면 컨텍스트가 따로 만들어져 DB 연결이 쌓이므로 한곳에 모은다. 스파이는 테스트마다 초기화된다.
+@MockitoSpyBean(types = {UserRepository.class, RefrigeratorRepository.class, RefrigeratorMemberRepository.class,
+        NotificationPreferenceRepository.class, SocialAccountRepository.class, RefreshSessionStore.class,
+        JwtProvider.class, NicknamePolicy.class, InvitationService.class})
 public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     @Autowired
     protected UserRepository userRepository;

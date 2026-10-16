@@ -18,7 +18,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -34,9 +33,9 @@ class OAuthSignupIntegrationTest extends ServiceIntegrationTest {
     @Autowired OAuthSignupService signup;
     @Autowired OAuthRegistrationStore registrations;
     @Autowired AuthService auth;
-    @MockitoSpyBean RefreshSessionStore sessions;
+    @Autowired RefreshSessionStore sessions;
     @Autowired PlatformTransactionManager transactionManager;
-    @MockitoSpyBean JwtProvider jwt;
+    @Autowired JwtProvider jwt;
 
     @Test
     void completesRegistrationAndIssuesUsableServiceTokensOnlyOnce() {

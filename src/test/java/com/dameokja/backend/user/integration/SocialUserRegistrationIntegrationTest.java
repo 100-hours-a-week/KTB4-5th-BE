@@ -20,7 +20,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,9 +32,9 @@ import static org.mockito.Mockito.mockingDetails;
 class SocialUserRegistrationIntegrationTest extends ServiceIntegrationTest {
     @Autowired
     UserRegistrationService registrations;
-    @MockitoSpyBean
+    @Autowired
     SocialAccountRepository accounts;
-    @MockitoSpyBean
+    @Autowired
     NicknamePolicy nicknamePolicy;
 
     @ParameterizedTest
