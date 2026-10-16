@@ -14,8 +14,10 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -50,8 +52,12 @@ public class AnalysisJobStore {
     }
 
     public AnalysisJob create(Long userId, String inputHint, List<AnalysisImage> analysisImages) {
+        return create(UUID.randomUUID().toString(), userId, inputHint, analysisImages);
+    }
+
+    public AnalysisJob create(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages) {
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
-        AnalysisJob job = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, null, false);
+        AnalysisJob job = new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, null, false);
         redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job));
         // 작업을 먼저 저장해야 목록 조회의 만료 정리가 생성 중인 작업을 색인에서 지우지 않는다.
         redis.opsForZSet().add(USER_PREFIX + userId, job.id(), submittedAt.toInstant().toEpochMilli());
@@ -71,6 +77,10 @@ public class AnalysisJobStore {
         }
         if (!stale.isEmpty()) { redis.opsForZSet().remove(key, stale.toArray()); }
         return jobs;
+    }
+
+    public Optional<AnalysisJob> find(String analysisJobId) {
+        return Optional.ofNullable(readActive(redis.opsForValue().get(PREFIX + analysisJobId)));
     }
 
     public AnalysisJob findOwned(String analysisJobId, Long userId) {
@@ -99,12 +109,20 @@ public class AnalysisJobStore {
     }
 
     public AnalysisJob complete(String analysisId, AnalysisCompletion completion) {
-        String key = PREFIX + findByAiAnalysisId(analysisId).id();
+        return finish(findByAiAnalysisId(analysisId).id(), (job, expiresAt) -> job.complete(analysisId, completion, expiresAt));
+    }
+
+    public AnalysisJob fail(String analysisJobId, String requestId, AnalysisCompletion failure) {
+        return finish(analysisJobId, (job, expiresAt) -> job.fail(requestId, failure, expiresAt));
+    }
+
+    private AnalysisJob finish(String analysisJobId, BiFunction<AnalysisJob, OffsetDateTime, AnalysisJob> change) {
+        String key = PREFIX + analysisJobId;
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             String previous = redis.opsForValue().get(key);
             AnalysisJob job = requireActive(previous);
             OffsetDateTime expiresAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime().plus(resultTtl);
-            AnalysisJob updated = job.complete(analysisId, completion, expiresAt);
+            AnalysisJob updated = change.apply(job, expiresAt);
             if (updated.equals(job)) {
                 return job;
             }

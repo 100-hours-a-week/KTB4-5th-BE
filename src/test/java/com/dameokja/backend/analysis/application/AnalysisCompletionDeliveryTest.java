@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -52,7 +53,10 @@ class AnalysisCompletionDeliveryTest {
     private final PushAnalysisCreationService pushes = mock(PushAnalysisCreationService.class);
     private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), pushes, analysisFinishedEventService, notificationStreamService);
+    private final AnalysisDispatchUpdater dispatches = mock(AnalysisDispatchUpdater.class);
+    private final AnalysisDispatchWorker worker = mock(AnalysisDispatchWorker.class);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(),
+            new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), dispatches, worker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
@@ -226,6 +230,30 @@ class AnalysisCompletionDeliveryTest {
         verifyNoMoreInteractions(analysisFinishedEventService);
         verifyNoInteractions(pushes);
         verify(store, never()).acknowledgeNotification(job.id());
+    }
+
+    @Test
+    void finishesTheDispatchBeforeNotifyingAndWakesTheWorkerForTheNextImage() {
+        AnalysisJob job = registeredJob(1);
+        when(notificationStreamService.isConnected(7L)).thenReturn(true);
+        callbacks.receive("ai-0", failure);
+        InOrder order = inOrder(dispatches, analysisFinishedEventService, worker);
+        order.verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+        order.verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        order.verify(worker).wakeUp();
+    }
+
+    @Test
+    void keepsTheSavedResultButAsksForRetryWhenTheDispatchCannotBeFinished() {
+        AnalysisJob job = registeredJob(1);
+        doThrow(new DataAccessResourceFailureException("mysql")).when(dispatches).finish(any());
+        assertUnavailable(() -> callbacks.receive("ai-0", failure));
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verifyNoInteractions(analysisFinishedEventService, pushes, worker);
+        clearInvocations(dispatches);
+        doNothing().when(dispatches).finish(any());
+        callbacks.receive("ai-0", failure);
+        verify(dispatches).finish(job.analysisImages().getFirst().requestId());
     }
 
     private AnalysisJob registeredJob(int images) {

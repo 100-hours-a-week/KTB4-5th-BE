@@ -40,8 +40,23 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         if (analysisId == null || analysisImages.stream().noneMatch(image -> analysisId.equals(image.aiAnalysisId()))) {
             throw new IllegalArgumentException("작업에 속하지 않은 AI 분석입니다.");
         }
-        List<AnalysisImage> images = analysisImages.stream()
-                .map(image -> analysisId.equals(image.aiAnalysisId()) ? image.complete(completion) : image).toList();
+        return withImages(analysisImages.stream()
+                .map(image -> analysisId.equals(image.aiAnalysisId()) ? image.complete(completion) : image).toList(), resultExpiresAt);
+    }
+
+    public AnalysisJob fail(String requestId, AnalysisCompletion failure, OffsetDateTime resultExpiresAt) {
+        if (analysisImages.stream().noneMatch(image -> image.requestId().equals(requestId))) {
+            throw new IllegalArgumentException("작업에 속하지 않은 이미지 요청입니다.");
+        }
+        return withImages(analysisImages.stream()
+                .map(image -> image.requestId().equals(requestId) ? image.fail(failure) : image).toList(), resultExpiresAt);
+    }
+
+    public String requestIdOf(String analysisId) {
+        return analysisImages.stream().filter(image -> analysisId.equals(image.aiAnalysisId())).findFirst().orElseThrow().requestId();
+    }
+
+    private AnalysisJob withImages(List<AnalysisImage> images, OffsetDateTime resultExpiresAt) {
         boolean newlyCompleted = images.stream().allMatch(image -> image.completion() != null)
                 && analysisImages.stream().anyMatch(image -> image.completion() == null);
         OffsetDateTime deadline = newlyCompleted ? Objects.requireNonNull(resultExpiresAt) : expiresAt;
