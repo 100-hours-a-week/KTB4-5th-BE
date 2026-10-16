@@ -12,12 +12,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
-@TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 class PushTargetQueryTest extends MySqlJpaTest {
     private static final LocalDateTime SEOUL_TODAY_START = LocalDateTime.of(2026, 9, 25, 0, 0);
     private static final LocalDateTime SEND_AT = LocalDateTime.of(2026, 9, 25, 8, 0);
