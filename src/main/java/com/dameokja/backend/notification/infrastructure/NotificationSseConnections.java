@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -17,13 +18,16 @@ public class NotificationSseConnections {
     private static final long CONNECTION_TIMEOUT_MS = 300_000L;
     private final Map<Long, UserSseConnections> connections = new ConcurrentHashMap<>();
     private final Supplier<SseEmitter> emitterFactory;
+    private final NotificationConnectionPresence presence;
 
-    public NotificationSseConnections() {
-        this(() -> new SseEmitter(CONNECTION_TIMEOUT_MS));
+    @Autowired
+    public NotificationSseConnections(NotificationConnectionPresence presence) {
+        this(() -> new SseEmitter(CONNECTION_TIMEOUT_MS), presence);
     }
 
-    NotificationSseConnections(Supplier<SseEmitter> emitterFactory) {
+    NotificationSseConnections(Supplier<SseEmitter> emitterFactory, NotificationConnectionPresence presence) {
         this.emitterFactory = emitterFactory;
+        this.presence = presence;
     }
 
     /**
@@ -35,12 +39,12 @@ public class NotificationSseConnections {
      */
     public SseEmitter connect(Long userId, Long refrigeratorId) {
         SseEmitter emitter = emitterFactory.get();
-        NotificationSseConnection connection = new NotificationSseConnection(userId, refrigeratorId, emitter);
+        NotificationSseConnection connection = new NotificationSseConnection(userId, refrigeratorId, emitter, presence);
         connection.onClose(() -> remove(userId, connection));
         register(userId, connection);
         try {
             connection.sendConnected();
-        } catch (IOException | IllegalStateException exception) {
+        } catch (IOException | RuntimeException exception) {
             remove(userId, connection);
             connection.completeWithError(exception);
         }

@@ -160,6 +160,10 @@ Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함�
 객체를 JSON으로 저장할 때는 `ObjectMapper`로 문자열 변환 후 `StringRedisTemplate`을 사용하고,
 키 구조·TTL·역직렬화 대상 타입은 해당 도메인의 저장소에서 정한다.
 
+SSE emitter는 각 서버 메모리에 유지하고, 사용자별 `fridgely:notifications:connections:<userId>` sorted set에 연결 UUID와 lease 만료 시각을 공유한다.
+25초 heartbeat가 성공하면 Redis 서버 시각을 기준으로 75초 lease와 키 TTL을 갱신한다. 개별 연결 종료는 해당 UUID만 제거하고, 서버 비정상 종료는 TTL로 정리한다.
+연결 상태 등록·갱신 실패는 해당 SSE 연결을 종료하며, 상태 조회 실패는 미연결로 처리하지 않고 예외를 전달한다. 종료 상태 제거 실패는 TTL 만료로 복구한다.
+
 ## 카카오 로그인 설정
 
 | 환경변수 | 내용 |
