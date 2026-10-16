@@ -1,8 +1,10 @@
 package com.dameokja.backend.refrigerator.application;
 
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMemberManager;
@@ -54,8 +56,29 @@ public class MembershipService {
         return refrigeratorId;
     }
 
+    public Long leave(Long userId, Long refrigeratorId) {
+        userAccessService.lockActive(userId);
+        lockRelatedRefrigerators(List.of(userId), refrigeratorId);
+        RefrigeratorMemberManager refrigeratorMemberManager = loadRefrigeratorMemberManager(userId);
+        RefrigeratorMember leavingRefrigeratorMembership = refrigeratorMemberManager.findLiveMembership(refrigeratorId)
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
+
+        return restorePersonalRefrigerator(leavingRefrigeratorMembership, refrigeratorMemberManager);
+    }
+
     private void prepareJoin(User user, Refrigerator refrigerator, RefrigeratorMemberManager refrigeratorMemberManager) {
         refrigeratorMemberManager.prepareJoin(user, refrigerator, false);
+    }
+
+    private Long restorePersonalRefrigerator(
+            RefrigeratorMember sharingMembership, RefrigeratorMemberManager refrigeratorMemberManager) {
+        Long personalRefrigeratorId = refrigeratorMemberManager.preparePersonalReturn(sharingMembership);
+        refrigeratorMemberManager.endSharedMembership(sharingMembership.getRefrigerator().getId(), BusinessTime.now(clock));
+        // 공유 선택 해제를 반영한 뒤 개인 관계를 활성화한다. 이후 실패하면 전체 TX가 롤백된다.
+        refrigeratorMemberRepository.flush();
+        refrigeratorMemberManager.activatePersonalMembership(personalRefrigeratorId);
+        refrigeratorMemberRepository.flush();
+        return personalRefrigeratorId;
     }
 
     private RefrigeratorMemberManager loadRefrigeratorMemberManager(Long userId) {
