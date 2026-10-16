@@ -1,0 +1,57 @@
+package com.dameokja.backend.analysis.application;
+
+import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
+import com.dameokja.backend.global.util.BusinessTime;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class AnalysisDispatchLeaseService {
+    private final AnalysisDispatchRepository repository;
+    private final AnalysisDispatchProperties properties;
+    private final Clock clock;
+
+    // 대상별 행 하나를 잠근 뒤 진행 중 개수를 세므로, 여러 BE가 동시에 선점해도 슬롯 수를 넘겨 보내지 않는다.
+    @Transactional
+    public List<LeasedDispatch> leaseDue() {
+        if (repository.lockGate(properties.aiTarget()).isEmpty()) {
+            throw new IllegalStateException("분석 전달 대상 행이 없습니다. target=" + properties.aiTarget());
+        }
+        int freeSlots = properties.slots() - repository.countInFlight();
+        if (freeSlots <= 0) {
+            return List.of();
+        }
+        LocalDateTime now = BusinessTime.now(clock);
+        List<Long> ids = repository.findDueIdsWithSkipLock(now, freeSlots);
+        return record(ids, now, (token, at) -> repository.markDispatching(ids, token, at, at.plus(properties.leaseDuration())));
+    }
+
+    @Transactional
+    public List<LeasedDispatch> leaseExpired() {
+        LocalDateTime now = BusinessTime.now(clock);
+        List<Long> ids = repository.findLeaseExpiredIdsWithSkipLock(now, properties.checkBatchSize());
+        return record(ids, now, (token, at) -> repository.markChecking(ids, token, at, at.plus(properties.leaseDuration())));
+    }
+
+    private List<LeasedDispatch> record(List<Long> ids, LocalDateTime now, LeaseUpdate update) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        String token = UUID.randomUUID().toString();
+        int updated = update.apply(token, now);
+        if (updated != ids.size()) {
+            throw new IllegalStateException("분석 전달 선점 기록 수가 선택 수와 다릅니다.");
+        }
+        return ids.stream().map(id -> new LeasedDispatch(id, token)).toList();
+    }
+
+    private interface LeaseUpdate {
+        int apply(String token, LocalDateTime now);
+    }
+}

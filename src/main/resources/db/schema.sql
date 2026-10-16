@@ -292,3 +292,44 @@ CREATE TABLE push_notifications (
     CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_push_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_dispatch_gates (
+    ai_target VARCHAR(50) NOT NULL COMMENT 'AI 전송 대상. 이 행 잠금으로 대상별 진행 중 개수 판단을 직렬화',
+    PRIMARY KEY (ai_target)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+INSERT INTO analysis_dispatch_gates (ai_target) VALUES ('default');
+
+CREATE TABLE analysis_dispatches (
+    analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',
+    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. 재전송도 같은 값 사용',
+    analysis_job_id CHAR(36) NOT NULL COMMENT 'Redis 분석 묶음 ID',
+    user_id BIGINT NOT NULL,
+    object_key VARCHAR(512) NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    input_hint VARCHAR(16) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    ai_analysis_id VARCHAR(64) NULL COMMENT '마지막으로 접수된 AI 작업 ID',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI 전송 실패·재전송 횟수. 429와 AI 준비 전 보류는 제외',
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token VARCHAR(64) NULL,
+    lease_until DATETIME(6) NULL COMMENT 'DISPATCHING·CHECKING은 점유 만료, AWAITING_CALLBACK은 콜백 기한',
+    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 FAILED',
+    last_ai_status VARCHAR(20) NULL COMMENT '마지막 AI 작업 조회 상태',
+    last_error_code VARCHAR(64) NULL,
+    dispatched_at DATETIME(6) NULL COMMENT '마지막 전송 시작',
+    accepted_at DATETIME(6) NULL COMMENT '마지막 AI 접수',
+    finished_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_dispatch_id),
+    UNIQUE KEY uk_analysis_dispatch_request (request_id),
+    KEY ix_analysis_dispatch_due (status, next_attempt_at),
+    KEY ix_analysis_dispatch_lease (status, lease_until),
+    CONSTRAINT ck_analysis_dispatch_status CHECK (status IN ('PENDING','DISPATCHING','AWAITING_CALLBACK','CHECKING','DONE','FAILED')),
+    CONSTRAINT ck_analysis_dispatch_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_dispatch_lease CHECK (status NOT IN ('DISPATCHING','AWAITING_CALLBACK','CHECKING')
+        OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_dispatch_awaiting CHECK (status NOT IN ('AWAITING_CALLBACK','CHECKING') OR ai_analysis_id IS NOT NULL),
+    CONSTRAINT ck_analysis_dispatch_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;

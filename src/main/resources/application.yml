@@ -127,6 +127,20 @@ ai:
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
+  dispatch:
+    enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
+    poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
+    # analysis_dispatch_gates의 행. AI 인스턴스를 나누면 대상마다 행과 슬롯을 둔다.
+    ai-target: ${ANALYSIS_DISPATCH_AI_TARGET:default}
+    # AI에 동시에 맡기는 이미지 수. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
+    slots: ${ANALYSIS_DISPATCH_SLOTS:1}
+    lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
+    callback-timeout: ${ANALYSIS_DISPATCH_CALLBACK_TIMEOUT:2m}
+    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:10m}
+    max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:5}
+    retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
+    orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
+    check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
 
 management:
   health:
