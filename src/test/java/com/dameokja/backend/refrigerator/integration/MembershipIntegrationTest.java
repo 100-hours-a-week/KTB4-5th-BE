@@ -6,6 +6,7 @@ import com.dameokja.backend.refrigerator.application.*;
 import com.dameokja.backend.refrigerator.domain.*;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.UserWithdrawalService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -57,6 +58,40 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void concurrentJoinersCannotTakeTheLastPlaceTwice() throws Exception {
+        Fixture owner = ownerFixture("Owner");
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        seedMembers(owner.refrigeratorId(), 148);
+        Fixture third = ownerFixture("Third");
+        Fixture fourth = ownerFixture("Fourth");
+        List<Object> results = concurrently(List.of(() -> membershipService.join(third.userId(), code),
+                () -> membershipService.join(fourth.userId(), code)));
+        assertThat(results.stream().filter(owner.refrigeratorId()::equals)).hasSize(1);
+        assertThat(results.stream().filter(CustomException.class::isInstance).map(CustomException.class::cast)
+                .map(CustomException::getExceptionCode)).containsExactly(RefrigeratorExceptionCode.FULL);
+        assertThat(queries.getMembers(owner.userId(), owner.refrigeratorId()).memberNum()).isEqualTo(150);
+        Fixture rejectedMember = results.getFirst() instanceof CustomException ? third : fourth;
+        assertThat(activeId(rejectedMember.userId())).isEqualTo(rejectedMember.refrigeratorId());
+    }
+
+    @Test
+    void oneUserCannotJoinTwoRefrigeratorsConcurrently() throws Exception {
+        Fixture first = ownerFixture("First");
+        Fixture second = ownerFixture("Second");
+        Fixture joining = ownerFixture("Joining");
+        String a = invitations.issueCode(first.userId(), first.refrigeratorId()).code();
+        String b = invitations.issueCode(second.userId(), second.refrigeratorId()).code();
+        List<Object> results = concurrently(List.of(() -> membershipService.join(joining.userId(), a),
+                () -> membershipService.join(joining.userId(), b)));
+        assertThat(results.stream().filter(Long.class::isInstance)).hasSize(1);
+        assertThat(results.stream().filter(CustomException.class::isInstance).map(CustomException.class::cast)
+                .map(CustomException::getExceptionCode)).containsExactly(RefrigeratorExceptionCode.ALREADY_SHARING);
+        assertThat(refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(joining.userId())).hasSize(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM refrigerator_members WHERE user_id=? AND role='MEMBER' AND ended_at IS NULL",
+                Integer.class, joining.userId())).isOne();
+    }
+
+    @Test
     void rollbackAfterPersonalDeactivationRestoresOriginalState() {
         Fixture owner = ownerFixture("Owner");
         Fixture member = ownerFixture("Member");
@@ -69,6 +104,13 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
             assertThat(queries.getMembers(owner.userId(), owner.refrigeratorId()).memberNum()).isOne();
         } finally {
             jdbcTemplate.execute("DROP TRIGGER reject_shared_join");
+        }
+    }
+
+    private void seedMembers(Long refrigeratorId, int count) {
+        Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId).orElseThrow();
+        for (int index = 0; index < count; index++) {
+            join(user("Seed" + index), refrigerator, true, false);
         }
     }
 
