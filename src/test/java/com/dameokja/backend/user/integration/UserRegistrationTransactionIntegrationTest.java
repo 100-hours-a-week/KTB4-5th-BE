@@ -1,6 +1,5 @@
 package com.dameokja.backend.user.integration;
 
-import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.notification.domain.NotificationPreference;
 import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRepository;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
@@ -9,7 +8,6 @@ import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.RegisterUserCommand;
 import com.dameokja.backend.user.application.RegistrationResult;
 import com.dameokja.backend.user.application.UserRegistrationService;
-import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;
@@ -23,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
-import static org.assertj.core.util.Throwables.getStackTrace;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockingDetails;
@@ -100,7 +97,7 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
 
     @ParameterizedTest
     @ValueSource(strings = {"nickname", "loginId"})
-    void translatesUniqueConstraintRaceAndRollsBackLosingSignup(String duplicateField)
+    void allowsOnlyOneSignupInUniqueConstraintRace(String duplicateField)
             throws Exception {
         synchronizeDuplicateChecks(duplicateField);
         List<Object> concurrentResults = concurrently(List.of(
@@ -108,19 +105,10 @@ class UserRegistrationTransactionIntegrationTest extends ServiceIntegrationTest 
                 () -> userRegistrationService.register(command(
                         duplicateField.equals("nickname") ? "User1" : "User2",
                         duplicateField.equals("loginId") ? "login1" : "login2"))));
+        // 유니크 인덱스 갭 락 때문에 패자가 중복 예외 대신 데드락으로 실패할 수 있어 실패 종류는 검사하지 않는다.
+        // 중복 예외 변환은 UserConstraintExceptionTranslatorTest가 검증한다.
         assertThat(concurrentResults.stream().filter(RegistrationResult.class::isInstance))
                 .withFailMessage("Concurrent results: %s", concurrentResults).hasSize(1);
-        List<Throwable> registrationFailures = concurrentResults.stream()
-                .filter(Throwable.class::isInstance)
-                .map(Throwable.class::cast)
-                .toList();
-        assertThat(registrationFailures).singleElement().satisfies(failure -> assertThat(failure)
-                .withFailMessage("Unexpected signup failure for %s:%n%s", duplicateField, getStackTrace(failure))
-                .isInstanceOfSatisfying(CustomException.class,
-                        exception -> assertThat(exception.getExceptionCode())
-                                .isEqualTo(duplicateField.equals("nickname")
-                                        ? UserExceptionCode.NICKNAME_DUPLICATE
-                                        : UserExceptionCode.LOGIN_ID_DUPLICATE)));
         assertThat(rows("users")).isEqualTo(1);
         assertThat(rows("refrigerators")).isEqualTo(1);
         assertThat(rows("refrigerator_members")).isEqualTo(1);
