@@ -66,7 +66,7 @@ class IngredientControllerTest {
     void returnsListWithDefaultParametersAndStatusOfBusinessDate() {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
-        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 1500, "next");
+        IngredientListResult result = new IngredientListResult(List.of(ingredient), businessDate, false, 30L, 30L, (short) 1500, "우리집 냉장고", "next");
         when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
@@ -78,6 +78,7 @@ class IngredientControllerTest {
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-002");
         assertThat(data.ingredientsNum()).isEqualTo(30L);
         assertThat(data.filteredCount()).isEqualTo(30L);
+        assertThat(data.refrigeratorName()).isEqualTo("우리집 냉장고");
         assertThat(data.refrigeratorCapacity()).isEqualTo((short) 1500);
         assertThat(data.nextCursor()).isEqualTo("next");
         assertThat(data.ingredients()).singleElement().satisfies(item -> {
@@ -102,21 +103,22 @@ class IngredientControllerTest {
     @EnumSource(IngredientCategory.class)
     @NullSource
     void bindsSingleCategoryOrOmission(IngredientCategory category) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, "우리집 냉장고", null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, null, 10)).thenReturn(result);
         MockHttpServletRequestBuilder request = get("/api/v1/refrigerators/10/ingredients");
         if (category != null) {
             request.param("category", category.name());
         }
 
-        listMvc().perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.ingredientsNum").value(5));
+        listMvc().perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.ingredientsNum").value(5))
+                .andExpect(jsonPath("$.data.refrigeratorName").value("우리집 냉장고"));
         verify(ingredientListService).getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, category, null, null, 10);
     }
 
     @ParameterizedTest
     @CsvSource(value = {"두,두", "' 두 ',두", "😀,😀", "' 😀 ',😀"})
     void bindsOneCharacterKeyword(String keyword, String expected) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, "우리집 냉장고", null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
 
         listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());
@@ -126,7 +128,7 @@ class IngredientControllerTest {
     @ParameterizedTest
     @CsvSource(value = {"'  두부  ',두부", "'',", "'   ',"})
     void bindsNormalizedKeyword(String keyword, String expected) throws Exception {
-        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, null);
+        IngredientListResult result = new IngredientListResult(List.of(), LocalDate.of(2026, 9, 23), false, 5L, 0L, (short) 1500, "우리집 냉장고", null);
         when(ingredientListService.getList(null, 10L, IngredientSortType.EXPIRATION_ASC, null, null, expected, null, 10)).thenReturn(result);
 
         listMvc().perform(get("/api/v1/refrigerators/10/ingredients").param("keyword", keyword)).andExpect(status().isOk());

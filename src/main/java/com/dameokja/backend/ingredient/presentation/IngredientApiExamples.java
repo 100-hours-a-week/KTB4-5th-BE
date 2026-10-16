@@ -165,6 +165,7 @@ final class IngredientApiExamples {
                 "ingredientsNum": 30,
                 "filteredCount": 30,
                 "refrigeratorCapacity": 1500,
+                "refrigeratorName": "우리집 냉장고",
                 "ingredients": [
                   {
                     "ingredientId": "1",

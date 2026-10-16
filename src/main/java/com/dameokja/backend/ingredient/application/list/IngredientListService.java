@@ -41,7 +41,7 @@ public class IngredientListService {
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
         long ingredientsNum = ingredientRepository.countByRefrigeratorId(refrigeratorId);
         return new IngredientListResult(page, cursor.baseDate(), cursor.baseDate().isBefore(today), ingredientsNum, countFiltered(cursor),
-                refrigerator.getCapacity(), nextCursor);
+                refrigerator.getCapacity(), refrigerator.getName(), nextCursor);
     }
 
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.

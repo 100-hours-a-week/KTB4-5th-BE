@@ -13,6 +13,8 @@ public record IngredientListResponse(
         long ingredientsNum,
         long filteredCount,
         Short refrigeratorCapacity,
+        @Schema(description = "조회한 냉장고의 현재 이름. 빈 목록·다음 페이지에도 반환")
+        String refrigeratorName,
         List<IngredientListItemResponse> ingredients,
         String nextCursor) {
 
@@ -21,6 +23,6 @@ public record IngredientListResponse(
                 .map(ingredient -> IngredientListItemResponse.of(ingredient, result.businessDate()))
                 .toList();
         return new IngredientListResponse(result.businessDate(), result.outdated(), result.ingredientsNum(), result.filteredCount(),
-                result.refrigeratorCapacity(), ingredients, result.nextCursor());
+                result.refrigeratorCapacity(), result.refrigeratorName(), ingredients, result.nextCursor());
     }
 }

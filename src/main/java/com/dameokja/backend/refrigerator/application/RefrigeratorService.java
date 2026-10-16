@@ -22,7 +22,7 @@ public class RefrigeratorService {
         List<MemberListView.MemberView> members = refrigeratorMemberRepository.findLiveMembers(refrigeratorId).stream()
                 .map(MemberListView.MemberView::from)
                 .toList();
-        return new MemberListView(refrigerator.getName(), members.size(), MEMBER_LIMIT, members);
+        return new MemberListView(userId.toString(), refrigerator.getName(), members.size(), MEMBER_LIMIT, members);
     }
 
     public List<Long> findNotificationTargetRefrigeratorIds() {

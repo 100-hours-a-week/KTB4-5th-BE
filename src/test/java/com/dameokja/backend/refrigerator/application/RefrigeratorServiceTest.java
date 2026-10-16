@@ -61,6 +61,7 @@ class RefrigeratorServiceTest {
 
         MemberListView result = service.getMembers(1L, 10L);
 
+        assertThat(result.currentUserId()).isEqualTo("1");
         assertThat(result.memberNum()).isOne();
         assertThat(result.memberMax()).isEqualTo(150);
         assertThat(result.members()).containsExactly(MemberListView.MemberView.from(owner));
