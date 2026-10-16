@@ -33,6 +33,14 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     long countByRefrigerator_IdAndExpirationDateBefore(Long refrigeratorId, LocalDate date);
 
+    long countByRefrigerator_IdAndExpirationDateGreaterThanEqualAndExpirationDateLessThan(
+            Long refrigeratorId, LocalDate from, LocalDate before);
+
+    @Query(value = "select ingredient_id from ingredients where refrigerator_id = :refrigeratorId "
+            + "and expiration_date >= :from and expiration_date < :before order by ingredient_id for update", nativeQuery = true)
+    List<Long> findExpirationIdsForUpdate(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("from") LocalDate from, @Param("before") LocalDate before);
+
     List<Ingredient> findByRefrigerator_IdAndIdInAndExpirationDateBefore(
             Long refrigeratorId, Collection<Long> ids, LocalDate date);
 
