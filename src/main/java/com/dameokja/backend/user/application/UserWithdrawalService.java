@@ -38,7 +38,7 @@ public class UserWithdrawalService {
             return;
         }
         LocalDateTime withdrawnAt = now();
-        refrigeratorLifecycleService.deleteOwned(userId, withdrawnAt);
+        refrigeratorLifecycleService.endUserMemberships(userId, withdrawnAt);
         user.withdraw(generateReplacementNickname(), withdrawnAt);
         userRepository.flush();
         authService.revokeAllUserSessions(userId);

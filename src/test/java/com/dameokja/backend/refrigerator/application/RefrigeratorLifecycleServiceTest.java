@@ -29,6 +29,8 @@ class RefrigeratorLifecycleServiceTest {
     private RefrigeratorRepository refrigeratorRepository;
     @Mock
     private RefrigeratorMemberRepository refrigeratorMemberRepository;
+    @Mock
+    private RefrigeratorPolicy refrigeratorPolicy;
     @InjectMocks
     private RefrigeratorLifecycleService refrigeratorLifecycleService;
 
@@ -51,29 +53,72 @@ class RefrigeratorLifecycleServiceTest {
     }
 
     @Test
-    void deletesEveryOwnedRefrigeratorAndItsMemberships() {
+    void lastMemberWithdrawalEndsRelationshipAndSoftDeletesSpace() {
         User user = new User("User1", "default.png");
-        Refrigerator firstRefrigerator = refrigerator(10L);
-        Refrigerator secondRefrigerator = refrigerator(20L);
-        when(refrigeratorMemberRepository.findByUserIdAndRole(1L, RefrigeratorMemberRole.OWNER))
-                .thenReturn(List.of(
-                        RefrigeratorMember.owner(user, firstRefrigerator),
-                        RefrigeratorMember.owner(user, secondRefrigerator)));
-        when(refrigeratorRepository.findByIdForUpdate(10L))
-                .thenReturn(Optional.of(firstRefrigerator));
-        when(refrigeratorRepository.findByIdForUpdate(20L))
-                .thenReturn(Optional.of(secondRefrigerator));
-        LocalDateTime deletedAt = LocalDateTime.of(2026, 9, 18, 12, 0);
-        refrigeratorLifecycleService.deleteOwned(1L, deletedAt);
-        assertThat(firstRefrigerator.getDeletedAt()).isEqualTo(deletedAt);
-        assertThat(secondRefrigerator.getDeletedAt()).isEqualTo(deletedAt);
-        verify(refrigeratorMemberRepository).deleteAllByRefrigeratorId(10L);
-        verify(refrigeratorMemberRepository).deleteAllByRefrigeratorId(20L);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        Refrigerator refrigerator = refrigerator(10L);
+        RefrigeratorMember membership = RefrigeratorMember.owner(user, refrigerator);
+        when(refrigeratorMemberRepository.findLiveRefrigeratorIds(1L)).thenReturn(List.of(10L));
+        when(refrigeratorRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(refrigerator));
+        when(refrigeratorMemberRepository.findLiveMembersForUpdate(10L)).thenReturn(List.of(membership));
+        when(refrigeratorPolicy.selectNextOwner(List.of(membership), 1L)).thenReturn(Optional.empty());
+        LocalDateTime endedAt = LocalDateTime.of(2026, 9, 18, 12, 0);
+        refrigeratorLifecycleService.endUserMemberships(1L, endedAt);
+        assertThat(refrigerator.getDeletedAt()).isEqualTo(endedAt);
+        assertThat(membership.getEndedAt()).isEqualTo(endedAt);
+        assertThat(membership.getIsActive()).isFalse();
+    }
+
+    @Test
+    void ownerWithdrawalPromotesSelectedMemberAndPreservesRefrigerator() {
+        User owner = new User("Owner", "default.png");
+        ReflectionTestUtils.setField(owner, "id", 1L);
+        Refrigerator refrigerator = refrigerator(10L);
+        RefrigeratorMember ownerMembership = RefrigeratorMember.owner(owner, refrigerator);
+        RefrigeratorMember nextOwner = new RefrigeratorMember(new User("Member", "default.png"), refrigerator);
+        List<RefrigeratorMember> liveRefrigeratorMembers = List.of(ownerMembership, nextOwner);
+        when(refrigeratorMemberRepository.findLiveRefrigeratorIds(1L)).thenReturn(List.of(10L));
+        when(refrigeratorRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(refrigerator));
+        when(refrigeratorMemberRepository.findLiveMembersForUpdate(10L)).thenReturn(liveRefrigeratorMembers);
+        when(refrigeratorPolicy.selectNextOwner(liveRefrigeratorMembers, 1L)).thenReturn(Optional.of(nextOwner));
+        LocalDateTime endedAt = LocalDateTime.of(2026, 10, 15, 12, 0);
+
+        refrigeratorLifecycleService.endUserMemberships(1L, endedAt);
+
+        assertThat(nextOwner.isOwner()).isTrue();
+        assertThat(nextOwner.getEndedAt()).isNull();
+        assertThat(refrigerator.getDeletedAt()).isNull();
+        assertThat(ownerMembership.getEndedAt()).isEqualTo(endedAt);
+        assertThat(ownerMembership.isSelected()).isFalse();
+    }
+
+    @Test
+    void memberWithdrawalPreservesExistingOwnerWithoutPromotingAnotherMember() {
+        User leavingUser = new User("Leaving", "default.png");
+        ReflectionTestUtils.setField(leavingUser, "id", 1L);
+        Refrigerator refrigerator = refrigerator(10L);
+        RefrigeratorMember leavingMembership = new RefrigeratorMember(leavingUser, refrigerator);
+        RefrigeratorMember earlierMember = new RefrigeratorMember(new User("Member", "default.png"), refrigerator);
+        RefrigeratorMember ownerMembership = RefrigeratorMember.owner(new User("Owner", "default.png"), refrigerator);
+        List<RefrigeratorMember> liveRefrigeratorMembers = List.of(leavingMembership, earlierMember, ownerMembership);
+        when(refrigeratorMemberRepository.findLiveRefrigeratorIds(1L)).thenReturn(List.of(10L));
+        when(refrigeratorRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(refrigerator));
+        when(refrigeratorMemberRepository.findLiveMembersForUpdate(10L)).thenReturn(liveRefrigeratorMembers);
+        when(refrigeratorPolicy.selectNextOwner(liveRefrigeratorMembers, 1L)).thenReturn(Optional.of(earlierMember));
+        LocalDateTime endedAt = LocalDateTime.of(2026, 10, 15, 12, 0);
+
+        refrigeratorLifecycleService.endUserMemberships(1L, endedAt);
+
+        assertThat(ownerMembership.isOwner()).isTrue();
+        assertThat(earlierMember.isOwner()).isFalse();
+        assertThat(refrigerator.getDeletedAt()).isNull();
+        assertThat(leavingMembership.getEndedAt()).isEqualTo(endedAt);
+        assertThat(leavingMembership.isSelected()).isFalse();
     }
 
     @Test
     void doesNotDeleteRefrigeratorsWhenUserOwnsNone() {
-        refrigeratorLifecycleService.deleteOwned(1L, LocalDateTime.of(2026, 9, 18, 12, 0));
+        refrigeratorLifecycleService.endUserMemberships(1L, LocalDateTime.of(2026, 9, 18, 12, 0));
         verifyNoInteractions(refrigeratorRepository);
     }
 
