@@ -62,14 +62,6 @@ public class Refrigerator extends BaseEntity {
         this.deletedAt = deletedAt;
     }
 
-    public void countExpiredDeletion() {
-        expiredCount++;
-    }
-
-    public void countExpiredDeletions(int count) {
-        expiredCount += count;
-    }
-
     public int monthlyExpiredCount(LocalDate date) {
         return YearMonth.from(date).toString().equals(expiredCountMonth) ? expiredCount : 0;
     }
