@@ -92,6 +92,24 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void leaveRestoresPersonalAndPreservesBothInventoriesAndAllowsRejoin() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        seedIngredient(owner.refrigeratorId());
+        seedIngredient(member.refrigeratorId());
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        membershipService.join(member.userId(), code);
+        assertThat(membershipService.leave(member.userId(), owner.refrigeratorId())).isEqualTo(member.refrigeratorId());
+        assertThat(activeId(member.userId())).isEqualTo(member.refrigeratorId());
+        assertError(RefrigeratorExceptionCode.ACCESS_DENIED, () -> access.validateReadAccess(member.userId(), owner.refrigeratorId()));
+        assertError(RefrigeratorExceptionCode.ACCESS_DENIED, () -> access.validateWriteAccess(member.userId(), owner.refrigeratorId()));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ingredients", Integer.class)).isEqualTo(2);
+        assertThat(queries.getMembers(owner.userId(), owner.refrigeratorId()).memberNum()).isOne();
+        membershipService.join(member.userId(), code);
+        assertThat(queries.getMembers(owner.userId(), owner.refrigeratorId()).memberNum()).isEqualTo(2);
+    }
+
+    @Test
     void rollbackAfterPersonalDeactivationRestoresOriginalState() {
         Fixture owner = ownerFixture("Owner");
         Fixture member = ownerFixture("Member");
@@ -104,6 +122,39 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
             assertThat(queries.getMembers(owner.userId(), owner.refrigeratorId()).memberNum()).isOne();
         } finally {
             jdbcTemplate.execute("DROP TRIGGER reject_shared_join");
+        }
+    }
+
+    @Test
+    void ownerWithdrawalTransfersOwnershipAndPreservesSharedSpace() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        membershipService.join(member.userId(), code);
+        withdrawal.withdraw(owner.userId());
+        MemberListView list = queries.getMembers(member.userId(), owner.refrigeratorId());
+        assertThat(list.memberNum()).isOne();
+        assertThat(list.members().getFirst().role()).isEqualTo("owner");
+        assertThat(refrigeratorRepository.findById(owner.refrigeratorId()).orElseThrow().getDeletedAt()).isNull();
+        assertError(RefrigeratorExceptionCode.OWNER_CANNOT_LEAVE, () -> membershipService.leave(member.userId(), owner.refrigeratorId()));
+    }
+
+    @Test
+    void failedPersonalRestoreRollsBackTermination() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
+        membershipService.join(member.userId(), code);
+        jdbcTemplate.execute("CREATE TRIGGER reject_restore BEFORE UPDATE ON refrigerator_members FOR EACH ROW "
+                + "BEGIN IF NEW.role='OWNER' AND NEW.is_active=1 AND OLD.is_active=0 THEN "
+                + "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='restore failure'; END IF; END");
+        try {
+            assertThatThrownBy(() -> membershipService.leave(member.userId(), owner.refrigeratorId()))
+                    .hasStackTraceContaining("restore failure");
+            assertThat(activeId(member.userId())).isEqualTo(owner.refrigeratorId());
+            assertThat(queries.getMembers(member.userId(), owner.refrigeratorId()).memberNum()).isEqualTo(2);
+        } finally {
+            jdbcTemplate.execute("DROP TRIGGER reject_restore");
         }
     }
 
@@ -123,4 +174,8 @@ class MembershipIntegrationTest extends ServiceIntegrationTest {
                 error -> assertThat(error.getExceptionCode()).isEqualTo(code));
     }
 
+    private void seedIngredient(Long id) {
+        jdbcTemplate.update("INSERT INTO ingredients (refrigerator_id,name,category,storage_type,measure_type,quantity,weight_unit,expiration_date,registration_source) "
+                + "VALUES (?,'carrot','VEGETABLE','REFRIGERATED','COUNT',1,'NONE','2026-10-20','DIRECT')", id);
+    }
 }

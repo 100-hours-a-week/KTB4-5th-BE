@@ -84,6 +84,21 @@ class InvitationRaceIntegrationTest extends ServiceIntegrationTest {
         }
     }
 
+    @Test
+    void independentServiceInstanceReadsCodeAndLatestMembershipFromSharedDatabase() {
+        Fixture owner = ownerFixture("Owner");
+        Fixture member = ownerFixture("Member");
+        InvitationView code = invitations.issueCode(owner.userId(), owner.refrigeratorId());
+        InvitationService other = new InvitationService(access, refrigeratorMemberRepository, codes, clock, secureRandom);
+        TransactionTemplate tx = new TransactionTemplate(transactions);
+        assertThat(tx.<InvitationView>execute(status -> other.getValidCode(owner.userId(), owner.refrigeratorId()))).isEqualTo(code);
+        membershipService.join(member.userId(), code.code());
+        RefrigeratorService otherQuery = new RefrigeratorService(refrigeratorMemberRepository, access);
+        assertThat(tx.<Integer>execute(status -> otherQuery.getMembers(owner.userId(), owner.refrigeratorId()).memberNum())).isEqualTo(2);
+        membershipService.leave(member.userId(), owner.refrigeratorId());
+        assertThat(tx.<Integer>execute(status -> otherQuery.getMembers(owner.userId(), owner.refrigeratorId()).memberNum())).isOne();
+    }
+
     private void await(CountDownLatch latch) throws InterruptedException {
         assertThat(latch.await(15, TimeUnit.SECONDS)).isTrue();
     }
