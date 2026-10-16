@@ -78,11 +78,11 @@ final class IngredientApiExamples {
                 "quantity": null,
                 "weightValue": "550.000",
                 "weightUnit": "G",
-                "expirationDate": "2026-09-15",
+                "expirationDate": "2026-09-17",
                 "createdDate": "2026-09-01",
                 "registrationSource": "RECEIPT",
-                "status": "EXPIRED",
-                "daysUntilExpiration": -1,
+                "status": "EXPIRING_SOON",
+                "daysUntilExpiration": 1,
                 "mergedItems": [
                   {
                     "ingredientId": 1,

@@ -113,6 +113,7 @@ public interface IngredientApi {
     @Operation(
             summary = "재고 수정",
             description = "상세 조회에서 받은 ETag를 사용해 재고의 제공된 필드만 수정합니다. "
+                    + "이미 만료된 재고의 수정은 모든 필드에 대해 422 INGREDIENT-422-004로 거절합니다. "
                     + "측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
                     + "수정 결과가 같은 냉장고의 다른 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같으면 "
                     + "그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
@@ -166,7 +167,8 @@ public interface IngredientApi {
 
     @Operation(
             summary = "재고 만료 처리",
-            description = "입력한 수량만큼 재고에서 차감하고, 잔량이 0이면 재고를 삭제합니다."
+            description = "입력한 수량만큼 재고에서 차감하고, 잔량이 0이면 재고를 삭제합니다. "
+                    + "월별 만료 수는 날짜 경과 시 집계하며 비우기·삭제 후에도 유지됩니다."
     )
     @ApiResponses({
             @ApiResponse(
