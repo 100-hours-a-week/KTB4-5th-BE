@@ -3,10 +3,10 @@ package com.dameokja.backend.refrigerator.presentation.response;
 import com.dameokja.backend.refrigerator.application.MemberListView;
 import java.util.List;
 
-public record MemberListResponse(String refrigeratorName, int memberNum, int memberMax, List<MemberResponse> members) {
+public record MemberListResponse(String currentUserId, String refrigeratorName, int memberNum, int memberMax, List<MemberResponse> members) {
     public static MemberListResponse from(MemberListView result) {
         List<MemberResponse> members = result.members().stream().map(MemberResponse::from).toList();
-        return new MemberListResponse(result.refrigeratorName(), result.memberNum(), result.memberMax(), members);
+        return new MemberListResponse(result.currentUserId(), result.refrigeratorName(), result.memberNum(), result.memberMax(), members);
     }
 
     public record MemberResponse(String userId, String nickname, String profileImage, String role) {

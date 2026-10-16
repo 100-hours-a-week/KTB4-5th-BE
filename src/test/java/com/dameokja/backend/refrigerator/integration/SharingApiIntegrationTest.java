@@ -42,6 +42,8 @@ class SharingApiIntegrationTest extends ServiceIntegrationTest {
         assertThat(joined.at("/data/activeRefrigeratorIds").isArray()).isTrue();
         assertThat(joined.at("/data/activeRefrigeratorIds/0").asText()).isEqualTo(owner.refrigeratorId().toString());
         JsonNode list = json(call("GET", base + "/members", "", 200));
+        assertThat(list.at("/data/currentUserId").isString()).isTrue();
+        assertThat(list.at("/data/currentUserId").asText()).isEqualTo(joining.userId().toString());
         assertThat(list.at("/data/memberNum").asInt()).isEqualTo(2);
         assertThat(list.at("/data/memberMax").asInt()).isEqualTo(150);
         assertThat(list.at("/data/members/0/role").asText()).isEqualTo("owner");

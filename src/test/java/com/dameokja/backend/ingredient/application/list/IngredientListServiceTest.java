@@ -70,6 +70,7 @@ class IngredientListServiceTest {
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, IngredientCategory.TOFU_BEAN, "두부", null, 2);
 
         assertThat(result.ingredients()).containsExactly(expired, last);
+        assertThat(result.refrigeratorName()).isEqualTo("냉장고");
         assertThat(result.businessDate()).isEqualTo(TODAY);
         assertThat(result.ingredientsNum()).isEqualTo(5L);
         assertThat(result.filteredCount()).isEqualTo(5L);
@@ -99,6 +100,7 @@ class IngredientListServiceTest {
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.NAME_ASC, null, null, null, null, 2);
 
+        assertThat(result.refrigeratorName()).isEqualTo("냉장고");
         assertThat(result.nextCursor()).isNull();
     }
 
@@ -110,6 +112,7 @@ class IngredientListServiceTest {
 
         IngredientListResult result = ingredientListService.getList(USER_ID, REFRIGERATOR_ID, IngredientSortType.CREATED_DESC, null, null, null, token, 2);
 
+        assertThat(result.refrigeratorName()).isEqualTo("냉장고");
         assertThat(result.businessDate()).isEqualTo(TODAY.minusDays(1));
         assertThat(readCursor().baseDate()).isEqualTo(TODAY.minusDays(1));
     }

@@ -45,7 +45,7 @@ public interface MembershipApi {
                             examples = @ExampleObject(value = JOIN_REQUEST)))
             JoinRefrigeratorRequest request);
 
-    @Operation(summary = "냉장고 참여자 목록 조회", description = "유효 구성원의 userId, nickname, profileImage, role(owner/member)과 인원·최대 150명을 반환합니다.")
+    @Operation(summary = "냉장고 참여자 목록 조회", description = "인증된 요청자의 currentUserId(String), 유효 구성원 목록과 인원·최대 150명을 반환합니다. 기존 ID 비교로 본인·방장 여부를 판단할 수 있습니다.")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "REFRIGERATOR-200-003",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(value = MEMBERS_RESPONSE))),
             @ApiResponse(responseCode = "401", description = "GLOBAL-401-001 / ACCESS_TOKEN_EXPIRED / ACCESS_TOKEN_INVALID"),

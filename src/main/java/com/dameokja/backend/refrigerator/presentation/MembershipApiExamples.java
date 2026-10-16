@@ -16,6 +16,7 @@ final class MembershipApiExamples {
               "code": "REFRIGERATOR-200-003",
               "message": "냉장고 공유 참여자 목록 조회 성공",
               "data": {
+                "currentUserId": "1",
                 "refrigeratorName": "우리 냉장고",
                 "memberNum": 2,
                 "memberMax": 150,

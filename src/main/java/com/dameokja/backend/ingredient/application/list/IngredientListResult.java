@@ -11,5 +11,6 @@ public record IngredientListResult(
         long ingredientsNum,
         long filteredCount,
         Short refrigeratorCapacity,
+        String refrigeratorName,
         String nextCursor) {
 }
