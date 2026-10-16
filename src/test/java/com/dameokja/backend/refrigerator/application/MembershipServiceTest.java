@@ -1,5 +1,8 @@
 package com.dameokja.backend.refrigerator.application;
 
+import static com.dameokja.backend.global.exception.GlobalExceptionCode.INTERNAL_SERVER_ERROR;
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
+import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ALREADY_SHARING;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.OWN_REFRIGERATOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,6 +25,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -45,6 +50,7 @@ class MembershipServiceTest {
         RefrigeratorMember personal = RefrigeratorMember.owner(user, refrigerator(1L));
         Refrigerator target = refrigerator(2L);
         prepareCommand(user, List.of(personal), target);
+        when(refrigeratorMemberRepository.findLiveMembersForUpdate(1L)).thenReturn(List.of(personal));
         when(refrigeratorMemberRepository.findLiveMembersForUpdate(2L))
                 .thenReturn(List.of(RefrigeratorMember.owner(user(2L), target)));
 
@@ -70,6 +76,51 @@ class MembershipServiceTest {
         verify(refrigeratorMemberRepository, never()).findLiveMembersForUpdate(any());
         verify(invitationService, never()).validateCurrent(any(), any());
         assertThat(personal.isSelected()).isTrue();
+    }
+
+    @Test
+    void currentMemberIsRejectedBeforeOtherMembersOrCodeValidation() {
+        User user = user(1L);
+        RefrigeratorMember shared = new RefrigeratorMember(user, refrigerator(1L));
+        shared.joinSharedRefrigerator();
+        prepareCommand(user, List.of(shared), refrigerator(2L));
+
+        assertError(ALREADY_SHARING, () -> membershipService.join(1L, "ABC123"));
+
+        verify(refrigeratorMemberRepository, never()).findLiveMembersForUpdate(any());
+        verify(invitationService, never()).validateCurrent(any(), any());
+        assertThat(shared.isSelected()).isTrue();
+    }
+
+    @Test
+    void ownerWithOtherLiveMemberIsRejectedBeforeCodeValidationOrMutation() {
+        User user = user(1L);
+        RefrigeratorMember personal = RefrigeratorMember.owner(user, refrigerator(1L));
+        RefrigeratorMember other = new RefrigeratorMember(user(2L), personal.getRefrigerator());
+        prepareCommand(user, List.of(personal), refrigerator(2L));
+        when(refrigeratorMemberRepository.findLiveMembersForUpdate(1L)).thenReturn(List.of(personal, other));
+
+        assertError(ALREADY_SHARING, () -> membershipService.join(1L, "ABC123"));
+
+        verify(invitationService, never()).validateCurrent(any(), any());
+        verify(refrigeratorMemberRepository, never()).saveAndFlush(any());
+        assertThat(personal.isSelected()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void invalidSelectionIsRejectedBeforeLookingUpOtherMembers(boolean multipleSelections) {
+        User user = user(1L);
+        List<RefrigeratorMember> memberships = multipleSelections
+                ? List.of(RefrigeratorMember.owner(user, refrigerator(1L)), RefrigeratorMember.owner(user, refrigerator(2L)))
+                : List.of();
+        prepareCommand(user, memberships, refrigerator(3L));
+        ExceptionCode expected = multipleSelections ? INTERNAL_SERVER_ERROR : ACCESS_DENIED;
+
+        assertError(expected, () -> membershipService.join(1L, "ABC123"));
+
+        verify(refrigeratorMemberRepository, never()).findLiveMembersForUpdate(any());
+        verify(invitationService, never()).validateCurrent(any(), any());
     }
 
     private void prepareCommand(User user, List<RefrigeratorMember> memberships, Refrigerator target) {
