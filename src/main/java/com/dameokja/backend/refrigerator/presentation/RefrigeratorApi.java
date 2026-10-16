@@ -19,7 +19,7 @@ public interface RefrigeratorApi {
 
     @Operation(
             summary = "활성 냉장고 목록 조회",
-            description = "로그인한 사용자가 현재 활성 상태로 속해 있는 냉장고 목록을 조회합니다."
+            description = "Query와 Body 없이 로그인한 사용자가 현재 선택한 유효 냉장고 목록을 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -30,7 +30,7 @@ public interface RefrigeratorApi {
                             examples = @ExampleObject(value = ACTIVE_LIST_RESPONSE)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "401", description = "GLOBAL-401-001 / ACCESS_TOKEN_EXPIRED / ACCESS_TOKEN_INVALID"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<List<RefrigeratorResponse>>> getActiveRefrigerators(
