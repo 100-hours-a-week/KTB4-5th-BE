@@ -3,6 +3,7 @@ package com.dameokja.backend.refrigerator.infrastructure;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -30,6 +31,7 @@ class RefrigeratorRepositoryTest extends MySqlJpaTest {
         assertThat(foundRefrigerator.getExpiredCountMonth()).isEqualTo("2026-09");
         assertThat(foundRefrigerator.getCapacity()).isEqualTo((short) 1500);
         assertThat(foundRefrigerator.getExpiredCount()).isZero();
+        assertThat(foundRefrigerator.getExpiredCountedOn()).isNull();
         assertThat(foundRefrigerator.getDeletedAt()).isNull();
         assertThat(foundRefrigerator.getCreatedAt()).isNotNull();
         assertThat(foundRefrigerator.getUpdatedAt()).isNotNull();
@@ -74,5 +76,19 @@ class RefrigeratorRepositoryTest extends MySqlJpaTest {
         flushAndClear();
         assertThat(refrigeratorRepository.findById(savedRefrigerator.getId())
                 .orElseThrow().getDeletedAt()).isEqualTo(deletedAt);
+    }
+
+    @Test
+    void persistsCountAndAccountingDateTogether() {
+        Refrigerator refrigerator = refrigeratorRepository.save(new Refrigerator("냉장고", "2026-10"));
+        flushAndClear();
+        LocalDate date = LocalDate.of(2026, 10, 17);
+        refrigeratorRepository.findByIdForUpdate(refrigerator.getId()).orElseThrow().recordExpirations(date, 3);
+        flushAndClear();
+
+        Refrigerator saved = refrigeratorRepository.findById(refrigerator.getId()).orElseThrow();
+        assertThat(saved.getExpiredCount()).isEqualTo(3);
+        assertThat(saved.getExpiredCountMonth()).isEqualTo("2026-10");
+        assertThat(saved.getExpiredCountedOn()).isEqualTo(date);
     }
 }
