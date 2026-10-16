@@ -28,7 +28,7 @@ class IngredientCreateResponseTest {
         Ingredient ingredient = ingredient(previous);
         ingredient.mergeMeasurement(added);
         IngredientWriteItem item = IngredientWriteItem.merged(ingredient, previous, added);
-        IngredientWriteResult result = new IngredientWriteResult(List.of(item), 0, 1, 1, 100);
+        IngredientWriteResult result = new IngredientWriteResult(List.of(item), 0, 1, 1, 1500);
 
         IngredientCreateResponse response = IngredientCreateResponse.from(result);
 
