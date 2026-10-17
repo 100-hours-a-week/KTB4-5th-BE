@@ -61,6 +61,7 @@ class KakaoOAuthFlowTest extends ServiceIntegrationTest {
         assertThat(pending.getResponse().getCookie("accessToken")).isNull();
         MvcResult joined = signup(pending.getResponse().getCookie("registrationToken"));
         long userId = jwt.parseAccessTokenPayload(joined.getResponse().getCookie("accessToken").getValue()).userId();
+        assertThat(userRepository.findById(userId).orElseThrow().getProfileImageKey()).isEqualTo("profiles/default.png");
         assertThat(joined.getResponse().getCookie("refreshToken")).isNotNull();
         MvcResult loggedIn = callback(start(), "code", "existing-member");
         assertThat(loggedIn.getResponse().getRedirectedUrl()).isEqualTo("http://localhost:3000/");
@@ -105,11 +106,17 @@ class KakaoOAuthFlowTest extends ServiceIntegrationTest {
         assertEmptyDatabase();
     }
 
+    @Test
+    void authorizationUsesKakaoConfiguredConsentsWithoutForcingPhotoScope() throws Exception {
+        String redirect = start().getResponse().getRedirectedUrl();
+        assertThat(UriComponentsBuilder.fromUriString(redirect).build().getQueryParams()).doesNotContainKey("scope");
+    }
+
     private MvcResult start() throws Exception {
         MvcResult started = request(get("/api/v1/auth/oauth/kakao").cookie(new Cookie("accessToken", "stale")));
         assertThat(started.getResponse().getStatus()).isEqualTo(302);
         assertThat(started.getResponse().getRedirectedUrl()).startsWith(KAKAO.url("/authorize"))
-                .contains("response_type=code", "scope=account_email", "client_id=test-kakao-client");
+                .contains("response_type=code", "client_id=test-kakao-client");
         assertThat(started.getResponse().getCookie("oauthRequest").getPath()).isEqualTo("/api/v1/auth/oauth");
         return started;
     }
