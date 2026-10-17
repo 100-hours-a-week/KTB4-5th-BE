@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.application.AnalysisCallbackService;
+import com.dameokja.backend.analysis.application.AnalysisCompletionApplier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionNotifier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionValidator;
 import com.dameokja.backend.analysis.application.AnalysisDispatchUpdater;
@@ -21,6 +22,7 @@ import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -69,6 +71,7 @@ class AnalysisCallbackWebTest {
     @Autowired WebApplicationContext context;
     @Autowired AnalysisJobStore store;
     @Autowired PushAnalysisCreationService pushes;
+    @Autowired AnalysisCallbackParking parking;
     private MockMvc mvc;
     private AnalysisJob job;
 
@@ -152,11 +155,17 @@ class AnalysisCallbackWebTest {
     void rejectsNonTerminalStatus(String status) throws Exception { send(BODY.replace("COMPLETED", status), "local-ai-test", 400); }
 
     @Test
-    void rejectsMalformedAndUnauthorizedCallbacksAndRetriesMissingRegistration() throws Exception {
+    void rejectsMalformedAndUnauthorizedCallbacks() throws Exception {
         send(BODY, "wrong", 401);
         send("{}", "local-ai-test", 400);
-        send(BODY.replace("ai-first", "unknown"), "local-ai-test", 503);
         mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content(BODY)).andExpect(status().isUnauthorized());
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isNull();
+    }
+
+    @Test
+    void acceptsAndParksACallbackThatArrivesBeforeItsAiIdIsRegistered() throws Exception {
+        send(BODY.replace("ai-first", "ai-early"), "local-ai-test", 200);
+        assertThat(parking.find("ai-early")).isPresent();
         assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isNull();
     }
 
@@ -214,7 +223,7 @@ class AnalysisCallbackWebTest {
     @EnableWebSecurity
     @EnableConfigurationProperties(AiAnalysisProperties.class)
     @Import({AnalysisCallbackController.class, AnalysisCallbackSecurityConfig.class, AnalysisCallbackService.class,
-            AnalysisCompletionValidator.class, AnalysisCompletionNotifier.class, GlobalExceptionHandler.class})
+            AnalysisCompletionApplier.class, AnalysisCompletionValidator.class, AnalysisCompletionNotifier.class, GlobalExceptionHandler.class})
     static class Config {
         @Bean
         PushAnalysisCreationService pushes() {
@@ -232,6 +241,11 @@ class AnalysisCallbackWebTest {
 
         @Bean
         NotificationStreamService connections() { return mock(NotificationStreamService.class); }
+
+        @Bean
+        AnalysisCallbackParking parking() {
+            return new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(), JsonMapper.builder().build());
+        }
 
         @Bean
         AnalysisJobStore store() {

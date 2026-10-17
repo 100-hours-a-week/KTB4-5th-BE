@@ -44,7 +44,8 @@ class AnalysisDispatchSenderTest {
     private final AiAnalysisClient client = mock(AiAnalysisClient.class);
     private final AnalysisDispatchUpdater updater = mock(AnalysisDispatchUpdater.class);
     private final AnalysisDispatchFailure failure = mock(AnalysisDispatchFailure.class);
-    private final AnalysisDispatchSender sender = new AnalysisDispatchSender(repository, store, client, updater, failure, PROPERTIES, CLOCK);
+    private final AnalysisCompletionApplier applier = mock(AnalysisCompletionApplier.class);
+    private final AnalysisDispatchSender sender = new AnalysisDispatchSender(repository, store, client, updater, failure, applier, PROPERTIES, CLOCK);
 
     @BeforeEach
     void storedJob() {
@@ -63,6 +64,27 @@ class AnalysisDispatchSenderTest {
         order.verify(updater).accept(LEASED, "ai-1");
         assertThat(request.getValue().requestId()).isEqualTo(dispatch.getRequestId());
         assertThat(request.getValue().image().sha256()).isEqualTo("ab".repeat(32));
+    }
+
+    @Test
+    void appliesACallbackParkedBeforeRegistrationAfterRecordingAcceptance() {
+        leased(AnalysisDispatchStatus.DISPATCHING, 1);
+        when(client.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse("ai-1", "COMPLETED", null, 1000));
+        sender.send(LEASED);
+        InOrder order = inOrder(store, updater, applier);
+        order.verify(store).register(eq("job-1"), eq(7L), anyString(), eq("ai-1"));
+        order.verify(updater).accept(LEASED, "ai-1");
+        order.verify(applier).applyParked("ai-1");
+    }
+
+    @Test
+    void keepsTheAcceptanceWhenApplyingAParkedCallbackFails() {
+        leased(AnalysisDispatchStatus.DISPATCHING, 1);
+        when(client.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse("ai-1", "COMPLETED", null, 1000));
+        when(applier.applyParked("ai-1")).thenThrow(new DataAccessResourceFailureException("redis"));
+        sender.send(LEASED);
+        verify(updater).accept(LEASED, "ai-1");
+        verify(updater, never()).retryLater(any(), any(), anyBoolean(), anyString());
     }
 
     @Test

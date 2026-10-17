@@ -5,7 +5,10 @@ import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.
 import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.NOW;
 import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.PROPERTIES;
 import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.dispatch;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -20,6 +23,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -28,7 +32,8 @@ class AnalysisDispatchCheckerTest {
     private final AiAnalysisClient client = mock(AiAnalysisClient.class);
     private final AnalysisDispatchUpdater updater = mock(AnalysisDispatchUpdater.class);
     private final AnalysisDispatchFailure failure = mock(AnalysisDispatchFailure.class);
-    private final AnalysisDispatchChecker checker = new AnalysisDispatchChecker(repository, client, updater, failure, PROPERTIES, CLOCK);
+    private final AnalysisCompletionApplier applier = mock(AnalysisCompletionApplier.class);
+    private final AnalysisDispatchChecker checker = new AnalysisDispatchChecker(repository, client, updater, failure, applier, PROPERTIES, CLOCK);
 
     @ParameterizedTest
     @ValueSource(strings = {"QUEUED", "PROCESSING", "COMPLETED", "FAILED"})
@@ -38,6 +43,24 @@ class AnalysisDispatchCheckerTest {
         checker.check(LEASED);
         verify(updater).extend(LEASED, status);
         verifyNoInteractions(failure);
+    }
+
+    @Test
+    void finishesWithAParkedCallbackInsteadOfAskingAi() {
+        checking(0);
+        when(applier.applyParked("ai-1")).thenReturn(true);
+        checker.check(LEASED);
+        verifyNoInteractions(client, failure);
+        verify(updater, never()).extend(any(), anyString());
+    }
+
+    @Test
+    void keepsCheckingAiWhenApplyingAParkedCallbackFails() {
+        checking(0);
+        when(applier.applyParked("ai-1")).thenThrow(new DataAccessResourceFailureException("redis"));
+        when(client.get("ai-1")).thenReturn(new AiImageAnalysisResponse("ai-1", "PROCESSING", null, null, null, null, null, null));
+        checker.check(LEASED);
+        verify(updater).extend(LEASED, "PROCESSING");
     }
 
     @Test

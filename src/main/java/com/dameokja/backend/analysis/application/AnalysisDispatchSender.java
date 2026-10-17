@@ -27,6 +27,7 @@ public class AnalysisDispatchSender {
     private final AiAnalysisClient client;
     private final AnalysisDispatchUpdater updater;
     private final AnalysisDispatchFailure failure;
+    private final AnalysisCompletionApplier applier;
     private final AnalysisDispatchProperties properties;
     private final Clock clock;
 
@@ -78,6 +79,18 @@ public class AnalysisDispatchSender {
             return;
         }
         updater.accept(leased, analysisId);
+        applyParked(dispatch, analysisId);
+    }
+
+    // 첫 접수 응답이 유실된 사이 도착해 보관된 콜백이 있으면 지금 적용한다. 실패하면 기한 확인에서 다시 적용한다.
+    private void applyParked(AnalysisDispatch dispatch, String analysisId) {
+        try {
+            if (applier.applyParked(analysisId)) {
+                log.info("등록 전에 도착한 콜백을 적용했습니다. dispatchId={} analysisId={}", dispatch.getId(), analysisId);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("보관된 콜백을 적용하지 못했습니다. dispatchId={}", dispatch.getId(), exception);
+        }
     }
 
     private void handleResponseFailure(LeasedDispatch leased, AnalysisDispatch dispatch, RestClientResponseException exception) {

@@ -103,6 +103,10 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("분석 작업 등록이 동시 변경과 충돌했습니다.");
     }
 
+    public boolean isRegistered(String analysisId) {
+        return Boolean.TRUE.equals(redis.hasKey(AI_PREFIX + analysisId));
+    }
+
     public AnalysisJob findByAiAnalysisId(String analysisId) {
         String jobId = redis.opsForValue().get(AI_PREFIX + analysisId);
         return requireActive(jobId == null ? null : redis.opsForValue().get(PREFIX + jobId));

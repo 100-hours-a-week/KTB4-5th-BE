@@ -23,6 +23,7 @@ public class AnalysisDispatchChecker {
     private final AiAnalysisClient client;
     private final AnalysisDispatchUpdater updater;
     private final AnalysisDispatchFailure failure;
+    private final AnalysisCompletionApplier applier;
     private final AnalysisDispatchProperties properties;
     private final Clock clock;
 
@@ -33,6 +34,9 @@ public class AnalysisDispatchChecker {
     }
 
     private void check(LeasedDispatch leased, AnalysisDispatch dispatch) {
+        if (appliedParked(dispatch)) {
+            return;
+        }
         if (dispatch.isExpired(BusinessTime.now(clock))) {
             failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_EXPIRED);
             return;
@@ -49,6 +53,16 @@ public class AnalysisDispatchChecker {
             }
         } catch (RestClientException exception) {
             updater.extend(leased, UNREACHABLE);
+        }
+    }
+
+    // 보관된 콜백 적용이 계속 실패해도 기한 판단은 이어가야 작업이 끝없이 확인 상태에 머물지 않는다.
+    private boolean appliedParked(AnalysisDispatch dispatch) {
+        try {
+            return applier.applyParked(dispatch.getAiAnalysisId());
+        } catch (RuntimeException exception) {
+            log.warn("보관된 콜백을 적용하지 못했습니다. dispatchId={}", dispatch.getId(), exception);
+            return false;
         }
     }
 

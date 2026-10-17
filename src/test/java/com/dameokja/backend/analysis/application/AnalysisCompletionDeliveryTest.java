@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -26,6 +27,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
+import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -55,8 +57,11 @@ class AnalysisCompletionDeliveryTest {
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
     private final AnalysisDispatchUpdater dispatches = mock(AnalysisDispatchUpdater.class);
     private final AnalysisDispatchWorker worker = mock(AnalysisDispatchWorker.class);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(),
-            new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), dispatches, worker);
+    private final AnalysisCallbackParking parking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
+            JsonMapper.builder().build());
+    private final AnalysisCompletionApplier applier = new AnalysisCompletionApplier(store,
+            new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), dispatches, parking);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), parking, applier, worker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
@@ -254,6 +259,48 @@ class AnalysisCompletionDeliveryTest {
         doNothing().when(dispatches).finish(any());
         callbacks.receive("ai-0", failure);
         verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+    }
+
+    @Test
+    void parksACallbackThatArrivesBeforeRegistrationAndAppliesItOnceTheAiIdIsRegistered() {
+        AnalysisJob job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("image-0", "ab".repeat(32))));
+        callbacks.receive("ai-0", failure);
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isNull();
+        assertThat(parking.find("ai-0")).contains(failure);
+        verifyNoInteractions(dispatches, analysisFinishedEventService, worker);
+
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-0");
+        assertThat(applier.applyParked("ai-0")).isTrue();
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        assertThat(parking.find("ai-0")).isEmpty();
+        assertThat(applier.applyParked("ai-0")).isFalse();
+    }
+
+    @Test
+    void appliesTheCallbackDirectlyWhenRegistrationLandsWhileItIsBeingParked() {
+        AnalysisJob job = registeredJob(1);
+        doReturn(false).doCallRealMethod().when(store).isRegistered("ai-0");
+        callbacks.receive("ai-0", failure);
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verify(worker).wakeUp();
+    }
+
+    @Test
+    void keepsTheParkedCallbackWhenApplyingItFails() {
+        AnalysisJob job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("image-0", "ab".repeat(32))));
+        callbacks.receive("ai-0", failure);
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-0");
+        doThrow(new DataAccessResourceFailureException("mysql")).when(dispatches).finish(any());
+        assertUnavailable(() -> applier.applyParked("ai-0"));
+        assertThat(parking.find("ai-0")).contains(failure);
+    }
+
+    @Test
+    void asksForRetryWhenTheCallbackCannotBeParked() {
+        doThrow(new DataAccessResourceFailureException("redis")).when(store).isRegistered("ai-0");
+        assertUnavailable(() -> callbacks.receive("ai-0", failure));
     }
 
     private AnalysisJob registeredJob(int images) {
