@@ -128,6 +128,8 @@ ai:
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
+  # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
+  parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
     poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
