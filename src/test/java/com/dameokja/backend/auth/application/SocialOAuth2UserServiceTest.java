@@ -88,6 +88,21 @@ class SocialOAuth2UserServiceTest {
     }
 
     @Test
+    void carriesKakaoProfileImageIntoRegistrationIdentityWithoutExposingItInAttributes() {
+        String imageUrl = "https://k.kakaocdn.net/dn/example/img_640x640.jpg";
+        String response = profile("123", "member@example.com", "true", "true");
+        respond(response.substring(0, response.length() - 2)
+                + ",\"profile\":{\"profile_image_url\":\"" + imageUrl + "\"}}}");
+
+        OAuthPrincipal principal = service.loadUser(request("kakao"));
+
+        assertThat(principal.identity().profileImageUrl()).isEqualTo(imageUrl);
+        assertThat(principal.getAttributes()).doesNotContainKey("profileImageUrl");
+        assertThat(principal.identity().toString()).doesNotContain(imageUrl);
+        server.verify();
+    }
+
+    @Test
     void rejectsUnsupportedProviderWithoutSendingUserInfoRequest() {
         assertThatThrownBy(() -> service.loadUser(request("google")))
                 .isInstanceOfSatisfying(OAuth2AuthenticationException.class,
