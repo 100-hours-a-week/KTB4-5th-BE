@@ -66,6 +66,15 @@ public class Ingredient extends BaseEntity {
         this.expirationDate = details.expirationDate();
     }
 
+    public void updateMeasurement(Measurement measurement) {
+        this.measurement = measurement;
+    }
+
+    public boolean requiresMergeFor(IngredientDetails details) {
+        return !name.equals(details.name()) || storageType != details.storageType()
+                || !expirationDate.equals(details.expirationDate());
+    }
+
     public void validateEditable(LocalDate businessDate) {
         if (expirationDate.isBefore(businessDate)) {
             throw new CustomException(INVALID_UPDATE_VALUE);
