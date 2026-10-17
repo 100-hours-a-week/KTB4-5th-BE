@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -52,7 +53,10 @@ class AnalysisCompletionDeliveryTest {
     private final PushAnalysisCreationService pushes = mock(PushAnalysisCreationService.class);
     private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), pushes, analysisFinishedEventService, notificationStreamService);
+    private final AnalysisDispatchUpdater analysisDispatchUpdater = mock(AnalysisDispatchUpdater.class);
+    private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(store,
+            new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), analysisDispatchUpdater);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(new AnalysisCompletionValidator(), analysisCompletionApplier);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
@@ -78,7 +82,7 @@ class AnalysisCompletionDeliveryTest {
     }
 
     @Test
-    void duplicateCallbackAfterCompletionRepeatsOnlyTheImageEvent() {
+    void duplicateCallbackAfterCompletionSendsNoEventAgain() {
         AnalysisJob job = registeredJob(2);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         AnalysisCompletion success = new AnalysisCompletion(AnalysisStatus.COMPLETED, failure.completedAt(),
@@ -87,19 +91,17 @@ class AnalysisCompletionDeliveryTest {
         callbacks.receive("ai-1", failure);
         clearInvocations(analysisFinishedEventService, notificationStreamService, pushes);
         callbacks.receive("ai-0", success);
-        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 1);
-        verifyNoMoreInteractions(analysisFinishedEventService);
-        verifyNoInteractions(notificationStreamService, pushes);
+        verifyNoInteractions(analysisFinishedEventService, notificationStreamService, pushes);
+        assertThat(store.findOwned(job.id(), 7L).publishedImageEvents()).hasSize(2);
     }
 
     @Test
-    void sendsFirstAndMiddleFailuresAsImageFinishedIncludingDuplicateCallbacksWithoutPresenceOrPush() {
+    void sendsEachImageEventOnceWithoutPresenceOrPushWhileTheJobIsUnfinished() {
         AnalysisJob job = registeredJob(3);
         callbacks.receive("ai-0", failure);
         callbacks.receive("ai-1", failure);
         callbacks.receive("ai-0", failure);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 3, 0, 1);
-        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 3, 0, 2);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 3, 0, 2);
         verifyNoMoreInteractions(analysisFinishedEventService);
         verifyNoInteractions(notificationStreamService, pushes);
@@ -127,13 +129,22 @@ class AnalysisCompletionDeliveryTest {
     }
 
     @Test
+    void sendsTheImageEventOnceWhenConcurrentAppliesBothSeeItUnsent() {
+        AnalysisJob job = registeredJob(2);
+        callbacks.receive("ai-0", failure);
+        AnalysisJob stale = store.findOwned(job.id(), 7L).withdrawImageEvent(job.analysisImages().getFirst().requestId());
+        assertThat(store.claimImageEvent(stale.id(), stale.analysisImages().getFirst().requestId())).isFalse();
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
+    }
+
+    @Test
     void sendsEveryImageEventAndCreatesPushForTheOfflineFinalImage() {
         AnalysisJob job = registeredJob(2);
         callbacks.receive("ai-0", failure);
         callbacks.receive("ai-1", failure);
         callbacks.receive("ai-1", failure);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
-        verify(analysisFinishedEventService, times(2)).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
         verifyNoMoreInteractions(analysisFinishedEventService);
         verify(pushes).create(job.id(), 7L, store.findOwned(job.id(), 7L).expiresAt());
         verify(notificationStreamService).isConnected(7L);
@@ -197,7 +208,7 @@ class AnalysisCompletionDeliveryTest {
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
         verify(notificationStreamService).isConnected(7L);
-        verify(analysisFinishedEventService, times(2)).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
         verifyNoMoreInteractions(analysisFinishedEventService);
         assertThat(store.findOwned(job.id(), 7L).notificationChannel()).isEqualTo(AnalysisNotificationChannel.PUSH);
     }
