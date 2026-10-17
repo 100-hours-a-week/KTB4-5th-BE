@@ -1,0 +1,99 @@
+server:
+  address: 127.0.0.1
+  port: ${LAB_BE_PORT:38080}
+spring:
+  application:
+    name: analysis-sandbox
+  datasource:
+    url: jdbc:mysql://127.0.0.1:33306/dispatch_lab?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: sandbox
+    password: sandbox-only
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.type.java_time_use_direct_jdbc: true
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 36379
+      repositories.enabled: false
+  task:
+    scheduling:
+      pool.size: 4
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: sandbox-client
+            client-secret: sandbox-secret
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:28080/api/v1/auth/oauth/code/kakao
+            scope: account_email
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+logging:
+  file.name: logs/backend-${LAB_BE_PORT:38080}.log
+  level.root: INFO
+jwt:
+  secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  access-token-expiration: 1d
+  refresh-token-expiration: 2d
+auth.cookie.secure: false
+oauth.frontend-base-url: http://localhost:3000
+cors.allowed-origins: http://localhost:3000
+push:
+  auth-encryption:
+    key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+    key-version: sandbox-v1
+  vapid:
+    public-key: BBsm6R4Q8Y7zDW6IP3LwAqDKguIYBLa83eH8r18Jd9ts8Dyt3xmcoSyL91wjkGIPymgWPJZPeol1iwrLafmJczY
+    private-key: CaYwQ9blK0k4N0J-5tPLIQzYBpSJj24S6sWadUP7wCg
+    key-version: sandbox-v1
+  expiration-batch.enabled: false
+ai:
+  analysis:
+    base-url: http://127.0.0.1:38082
+    api-key: sandbox-ai-key
+    connect-timeout: 1s
+    read-timeout: 2s
+analysis:
+  job-ttl: 1h
+  result-ttl: 1h
+image:
+  storage:
+    bucket: sandbox-no-s3
+    region: ap-northeast-2
+    prefix: sandbox-images/
+    presigned-url-ttl: 2m
+    max-upload-bytes: 1048576
+    allowed-content-types: image/png,image/jpeg
+sentry.enabled: false
+
+push.dispatch.enabled: false
+sentry.logs.enabled: false
+management.endpoints.web.exposure.include: health,prometheus
+
+push.analysis-ttl: 1h
+push.dispatch.poll-interval: 1s
+push.dispatch.lease-duration: 30s
+push.dispatch.concurrency: 4
+analysis.dispatch:
+  enabled: true
+  ai-target: default
+  poll-interval: 1s
+  slots: ${LAB_SLOTS:1}
+  lease-duration: 5s
+  callback-timeout: ${LAB_CALLBACK_TIMEOUT:5s}
+  expires-after: ${LAB_EXPIRES_AFTER:30s}
+  max-attempts: 5
+  retry-delay: 1s
+  orphan-grace: 5s
+  check-batch-size: 20
