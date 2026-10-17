@@ -12,7 +12,8 @@ spring:
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             redirect-uri: ${KAKAO_REDIRECT_URI}
-            scope: account_email,profile_image
+            # scope를 생략하면 카카오 앱에 설정된 동의항목을 사용한다.
+            # 미설정 사진 권한을 강제 요청해 로그인이 막히지 않도록 한다.
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize

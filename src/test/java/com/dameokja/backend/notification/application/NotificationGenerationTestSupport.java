@@ -1,6 +1,7 @@
 package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.ingredient.application.IngredientExpirationService;
+import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.application.UserAccessService;
@@ -23,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Import({ExpirationNotificationService.class, NotificationRecipientService.class,
         RefrigeratorService.class, RefrigeratorAccessService.class, UserAccessService.class,
-        IngredientExpirationService.class, ExpirationNotificationFactory.class,
+        IngredientExpirationService.class, MonthlyExpirationService.class, ExpirationNotificationFactory.class,
         NotificationGenerationTestSupport.FixedTimeConfiguration.class})
 // 테스트 자체의 트랜잭션을 끄고 서비스 프록시의 실제 커밋·롤백 결과를 확인한다.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

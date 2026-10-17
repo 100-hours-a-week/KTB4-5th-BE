@@ -65,7 +65,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected TestClock clock;
 
     @BeforeEach
-    void cleanDatabaseAndResetTime() {
+    protected void cleanDatabaseAndResetTime() {
         jdbcTemplate.update("DELETE FROM ingredients");
         jdbcTemplate.update("DELETE FROM invite_codes");
         jdbcTemplate.update("DELETE FROM social_accounts");
