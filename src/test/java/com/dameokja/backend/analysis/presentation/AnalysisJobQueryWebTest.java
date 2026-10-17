@@ -174,7 +174,9 @@ class AnalysisJobQueryWebTest {
                 .andExpect(jsonPath("$.data.results[0].items[0].category").value("DAIRY"))
                 .andExpect(jsonPath("$.data.results[0].items[0].measureType").value("COUNT"))
                 .andExpect(jsonPath("$.data.results[0].items[0].quantity").value(2))
-                .andExpect(jsonPath("$.data.results[0].items[0].expiration").value("2026-10-12"))
+                .andExpect(jsonPath("$.data.results[0].items[0].expiration.date").value("2026-10-12"))
+                .andExpect(jsonPath("$.data.results[0].items[0].expiration.dateType").value("USE_BY"))
+                .andExpect(jsonPath("$.data.results[0].items[0].expiration.estimatedRange").isEmpty())
                 .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].field").value("EXPIRATION"))
                 .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].code").value("EXPIRATION_ESTIMATED"))
                 .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons[0].messages[0]").value("보관 조건으로 예상했습니다."))
@@ -218,11 +220,13 @@ class AnalysisJobQueryWebTest {
                 .andExpect(jsonPath("$.data.results[0].items[0].weight.unit").value("ML")).andReturn().getResponse().getContentAsString();
         JsonNode jsonNode = objectMapper.readTree(response).path("data").path("results").get(0).path("items").get(0);
         assertThat(jsonNode.has("quantity") && jsonNode.path("quantity").isNull()).isTrue();
-        assertThat(jsonNode.has("expiration") && jsonNode.path("expiration").isNull()).isTrue();
+        assertThat(jsonNode.path("expiration").path("date").isNull()).isTrue();
+        assertThat(jsonNode.path("expiration").path("dateType").asText()).isEqualTo("UNKNOWN");
+        assertThat(jsonNode.path("expiration").path("estimatedRange").isNull()).isTrue();
     }
 
     @Test
-    void preservesEstimatedRangeInStorageAndReturnsNullableDateAndItemFields() throws Exception {
+    void returnsEstimatedRangeWithNullableDateAndItemFields() throws Exception {
         ObjectNode item = createItem("AI_ESTIMATED").putNull("name").putNull("category").putNull("quantity").putNull("storageType").putNull("measureType");
         ((ObjectNode) item.get("weight")).putNull("unit");
         ObjectNode expiration = item.putObject("expiration").putNull("date").put("dateType", "ESTIMATED_CONSUMPTION_WINDOW");
@@ -233,10 +237,15 @@ class AnalysisJobQueryWebTest {
                 .andReturn().getResponse().getContentAsString();
         JsonNode result = objectMapper.readTree(response).path("data");
         JsonNode returnedItem = result.path("results").get(0).path("items").get(0);
-        for (String field : List.of("name", "category", "storageType", "measureType", "quantity", "expiration")) {
+        for (String field : List.of("name", "category", "storageType", "measureType", "quantity")) {
             assertThat(returnedItem.has(field) && returnedItem.path(field).isNull()).as(field).isTrue();
         }
         assertThat(result.path("expiresAt").isNull()).isTrue();
+        JsonNode returnedExpiration = returnedItem.path("expiration");
+        assertThat(returnedExpiration.path("date").isNull()).isTrue();
+        assertThat(returnedExpiration.path("dateType").asText()).isEqualTo("ESTIMATED_CONSUMPTION_WINDOW");
+        assertThat(returnedExpiration.path("estimatedRange").path("from").asText()).isEqualTo("2026-10-15");
+        assertThat(returnedExpiration.path("estimatedRange").path("to").asText()).isEqualTo("2026-10-18");
         assertThat(returnedItem.path("weight").path("value").isNull()).isTrue();
         assertThat(returnedItem.path("weight").path("unit").isNull()).isTrue();
         AnalysisCompletionItem stored = analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion().result().items().getFirst();
