@@ -4,6 +4,7 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
@@ -33,20 +34,35 @@ public record AnalysisImageResult(String imageObjectKey, AnalysisStatus status, 
     }
 
     public record Item(String itemId, RecognitionStatus displayStatus, String name, IngredientCategory category, StorageType storageType, MeasureType measureType,
-            Integer quantity, Weight weight, LocalDate expiration, List<AnalysisReviewReason> reviewReasons) {
+            Integer quantity, Weight weight, Expiration expiration, List<AnalysisReviewReason> reviewReasons) {
         public Item {
             reviewReasons = List.copyOf(reviewReasons);
         }
 
         public static Item from(AnalysisCompletionItem item) {
             return new Item(item.itemId(), item.displayStatus(), item.name(), item.category(), item.storageType(), item.measureType(),
-                    item.quantity(), Weight.from(item.weight()), item.expiration().date(), item.reviewReasons());
+                    item.quantity(), Weight.from(item.weight()), Expiration.from(item.expiration()), item.reviewReasons());
         }
     }
 
     public record Weight(BigDecimal value, WeightUnit unit) {
         public static Weight from(AnalysisCompletionItem.Weight weight) {
             return new Weight(weight.value(), weight.unit());
+        }
+    }
+
+    public record Expiration(LocalDate date, AnalysisExpirationDateType dateType, EstimatedRange estimatedRange) {
+        public static Expiration from(AnalysisCompletionItem.Expiration expiration) {
+            return new Expiration(expiration.date(), expiration.dateType(), EstimatedRange.from(expiration.estimatedRange()));
+        }
+    }
+
+    public record EstimatedRange(LocalDate from, LocalDate to) {
+        public static EstimatedRange from(AnalysisCompletionItem.EstimatedRange estimatedRange) {
+            if (estimatedRange == null) {
+                return null;
+            }
+            return new EstimatedRange(estimatedRange.from(), estimatedRange.to());
         }
     }
 

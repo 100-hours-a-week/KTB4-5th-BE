@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.MeasureType;
@@ -136,7 +137,8 @@ class AnalysisJobQueryServiceTest {
         assertThat(item.measureType()).isEqualTo(MeasureType.COUNT);
         assertThat(item.quantity()).isEqualTo(2);
         assertThat(item.weight()).isEqualTo(new AnalysisImageResult.Weight(null, WeightUnit.NONE));
-        assertThat(item.expiration()).isEqualTo(LocalDate.parse("2026-10-12"));
+        assertThat(item.expiration().date()).isEqualTo(LocalDate.parse("2026-10-12"));
+        assertThat(item.expiration().dateType()).isEqualTo(AnalysisExpirationDateType.USE_BY);
         assertThat(item.reviewReasons()).containsExactly(
                 new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
                         List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
