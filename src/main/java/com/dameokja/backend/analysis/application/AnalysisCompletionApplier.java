@@ -3,8 +3,10 @@ package com.dameokja.backend.analysis.application;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
+import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
@@ -15,12 +17,24 @@ public class AnalysisCompletionApplier {
     private final AnalysisJobStore analysisJobStore;
     private final AnalysisCompletionNotifier analysisCompletionNotifier;
     private final AnalysisDispatchUpdater analysisDispatchUpdater;
+    private final AnalysisCallbackParking analysisCallbackParking;
 
     public void apply(String analysisId, AnalysisCompletion completion) {
         AnalysisJob analysisJob = complete(analysisId, completion);
         String requestId = analysisJob.requestIdOf(analysisId);
         finishDispatch(requestId);
         analysisCompletionNotifier.notifyFinished(analysisJob, requestId, completion);
+    }
+
+    // 적용에 실패하면 보관을 지우지 않아 다음 기한 확인에서 다시 적용한다.
+    public boolean applyParked(String analysisId) {
+        Optional<AnalysisCompletion> parkedCompletion = analysisCallbackParking.find(analysisId);
+        if (parkedCompletion.isEmpty()) {
+            return false;
+        }
+        apply(analysisId, parkedCompletion.get());
+        analysisCallbackParking.remove(analysisId);
+        return true;
     }
 
     private AnalysisJob complete(String analysisId, AnalysisCompletion completion) {
