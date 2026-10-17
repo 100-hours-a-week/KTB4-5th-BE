@@ -26,7 +26,7 @@ import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisNotificationRetryStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationStreamService;
@@ -56,8 +56,8 @@ class AnalysisCompletionDeliveryTest {
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final AnalysisCallbackParking analysisCallbackParking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
             JsonMapper.builder().build());
-    private final AnalysisNotificationRetryStore analysisNotificationRetryStore = spy(new AnalysisNotificationRetryStore(RedisTestSupport.redisTemplate()));
-    private final AnalysisCompletionNotifier analysisCompletionNotifier = new AnalysisCompletionNotifier(store, analysisNotificationRetryStore, pushes, analysisFinishedEventService,
+    private final AnalysisPendingNotificationStore analysisPendingNotificationStore = spy(new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate()));
+    private final AnalysisCompletionNotifier analysisCompletionNotifier = new AnalysisCompletionNotifier(store, analysisPendingNotificationStore, pushes, analysisFinishedEventService,
             notificationStreamService, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 3);
     private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(store, analysisCompletionNotifier, analysisDispatchUpdater, analysisCallbackParking);
     private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier, analysisDispatchWorker);
@@ -280,7 +280,7 @@ class AnalysisCompletionDeliveryTest {
         AnalysisJob job = registeredJob(1);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
-        verify(analysisNotificationRetryStore).finish(job.id());
+        verify(analysisPendingNotificationStore).finish(job.id());
         retry(2);
         verify(analysisFinishedEventService).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
     }
@@ -292,7 +292,7 @@ class AnalysisCompletionDeliveryTest {
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             }
-            analysisCompletionNotifier.retryDue();
+            analysisCompletionNotifier.deliverPending();
         }
     }
 }

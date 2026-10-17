@@ -7,7 +7,7 @@ import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisNotificationRetryStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationStreamService;
@@ -20,13 +20,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
-// 결과 저장 뒤 알림은 AI 콜백 재시도에 기대지 않는다. 먼저 재처리 예정에 올리고, 끝까지 보낸 뒤에만 내린다.
+// 결과 저장 뒤 알림은 AI 콜백 재시도에 기대지 않는다. 먼저 알림 대기 목록에 올리고, 끝까지 보낸 뒤에만 내린다.
 @Slf4j
 @Component
 public class AnalysisCompletionNotifier {
-    private static final int RETRY_BATCH_SIZE = 20;
+    private static final int PENDING_BATCH_SIZE = 20;
     private final AnalysisJobStore analysisJobStore;
-    private final AnalysisNotificationRetryStore analysisNotificationRetryStore;
+    private final AnalysisPendingNotificationStore analysisPendingNotificationStore;
     private final PushAnalysisCreationService pushes;
     private final AnalysisFinishedEventService analysisFinishedEventService;
     private final NotificationStreamService notificationStreamService;
@@ -34,14 +34,14 @@ public class AnalysisCompletionNotifier {
     private final Duration retryDelay;
     private final int sseRetries;
 
-    public AnalysisCompletionNotifier(AnalysisJobStore analysisJobStore, AnalysisNotificationRetryStore analysisNotificationRetryStore, PushAnalysisCreationService pushes,
+    public AnalysisCompletionNotifier(AnalysisJobStore analysisJobStore, AnalysisPendingNotificationStore analysisPendingNotificationStore, PushAnalysisCreationService pushes,
             AnalysisFinishedEventService analysisFinishedEventService, NotificationStreamService notificationStreamService, Clock clock,
             @Value("${analysis.notification.retry-delay:5s}") Duration retryDelay, @Value("${analysis.notification.sse-retries:3}") int sseRetries) {
         if (retryDelay == null || retryDelay.toMillis() < 1 || sseRetries < 0) {
             throw new IllegalArgumentException("알림 재시도 간격은 1밀리초 이상, SSE 재시도 횟수는 0 이상이어야 합니다.");
         }
         this.analysisJobStore = analysisJobStore;
-        this.analysisNotificationRetryStore = analysisNotificationRetryStore;
+        this.analysisPendingNotificationStore = analysisPendingNotificationStore;
         this.pushes = pushes;
         this.analysisFinishedEventService = analysisFinishedEventService;
         this.notificationStreamService = notificationStreamService;
@@ -50,18 +50,18 @@ public class AnalysisCompletionNotifier {
         this.sseRetries = sseRetries;
     }
 
-    // 재처리 예정에 올리지 못하면 결과만 저장되고 알림을 보낼 주체가 없으므로, 그때만 콜백 재시도를 요청한다.
+    // 알림 대기 목록에 올리지 못하면 결과만 저장되고 알림을 보낼 주체가 없으므로, 그때만 콜백 재시도를 요청한다.
     public void notifyFinished(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
         try {
-            analysisNotificationRetryStore.schedule(analysisJob.id(), clock.instant().plus(retryDelay));
+            analysisPendingNotificationStore.schedule(analysisJob.id(), clock.instant().plus(retryDelay));
         } catch (DataAccessException exception) {
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
         }
         deliver(analysisJob.id(), () -> publishImageEvent(analysisJob, requestId, completion));
     }
 
-    public void retryDue() {
-        for (String id : analysisNotificationRetryStore.claimDue(clock.instant(), retryDelay, RETRY_BATCH_SIZE)) {
+    public void deliverPending() {
+        for (String id : analysisPendingNotificationStore.claimDue(clock.instant(), retryDelay, PENDING_BATCH_SIZE)) {
             deliver(id, () -> analysisJobStore.find(id).ifPresent(this::publishUnsentImageEvents));
         }
     }
@@ -74,7 +74,7 @@ public class AnalysisCompletionNotifier {
                 notifyCompletion(analysisJob.get());
             }
             if (analysisJob.isEmpty() || delivered(analysisJobStore.find(id))) {
-                analysisNotificationRetryStore.finish(id);
+                analysisPendingNotificationStore.finish(id);
             }
         } catch (DataAccessException | CustomException exception) {
             log.warn("분석 완료 알림을 보내지 못해 다시 시도합니다. analysisJobId={}", id, exception);
@@ -116,7 +116,7 @@ public class AnalysisCompletionNotifier {
                 analysisJobStore.acknowledgeNotification(latestJob.id());
                 return;
             }
-            if (analysisNotificationRetryStore.recordSseMiss(latestJob.id()) <= sseRetries) { return; }
+            if (analysisPendingNotificationStore.recordSseMiss(latestJob.id()) <= sseRetries) { return; }
             latestJob = analysisJobStore.fallBackToPush(latestJob.id());
         }
         if (latestJob.notificationChannel() == null) {

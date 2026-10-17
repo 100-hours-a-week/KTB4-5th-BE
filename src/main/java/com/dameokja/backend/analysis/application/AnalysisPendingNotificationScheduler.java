@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "analysis.notification.retry-enabled", havingValue = "true", matchIfMissing = true)
-public class AnalysisNotificationRetryScheduler {
+public class AnalysisPendingNotificationScheduler {
     private final AnalysisCompletionNotifier analysisCompletionNotifier;
 
     @Scheduled(fixedDelayString = "${analysis.notification.poll-interval:1s}")
     public void poll() {
-        analysisCompletionNotifier.retryDue();
+        analysisCompletionNotifier.deliverPending();
     }
 }

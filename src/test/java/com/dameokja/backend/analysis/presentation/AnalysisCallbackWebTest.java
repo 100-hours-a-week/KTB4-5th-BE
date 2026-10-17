@@ -24,7 +24,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisNotificationRetryStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -123,7 +123,7 @@ class AnalysisCallbackWebTest {
         assertThat(saved.analysisImages().getFirst().completion()).isNotNull();
         assertThat(saved.notificationPending()).isTrue();
         Thread.sleep(5);
-        analysisCompletionNotifier.retryDue();
+        analysisCompletionNotifier.deliverPending();
         verify(pushes, times(2)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
         assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
     }
@@ -251,12 +251,12 @@ class AnalysisCallbackWebTest {
         }
 
         @Bean
-        AnalysisNotificationRetryStore retries() { return new AnalysisNotificationRetryStore(RedisTestSupport.redisTemplate()); }
+        AnalysisPendingNotificationStore pendingNotifications() { return new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate()); }
 
         @Bean
-        AnalysisCompletionNotifier notifier(AnalysisJobStore store, AnalysisNotificationRetryStore analysisNotificationRetryStore, PushAnalysisCreationService pushes,
+        AnalysisCompletionNotifier notifier(AnalysisJobStore store, AnalysisPendingNotificationStore analysisPendingNotificationStore, PushAnalysisCreationService pushes,
                 AnalysisFinishedEventService events, NotificationStreamService connections) {
-            return new AnalysisCompletionNotifier(store, analysisNotificationRetryStore, pushes, events, connections, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 0);
+            return new AnalysisCompletionNotifier(store, analysisPendingNotificationStore, pushes, events, connections, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 0);
         }
 
         @Bean
