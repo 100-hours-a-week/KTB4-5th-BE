@@ -19,9 +19,9 @@ public class AnalysisDispatchUpdater {
     private final AnalysisDispatchProperties analysisDispatchProperties;
     private final Clock clock;
 
-    public boolean accept(LeasedDispatch leasedDispatch, String aiAnalysisId) {
+    public boolean accept(LeasedDispatch leasedDispatch, String aiAnalysisId, boolean alreadyFinished) {
         LocalDateTime now = BusinessTime.now(clock);
-        return analysisDispatchRepository.accept(leasedDispatch.id(), leasedDispatch.token(), aiAnalysisId, now, now.plus(analysisDispatchProperties.callbackTimeout())) == 1;
+        return analysisDispatchRepository.accept(leasedDispatch.id(), leasedDispatch.token(), aiAnalysisId, now, alreadyFinished ? now : now.plus(analysisDispatchProperties.callbackTimeout())) == 1;
     }
 
     public boolean retryLater(LeasedDispatch leasedDispatch, Duration delay, boolean countsAttempt, AnalysisDispatchErrorCode errorCode) {
@@ -46,7 +46,7 @@ public class AnalysisDispatchUpdater {
         return analysisDispatchRepository.fail(leasedDispatch.id(), leasedDispatch.token(), errorCode, BusinessTime.now(clock)) == 1;
     }
 
-    public void finish(String requestId) {
-        analysisDispatchRepository.finish(requestId, BusinessTime.now(clock));
+    public void finish(String requestId, String analysisJobId) {
+        analysisDispatchRepository.finish(requestId, analysisJobId, BusinessTime.now(clock));
     }
 }

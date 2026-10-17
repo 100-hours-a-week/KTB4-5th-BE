@@ -53,11 +53,11 @@ class AnalysisCompletionStoreTest {
         AnalysisJob job = registeredJob("ai-first");
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isEqualTo(-1L);
         AnalysisCompletion result = completed();
-        store.complete("ai-first", result);
+        AnalysisJobStores.complete(store, "ai-first", result);
         String stored = redisTemplate().opsForValue().get("analysis:job:" + job.id());
         assertThat(JsonMapper.builder().build().readTree(stored).at("/analysisImages/0/completion/completedAt").asString())
                 .isEqualTo("2026-10-13T10:00:10+09:00");
-        AnalysisJob restored = newStore(NOW.plusSeconds(5)).findByAiAnalysisId("ai-first");
+        AnalysisJob restored = AnalysisJobStores.findByAiAnalysisId(newStore(NOW.plusSeconds(5)), "ai-first");
         assertThat(restored.userId()).isEqualTo(7L);
         assertThat(restored.analysisImages().getFirst().completion()).isEqualTo(result);
         assertThat(restored.notificationPending()).isTrue();
@@ -69,7 +69,7 @@ class AnalysisCompletionStoreTest {
     @Test
     void atomicallyKeepsOneChannelAcrossConcurrentSelectionsAndPreservesRetention() throws Exception {
         AnalysisJob job = registeredJob("ai-first");
-        AnalysisJob completed = store.complete("ai-first", completed());
+        AnalysisJob completed = AnalysisJobStores.complete(store, "ai-first", completed());
         CountDownLatch start = new CountDownLatch(1);
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Future<AnalysisJob> sse = executor.submit(() -> {
@@ -94,7 +94,7 @@ class AnalysisCompletionStoreTest {
     @Test
     void letsOnlyOneCallerAcknowledgeTheNotificationUntilItIsReopened() {
         AnalysisJob job = registeredJob("ai-first");
-        store.complete("ai-first", completed());
+        AnalysisJobStores.complete(store, "ai-first", completed());
         assertThat(store.acknowledgeNotification(job.id())).isTrue();
         assertThat(newStore(NOW).acknowledgeNotification(job.id())).isFalse();
         store.reopenNotification(job.id());
@@ -105,12 +105,12 @@ class AnalysisCompletionStoreTest {
     @Test
     void repeatsAnIdenticalResultWithoutReplacingItAndRejectsAConflictingResult() {
         AnalysisJob job = registeredJob("ai-first");
-        store.complete("ai-first", completed());
+        AnalysisJobStores.complete(store, "ai-first", completed());
         String stored = redisTemplate().opsForValue().get("analysis:job:" + job.id());
         AnalysisCompletion sameInstant = new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T10:00:10+09:00"), completed().result(), null);
-        store.complete("ai-first", sameInstant);
+        AnalysisJobStores.complete(store, "ai-first", sameInstant);
         assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
-        assertThatThrownBy(() -> store.complete("ai-first", failed())).isInstanceOf(CustomException.class)
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "ai-first", failed())).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode").isEqualTo(AnalysisExceptionCode.RESULT_CONFLICT);
         assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
     }
@@ -152,12 +152,12 @@ class AnalysisCompletionStoreTest {
         AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first"), image("second")));
         store.register(job.id(), 7L, job.analysisImages().get(0).requestId(), "ai-first");
         store.register(job.id(), 7L, job.analysisImages().get(1).requestId(), "ai-second");
-        assertThat(store.complete("ai-first", failed()).notificationPending()).isFalse();
-        AnalysisJob completedJob = store.complete("ai-second", failed());
+        assertThat(AnalysisJobStores.complete(store, "ai-first", failed()).notificationPending()).isFalse();
+        AnalysisJob completedJob = AnalysisJobStores.complete(store, "ai-second", failed());
         assertThat(completedJob.notificationPending()).isTrue();
         AnalysisJob handled = new AnalysisJob(job.id(), job.userId(), job.inputHint(), completedJob.analysisImages(), job.submittedAt(), completedJob.expiresAt(), false);
         redisTemplate().opsForValue().set("analysis:job:" + job.id(), JsonMapper.builder().build().writeValueAsString(handled), TTL);
-        assertThat(store.complete("ai-second", failed()).notificationPending()).isFalse();
+        assertThat(AnalysisJobStores.complete(store, "ai-second", failed()).notificationPending()).isFalse();
     }
 
     @Test
@@ -172,29 +172,47 @@ class AnalysisCompletionStoreTest {
                         new AnalysisReviewReason(AnalysisReviewReason.Field.ITEM, AnalysisReviewReason.Code.ITEM_REVIEW_REQUIRED, List.of("상품명을 확인해 주세요."))));
         AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, completed().completedAt(),
                 new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of(item)), null);
-        store.complete("ai-first", completion);
-        assertThat(newStore(NOW).findByAiAnalysisId("ai-first").analysisImages().getFirst().completion()).isEqualTo(completion);
+        AnalysisJobStores.complete(store, "ai-first", completion);
+        assertThat(AnalysisJobStores.findByAiAnalysisId(newStore(NOW), "ai-first").analysisImages().getFirst().completion()).isEqualTo(completion);
     }
 
     @Test
-    void preservesTheFirstOwnerWhenAnAiIdentifierIsRegisteredToAnotherRequest() {
+    void sharesOneAiAnalysisBetweenJobsThatRequestedTheSamePhoto() {
         AnalysisJob first = registeredJob("ai-first");
-        AnalysisJob second = store.create(8L, "RECEIPT", List.of(image("second")));
-        assertThatThrownBy(() -> store.register(second.id(), 8L, second.analysisImages().getFirst().requestId(), "ai-first"))
-                .isInstanceOf(IllegalStateException.class);
-        assertThat(store.findByAiAnalysisId("ai-first").id()).isEqualTo(first.id());
-        assertThat(store.findOwned(second.id(), 8L).analysisImages().getFirst().aiAnalysisId()).isNull();
+        AnalysisJob second = store.create(7L, "RECEIPT", List.of(image("first")));
+        store.register(second.id(), 7L, second.analysisImages().getFirst().requestId(), "ai-first");
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactlyInAnyOrder(first.id(), second.id());
+
+        store.complete(first.id(), "ai-first", completed());
+        assertThat(store.findOwned(second.id(), 7L).analysisImages().getFirst().completion()).isNull();
+        store.delete(first.id());
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactly(second.id());
+    }
+
+    // 집합 색인 이전에 문자열로 저장된 색인도 그대로 찾고, 다음 등록 때 집합으로 옮긴다.
+    @Test
+    void migratesAStringIndexToASetWhenAnotherJobRegisters() {
+        AnalysisJob first = store.create(7L, "RECEIPT", List.of(image("first")));
+        String firstJson = redisTemplate().opsForValue().get("analysis:job:" + first.id());
+        redisTemplate().opsForValue().set("analysis:job:" + first.id(), firstJson.replace("\"aiAnalysisId\":null", "\"aiAnalysisId\":\"ai-first\""));
+        redisTemplate().opsForValue().set("analysis:ai:ai-first", first.id());
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactly(first.id());
+
+        AnalysisJob second = store.create(7L, "RECEIPT", List.of(image("first")));
+        store.register(second.id(), 7L, second.analysisImages().getFirst().requestId(), "ai-first");
+        assertThat(redisTemplate().type("analysis:ai:ai-first").code()).isEqualTo("set");
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactlyInAnyOrder(first.id(), second.id());
     }
 
     @Test
     void refusesUnregisteredAndExpiredResultsWithoutRestoringExpiredJobs() {
-        assertThatThrownBy(() -> store.complete("unknown", completed())).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "unknown", completed())).isInstanceOf(CustomException.class);
         AnalysisJob job = registeredJob("ai-first");
-        store.complete("ai-first", completed());
-        assertThatThrownBy(() -> newStore(NOW.plus(TTL)).complete("ai-first", completed())).isInstanceOf(CustomException.class);
+        AnalysisJobStores.complete(store, "ai-first", completed());
+        assertThatThrownBy(() -> AnalysisJobStores.complete(newStore(NOW.plus(TTL)), "ai-first", completed())).isInstanceOf(CustomException.class);
         assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(completed());
         redisTemplate().delete("analysis:job:" + job.id());
-        assertThatThrownBy(() -> store.complete("ai-first", completed())).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "ai-first", completed())).isInstanceOf(CustomException.class);
         assertThat(redisTemplate().hasKey("analysis:job:" + job.id())).isFalse();
     }
 
@@ -207,7 +225,7 @@ class AnalysisCompletionStoreTest {
         assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
         assertThat(store.findOwned(job.id(), 7L).notificationChannel()).isNull();
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-first");
-        assertThat(store.findByAiAnalysisId("ai-first").analysisImages().getFirst().requestId()).isEqualTo(job.analysisImages().getFirst().requestId());
+        assertThat(AnalysisJobStores.findByAiAnalysisId(store, "ai-first").analysisImages().getFirst().requestId()).isEqualTo(job.analysisImages().getFirst().requestId());
     }
 
     @Test
@@ -224,7 +242,7 @@ class AnalysisCompletionStoreTest {
 
     private AnalysisJob completeAfterStart(CountDownLatch start, String analysisId, AnalysisCompletion completion) throws Exception {
         start.await();
-        return newStore(NOW).complete(analysisId, completion);
+        return AnalysisJobStores.complete(newStore(NOW), analysisId, completion);
     }
 
     private AnalysisJob registeredJob(String analysisId) {

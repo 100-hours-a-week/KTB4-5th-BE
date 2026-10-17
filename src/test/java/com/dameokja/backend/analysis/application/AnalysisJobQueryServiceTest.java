@@ -21,6 +21,7 @@ import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -102,8 +103,8 @@ class AnalysisJobQueryServiceTest {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                     new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of()), null);
-            analysisJobStore.complete("ai-first", completion);
-            analysisJobStore.complete("ai-second", completion);
+            AnalysisJobStores.complete(analysisJobStore, "ai-first", completion);
+            AnalysisJobStores.complete(analysisJobStore, "ai-second", completion);
             when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));
         }
         String analysisId = analysisJob.id();

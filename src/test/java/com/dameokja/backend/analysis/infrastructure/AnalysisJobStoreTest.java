@@ -71,7 +71,7 @@ class AnalysisJobStoreTest {
         analysisJobStore.register(analysisJob.id(), 7L, requestId, "ai-first");
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", null);
         analysisJobStore.register(analysisJob.id(), 7L, requestId, "resent-ai-id");
-        assertThat(analysisJobStore.findByAiAnalysisId("resent-ai-id").analysisImages().getFirst().aiAnalysisId()).isEqualTo("resent-ai-id");
+        assertThat(AnalysisJobStores.findByAiAnalysisId(analysisJobStore, "resent-ai-id").analysisImages().getFirst().aiAnalysisId()).isEqualTo("resent-ai-id");
         assertThatThrownBy(() -> analysisJobStore.register(analysisJob.id(), 7L, "unknown-request", "ai-id")).isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -115,7 +115,7 @@ class AnalysisJobStoreTest {
         AnalysisJob active = analysisJobStore.create(7L, "AUTO", List.of(image("active")));
         redisTemplate().delete("analysis:job:" + missing.id());
         analysisJobStore.register(expired.id(), 7L, expired.analysisImages().getFirst().requestId(), "ai-expired");
-        analysisJobStore.complete("ai-expired", new AnalysisCompletion(AnalysisStatus.FAILED, instant.atZone(BusinessTime.ZONE).toOffsetDateTime(),
+        AnalysisJobStores.complete(analysisJobStore, "ai-expired", new AnalysisCompletion(AnalysisStatus.FAILED, instant.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                 null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", false, null)));
         when(clock.instant()).thenReturn(instant.plus(duration));
         assertThat(analysisJobStore.findAllOwned(7L)).extracting(AnalysisJob::id).containsExactly(active.id());

@@ -5,6 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Instant;
 import tools.jackson.databind.JsonNode;
@@ -32,6 +33,6 @@ public final class AnalysisStoredResultFixture {
         }
         AnalysisCompletionSuccess completed = status == AnalysisStatus.COMPLETED ? mapper.treeToValue(result, AnalysisCompletionSuccess.class) : null;
         AnalysisCompletionFailure error = status == AnalysisStatus.FAILED ? mapper.treeToValue(view.get("error"), AnalysisCompletionFailure.class) : null;
-        store.complete(view.path("analysisId").asString(), new AnalysisCompletion(status, now.atZone(BusinessTime.ZONE).toOffsetDateTime(), completed, error));
+        AnalysisJobStores.complete(store, view.path("analysisId").asString(), new AnalysisCompletion(status, now.atZone(BusinessTime.ZONE).toOffsetDateTime(), completed, error));
     }
 }

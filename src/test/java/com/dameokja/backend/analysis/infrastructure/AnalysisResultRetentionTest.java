@@ -33,12 +33,12 @@ class AnalysisResultRetentionTest {
                 List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "first");
         store.register(job.id(), 7L, job.analysisImages().getLast().requestId(), "second");
-        AnalysisJob partial = store.complete("first", completed());
+        AnalysisJob partial = AnalysisJobStores.complete(store, "first", completed());
         assertThat(partial.expiresAt()).isNull();
         for (String key : keys(job)) {
             assertThat(redisTemplate().getExpire(key)).isEqualTo(-1L);
         }
-        AnalysisJob terminal = store.complete("second", completed());
+        AnalysisJob terminal = AnalysisJobStores.complete(store, "second", completed());
         assertThat(terminal.expiresAt().toInstant()).isEqualTo(NOW.plus(RETENTION));
         RedisScript<Long> deadline = RedisScript.of("return redis.call('PEXPIRETIME', KEYS[1])", Long.class);
         for (String key : keys(job)) {
@@ -50,10 +50,10 @@ class AnalysisResultRetentionTest {
     void duplicateCallbacksAndRegistrationsDoNotExtendTheResultDeadline() {
         AnalysisJob job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "first");
-        AnalysisJob terminal = store.complete("first", completed());
+        AnalysisJob terminal = AnalysisJobStores.complete(store, "first", completed());
         Long ttl = redisTemplate().getExpire("analysis:job:" + job.id(), java.util.concurrent.TimeUnit.MILLISECONDS);
         AnalysisJobStore later = storeAt(NOW.plusSeconds(120));
-        assertThat(later.complete("first", completed()).expiresAt()).isEqualTo(terminal.expiresAt());
+        assertThat(AnalysisJobStores.complete(later, "first", completed()).expiresAt()).isEqualTo(terminal.expiresAt());
         later.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "first");
         assertThat(later.findOwned(job.id(), 7L).expiresAt()).isEqualTo(terminal.expiresAt());
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), java.util.concurrent.TimeUnit.MILLISECONDS)).isBetween(1L, ttl);
