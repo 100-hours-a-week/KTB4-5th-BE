@@ -50,13 +50,17 @@ public class AnalysisCompletionNotifier {
         this.sseRetries = sseRetries;
     }
 
-    // 알림 대기 목록에 올리지 못하면 결과만 저장되고 알림을 보낼 주체가 없으므로, 그때만 콜백 재시도를 요청한다.
-    public void notifyFinished(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
+    // 알림 대기 목록에 올리지 못하면 결과만 저장되고 알림을 보낼 주체가 없다. 그래서 전달 행을 닫기 전에 올리고,
+    // 실패하면 전달 행을 열어 둔 채 콜백 재시도나 기한 확인이 다시 처리하게 한다.
+    public void addPending(String analysisJobId) {
         try {
-            analysisPendingNotificationStore.schedule(analysisJob.id(), clock.instant().plus(retryDelay));
+            analysisPendingNotificationStore.schedule(analysisJobId, clock.instant().plus(retryDelay));
         } catch (DataAccessException exception) {
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
         }
+    }
+
+    public void notifyFinished(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
         deliver(analysisJob.id(), () -> publishImageEvent(analysisJob, requestId, completion));
     }
 

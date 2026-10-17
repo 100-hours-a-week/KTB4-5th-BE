@@ -22,6 +22,7 @@ public class AnalysisCompletionApplier {
     public void apply(String analysisId, AnalysisCompletion completion) {
         AnalysisJob analysisJob = complete(analysisId, completion);
         String requestId = analysisJob.requestIdOf(analysisId);
+        analysisCompletionNotifier.addPending(analysisJob.id());
         finishDispatch(requestId);
         analysisCompletionNotifier.notifyFinished(analysisJob, requestId, completion);
     }

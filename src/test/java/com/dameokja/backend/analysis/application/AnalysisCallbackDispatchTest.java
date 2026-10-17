@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -133,6 +134,7 @@ class AnalysisCallbackDispatchTest {
         assertUnavailable(() -> callbacks.receive("ai-0", failure));
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
         verifyNoInteractions(analysisFinishedEventService, pushes);
+        verify(analysisDispatchUpdater, never()).finish(any());
     }
 
     private AnalysisJob registeredJob(int analysisImages) {

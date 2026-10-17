@@ -3,8 +3,10 @@ package com.dameokja.backend.analysis.application;
 import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.LEASED;
 import static com.dameokja.backend.analysis.application.AnalysisDispatchFixture.dispatch;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,7 +22,9 @@ import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
+import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
@@ -53,8 +57,18 @@ class AnalysisDispatchFailureTest {
         assertThat(completion.error().retryable()).isTrue();
         assertThat(stored.expiresAt()).isNotNull();
         InOrder order = inOrder(analysisDispatchUpdater, analysisCompletionNotifier);
+        order.verify(analysisCompletionNotifier).addPending("job-1");
         order.verify(analysisDispatchUpdater).fail(LEASED, AnalysisFailureCode.ANALYSIS_EXPIRED);
         order.verify(analysisCompletionNotifier).notifyFinished(any(AnalysisJob.class), eq(analysisDispatch.getRequestId()), eq(completion));
+    }
+
+    // 알림 대기 목록에 올리지 못하면 전달 행을 닫지 않아, 선점 기한 뒤 다시 처리하며 알림도 다시 올린다.
+    @Test
+    void keepsTheDispatchOpenWhenTheNotificationCannotBeAddedToPending() {
+        AnalysisDispatch analysisDispatch = dispatchOf(analysisJobStore.create("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)))));
+        doThrow(new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE)).when(analysisCompletionNotifier).addPending("job-1");
+        assertThatThrownBy(() -> failure.fail(LEASED, analysisDispatch, AnalysisFailureCode.ANALYSIS_EXPIRED)).isInstanceOf(CustomException.class);
+        verify(analysisDispatchUpdater, never()).fail(any(LeasedDispatch.class), any(AnalysisFailureCode.class));
     }
 
     @Test
