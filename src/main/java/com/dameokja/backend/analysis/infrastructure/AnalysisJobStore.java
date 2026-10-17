@@ -148,6 +148,28 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("분석 완료 알림 경로 선택이 동시 변경과 충돌했습니다.");
     }
 
+    // 선점에 성공한 호출만 이벤트를 보낸다. 보내지 못하면 releaseImageEvent로 되돌려 재시도가 다시 선점하게 한다.
+    public boolean claimImageEvent(String id, String requestId) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            if (job.imageEventPublished(requestId)) { return false; }
+            if (Long.valueOf(1).equals(replace(key, previous, job.publishImageEvent(requestId)))) { return true; }
+        }
+        throw new ConcurrencyFailureException("이미지 완료 이벤트 선점이 동시 변경과 충돌했습니다.");
+    }
+
+    public void releaseImageEvent(String id, String requestId) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            if (!job.imageEventPublished(requestId) || Long.valueOf(1).equals(replace(key, previous, job.withdrawImageEvent(requestId)))) { return; }
+        }
+        throw new ConcurrencyFailureException("이미지 완료 이벤트 선점 해제가 동시 변경과 충돌했습니다.");
+    }
+
     public void acknowledgeNotification(String id) {
         String key = PREFIX + id;
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

@@ -11,9 +11,11 @@ import com.dameokja.backend.notification.application.AnalysisFinishedEventServic
 import com.dameokja.backend.notification.application.NotificationStreamService;
 import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AnalysisCompletionNotifier {
@@ -33,10 +35,25 @@ public class AnalysisCompletionNotifier {
         String objectKey = job.analysisImages().stream().filter(image -> requestId.equals(image.requestId()))
                 .findFirst().orElseThrow().objectKey();
         try {
+            if (!store.claimImageEvent(job.id(), requestId)) { return; }
+        } catch (DataAccessException | CustomException exception) {
+            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
+        }
+        try {
             analysisFinishedEventService.publishImageFinished(job.userId(), job.id(), objectKey, completion.status(),
                     job.analysisImages().size(), countImages(job, AnalysisStatus.COMPLETED), countImages(job, AnalysisStatus.FAILED));
         } catch (DataAccessException | CustomException exception) {
+            releaseImageEvent(job.id(), requestId);
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
+        }
+    }
+
+    // 해제까지 실패하면 이벤트는 유실되지만, 작업 완료 알림은 따로 보내므로 사용자는 결과를 받는다.
+    private void releaseImageEvent(String id, String requestId) {
+        try {
+            store.releaseImageEvent(id, requestId);
+        } catch (DataAccessException | CustomException exception) {
+            log.warn("이미지 완료 이벤트 선점을 해제하지 못했습니다. analysisJobId={} requestId={}", id, requestId, exception);
         }
     }
 
