@@ -14,7 +14,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.application.AnalysisCallbackService;
+import com.dameokja.backend.analysis.application.AnalysisCompletionApplier;
+import com.dameokja.backend.analysis.application.AnalysisCompletionNotifier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionValidator;
+import com.dameokja.backend.analysis.application.AnalysisDispatchUpdater;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
@@ -211,12 +214,15 @@ class AnalysisCallbackWebTest {
     @EnableWebSecurity
     @EnableConfigurationProperties(AiAnalysisProperties.class)
     @Import({AnalysisCallbackController.class, AnalysisCallbackSecurityConfig.class, AnalysisCallbackService.class,
-            AnalysisCompletionValidator.class, GlobalExceptionHandler.class})
+            AnalysisCompletionApplier.class, AnalysisCompletionValidator.class, AnalysisCompletionNotifier.class, GlobalExceptionHandler.class})
     static class Config {
         @Bean
         PushAnalysisCreationService pushes() {
             return mock(PushAnalysisCreationService.class);
         }
+
+        @Bean
+        AnalysisDispatchUpdater dispatches() { return mock(AnalysisDispatchUpdater.class); }
 
         @Bean
         AnalysisFinishedEventService events() { return mock(AnalysisFinishedEventService.class); }
