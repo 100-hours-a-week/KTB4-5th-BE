@@ -9,11 +9,25 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class NotificationResponseTest {
+    @ParameterizedTest
+    @EnumSource(value = NotificationType.class, names = {"MEMBER_JOINED", "MEMBER_LEFT", "MEMBER_KICKED"})
+    void membershipEventsKeepExistingMemberApiType(NotificationType type) {
+        Notification notification = new Notification(type, "제목", "본문", new Refrigerator("냉장고", "2026-09"));
+        ReflectionTestUtils.setField(notification, "id", 1L);
+
+        NotificationResponse response = NotificationResponse.from(
+                new NotificationRecipient(notification, new User("사용자", "test")));
+
+        assertThat(response.type()).isEqualTo("MEMBER");
+    }
+
     @Test
     void expressesStoredSeoulTimesWithSeoulOffset() {
         Notification notification = new Notification(NotificationType.EXPIRING, "제목", "본문",

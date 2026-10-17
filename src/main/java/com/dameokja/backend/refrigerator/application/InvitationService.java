@@ -22,6 +22,8 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -47,6 +49,7 @@ public class InvitationService {
      * @return 최초 또는 기존 초대 코드
      */
     @Transactional
+    @Retryable(includes = CannotAcquireLockException.class, maxRetries = 2, delay = 25)
     public InvitationView issueCode(Long userId, Long refrigeratorId) {
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         requireOwner(userId, refrigeratorId);

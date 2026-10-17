@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -65,7 +66,11 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected TestClock clock;
 
     @BeforeEach
+    @AfterEach
     protected void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM push_notifications");
+        jdbcTemplate.update("DELETE FROM notification_recipients");
+        jdbcTemplate.update("DELETE FROM notifications");
         jdbcTemplate.update("DELETE FROM ingredients");
         jdbcTemplate.update("DELETE FROM invite_codes");
         jdbcTemplate.update("DELETE FROM social_accounts");

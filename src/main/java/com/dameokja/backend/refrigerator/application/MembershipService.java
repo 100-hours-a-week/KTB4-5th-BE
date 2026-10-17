@@ -7,6 +7,7 @@ import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.notification.application.MembershipNotificationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMemberManager;
@@ -19,11 +20,14 @@ import java.util.List;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Retryable(includes = CannotAcquireLockException.class, maxRetries = 2, delay = 25)
 public class MembershipService {
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
     private final InvitationService invitationService;
@@ -31,6 +35,7 @@ public class MembershipService {
     private final UserAccessService userAccessService;
     private final RefrigeratorRepository refrigeratorRepository;
     private final Clock clock;
+    private final MembershipNotificationService membershipNotifications;
 
     /**
      * 사용자와 관련 냉장고를 잠그고 가입 검증부터 선택 전환·저장까지 한 트랜잭션으로 처리한다.
@@ -54,7 +59,9 @@ public class MembershipService {
         refrigeratorMemberManager.deactivateForJoin(refrigeratorId);
         // 활성 관계 UNIQUE를 새 관계의 INSERT보다 먼저 해제한다.
         refrigeratorMemberRepository.flush();
-        refrigeratorMemberRepository.saveAndFlush(refrigeratorMemberManager.joinSharedRefrigerator(refrigeratorId));
+        RefrigeratorMember joiningMembership = refrigeratorMemberManager.joinSharedRefrigerator(refrigeratorId);
+        refrigeratorMemberRepository.saveAndFlush(joiningMembership);
+        membershipNotifications.joined(joiningMembership, liveRefrigeratorMembers);
 
         return refrigeratorId;
     }
@@ -66,7 +73,9 @@ public class MembershipService {
         RefrigeratorMember leavingRefrigeratorMembership = refrigeratorMemberManager.findLiveMembership(refrigeratorId)
                 .orElseThrow(() -> new CustomException(ACCESS_DENIED));
 
-        return restorePersonalRefrigerator(leavingRefrigeratorMembership, refrigeratorMemberManager);
+        Long personalRefrigeratorId = restorePersonalRefrigerator(leavingRefrigeratorMembership, refrigeratorMemberManager);
+        membershipNotifications.left(leavingRefrigeratorMembership, refrigeratorMemberRepository.findLiveMembersForUpdate(refrigeratorId));
+        return personalRefrigeratorId;
     }
 
     public void kick(Long ownerId, Long refrigeratorId, Long targetUserId) {
@@ -82,6 +91,7 @@ public class MembershipService {
         ownerRefrigeratorMembership.validateRemovalTarget(targetRefrigeratorMembership);
 
         restorePersonalRefrigerator(targetRefrigeratorMembership, targetRefrigeratorMemberManager);
+        membershipNotifications.kicked(targetRefrigeratorMembership, refrigeratorMemberRepository.findLiveMembersForUpdate(refrigeratorId));
     }
 
     private void prepareJoin(User user, Refrigerator refrigerator, RefrigeratorMemberManager refrigeratorMemberManager) {

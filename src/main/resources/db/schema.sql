@@ -195,7 +195,7 @@ CREATE TABLE cooking_records (
 
 CREATE TABLE notifications (
     notification_id BIGINT NOT NULL AUTO_INCREMENT,
-    type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED. 추천 푸시는 저장하지 않음',
+    type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED / MEMBER_LEFT. 추천 푸시는 저장하지 않음',
     title VARCHAR(150) NOT NULL COMMENT '발송 시점 제목',
     body VARCHAR(500) NOT NULL COMMENT '발송 시점 본문. 대상 재료명 및 수량 포함',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '정렬: created_at DESC, notification_id DESC',
@@ -203,7 +203,7 @@ CREATE TABLE notifications (
     refrigerator_id BIGINT NOT NULL COMMENT '알림 발생 냉장고. 활성 냉장고별 조회',
     PRIMARY KEY (notification_id),
     KEY ix_notifications_refrigerator_time (refrigerator_id, created_at DESC, notification_id DESC),
-    CONSTRAINT ck_notifications_type CHECK (type IN ('EXPIRED','EXPIRING','MEMBER_JOINED','MEMBER_KICKED')),
+    CONSTRAINT ck_notifications_type CHECK (type IN ('EXPIRED','EXPIRING','MEMBER_JOINED','MEMBER_KICKED','MEMBER_LEFT')),
     CONSTRAINT fk_notifications_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 

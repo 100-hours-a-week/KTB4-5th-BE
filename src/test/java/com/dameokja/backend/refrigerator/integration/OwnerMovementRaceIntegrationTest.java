@@ -35,15 +35,15 @@ class OwnerMovementRaceIntegrationTest extends ServiceIntegrationTest {
         String targetCode = invitationService.issueCode(targetOwner.userId(), targetOwner.refrigeratorId()).code();
         CountDownLatch stored = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        CountDownLatch resolved = new CountDownLatch(1);
+        CountDownLatch attempted = new CountDownLatch(1);
         pauseAfterJoinBeforeCommit(stored, release);
-        signalAfterCodeResolution(originalCode, resolved);
+        signalBeforeJoin(joiningUser.userId(), attempted);
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<Object> movement = executor.submit(() -> joinOrError(owner.userId(), targetCode));
             await(stored);
             Future<Object> participation = executor.submit(() -> joinOrError(joiningUser.userId(), originalCode));
-            await(resolved);
+            await(attempted);
             release.countDown();
 
             assertThat(movement.get(15, TimeUnit.SECONDS)).isEqualTo(targetOwner.refrigeratorId());
@@ -64,15 +64,15 @@ class OwnerMovementRaceIntegrationTest extends ServiceIntegrationTest {
         String targetCode = invitationService.issueCode(targetOwner.userId(), targetOwner.refrigeratorId()).code();
         CountDownLatch stored = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        CountDownLatch resolved = new CountDownLatch(1);
+        CountDownLatch attempted = new CountDownLatch(1);
         pauseAfterJoinBeforeCommit(stored, release);
-        signalAfterCodeResolution(targetCode, resolved);
+        signalBeforeJoin(owner.userId(), attempted);
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<Object> participation = executor.submit(() -> joinOrError(joiningUser.userId(), originalCode));
             await(stored);
             Future<Object> movement = executor.submit(() -> joinOrError(owner.userId(), targetCode));
-            await(resolved);
+            await(attempted);
             release.countDown();
 
             assertThat(participation.get(15, TimeUnit.SECONDS)).isEqualTo(owner.refrigeratorId());
@@ -94,12 +94,13 @@ class OwnerMovementRaceIntegrationTest extends ServiceIntegrationTest {
         }).when(membershipServiceTarget).join(any(Long.class), any(String.class));
     }
 
-    private void signalAfterCodeResolution(String requestedCode, CountDownLatch resolved) {
+    private void signalBeforeJoin(Long userId, CountDownLatch attempted) {
+        // 알림 수신자 FK의 공유 잠금 때문에 코드 조회보다 사용자 잠금에서 먼저 대기할 수 있다.
+        MembershipService target = AopTestUtils.getUltimateTargetObject(membershipService);
         doAnswer(invocation -> {
-            Object refrigeratorId = invocation.callRealMethod();
-            resolved.countDown();
-            return refrigeratorId;
-        }).when(invitationService).resolveRefrigerator(requestedCode);
+            attempted.countDown();
+            return invocation.callRealMethod();
+        }).when(target).join(org.mockito.ArgumentMatchers.eq(userId), any(String.class));
     }
 
     private Object joinOrError(Long userId, String inviteCode) {
