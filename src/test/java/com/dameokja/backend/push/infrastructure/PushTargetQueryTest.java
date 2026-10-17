@@ -40,6 +40,8 @@ class PushTargetQueryTest extends MySqlJpaTest {
         notification(950002, "EXPIRING", "2026-09-25 08:00:00");
         notification(950003, "MEMBER_JOINED", "2026-09-25 08:00:00");
         notification(950004, "EXPIRED", "2026-09-24 08:00:00");
+        notification(950005, "MEMBER_LEFT", "2026-09-25 08:00:00");
+        notification(950006, "MEMBER_KICKED", "2026-09-25 08:00:00");
     }
 
     @Test

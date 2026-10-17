@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.notification.application.MembershipNotificationService;
 import com.dameokja.backend.global.exception.ExceptionCode;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
@@ -41,6 +42,7 @@ class MembershipServiceTest {
     @Mock private UserAccessService userAccessService;
     @Mock private InvitationService invitationService;
     @Mock private Clock clock;
+    @Mock private MembershipNotificationService membershipNotifications;
     @Spy private RefrigeratorPolicy refrigeratorPolicy = new RefrigeratorPolicy();
     @InjectMocks private MembershipService membershipService;
 
