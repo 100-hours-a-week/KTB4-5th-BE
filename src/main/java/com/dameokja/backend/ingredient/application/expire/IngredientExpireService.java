@@ -11,6 +11,7 @@ import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.exception.IngredientExceptionCode;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -31,6 +32,7 @@ public class IngredientExpireService {
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final IngredientRepository ingredientRepository;
     private final Clock clock;
+    private final MonthlyExpirationService monthlyExpirationService;
 
     public Optional<IngredientExpireResult> expire(Long userId, Long ingredientId, String ifMatch,
             Integer quantity, BigDecimal weightValue) {
@@ -43,9 +45,10 @@ public class IngredientExpireService {
         Ingredient ingredient = foundIngredient.orElseThrow();
         validateAccessAndVersion(refrigerator, ingredient, ifMatch);
         Measurement expiredAmount = createExpiredAmount(ingredient, quantity, weightValue);
+        monthlyExpirationService.accountPending(refrigerator);
         boolean removed = expireIngredient(ingredient, expiredAmount);
 
-        persistExpiration(refrigerator, ingredient, removed);
+        persistExpiration(ingredient, removed);
         return Optional.of(new IngredientExpireResult(ingredient, removed));
     }
 
@@ -84,10 +87,9 @@ public class IngredientExpireService {
         }
     }
 
-    private void persistExpiration(Refrigerator refrigerator, Ingredient ingredient, boolean removed) {
+    private void persistExpiration(Ingredient ingredient, boolean removed) {
         if (removed) {
             ingredientRepository.delete(ingredient);
-            refrigerator.countExpiredDeletion();
         }
         ingredientRepository.flush();
     }
@@ -96,13 +98,13 @@ public class IngredientExpireService {
     // 이미 삭제됐거나 그사이 유통기한이 바뀐 재고는 건너뛴다. 오늘 만료(D-0)는 아직 임박이라 제외한다.
     public int expireSelected(Long userId, Long refrigeratorId, List<Long> ingredientIds) {
         List<Long> targetIds = validateSelection(ingredientIds);
-        LocalDate businessDate = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
+        LocalDate businessDate = BusinessTime.today(clock);
+        monthlyExpirationService.accountPending(refrigerator);
         List<Ingredient> expiredIngredients = ingredientRepository
                 .findByRefrigerator_IdAndIdInAndExpirationDateBefore(refrigeratorId, targetIds, businessDate);
 
         ingredientRepository.deleteAll(expiredIngredients);
-        refrigerator.countExpiredDeletions(expiredIngredients.size());
         ingredientRepository.flush();
         return expiredIngredients.size();
     }

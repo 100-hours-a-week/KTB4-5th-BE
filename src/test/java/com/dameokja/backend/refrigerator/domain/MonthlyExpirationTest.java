@@ -44,14 +44,4 @@ class MonthlyExpirationTest {
         assertThat(refrigerator.getExpiredCountedOn()).isEqualTo(today);
     }
 
-    @Test
-    void keepsLegacyDeletionCountingUntilBatchIsConnected() {
-        Refrigerator refrigerator = new Refrigerator("냉장고", "2026-10");
-
-        refrigerator.countExpiredDeletion();
-        refrigerator.countExpiredDeletions(2);
-
-        assertThat(refrigerator.getExpiredCount()).isEqualTo(3);
-        assertThat(refrigerator.getExpiredCountedOn()).isNull();
-    }
 }

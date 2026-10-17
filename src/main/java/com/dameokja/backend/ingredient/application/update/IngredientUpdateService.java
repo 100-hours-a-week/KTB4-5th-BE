@@ -26,9 +26,10 @@ public class IngredientUpdateService {
     private final Clock clock;
 
     public IngredientUpdateResult update(Long userId, Long ingredientId, String ifMatch, IngredientUpdateFields fields) {
-        LocalDate businessDate = BusinessTime.today(clock);
         Ingredient ingredient = lockIngredientForUpdate(userId, ingredientId);
+        LocalDate businessDate = BusinessTime.today(clock);
         validateVersion(ingredient, ifMatch);
+        ingredient.validateEditable(businessDate);
 
         IngredientDetails updateDetails = ingredientUpdatePolicy.createDetails(ingredient, fields, businessDate);
         ingredient.updateDetails(updateDetails);

@@ -44,6 +44,7 @@ public abstract class MySqlDatabaseTest {
         registry.add("push.vapid.key-version", () -> "test-v1");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.sql.init.mode", () -> "never");
+        registry.add("refrigerator.expiration-accounting.enabled", () -> "false");
         registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
         registry.add("spring.datasource.username", MYSQL::getUsername);
         registry.add("spring.datasource.password", MYSQL::getPassword);

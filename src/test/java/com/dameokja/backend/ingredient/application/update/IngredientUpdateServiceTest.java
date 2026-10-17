@@ -53,7 +53,7 @@ class IngredientUpdateServiceTest {
     void setUp() {
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
-        ingredient = ingredient(refrigerator, LocalDate.of(2026, 9, 15));
+        ingredient = ingredient(refrigerator, LocalDate.of(2026, 9, 24));
 
         when(ingredientRepository.findRefrigeratorIdById(20L)).thenReturn(Optional.of(10L));
         when(ingredientRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(ingredient));
@@ -78,7 +78,7 @@ class IngredientUpdateServiceTest {
         assertThat(result.ingredient().getMeasurement().getWeightValue())
                 .isEqualByComparingTo("250.000");
         assertThat(result.ingredient().getExpirationDate())
-                .isEqualTo(LocalDate.of(2026, 9, 15));
+                .isEqualTo(LocalDate.of(2026, 9, 24));
         assertThat(result.ingredient().getRegistrationSource())
                 .isEqualTo(RegistrationSource.RECEIPT);
         verify(accessService).lockForWrite(1L, 10L);
@@ -86,12 +86,7 @@ class IngredientUpdateServiceTest {
     }
 
     @Test
-    void validatesExpirationOnlyWhenItActuallyChanges() {
-        IngredientUpdateFields unchangedPastDate = fieldsWithExpiration(
-                LocalDate.of(2026, 9, 15));
-
-        updateService.update(1L, 20L, IngredientEtag.of(ingredient), unchangedPastDate);
-
+    void rejectsChangingExpirationToPast() {
         assertThatThrownBy(() -> updateService.update(1L, 20L,
                 IngredientEtag.of(ingredient), fieldsWithExpiration(LocalDate.of(2026, 9, 19))))
                 .isInstanceOf(CustomException.class);
@@ -169,6 +164,19 @@ class IngredientUpdateServiceTest {
         IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient), emptyFields());
 
         assertThat(result.mergedItems()).isEmpty();
+        verify(ingredientRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void rejectsAllEditsToExpiredIngredient() {
+        ReflectionTestUtils.setField(ingredient, "expirationDate", LocalDate.of(2026, 9, 15));
+        for (IngredientUpdateFields fields : List.of(emptyFields(), fieldsWithExpiration(LocalDate.of(2026, 9, 25)))) {
+            assertThatThrownBy(() -> updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields))
+                    .isInstanceOfSatisfying(CustomException.class,
+                            error -> assertThat(error.getExceptionCode().getCode()).isEqualTo("INGREDIENT-422-004"));
+        }
+        assertThat(ingredient.getExpirationDate()).isEqualTo(LocalDate.of(2026, 9, 15));
+        verify(ingredientRepository, never()).flush();
         verify(ingredientRepository, never()).deleteAll(any());
     }
 

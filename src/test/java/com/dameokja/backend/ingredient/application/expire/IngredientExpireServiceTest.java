@@ -16,6 +16,7 @@ import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -32,13 +33,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 class IngredientExpireServiceTest {
     @Mock private RefrigeratorAccessService refrigeratorAccessService;
     @Mock private IngredientRepository ingredientRepository;
+    @Mock private MonthlyExpirationService monthlyExpirationService;
 
     private IngredientExpireService service;
     private Refrigerator refrigerator;
 
     @BeforeEach
     void setUp() {
-        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, Clock.systemUTC());
+        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, Clock.systemUTC(), monthlyExpirationService);
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         when(refrigeratorAccessService.lockCurrentForWrite(2L)).thenReturn(refrigerator);
@@ -60,7 +62,7 @@ class IngredientExpireServiceTest {
     }
 
     @Test
-    void deletesIngredientAndCountsExpirationWhenNothingRemains() {
+    void deletesIngredientWithoutCountingDeletionAgain() {
         Ingredient ingredient = countIngredient(10);
         when(ingredientRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(ingredient));
 
@@ -68,7 +70,8 @@ class IngredientExpireServiceTest {
                 2L, 1L, IngredientEtag.of(ingredient), 10, null);
 
         assertThat(result).hasValueSatisfying(value -> assertThat(value.removed()).isTrue());
-        assertThat(refrigerator.getExpiredCount()).isEqualTo(1);
+        assertThat(refrigerator.getExpiredCount()).isZero();
+        verify(monthlyExpirationService).accountPending(refrigerator);
         assertThat(refrigerator.getExpiredCountMonth()).isEqualTo("2026-09");
         verify(ingredientRepository).delete(ingredient);
         verify(ingredientRepository).flush();

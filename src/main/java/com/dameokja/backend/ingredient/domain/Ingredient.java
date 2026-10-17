@@ -7,6 +7,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import com.dameokja.backend.global.exception.CustomException;
+import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_UPDATE_VALUE;
 
 @Getter
 @Entity
@@ -62,6 +64,12 @@ public class Ingredient extends BaseEntity {
         this.storageType = details.storageType();
         this.measurement = details.measurement();
         this.expirationDate = details.expirationDate();
+    }
+
+    public void validateEditable(LocalDate businessDate) {
+        if (expirationDate.isBefore(businessDate)) {
+            throw new CustomException(INVALID_UPDATE_VALUE);
+        }
     }
 
     public void mergeMeasurement(Measurement addition) {
