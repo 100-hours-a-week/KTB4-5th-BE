@@ -67,6 +67,20 @@ class AnalysisJobSubmitServiceTest {
         assertThat(analysisJob.expiresAt()).isNull();
     }
 
+    // AI는 같은 requestId·같은 요청 내용이면 기존 분석을 돌려주므로, 같은 사진·같은 힌트의 재요청은 같은 requestId를 쓴다.
+    @Test
+    void reusesTheRequestIdForTheSamePhotoAndHintAndDropsRepeatedKeys() {
+        issue("first", "ab");
+        AnalysisJob first = analysisJobSubmitService.submit(7L, List.of("first", "first"), "RECEIPT");
+        AnalysisJob again = analysisJobSubmitService.submit(7L, List.of("first"), "RECEIPT");
+        AnalysisJob otherHint = analysisJobSubmitService.submit(7L, List.of("first"), "PRODUCT");
+
+        assertThat(first.analysisImages()).hasSize(1);
+        assertThat(again.id()).isNotEqualTo(first.id());
+        assertThat(again.analysisImages().getFirst().requestId()).isEqualTo(first.analysisImages().getFirst().requestId());
+        assertThat(otherHint.analysisImages().getFirst().requestId()).isNotEqualTo(first.analysisImages().getFirst().requestId());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"missing", "other-owner", "profile", "expired"})
     void validatesEveryImageBeforeQueueingAny(String objectKey) {

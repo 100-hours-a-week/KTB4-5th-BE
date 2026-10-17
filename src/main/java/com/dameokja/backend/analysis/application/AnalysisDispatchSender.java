@@ -5,6 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
+import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -23,6 +24,7 @@ import org.springframework.web.client.RestClientResponseException;
 @RequiredArgsConstructor
 public class AnalysisDispatchSender {
     private static final Set<Integer> REJECTED_STATUSES = Set.of(400, 409, 422);
+    private static final Set<String> FINISHED_STATUSES = Set.of("COMPLETED", "FAILED");
     private final AnalysisDispatchRepository repository;
     private final AnalysisJobStore store;
     private final AiAnalysisClient client;
@@ -53,9 +55,9 @@ public class AnalysisDispatchSender {
     }
 
     private void submit(LeasedDispatch leased, AnalysisDispatch dispatch) {
-        String analysisId;
+        AiImageAnalysisSubmitResponse response;
         try {
-            analysisId = client.submit(request(dispatch)).analysisId();
+            response = client.submit(request(dispatch));
         } catch (RestClientResponseException exception) {
             handleResponseFailure(leased, dispatch, exception);
             return;
@@ -63,15 +65,17 @@ public class AnalysisDispatchSender {
             retryOrFail(leased, dispatch, AnalysisDispatchErrorCode.AI_UNAVAILABLE, exception);
             return;
         }
+        String analysisId = response.analysisId();
         if (analysisId == null || analysisId.isBlank()) {
             retryOrFail(leased, dispatch, AnalysisDispatchErrorCode.AI_UNAVAILABLE, null);
             return;
         }
-        register(leased, dispatch, analysisId);
+        register(leased, dispatch, analysisId, FINISHED_STATUSES.contains(response.status()));
     }
 
     // Redis에 AI ID를 먼저 등록해야 빠르게 도착한 콜백이 묶음을 찾는다.
-    private void register(LeasedDispatch leased, AnalysisDispatch dispatch, String analysisId) {
+    // 같은 사진의 재요청은 AI가 끝낸 분석을 그대로 돌려주고 콜백을 다시 보내지 않으므로, 기한을 지금으로 두어 바로 조회한다.
+    private void register(LeasedDispatch leased, AnalysisDispatch dispatch, String analysisId, boolean alreadyFinished) {
         try {
             store.register(dispatch.getAnalysisJobId(), dispatch.getUserId(), dispatch.getRequestId(), analysisId);
         } catch (RuntimeException exception) {
@@ -79,7 +83,7 @@ public class AnalysisDispatchSender {
             updater.retryLater(leased, properties.retryDelay(), false, AnalysisDispatchErrorCode.REGISTER_FAILED);
             return;
         }
-        updater.accept(leased, analysisId);
+        updater.accept(leased, analysisId, alreadyFinished);
         applyParked(dispatch, analysisId);
     }
 

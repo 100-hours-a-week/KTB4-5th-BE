@@ -104,7 +104,7 @@ public interface AnalysisDispatchRepository extends JpaRepository<AnalysisDispat
     @Query(value = """
             UPDATE analysis_dispatches
             SET status = 'DONE', lease_token = NULL, lease_until = NULL, finished_at = :now, updated_at = :now
-            WHERE request_id = :requestId AND status NOT IN ('DONE','FAILED')
+            WHERE request_id = :requestId AND analysis_job_id = :analysisJobId AND status NOT IN ('DONE','FAILED')
             """, nativeQuery = true)
-    int finish(@Param("requestId") String requestId, @Param("now") LocalDateTime now);
+    int finish(@Param("requestId") String requestId, @Param("analysisJobId") String analysisJobId, @Param("now") LocalDateTime now);
 }
