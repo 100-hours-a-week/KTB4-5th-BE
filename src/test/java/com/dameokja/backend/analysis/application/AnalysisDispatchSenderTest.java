@@ -62,7 +62,7 @@ class AnalysisDispatchSenderTest {
         InOrder order = inOrder(client, store, updater);
         order.verify(client).submit(request.capture());
         order.verify(store).register("job-1", 7L, dispatch.getRequestId(), "ai-1");
-        order.verify(updater).accept(LEASED, "ai-1");
+        order.verify(updater).accept(LEASED, "ai-1", false);
         assertThat(request.getValue().requestId()).isEqualTo(dispatch.getRequestId());
         assertThat(request.getValue().image().sha256()).isEqualTo("ab".repeat(32));
     }
@@ -74,7 +74,7 @@ class AnalysisDispatchSenderTest {
         sender.send(LEASED);
         InOrder order = inOrder(store, updater, applier);
         order.verify(store).register(eq("job-1"), eq(7L), anyString(), eq("ai-1"));
-        order.verify(updater).accept(LEASED, "ai-1");
+        order.verify(updater).accept(LEASED, "ai-1", true);
         order.verify(applier).applyParked("ai-1");
     }
 
@@ -84,7 +84,7 @@ class AnalysisDispatchSenderTest {
         when(client.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse("ai-1", "COMPLETED", null, 1000));
         when(applier.applyParked("ai-1")).thenThrow(new DataAccessResourceFailureException("redis"));
         sender.send(LEASED);
-        verify(updater).accept(LEASED, "ai-1");
+        verify(updater).accept(LEASED, "ai-1", true);
         verify(updater, never()).retryLater(any(), any(), anyBoolean(), any());
     }
 
@@ -148,7 +148,7 @@ class AnalysisDispatchSenderTest {
         doThrow(new DataAccessResourceFailureException("redis")).when(store).register(anyString(), any(), anyString(), eq("ai-1"));
         sender.send(LEASED);
         verify(updater).retryLater(LEASED, Duration.ofSeconds(1), false, AnalysisDispatchErrorCode.REGISTER_FAILED);
-        verify(updater, never()).accept(any(), anyString());
+        verify(updater, never()).accept(any(), anyString(), anyBoolean());
     }
 
     @Test

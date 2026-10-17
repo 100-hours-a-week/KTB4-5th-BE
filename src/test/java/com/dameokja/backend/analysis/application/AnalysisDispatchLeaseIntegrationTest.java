@@ -31,11 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
         AnalysisDispatchLeaseIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
+    private static final String JOB_ID = "00000000-0000-0000-0000-000000000001";
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 13, 8, 0);
 
     @Autowired AnalysisDispatchLeaseService leases;
     @Autowired AnalysisDispatchUpdater updater;
     @Autowired AnalysisDispatchQueue queue;
+    @Autowired AnalysisDispatchProperties properties;
     @Autowired JdbcTemplate jdbc;
 
     @AfterEach
@@ -50,9 +52,9 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
 
         assertThat(first).hasSize(2);
         assertThat(leases.leaseDue()).isEmpty();
-        assertThat(updater.accept(first.getFirst(), "ai-1")).isTrue();
+        assertThat(updater.accept(first.getFirst(), "ai-1", false)).isTrue();
         assertThat(leases.leaseDue()).isEmpty();
-        updater.finish(images.getFirst().requestId());
+        updater.finish(images.getFirst().requestId(), JOB_ID);
         assertThat(leases.leaseDue()).hasSize(1);
         assertThat(count("DISPATCHING") + count("AWAITING_CALLBACK")).isEqualTo(2);
     }
@@ -74,7 +76,7 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
     void returnsAnUnacceptedExpiredDispatchToTheQueueButChecksAnAcceptedOne() {
         List<AnalysisImage> images = enqueue(2);
         List<LeasedDispatch> leased = leases.leaseDue();
-        updater.accept(leased.getLast(), "ai-accepted");
+        updater.accept(leased.getLast(), "ai-accepted", false);
         jdbc.update("UPDATE analysis_dispatches SET lease_until = ?", NOW.minusSeconds(1));
 
         List<LeasedDispatch> expired = leases.leaseExpired();
@@ -94,11 +96,11 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
         leases.leaseExpired();
         LeasedDispatch current = leases.leaseDue().getFirst();
 
-        assertThat(updater.accept(stale, "ai-stale")).isFalse();
+        assertThat(updater.accept(stale, "ai-stale", false)).isFalse();
         assertThat(updater.fail(stale, AnalysisFailureCode.ANALYSIS_EXPIRED)).isFalse();
-        assertThat(updater.accept(current, "ai-current")).isTrue();
+        assertThat(updater.accept(current, "ai-current", false)).isTrue();
         assertThat(jdbc.queryForObject("SELECT ai_analysis_id FROM analysis_dispatches", String.class)).isEqualTo("ai-current");
-        updater.finish(images.getFirst().requestId());
+        updater.finish(images.getFirst().requestId(), JOB_ID);
         assertThat(updater.extend(current, "PROCESSING")).isFalse();
         assertThat(statusOf(images.getFirst())).isEqualTo("DONE");
     }
@@ -114,9 +116,27 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
         assertThat(statusOf(images.getFirst())).isEqualTo("PENDING");
     }
 
+    // 같은 사진을 다시 요청한 작업은 같은 requestId로 따로 전달하고, AI가 이미 끝낸 분석이면 바로 확인한다.
+    @Test
+    void keepsADispatchPerJobForTheSameRequestAndChecksAnAlreadyFinishedOneImmediately() {
+        AnalysisImage image = AnalysisImage.pending("image-0", "ab".repeat(32), "same-request");
+        queue.enqueue(JOB_ID, 7L, "AUTO", List.of(image));
+        queue.enqueue("00000000-0000-0000-0000-000000000002", 7L, "AUTO", List.of(image));
+        List<LeasedDispatch> leased = leases.leaseDue();
+        assertThat(leased).hasSize(2);
+
+        assertThat(updater.accept(leased.getFirst(), "ai-shared", true)).isTrue();
+        assertThat(updater.accept(leased.getLast(), "ai-shared", false)).isTrue();
+        assertThat(jdbc.queryForList("SELECT lease_until FROM analysis_dispatches ORDER BY analysis_dispatch_id", LocalDateTime.class))
+                .containsExactly(NOW, NOW.plus(properties.callbackTimeout()));
+        updater.finish("same-request", JOB_ID);
+        assertThat(jdbc.queryForList("SELECT status FROM analysis_dispatches ORDER BY analysis_dispatch_id", String.class))
+                .containsExactly("DONE", "AWAITING_CALLBACK");
+    }
+
     private List<AnalysisImage> enqueue(int count) {
         List<AnalysisImage> images = IntStream.range(0, count).mapToObj(index -> AnalysisImage.pending("image-" + index, "ab".repeat(32))).toList();
-        queue.enqueue("00000000-0000-0000-0000-000000000001", 7L, "AUTO", images);
+        queue.enqueue(JOB_ID, 7L, "AUTO", images);
         return images;
     }
 

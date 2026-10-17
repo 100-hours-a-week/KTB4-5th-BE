@@ -19,6 +19,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.auth.presentation.CsrfController;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
@@ -76,8 +77,8 @@ class AnalysisJobDeleteWebTest {
     @Test
     void deletesAFinishedJobThatWasNeverRegisteredAsIngredients() throws Exception {
         AnalysisJob job = job(7L, "receipt", "blur");
-        store.complete("ai-receipt", success());
-        store.complete("ai-blur", failure());
+        AnalysisJobStores.complete(store, "ai-receipt", success());
+        AnalysisJobStores.complete(store, "ai-blur", failure());
 
         deleteJob(job.id(), 7L).andExpect(status().isNoContent()).andExpect(content().string(""));
 
@@ -96,7 +97,7 @@ class AnalysisJobDeleteWebTest {
             job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("receipt", "ab".repeat(32))));
         } else {
             job = job(7L, "receipt", "blur");
-            store.complete("ai-receipt", success());
+            AnalysisJobStores.complete(store, "ai-receipt", success());
         }
 
         deleteJob(job.id(), 7L).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IMAGE-409-002"));
@@ -108,7 +109,7 @@ class AnalysisJobDeleteWebTest {
     @Test
     void rejectsAnotherUsersJobAndUnknownJobs() throws Exception {
         AnalysisJob job = job(8L, "receipt");
-        store.complete("ai-receipt", success());
+        AnalysisJobStores.complete(store, "ai-receipt", success());
 
         deleteJob(job.id(), 7L).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("GLOBAL-403-001"));
         deleteJob("missing", 7L).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("IMAGE-404-001"));

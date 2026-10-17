@@ -5,7 +5,9 @@ import com.dameokja.backend.global.exception.CustomException;
 import java.util.UUID;
 
 public record AnalysisImage(String objectKey, String sha256, String requestId, String aiAnalysisId, AnalysisCompletion completion) {
-    public static AnalysisImage pending(String objectKey, String sha256) { return new AnalysisImage(objectKey, sha256, UUID.randomUUID().toString(), null, null); }
+    public static AnalysisImage pending(String objectKey, String sha256) { return pending(objectKey, sha256, UUID.randomUUID().toString()); }
+
+    public static AnalysisImage pending(String objectKey, String sha256, String requestId) { return new AnalysisImage(objectKey, sha256, requestId, null, null); }
 
     public AnalysisImage register(String analysisId) {
         if (analysisId == null || analysisId.isBlank()) {
