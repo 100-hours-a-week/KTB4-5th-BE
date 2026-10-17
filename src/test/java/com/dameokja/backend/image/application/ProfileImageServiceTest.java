@@ -1,6 +1,7 @@
 package com.dameokja.backend.image.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -10,6 +11,12 @@ import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.image.infrastructure.KakaoProfileImageDownloader;
 import com.dameokja.backend.image.infrastructure.S3ProfileImageStorage;
+import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
+import com.dameokja.backend.image.domain.ImageUploadMetadata;
+import com.dameokja.backend.image.domain.ImageUploadPurpose;
+import com.dameokja.backend.global.exception.CustomException;
+import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -18,7 +25,22 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ProfileImageServiceTest {
     private final KakaoProfileImageDownloader downloader = mock(KakaoProfileImageDownloader.class);
     private final S3ProfileImageStorage storage = mock(S3ProfileImageStorage.class);
-    private final ProfileImageService service = new ProfileImageService(downloader, storage);
+    private final ImageUploadMetadataStore uploads = mock(ImageUploadMetadataStore.class);
+    private final ProfileImageService service = new ProfileImageService(downloader, storage, uploads);
+
+    @Test
+    void validatesOwnersUploadedProfile() {
+        when(uploads.find("key")).thenReturn(Optional.of(new ImageUploadMetadata(1L, ImageUploadPurpose.PROFILE, "checksum", Instant.MAX)));
+        service.validateUpload(1L, "key");
+        verify(storage).validateUploaded("key");
+    }
+
+    @Test
+    void rejectsAnotherUsersPhotoBeforeAccessingS3() {
+        when(uploads.find("key")).thenReturn(Optional.of(new ImageUploadMetadata(2L, ImageUploadPurpose.PROFILE, "checksum", Instant.MAX)));
+        assertThatThrownBy(() -> service.validateUpload(1L, "key")).isInstanceOf(CustomException.class);
+        verifyNoInteractions(storage);
+    }
 
     @ParameterizedTest
     @NullAndEmptySource

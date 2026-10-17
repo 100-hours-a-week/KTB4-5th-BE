@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.auth.domain.OAuthProvider;
@@ -13,6 +14,8 @@ import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
+import com.dameokja.backend.image.application.ProfileImageService;
+import org.springframework.transaction.PlatformTransactionManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +35,8 @@ class UserProfileServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserProfileService(new UserAccessService(users), refrigerators, socialAccounts);
+        service = new UserProfileService(new UserAccessService(users), refrigerators, socialAccounts, users,
+                mock(NicknamePolicy.class), mock(ProfileImageService.class), mock(PlatformTransactionManager.class), "profiles/default.png");
     }
 
     @Test

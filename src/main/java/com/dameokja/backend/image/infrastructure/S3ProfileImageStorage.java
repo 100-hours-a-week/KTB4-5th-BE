@@ -1,5 +1,7 @@
 package com.dameokja.backend.image.infrastructure;
 
+import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.image.infrastructure.KakaoProfileImageDownloader.DownloadedImage;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -56,5 +61,24 @@ public class S3ProfileImageStorage {
         GetObjectRequest object = GetObjectRequest.builder().bucket(properties.bucket()).key(key).build();
         return presigner.presignGetObject(GetObjectPresignRequest.builder()
                 .signatureDuration(properties.presignedUrlTtl()).getObjectRequest(object).build()).url().toExternalForm();
+    }
+
+    /**
+     * 업로드 객체가 존재하고 설정된 이미지 크기·MIME 제한을 지키는지 확인합니다.
+     * @param key 발급 내역의 소유자·용도 검증을 마친 객체 키
+     */
+    public void validateUploaded(String key) {
+        try {
+            HeadObjectResponse object = client.headObject(HeadObjectRequest.builder().bucket(properties.bucket()).key(key).build());
+            if (object.contentLength() == null || object.contentLength() <= 0 || object.contentLength() > properties.maxUploadBytes()
+                    || object.contentType() == null || !properties.allowedContentTypes().contains(object.contentType())) {
+                throw new CustomException(GlobalExceptionCode.BAD_REQUEST);
+            }
+        } catch (S3Exception exception) {
+            if (exception.statusCode() == 404) {
+                throw new CustomException(GlobalExceptionCode.BAD_REQUEST);
+            }
+            throw exception;
+        }
     }
 }
