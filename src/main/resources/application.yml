@@ -81,6 +81,11 @@ oauth:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
+refrigerator:
+  invitation:
+    # 카테부 냉장고의 실제 ID로 설정한다. 0이면 모든 냉장고에 기존 5분 정책을 적용한다.
+    fixed-refrigerator-id: ${KTB_REFRIGERATOR_ID:0}
+
 notification:
   expiration-batch:
     cron: ${NOTIFICATION_EXPIRATION_CRON:0 0 8 * * *}

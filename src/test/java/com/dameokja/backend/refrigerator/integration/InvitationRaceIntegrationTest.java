@@ -7,6 +7,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.refrigerator.application.*;
 import com.dameokja.backend.refrigerator.domain.*;
 import com.dameokja.backend.refrigerator.infrastructure.InviteCodeRepository;
+import com.dameokja.backend.refrigerator.infrastructure.InvitationProperties;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.UserAccessService;
 import java.security.SecureRandom;
@@ -89,7 +90,8 @@ class InvitationRaceIntegrationTest extends ServiceIntegrationTest {
         Fixture owner = ownerFixture("Owner");
         Fixture member = ownerFixture("Member");
         InvitationView code = invitations.issueCode(owner.userId(), owner.refrigeratorId());
-        InvitationService other = new InvitationService(access, refrigeratorMemberRepository, codes, clock, secureRandom);
+        InvitationService other = new InvitationService(access, refrigeratorMemberRepository, codes, clock, secureRandom,
+                new InvitationProperties(0));
         TransactionTemplate tx = new TransactionTemplate(transactions);
         assertThat(tx.<InvitationView>execute(status -> other.getValidCode(owner.userId(), owner.refrigeratorId()))).isEqualTo(code);
         membershipService.join(member.userId(), code.code());

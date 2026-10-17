@@ -11,6 +11,7 @@ import com.dameokja.backend.refrigerator.domain.InviteCode;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.InviteCodeRepository;
+import com.dameokja.backend.refrigerator.infrastructure.InvitationProperties;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -37,18 +38,32 @@ public class InvitationService {
     private final InviteCodeRepository inviteCodeRepository;
     private final Clock clock;
     private final SecureRandom secureRandom;
+    private final InvitationProperties invitationProperties;
 
+    /**
+     * OWNER 권한과 냉장고 잠금 아래 코드를 발급하며 고정 대상은 기존 최신 코드를 유지한다.
+     * @param userId 발급을 요청한 사용자 ID
+     * @param refrigeratorId 초대할 냉장고 ID
+     * @return 최초 또는 기존 초대 코드
+     */
     @Transactional
     public InvitationView issueCode(Long userId, Long refrigeratorId) {
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         requireOwner(userId, refrigeratorId);
 
+        if (invitationProperties.usesFixedCode(refrigeratorId)) {
+            InviteCode fixedCode = findLatestForUpdate(refrigeratorId).orElseGet(() -> createCode(refrigerator));
+            return InvitationView.fixed(fixedCode);
+        }
+        return InvitationView.from(createCode(refrigerator));
+    }
+
+    private InviteCode createCode(Refrigerator refrigerator) {
         String code = generateUniqueCode();
         LocalDateTime issuedAt = BusinessTime.now(clock);
         InviteCode invitationCode = new InviteCode(code, refrigerator, issuedAt);
 
-        InviteCode savedInvitationCode = inviteCodeRepository.save(invitationCode);
-        return InvitationView.from(savedInvitationCode);
+        return inviteCodeRepository.save(invitationCode);
     }
 
     public InvitationView getValidCode(Long userId, Long refrigeratorId) {
@@ -60,21 +75,32 @@ public class InvitationService {
         LocalDateTime checkedAt = BusinessTime.now(clock);
 
         return latestInvitationCode
-                .filter(invitationCode -> invitationCode.isValidAt(checkedAt))
-                .map(InvitationView::from)
+                .filter(invitationCode -> invitationProperties.usesFixedCode(refrigeratorId) || invitationCode.isValidAt(checkedAt))
+                .map(invitationCode -> invitationProperties.usesFixedCode(refrigeratorId)
+                        ? InvitationView.fixed(invitationCode) : InvitationView.from(invitationCode))
                 .orElse(null);
     }
 
-    // 이 메서드는 가입 TX의 냉장고 잠금 아래 호출해 재발급과 참여 저장의 순서를 맞춘다.
+    /**
+     * 가입 트랜잭션의 냉장고 잠금 아래 최신 코드와 일치하는지 확인한다.
+     * 고정 대상만 만료 검사를 생략하며 권한·정원·가입 조건은 가입 서비스가 검증한다.
+     * @param refrigeratorId 가입 대상 냉장고 ID
+     * @param requestedCode 참여 요청에서 받은 코드
+     */
     public void validateCurrent(Long refrigeratorId, String requestedCode) {
-        InviteCode latestInvitationCode = inviteCodeRepository
-                .findHistoryForUpdate(refrigeratorId, PageRequest.of(0, 1))
-                .stream()
-                .findFirst()
+        InviteCode latestInvitationCode = findLatestForUpdate(refrigeratorId)
                 .orElseThrow(() -> new CustomException(INVITE_NOT_FOUND));
 
+        if (invitationProperties.usesFixedCode(refrigeratorId)) {
+            latestInvitationCode.validateMatches(requestedCode);
+            return;
+        }
         LocalDateTime checkedAt = BusinessTime.now(clock);
         latestInvitationCode.validateUsable(requestedCode, checkedAt);
+    }
+
+    private Optional<InviteCode> findLatestForUpdate(Long refrigeratorId) {
+        return inviteCodeRepository.findHistoryForUpdate(refrigeratorId, PageRequest.of(0, 1)).stream().findFirst();
     }
 
     public Long resolveRefrigerator(String inviteCode) {

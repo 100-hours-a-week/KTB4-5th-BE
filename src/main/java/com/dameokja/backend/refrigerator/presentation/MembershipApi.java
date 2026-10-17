@@ -29,7 +29,8 @@ import org.springframework.http.ResponseEntity;
 public interface MembershipApi {
     @Operation(summary = "공유 참여", description = "초대 발급 이력이 있어도 현재 다른 구성원이 없는 OWNER는 참여할 수 있습니다. "
             + "대상 소유자가 해당 냉장고를 현재 사용 중이어야 하며, 다른 냉장고를 사용 중이면 REFRIGERATOR-400-004로 거절합니다. "
-            + "코드는 발급 후 5분간 다회 사용하며 재발급하면 이전 코드는 무효입니다. OWNER 포함 최대 150명이며 개인 재고를 보존합니다. CSRF 검증이 필요합니다.")
+            + "일반 코드는 발급 후 5분간 다회 사용하며 재발급하면 이전 코드는 무효입니다. "
+            + "설정된 카테부 냉장고의 고정 코드만 만료 검사를 생략합니다. OWNER 포함 최대 150명이며 개인 재고를 보존합니다. CSRF 검증이 필요합니다.")
     @ApiResponses({@ApiResponse(responseCode = "201", description = "REFRIGERATOR-201-001",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(value = JOINED_RESPONSE))),
             @ApiResponse(responseCode = "400", description = "REFRIGERATOR-400-001 / REFRIGERATOR-400-002 / REFRIGERATOR-400-003 / REFRIGERATOR-400-004"),
