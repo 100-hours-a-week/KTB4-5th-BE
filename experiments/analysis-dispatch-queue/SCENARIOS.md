@@ -131,6 +131,20 @@ UPDATE analysis_dispatch_slots
 | P | b36b2a84 | 미실행 | | | | | |
 | W | b36b2a84 | 2026-10-17 스모크(S11)만 | | | | 아래 F1 | `evidence/smoke/S11.json` |
 | W | 980cffc | 2026-10-17 스모크(S11)만 | S11 | | | — | `evidence/W/S11.json` (클라우드 세션) |
+| W (슬롯 1) | d9d54b0 | 2026-10-17 전체 13건 | S04·S05·S09·S11·S16·S17·S19·S22·S23·S24, Q06·Q07·Q09·Q12·Q13 | S03(고착 없이 실패로 끝남) | — | F2, F3 | `evidence/W/results.json` |
+| P (슬롯 10) | d9d54b0 | 2026-10-17 전체 13건 | S04·S05·S09·S11·S16·S17·S19·S22·S23·S24, Q06·Q07·Q09·Q12·Q13 | S03(고착 없이 실패로 끝남) | — | F2 | `evidence/P/results.json` |
+
+실험값: 콜백 기한 5s, 전체 기한 30s, 최대 시도 5, lease 5s, tick 1s. 러너는 13개 묶음으로 Q01·Q03·Q07·Q10을 포함해 실행한다(Q02·Q04·Q05·Q08·Q11은 별도 시나리오 없음, S05·S22·S16·S03이 일부 대신 확인).
+
+| 지표 | W | P |
+|---|---|---|
+| S17 16건 급증 전체 시간 | 19.4s | 18.0s |
+| S17 AI 429 / AI 전송 수 | 0 / 16 | 46 / 62 |
+| S17·Q06 AI가 들고 있는 최대 건수 | 1 | 5 (AI 큐 4 + 처리 1) |
+| 중복 분석 (S17·Q06·S19·S23) | 0 | 0 |
+| Q12 사용자 B 대기 (A 6장 뒤) | 8.3s | 7.8s |
+| S03 콜백 유실 뒤 다음 작업 | 33.0s 뒤 FAILED (전체 기한 만료) | 1.7s 뒤 COMPLETED |
+| S05 AI 종료 시 재분석 | AI에 있던 1건만 재분석 | AI에 있던 2건 재분석 |
 
 ### 발견 사항
 
@@ -140,3 +154,6 @@ UPDATE analysis_dispatch_slots
   - **1단계 대응 (980cffc, 사용자 선택: 콜백 보관):** 미등록 analysisId 콜백은 Redis `analysis:parked:<analysisId>`에 보관(TTL `analysis.parked-callback-ttl`, 기본 10m)하고 200으로 응답한다. 같은 requestId 재전송으로 ID를 등록한 전송 워커가 보관된 결과를 적용하고, 실패하면 콜백 기한 확인이 다시 적용한다. 보관 뒤 등록 여부를 한 번 더 확인해 보관·등록 경쟁을 막는다.
   - 재실행: S11(W) PASS. 사용자 202, 2.0초 만에 COMPLETED, 분석 1회. BE 로그에 "등록 전에 도착한 콜백을 적용했습니다" 확인. 이전에는 전체 기한(30초) 뒤 실패.
   - 남은 점: 보관 콜백을 전송 워커가 적용한 경우 다음 전송은 주기 tick(1s)을 기다린다(워커 순환 의존 때문에 즉시 wakeUp하지 않음). W 처리량 영향은 Q01·Q03에서 확인.
+- **F2 (S03, W·P):** 콜백 3회가 모두 실패한 작업은 AI가 `COMPLETED`이고 결과를 갖고 있는데도 BE가 기한 확인에서 연장만 반복하다 전체 기한 뒤 `ANALYSIS_EXPIRED`로 실패한다(`lastAiStatus=COMPLETED`). 사용자는 결과가 있는 분석을 실패로 받는다. 원인: `AnalysisDispatchChecker`가 AI GET의 상태만 보고 결과(result/error)는 쓰지 않는다. 대응 후보: 기한 확인에서 AI가 COMPLETED·FAILED면 GET 응답의 결과를 콜백과 같은 경로(`AnalysisCompletionApplier`)로 적용.
+- **F3 (S03, W만):** F2 때문에 W는 유실 작업이 전체 기한 내내 슬롯을 잡아 뒤 작업도 대기 중 전체 기한을 넘겨 실패했다. 운영값(전체 기한 7d)에서는 슬롯이 최대 7일 막힐 수 있다. F2가 해결되면 막히는 시간은 콜백 기한(운영 10m)으로 줄어든다. P는 다른 슬롯으로 1.7초 만에 진행.
+
