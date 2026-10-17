@@ -6,10 +6,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import com.dameokja.backend.global.exception.CustomException;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -70,4 +75,25 @@ class S3ProfileImageStorageTest {
     private KakaoProfileImageDownloader.DownloadedImage image() {
         return new KakaoProfileImageDownloader.DownloadedImage(new byte[]{1, 2, 3}, "image/jpeg");
     }
+
+    @Test
+    void acceptsUploadedImageWithinConfiguredLimits() {
+        when(client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder().contentLength(1024L).contentType("image/jpeg").build());
+        storage().validateUploaded("uploaded-key");
+        ArgumentCaptor<HeadObjectRequest> request = ArgumentCaptor.forClass(HeadObjectRequest.class);
+        verify(client).headObject(request.capture());
+        assertThat(request.getValue().bucket()).isEqualTo("test-bucket");
+        assertThat(request.getValue().key()).isEqualTo("uploaded-key");
+    }
+
+    @Test
+    void refusesMissingUpload() {
+        when(client.headObject(any(HeadObjectRequest.class))).thenThrow(S3Exception.builder().statusCode(404).build());
+        assertThatThrownBy(() -> storage().validateUploaded("uploaded-key")).isInstanceOf(CustomException.class);
+    }
+
+    private S3ProfileImageStorage storage() {
+        return new S3ProfileImageStorage(properties, client, mock(S3Presigner.class));
+    }
+
 }

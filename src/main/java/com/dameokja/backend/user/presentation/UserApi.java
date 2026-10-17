@@ -8,11 +8,15 @@ import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VA
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_RESPONSE;
 import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_RESPONSE;
+import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_UPDATE_REQUEST;
+import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_UPDATE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
 import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;
 import com.dameokja.backend.user.presentation.response.UserProfileResponse;
+import com.dameokja.backend.user.presentation.request.UserProfileUpdateRequest;
+import com.dameokja.backend.user.presentation.response.UserProfileUpdateResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,6 +45,27 @@ public interface UserApi {
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<UserProfileResponse>> getProfile(@Parameter(hidden = true) Long userId);
+
+    @Operation(summary = "회원정보 수정", description = "인증된 본인의 닉네임·프로필 사진을 저장합니다. "
+            + "nickname은 필수이며 공백 제거 후 한글·영문·숫자 2~10자, 금칙어·본인 제외 중복을 검사합니다. "
+            + "profileImage는 PROFILE 업로드 객체 키입니다. 생략하면 유지, null이면 기본 사진으로 초기화합니다. "
+            + "사진을 변경하려면 본인에게 발급된 유효한 업로드 키와 실제 S3 객체가 필요합니다. "
+            + "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. "
+            + "성공 응답의 profileImageUrl은 기본 사진에도 발급하는 S3 임시 조회 URL입니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "회원정보 수정 성공 (USER-200-004)",
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = PROFILE_UPDATE_RESPONSE))),
+            @ApiResponse(responseCode = "400", description = "필수값 누락·형식 오류·유효하지 않은 프로필 이미지 (GLOBAL-400-001)"),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001) 또는 탈퇴 회원 (USER-403-001)"),
+            @ApiResponse(responseCode = "404", description = "회원 없음 (USER-404-001)"),
+            @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임 (USER-409-001)"),
+            @ApiResponse(responseCode = "422", description = "닉네임 금칙어 (USER-422-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<UserProfileUpdateResponse>> updateProfile(@Parameter(hidden = true) Long userId,
+            @RequestBody(required = true, content = @Content(schema = @Schema(implementation = UserProfileUpdateRequest.class),
+                    examples = @ExampleObject(value = PROFILE_UPDATE_REQUEST))) UserProfileUpdateRequest request);
 
     @Operation(
             summary = "로컬 회원가입",

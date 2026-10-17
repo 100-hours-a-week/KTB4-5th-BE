@@ -1,6 +1,25 @@
 package com.dameokja.backend.user.presentation;
 
 final class UserApiExamples {
+    static final String PROFILE_UPDATE_REQUEST = """
+            {
+              "nickname": "david",
+              "profileImage": "images/profile/1/uploaded.png"
+            }
+            """;
+
+    static final String PROFILE_UPDATE_RESPONSE = """
+            {
+              "code": "USER-200-004",
+              "message": "회원정보 수정 성공",
+              "data": {
+                "userId": "1",
+                "nickname": "david",
+                "profileImageUrl": "https://example.com/profile?X-Amz-Signature=example"
+              }
+            }
+            """;
+
     static final String PROFILE_RESPONSE = """
             {
               "code": "USER-200-003",

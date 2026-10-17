@@ -9,6 +9,9 @@ import com.dameokja.backend.global.security.CurrentUserId;
 import com.dameokja.backend.image.application.ProfileImageService;
 import com.dameokja.backend.user.application.UserProfile;
 import com.dameokja.backend.user.application.UserProfileService;
+import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.presentation.request.UserProfileUpdateRequest;
+import com.dameokja.backend.user.presentation.response.UserProfileUpdateResponse;
 import com.dameokja.backend.user.application.SignupResult;
 import com.dameokja.backend.user.application.UserSignupService;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
@@ -25,6 +28,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,6 +51,17 @@ public class UserController implements UserApi {
         String imageUrl = profileImageService.readUrl(profile.profileImageKey());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(SuccessResponse.of(UserSuccessCode.PROFILE, UserProfileResponse.from(profile, imageUrl)));
+    }
+
+    @Override
+    @PatchMapping("/me")
+    public ResponseEntity<SuccessResponse<UserProfileUpdateResponse>> updateProfile(
+            @CurrentUserId Long userId, @Valid @RequestBody UserProfileUpdateRequest request) {
+        User user = userProfileService.updateProfile(userId, request.getNickname(), request.imageChange());
+        String imageUrl = profileImageService.readUrl(user.getProfileImageKey());
+        UserProfileUpdateResponse response = new UserProfileUpdateResponse(user.getId().toString(), user.getNickname(), imageUrl);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(SuccessResponse.of(UserSuccessCode.PROFILE_UPDATED, response));
     }
 
     @Override
