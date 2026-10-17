@@ -59,7 +59,14 @@ public class InviteCode {
      * @param checkedAt 유효성을 검사하는 시각
      */
     public void validateUsable(String requestedCode, LocalDateTime checkedAt) {
-        if (!code.equals(requestedCode) || !isValidAt(checkedAt)) {
+        validateMatches(requestedCode);
+        if (!isValidAt(checkedAt)) {
+            throw new CustomException(EXPIRED_INVITE);
+        }
+    }
+
+    public void validateMatches(String requestedCode) {
+        if (!code.equals(requestedCode)) {
             throw new CustomException(EXPIRED_INVITE);
         }
     }

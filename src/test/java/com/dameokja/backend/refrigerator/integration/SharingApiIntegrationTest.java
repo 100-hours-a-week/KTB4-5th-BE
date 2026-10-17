@@ -2,7 +2,9 @@ package com.dameokja.backend.refrigerator.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.ServiceIntegrationTest;
+import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserRole;
 import java.net.URI;
 import java.net.http.*;
@@ -10,6 +12,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import tools.jackson.databind.JsonNode;
@@ -19,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
         properties = {"spring.config.import=", "spring.jpa.show-sql=false", "app.user.default-profile-image-key=profiles/default.png"})
 // 전용 서버 컨텍스트와 DB 연결을 클래스 종료 시 반납한다.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@TestPropertySource(properties = "refrigerator.invitation.fixed-refrigerator-id=90000001")
 class SharingApiIntegrationTest extends ServiceIntegrationTest {
     @LocalServerPort int port;
     @Autowired JwtProvider jwt;
@@ -26,6 +30,29 @@ class SharingApiIntegrationTest extends ServiceIntegrationTest {
     final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     String auth;
     String csrf;
+
+    @Test
+    void frontendCanJoinWithTheSameConfiguredCodeAfterExpiration() throws Exception {
+        User owner = user("Kakaotech");
+        long refrigeratorId = 90000001L;
+        jdbcTemplate.update("INSERT INTO refrigerators(refrigerator_id, name, expired_count_month) VALUES (?, ?, ?)",
+                refrigeratorId, "Kakaotech", "2026-09");
+        Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId).orElseThrow();
+        join(owner, refrigerator, true, true);
+        Fixture joining = ownerFixture("Joining");
+        String base = "/api/v1/refrigerators/" + refrigeratorId;
+        login(owner.getId());
+        String code = json(call("POST", base + "/invitations", "", 200)).at("/data/code").asText();
+        clock.set("2026-09-17T03:06:00Z");
+        JsonNode retrieved = json(call("GET", base + "/invitations", "", 200));
+        assertThat(retrieved.at("/data/code").asText()).isEqualTo(code);
+        assertThat(retrieved.at("/data/expiresAt").asText()).isEqualTo("2099-12-31T00:05:00+09:00");
+        assertThat(json(call("POST", base + "/invitations", "", 200)).at("/data/code").asText()).isEqualTo(code);
+        login(joining.userId());
+        JsonNode joined = json(call("POST", "/api/v1/refrigerators/members", "{\"inviteCode\":\"" + code + "\"}", 201));
+        assertThat(joined.at("/data/refrigeratorId").asText()).isEqualTo(Long.toString(refrigeratorId));
+        assertThat(joined.at("/data/activeRefrigeratorIds/0").asText()).isEqualTo(Long.toString(refrigeratorId));
+    }
 
     @Test
     void completeHttpFlowMatchesSpecificationAndRestoresPersonal() throws Exception {
