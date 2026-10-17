@@ -139,7 +139,7 @@ analysis:
     lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
     # 콜백 유실을 기다리지 않고 회수하려고, 콜백이 없으면 이 주기마다 AI에 조회한다. AI 결과 보관(1h)보다 짧아야 한다.
     callback-timeout: ${ANALYSIS_DISPATCH_CALLBACK_TIMEOUT:2m}
-    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:7d}
+    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:1d}
     max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:3}
     retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
     orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
