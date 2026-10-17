@@ -19,7 +19,8 @@ public interface RefrigeratorApi {
 
     @Operation(
             summary = "활성 냉장고 목록 조회",
-            description = "Query와 Body 없이 로그인한 사용자가 현재 선택한 유효 냉장고 목록을 조회합니다."
+            description = "Query와 Body 없이 로그인한 사용자가 현재 선택한 유효 냉장고 목록을 조회합니다. "
+                    + "expiredCount는 이번 달 만료된 재고 행 누적 수이며 삭제 후에도 유지됩니다. 배치 미반영분을 포함하고 월이 바뀌면 새로 집계합니다."
     )
     @ApiResponses({
             @ApiResponse(

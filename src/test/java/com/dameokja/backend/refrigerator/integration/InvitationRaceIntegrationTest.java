@@ -93,7 +93,8 @@ class InvitationRaceIntegrationTest extends ServiceIntegrationTest {
         TransactionTemplate tx = new TransactionTemplate(transactions);
         assertThat(tx.<InvitationView>execute(status -> other.getValidCode(owner.userId(), owner.refrigeratorId()))).isEqualTo(code);
         membershipService.join(member.userId(), code.code());
-        RefrigeratorService otherQuery = new RefrigeratorService(refrigeratorMemberRepository, access);
+        RefrigeratorService otherQuery = new RefrigeratorService(refrigeratorMemberRepository, access,
+                mock(MonthlyExpirationService.class));
         assertThat(tx.<Integer>execute(status -> otherQuery.getMembers(owner.userId(), owner.refrigeratorId()).memberNum())).isEqualTo(2);
         membershipService.leave(member.userId(), owner.refrigeratorId());
         assertThat(tx.<Integer>execute(status -> otherQuery.getMembers(owner.userId(), owner.refrigeratorId()).memberNum())).isOne();
