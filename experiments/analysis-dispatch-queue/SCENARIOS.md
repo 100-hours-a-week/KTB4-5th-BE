@@ -148,7 +148,7 @@ UPDATE analysis_dispatch_slots
 | Q12 사용자 B 대기 (A 6장 뒤) | 8.3s | 7.8s |
 | S03 콜백 유실 뒤 다음 작업 | 33.0s 뒤 FAILED (전체 기한 만료) → F2 후 7.4s 뒤 COMPLETED | 1.7s 뒤 COMPLETED |
 | S03 콜백 유실 작업 자체 | FAILED → F2 후 7.6s에 조회로 COMPLETED, 분석 1회 | FAILED → F2 후 6.3s에 조회로 COMPLETED |
-| S05 AI 종료 시 재분석 | AI에 있던 1건만 재분석 | AI에 있던 2건 재분석 |
+| S05 AI 종료 시 재분석 (F2 후 실행 기준) | 1건 (AI에 1건만 있었음) | 1건 (종료 직전 AI 보유 2건 중) |
 
 ### 발견 사항
 
