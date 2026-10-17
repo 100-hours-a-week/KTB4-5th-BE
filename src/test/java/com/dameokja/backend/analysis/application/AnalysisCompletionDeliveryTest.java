@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -25,6 +27,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
+import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -52,7 +55,13 @@ class AnalysisCompletionDeliveryTest {
     private final PushAnalysisCreationService pushes = mock(PushAnalysisCreationService.class);
     private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), pushes, analysisFinishedEventService, notificationStreamService);
+    private final AnalysisDispatchUpdater dispatches = mock(AnalysisDispatchUpdater.class);
+    private final AnalysisDispatchWorker worker = mock(AnalysisDispatchWorker.class);
+    private final AnalysisCallbackParking parking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
+            JsonMapper.builder().build());
+    private final AnalysisCompletionApplier applier = new AnalysisCompletionApplier(store,
+            new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), dispatches, parking);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), parking, applier, worker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
@@ -78,7 +87,7 @@ class AnalysisCompletionDeliveryTest {
     }
 
     @Test
-    void duplicateCallbackAfterCompletionRepeatsOnlyTheImageEvent() {
+    void duplicateCallbackAfterCompletionSendsNoEventAgain() {
         AnalysisJob job = registeredJob(2);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         AnalysisCompletion success = new AnalysisCompletion(AnalysisStatus.COMPLETED, failure.completedAt(),
@@ -87,19 +96,17 @@ class AnalysisCompletionDeliveryTest {
         callbacks.receive("ai-1", failure);
         clearInvocations(analysisFinishedEventService, notificationStreamService, pushes);
         callbacks.receive("ai-0", success);
-        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.COMPLETED, 2, 1, 1);
-        verifyNoMoreInteractions(analysisFinishedEventService);
-        verifyNoInteractions(notificationStreamService, pushes);
+        verifyNoInteractions(analysisFinishedEventService, notificationStreamService, pushes);
+        assertThat(store.findOwned(job.id(), 7L).publishedImageEvents()).hasSize(2);
     }
 
     @Test
-    void sendsFirstAndMiddleFailuresAsImageFinishedIncludingDuplicateCallbacksWithoutPresenceOrPush() {
+    void sendsEachImageEventOnceWithoutPresenceOrPushWhileTheJobIsUnfinished() {
         AnalysisJob job = registeredJob(3);
         callbacks.receive("ai-0", failure);
         callbacks.receive("ai-1", failure);
         callbacks.receive("ai-0", failure);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 3, 0, 1);
-        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 3, 0, 2);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 3, 0, 2);
         verifyNoMoreInteractions(analysisFinishedEventService);
         verifyNoInteractions(notificationStreamService, pushes);
@@ -127,13 +134,22 @@ class AnalysisCompletionDeliveryTest {
     }
 
     @Test
+    void sendsTheImageEventOnceWhenConcurrentAppliesBothSeeItUnsent() {
+        AnalysisJob job = registeredJob(2);
+        callbacks.receive("ai-0", failure);
+        AnalysisJob stale = store.findOwned(job.id(), 7L).withdrawImageEvent(job.analysisImages().getFirst().requestId());
+        assertThat(store.claimImageEvent(stale.id(), stale.analysisImages().getFirst().requestId())).isFalse();
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
+    }
+
+    @Test
     void sendsEveryImageEventAndCreatesPushForTheOfflineFinalImage() {
         AnalysisJob job = registeredJob(2);
         callbacks.receive("ai-0", failure);
         callbacks.receive("ai-1", failure);
         callbacks.receive("ai-1", failure);
         verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
-        verify(analysisFinishedEventService, times(2)).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
         verifyNoMoreInteractions(analysisFinishedEventService);
         verify(pushes).create(job.id(), 7L, store.findOwned(job.id(), 7L).expiresAt());
         verify(notificationStreamService).isConnected(7L);
@@ -197,7 +213,7 @@ class AnalysisCompletionDeliveryTest {
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
         verify(notificationStreamService).isConnected(7L);
-        verify(analysisFinishedEventService, times(2)).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
         verifyNoMoreInteractions(analysisFinishedEventService);
         assertThat(store.findOwned(job.id(), 7L).notificationChannel()).isEqualTo(AnalysisNotificationChannel.PUSH);
     }
@@ -226,6 +242,72 @@ class AnalysisCompletionDeliveryTest {
         verifyNoMoreInteractions(analysisFinishedEventService);
         verifyNoInteractions(pushes);
         verify(store, never()).acknowledgeNotification(job.id());
+    }
+
+    @Test
+    void finishesTheDispatchBeforeNotifyingAndWakesTheWorkerForTheNextImage() {
+        AnalysisJob job = registeredJob(1);
+        when(notificationStreamService.isConnected(7L)).thenReturn(true);
+        callbacks.receive("ai-0", failure);
+        InOrder order = inOrder(dispatches, analysisFinishedEventService, worker);
+        order.verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+        order.verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        order.verify(worker).wakeUp();
+    }
+
+    @Test
+    void keepsTheSavedResultButAsksForRetryWhenTheDispatchCannotBeFinished() {
+        AnalysisJob job = registeredJob(1);
+        doThrow(new DataAccessResourceFailureException("mysql")).when(dispatches).finish(any());
+        assertUnavailable(() -> callbacks.receive("ai-0", failure));
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verifyNoInteractions(analysisFinishedEventService, pushes, worker);
+        clearInvocations(dispatches);
+        doNothing().when(dispatches).finish(any());
+        callbacks.receive("ai-0", failure);
+        verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+    }
+
+    @Test
+    void parksACallbackThatArrivesBeforeRegistrationAndAppliesItOnceTheAiIdIsRegistered() {
+        AnalysisJob job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("image-0", "ab".repeat(32))));
+        callbacks.receive("ai-0", failure);
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isNull();
+        assertThat(parking.find("ai-0")).contains(failure);
+        verifyNoInteractions(dispatches, analysisFinishedEventService, worker);
+
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-0");
+        assertThat(applier.applyParked("ai-0")).isTrue();
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verify(dispatches).finish(job.analysisImages().getFirst().requestId());
+        verify(analysisFinishedEventService).publishImageFinished(7L, job.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        assertThat(parking.find("ai-0")).isEmpty();
+        assertThat(applier.applyParked("ai-0")).isFalse();
+    }
+
+    @Test
+    void appliesTheCallbackDirectlyWhenRegistrationLandsWhileItIsBeingParked() {
+        AnalysisJob job = registeredJob(1);
+        doReturn(false).doCallRealMethod().when(store).isRegistered("ai-0");
+        callbacks.receive("ai-0", failure);
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verify(worker).wakeUp();
+    }
+
+    @Test
+    void keepsTheParkedCallbackWhenApplyingItFails() {
+        AnalysisJob job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("image-0", "ab".repeat(32))));
+        callbacks.receive("ai-0", failure);
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-0");
+        doThrow(new DataAccessResourceFailureException("mysql")).when(dispatches).finish(any());
+        assertUnavailable(() -> applier.applyParked("ai-0"));
+        assertThat(parking.find("ai-0")).contains(failure);
+    }
+
+    @Test
+    void asksForRetryWhenTheCallbackCannotBeParked() {
+        doThrow(new DataAccessResourceFailureException("redis")).when(store).isRegistered("ai-0");
+        assertUnavailable(() -> callbacks.receive("ai-0", failure));
     }
 
     private AnalysisJob registeredJob(int images) {

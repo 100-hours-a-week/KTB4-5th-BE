@@ -1,16 +1,11 @@
 package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
-import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
-import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
+import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
-import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
-import com.dameokja.backend.notification.application.NotificationStreamService;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
@@ -20,9 +15,9 @@ import org.springframework.stereotype.Service;
 public class AnalysisCallbackService {
     private final AnalysisJobStore store;
     private final AnalysisCompletionValidator validator;
-    private final PushAnalysisCreationService pushes;
-    private final AnalysisFinishedEventService analysisFinishedEventService;
-    private final NotificationStreamService notificationStreamService;
+    private final AnalysisCallbackParking parking;
+    private final AnalysisCompletionApplier applier;
+    private final AnalysisDispatchWorker worker;
 
     public void receive(String analysisId, AnalysisCompletion completion) {
         try {
@@ -30,61 +25,24 @@ public class AnalysisCallbackService {
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw new CustomException(GlobalExceptionCode.BAD_REQUEST);
         }
-        AnalysisJob job;
+        if (!registeredOrParked(analysisId, completion)) {
+            return;
+        }
+        applier.apply(analysisId, completion);
+        worker.wakeUp();
+    }
+
+    // AI 접수 응답이 유실되면 콜백이 AI ID 등록보다 먼저 온다. AI 콜백 재시도는 1초 안에 끝나므로 503 대신 보관하고,
+    // 같은 requestId 재전송으로 ID가 등록될 때 전송 워커가 적용한다.
+    private boolean registeredOrParked(String analysisId, AnalysisCompletion completion) {
         try {
-            job = store.complete(analysisId, completion);
-        } catch (CustomException exception) {
-            if (exception.getExceptionCode() == AnalysisExceptionCode.RESULT_CONFLICT) {
-                throw exception;
+            if (store.isRegistered(analysisId)) {
+                return true;
             }
-            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
+            parking.park(analysisId, completion);
+            // 등록이 보관과 동시에 일어나면 워커가 보관을 보기 전에 끝났을 수 있어 보관 뒤 다시 확인한다.
+            return store.isRegistered(analysisId);
         } catch (DataAccessException exception) {
-            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
-        }
-        notifyImageFinished(job, analysisId, completion);
-        if (job.notificationPending()) {
-            notifyCompletion(job);
-        }
-    }
-
-    private void notifyImageFinished(AnalysisJob job, String analysisId, AnalysisCompletion completion) {
-        String objectKey = job.analysisImages().stream().filter(image -> analysisId.equals(image.aiAnalysisId()))
-                .findFirst().orElseThrow().objectKey();
-        try {
-            analysisFinishedEventService.publishImageFinished(job.userId(), job.id(), objectKey, completion.status(),
-                    job.analysisImages().size(), countImages(job, AnalysisStatus.COMPLETED), countImages(job, AnalysisStatus.FAILED));
-        } catch (DataAccessException | CustomException exception) {
-            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
-        }
-    }
-
-    private int countImages(AnalysisJob job, AnalysisStatus status) {
-        return (int) job.analysisImages().stream().filter(image -> image.completion() != null && image.completion().status() == status).count();
-    }
-
-    private void publishCompletion(AnalysisJob job) {
-        int completedImageCount = countImages(job, AnalysisStatus.COMPLETED);
-        int failedImageCount = countImages(job, AnalysisStatus.FAILED);
-        AnalysisStatus status = failedImageCount == 0 ? AnalysisStatus.COMPLETED : completedImageCount == 0 ? AnalysisStatus.FAILED : AnalysisStatus.PARTIALLY_COMPLETED;
-        analysisFinishedEventService.publish(job.userId(), job.id(), status, job.analysisImages().size(), completedImageCount, failedImageCount, job.expiresAt());
-    }
-
-    // 경로를 먼저 저장해야 전송·확인 실패 후 연결 상태가 바뀌어도 SSE와 푸시를 함께 보내지 않는다.
-    private void notifyCompletion(AnalysisJob job) {
-        try {
-            AnalysisJob notificationSelectedJob = job;
-            if (notificationSelectedJob.notificationChannel() == null) {
-                AnalysisNotificationChannel channel = notificationStreamService.isConnected(job.userId()) ? AnalysisNotificationChannel.SSE : AnalysisNotificationChannel.PUSH;
-                notificationSelectedJob = store.selectNotificationChannel(job.id(), channel);
-            }
-            if (!notificationSelectedJob.notificationPending()) { return; }
-            if (notificationSelectedJob.notificationChannel() == AnalysisNotificationChannel.SSE) {
-                publishCompletion(notificationSelectedJob);
-            } else {
-                pushes.create(notificationSelectedJob.id(), notificationSelectedJob.userId(), notificationSelectedJob.expiresAt());
-            }
-            store.acknowledgeNotification(job.id());
-        } catch (DataAccessException | CustomException exception) {
             throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
         }
     }

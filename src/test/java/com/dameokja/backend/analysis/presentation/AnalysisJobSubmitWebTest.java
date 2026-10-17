@@ -1,13 +1,11 @@
 package com.dameokja.backend.analysis.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,14 +13,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.dameokja.backend.analysis.application.AnalysisDispatchQueue;
+import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
 import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
 import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.auth.presentation.CsrfController;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -46,7 +43,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -60,7 +56,6 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.JsonNode;
@@ -78,7 +73,8 @@ class AnalysisJobSubmitWebTest {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";
     @Autowired WebApplicationContext webApplicationContext;
     @Autowired JwtProvider jwtProvider;
-    @Autowired AiAnalysisClient aiAnalysisClient;
+    @Autowired AnalysisDispatchQueue dispatchQueue;
+    @Autowired AnalysisDispatchWorker dispatchWorker;
     @Autowired ImageUploadMetadataStore imageUploadMetadataStore;
     @Autowired AnalysisJobStore analysisJobStore;
     @Autowired ObjectMapper objectMapper;
@@ -86,7 +82,7 @@ class AnalysisJobSubmitWebTest {
 
     @BeforeEach
     void setup() {
-        reset(aiAnalysisClient);
+        reset(dispatchQueue, dispatchWorker);
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "second", "cd".repeat(32));
@@ -95,8 +91,7 @@ class AnalysisJobSubmitWebTest {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"AUTO", "RECEIPT"})
-    void returnsAcceptedWithBackendJobAfterRegisteringEveryImage(String inputHint) throws Exception {
-        when(aiAnalysisClient.submit(any())).thenReturn(accepted("ai-first"), accepted("ai-second"));
+    void returnsAcceptedWithQueuedBackendJobWithoutCallingAi(String inputHint) throws Exception {
         Cookie cookie = csrf();
         String body = inputHint == null ? BODY : BODY.replace("}", ",\"inputHint\":\"" + inputHint + "\"}");
         String response = mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken())
@@ -111,12 +106,9 @@ class AnalysisJobSubmitWebTest {
         JsonNode jsonNode = objectMapper.readTree(response).path("data");
         assertThat(jsonNode.size()).isEqualTo(5);
         AnalysisJob analysisJob = analysisJobStore.findOwned(jsonNode.path("analysisId").asString(), 7L);
-        assertThat(analysisJob.id()).isNotIn("ai-first", "ai-second");
-        assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
-        ArgumentCaptor<AiImageAnalysisSubmitRequest> argumentCaptor = ArgumentCaptor.forClass(AiImageAnalysisSubmitRequest.class);
-        verify(aiAnalysisClient, times(2)).submit(argumentCaptor.capture());
-        assertThat(argumentCaptor.getAllValues()).extracting(AiImageAnalysisSubmitRequest::inputHint).containsOnly(inputHint == null ? "AUTO" : inputHint);
-        assertThat(argumentCaptor.getAllValues()).extracting(aiImageAnalysisSubmitRequest -> aiImageAnalysisSubmitRequest.image().sha256()).containsExactly("ab".repeat(32), "cd".repeat(32));
+        assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
+        verify(dispatchQueue).enqueue(eq(analysisJob.id()), eq(7L), eq(inputHint == null ? "AUTO" : inputHint), eq(analysisJob.analysisImages()));
+        verify(dispatchWorker).wakeUp();
     }
 
     @ParameterizedTest
@@ -128,7 +120,7 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken()).header("X-XSRF-TOKEN", cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("GLOBAL-400-001"));
-        verifyNoInteractions(aiAnalysisClient);
+        verifyNoInteractions(dispatchQueue, dispatchWorker);
     }
 
     @ParameterizedTest
@@ -139,7 +131,7 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookies).header("X-XSRF-TOKEN", missing.equals("MISMATCH") ? "wrong" : cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().is(status)).andExpect(jsonPath("$.code").value(code));
-        verifyNoInteractions(aiAnalysisClient);
+        verifyNoInteractions(dispatchQueue, dispatchWorker);
     }
 
     @Test
@@ -149,24 +141,11 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken()).header("X-XSRF-TOKEN", cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value("IMAGE-422-001"));
-        verifyNoInteractions(aiAnalysisClient);
-    }
-
-    @ParameterizedTest
-    @CsvSource({"400,400,GLOBAL-400-001", "429,429,IMAGE-429-001", "503,503,IMAGE-503-001"})
-    void mapsAiAcceptanceFailuresToHttpErrors(int upstreamStatus, int status, String code) throws Exception {
-        when(aiAnalysisClient.submit(any())).thenThrow(new RestClientResponseException("rejected", upstreamStatus, "error", null, null, null));
-        Cookie cookie = csrf();
-        mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken()).header("X-XSRF-TOKEN", cookie.getValue())
-                        .contentType(MediaType.APPLICATION_JSON).content(BODY))
-                .andExpect(status().is(status)).andExpect(jsonPath("$.code").value(code));
+        verifyNoInteractions(dispatchQueue, dispatchWorker);
     }
 
     private Cookie csrf() throws Exception { return mockMvc.perform(get("/api/v1/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN"); }
     private Cookie accessToken() { return new Cookie("accessToken", jwtProvider.createAccessToken(7L, UserRole.USER)); }
-    private AiImageAnalysisSubmitResponse accepted(String analysisId) {
-        return new AiImageAnalysisSubmitResponse(analysisId, "QUEUED", Instant.parse("2026-10-08T01:00:00Z").atZone(BusinessTime.ZONE).toOffsetDateTime(), 1000);
-    }
 
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
@@ -185,6 +164,8 @@ class AnalysisJobSubmitWebTest {
         @Bean
         ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
         @Bean
-        AiAnalysisClient aiAnalysisClient() { return mock(AiAnalysisClient.class); }
+        AnalysisDispatchQueue dispatchQueue() { return mock(AnalysisDispatchQueue.class); }
+        @Bean
+        AnalysisDispatchWorker dispatchWorker() { return mock(AnalysisDispatchWorker.class); }
     }
 }

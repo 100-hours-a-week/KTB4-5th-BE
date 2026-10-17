@@ -70,7 +70,8 @@ class AnalysisJobStoreTest {
         analysisJobStore.register(analysisJob.id(), 7L, requestId, "ai-first");
         analysisJobStore.register(analysisJob.id(), 7L, requestId, "ai-first");
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", null);
-        assertThatThrownBy(() -> analysisJobStore.register(analysisJob.id(), 7L, requestId, "different-ai-id")).isInstanceOf(IllegalStateException.class);
+        analysisJobStore.register(analysisJob.id(), 7L, requestId, "resent-ai-id");
+        assertThat(analysisJobStore.findByAiAnalysisId("resent-ai-id").analysisImages().getFirst().aiAnalysisId()).isEqualTo("resent-ai-id");
         assertThatThrownBy(() -> analysisJobStore.register(analysisJob.id(), 7L, "unknown-request", "ai-id")).isInstanceOf(IllegalArgumentException.class);
     }
 
