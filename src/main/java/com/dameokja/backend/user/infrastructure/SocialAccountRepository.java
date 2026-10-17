@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SocialAccountRepository extends JpaRepository<SocialAccount, Long> {
     Optional<SocialAccount> findByProviderAndProviderUserId(OAuthProvider provider, String providerUserId);
+    Optional<SocialAccount> findByUserIdAndProvider(Long userId, OAuthProvider provider);
     void deleteAllByUserId(Long userId);
 }

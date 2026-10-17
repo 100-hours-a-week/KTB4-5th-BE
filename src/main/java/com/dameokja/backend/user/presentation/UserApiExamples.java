@@ -1,6 +1,21 @@
 package com.dameokja.backend.user.presentation;
 
 final class UserApiExamples {
+    static final String PROFILE_RESPONSE = """
+            {
+              "code": "USER-200-003",
+              "message": "회원정보 조회 성공",
+              "data": {
+                "userId": "1",
+                "nickname": "dave",
+                "email": "dave@example.com",
+                "profileImageUrl": "https://example.com/profile?X-Amz-Signature=example",
+                "activeRefrigeratorIds": ["1"],
+                "cookingCount": 3
+              }
+            }
+            """;
+
     static final String SIGNUP_REQUEST = """
             {
               "loginId": "user1",

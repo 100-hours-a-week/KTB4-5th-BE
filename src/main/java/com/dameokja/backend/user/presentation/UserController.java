@@ -5,19 +5,26 @@ import com.dameokja.backend.auth.presentation.CsrfTokenRotator;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.user.application.NicknameValidationResult;
 import com.dameokja.backend.user.application.NicknameValidationService;
+import com.dameokja.backend.global.security.CurrentUserId;
+import com.dameokja.backend.image.application.ProfileImageService;
+import com.dameokja.backend.user.application.UserProfile;
+import com.dameokja.backend.user.application.UserProfileService;
 import com.dameokja.backend.user.application.SignupResult;
 import com.dameokja.backend.user.application.UserSignupService;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
 import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;
 import com.dameokja.backend.user.presentation.response.UserSuccessCode;
+import com.dameokja.backend.user.presentation.response.UserProfileResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +37,17 @@ public class UserController implements UserApi {
     private final NicknameValidationService nicknameValidationService;
     private final AuthCookies authCookies;
     private final CsrfTokenRotator csrfTokenRotator;
+    private final UserProfileService userProfileService;
+    private final ProfileImageService profileImageService;
+
+    @Override
+    @GetMapping("/me")
+    public ResponseEntity<SuccessResponse<UserProfileResponse>> getProfile(@CurrentUserId Long userId) {
+        UserProfile profile = userProfileService.getProfile(userId);
+        String imageUrl = profileImageService.readUrl(profile.profileImageKey());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(SuccessResponse.of(UserSuccessCode.PROFILE, UserProfileResponse.from(profile, imageUrl)));
+    }
 
     @Override
     @PostMapping

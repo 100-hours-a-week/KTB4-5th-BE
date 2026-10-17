@@ -7,10 +7,12 @@ import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VA
 import static com.dameokja.backend.user.presentation.UserApiExamples.NICKNAME_VALIDATION_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.SIGNUP_RESPONSE;
+import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
 import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;
+import com.dameokja.backend.user.presentation.response.UserProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,6 +28,19 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "회원", description = "회원 API")
 public interface UserApi {
+
+    @Operation(summary = "내 정보 조회", description = "accessToken 쿠키로 인증한 회원의 프로필·활성 냉장고·만든 요리 수를 조회합니다. "
+            + "email은 저장된 카카오 이메일이며, 연결된 카카오 계정이나 이메일이 없으면 null입니다. "
+            + "profileImageUrl은 S3 임시 조회 URL이며 유효기간이 지나면 이 API를 다시 조회해야 합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "회원정보 조회 성공",
+                    content = @Content(mediaType = "application/json", examples = @ExampleObject(value = PROFILE_RESPONSE))),
+            @ApiResponse(responseCode = "401", description = "인증 정보 없음 또는 유효하지 않음 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "탈퇴한 회원 (USER-403-001)"),
+            @ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음 (USER-404-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<SuccessResponse<UserProfileResponse>> getProfile(@Parameter(hidden = true) Long userId);
 
     @Operation(
             summary = "로컬 회원가입",

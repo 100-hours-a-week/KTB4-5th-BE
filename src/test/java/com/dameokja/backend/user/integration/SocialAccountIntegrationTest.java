@@ -51,6 +51,21 @@ class SocialAccountIntegrationTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void findsKakaoAccountOnlyForRequestedUser() {
+        User first = user("first");
+        User second = user("second");
+        User withoutAccount = user("third");
+        accounts.saveAndFlush(new SocialAccount(first, OAuthProvider.KAKAO, "11", "first@example.com"));
+        accounts.saveAndFlush(new SocialAccount(second, OAuthProvider.KAKAO, "22", "second@example.com"));
+
+        assertThat(accounts.findByUserIdAndProvider(first.getId(), OAuthProvider.KAKAO))
+                .get().extracting(SocialAccount::getProviderEmail).isEqualTo("first@example.com");
+        assertThat(accounts.findByUserIdAndProvider(second.getId(), OAuthProvider.KAKAO))
+                .get().extracting(SocialAccount::getProviderEmail).isEqualTo("second@example.com");
+        assertThat(accounts.findByUserIdAndProvider(withoutAccount.getId(), OAuthProvider.KAKAO)).isEmpty();
+    }
+
+    @Test
     void rejectsDuplicateProviderIdentityAndDuplicateUserProvider() {
         User first = user("first");
         accounts.saveAndFlush(account(first, "11"));
