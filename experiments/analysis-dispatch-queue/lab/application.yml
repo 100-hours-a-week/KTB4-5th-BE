@@ -87,7 +87,6 @@ push.dispatch.lease-duration: 30s
 push.dispatch.concurrency: 4
 analysis.dispatch:
   enabled: true
-  ai-target: default
   poll-interval: 1s
   slots: ${LAB_SLOTS:1}
   lease-duration: 5s

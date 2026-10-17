@@ -17,11 +17,12 @@ public class AnalysisDispatchLeaseService {
     private final AnalysisDispatchProperties properties;
     private final Clock clock;
 
-    // 대상별 행 하나를 잠근 뒤 진행 중 개수를 세므로, 여러 BE가 동시에 선점해도 슬롯 수를 넘겨 보내지 않는다.
+    // 게이트 행을 잠근 뒤 진행 중 개수를 세므로, 여러 BE가 동시에 선점해도 슬롯 수를 넘겨 보내지 않는다.
+    // 행 잠금은 트랜잭션이 끝나면 풀리므로 이름 잠금(GET_LOCK)처럼 커넥션에 잠금이 남지 않는다.
     @Transactional
     public List<LeasedDispatch> leaseDue() {
-        if (repository.lockGate(properties.aiTarget()).isEmpty()) {
-            throw new IllegalStateException("분석 전달 대상 행이 없습니다. target=" + properties.aiTarget());
+        if (repository.lockGate().isEmpty()) {
+            throw new IllegalStateException("분석 전달 게이트 행이 없습니다.");
         }
         int freeSlots = properties.slots() - repository.countInFlight();
         if (freeSlots <= 0) {

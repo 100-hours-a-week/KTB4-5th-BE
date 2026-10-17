@@ -294,11 +294,12 @@ CREATE TABLE push_notifications (
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE analysis_dispatch_gates (
-    ai_target VARCHAR(50) NOT NULL COMMENT 'AI 전송 대상. 이 행 잠금으로 대상별 진행 중 개수 판단을 직렬화',
-    PRIMARY KEY (ai_target)
+    gate_id TINYINT NOT NULL COMMENT '항상 1. 이 행 잠금으로 여러 BE의 진행 중 개수 판단과 선점을 직렬화',
+    PRIMARY KEY (gate_id),
+    CONSTRAINT ck_analysis_dispatch_gate_single CHECK (gate_id = 1)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
-INSERT INTO analysis_dispatch_gates (ai_target) VALUES ('default');
+INSERT INTO analysis_dispatch_gates (gate_id) VALUES (1);
 
 CREATE TABLE analysis_dispatches (
     analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',

@@ -159,7 +159,7 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
 
         @Bean
         AnalysisDispatchProperties analysisDispatchProperties() {
-            return new AnalysisDispatchProperties("default", 2, Duration.ofSeconds(5), Duration.ofSeconds(5), Duration.ofMinutes(1),
+            return new AnalysisDispatchProperties(2, Duration.ofSeconds(5), Duration.ofSeconds(5), Duration.ofMinutes(1),
                     3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
         }
     }

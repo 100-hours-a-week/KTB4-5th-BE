@@ -15,7 +15,7 @@ final class AnalysisDispatchFixture {
     static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-12T23:00:00Z"), ZoneOffset.UTC);
     static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 13, 8, 0);
     static final LeasedDispatch LEASED = new LeasedDispatch(1L, "token");
-    static final AnalysisDispatchProperties PROPERTIES = new AnalysisDispatchProperties("default", 1, Duration.ofSeconds(5),
+    static final AnalysisDispatchProperties PROPERTIES = new AnalysisDispatchProperties(1, Duration.ofSeconds(5),
             Duration.ofSeconds(5), Duration.ofMinutes(1), 3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
 
     private AnalysisDispatchFixture() {}

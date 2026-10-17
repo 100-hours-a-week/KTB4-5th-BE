@@ -10,8 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AnalysisDispatchRepository extends JpaRepository<AnalysisDispatch, Long> {
-    @Query(value = "SELECT ai_target FROM analysis_dispatch_gates WHERE ai_target = :target FOR UPDATE", nativeQuery = true)
-    Optional<String> lockGate(@Param("target") String target);
+    @Query(value = "SELECT gate_id FROM analysis_dispatch_gates WHERE gate_id = 1 FOR UPDATE", nativeQuery = true)
+    Optional<Integer> lockGate();
 
     @Query(value = "SELECT COUNT(*) FROM analysis_dispatches WHERE status IN ('DISPATCHING','AWAITING_CALLBACK','CHECKING')",
             nativeQuery = true)
