@@ -127,19 +127,19 @@ ai:
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
-  # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송이 끝날 때까지 남도록 전달 전체 기한 이상으로 둔다.
+  # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
   parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
     poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
     # analysis_dispatch_gates의 행. AI 인스턴스를 나누면 대상마다 행과 슬롯을 둔다.
     ai-target: ${ANALYSIS_DISPATCH_AI_TARGET:default}
-    # AI에 동시에 맡기는 이미지 수. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
-    slots: ${ANALYSIS_DISPATCH_SLOTS:1}
+    # AI에 동시에 맡기는 이미지 수. AI 대기열(기본 100)보다 작게 두어 429 없이 보낸다. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
+    slots: ${ANALYSIS_DISPATCH_SLOTS:10}
     lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
     callback-timeout: ${ANALYSIS_DISPATCH_CALLBACK_TIMEOUT:2m}
-    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:10m}
-    max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:5}
+    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:7d}
+    max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:3}
     retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
     orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
     check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
