@@ -181,14 +181,27 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("이미지 완료 이벤트 선점 해제가 동시 변경과 충돌했습니다.");
     }
 
-    public void acknowledgeNotification(String id) {
+    // 알림 대기를 먼저 끝낸 호출만 완료 알림을 보낸다. 여러 서버가 같은 작업을 재처리해도 한 번만 나간다.
+    public boolean acknowledgeNotification(String id) {
         String key = PREFIX + id;
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             String previous = redis.opsForValue().get(key);
             AnalysisJob job = requireActive(previous);
-            if (Long.valueOf(1).equals(replace(key, previous, job.acknowledgeNotification()))) { return; }
+            if (!job.notificationPending()) { return false; }
+            if (Long.valueOf(1).equals(replace(key, previous, job.acknowledgeNotification()))) { return true; }
         }
         throw new ConcurrencyFailureException("분석 완료 알림 확인이 동시 변경과 충돌했습니다.");
+    }
+
+    // 완료 알림을 보내지 못하면 대기로 되돌려 재처리가 다시 보내게 한다.
+    public void reopenNotification(String id) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            if (job.notificationPending() || Long.valueOf(1).equals(replace(key, previous, job.reopenNotification()))) { return; }
+        }
+        throw new ConcurrencyFailureException("분석 완료 알림 대기 복원이 동시 변경과 충돌했습니다.");
     }
 
     public void delete(String analysisJobId) {

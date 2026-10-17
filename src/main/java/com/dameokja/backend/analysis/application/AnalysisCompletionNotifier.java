@@ -116,29 +116,43 @@ public class AnalysisCompletionNotifier {
     private void notifyCompletion(AnalysisJob analysisJob) {
         AnalysisJob latestJob = analysisJob;
         if (latestJob.notificationChannel() != AnalysisNotificationChannel.PUSH) {
-            if (publishedOverSse(latestJob)) {
-                analysisJobStore.acknowledgeNotification(latestJob.id());
-                return;
-            }
+            if (publishedOverSse(latestJob)) { return; }
             if (analysisPendingNotificationStore.recordSseMiss(latestJob.id()) <= sseRetries) { return; }
             latestJob = analysisJobStore.fallBackToPush(latestJob.id());
         }
         if (latestJob.notificationChannel() == null) {
             latestJob = analysisJobStore.selectNotificationChannel(latestJob.id(), AnalysisNotificationChannel.PUSH);
         }
-        pushes.create(latestJob.id(), latestJob.userId(), latestJob.expiresAt());
-        analysisJobStore.acknowledgeNotification(latestJob.id());
+        if (!analysisJobStore.acknowledgeNotification(latestJob.id())) { return; }
+        try {
+            pushes.create(latestJob.id(), latestJob.userId(), latestJob.expiresAt());
+        } catch (DataAccessException | CustomException exception) {
+            analysisJobStore.reopenNotification(latestJob.id());
+            throw exception;
+        }
     }
 
     private boolean publishedOverSse(AnalysisJob analysisJob) {
         try {
             if (!notificationStreamService.isConnected(analysisJob.userId())) { return false; }
             AnalysisJob channelSelectedJob = analysisJob.notificationChannel() == null ? analysisJobStore.selectNotificationChannel(analysisJob.id(), AnalysisNotificationChannel.SSE) : analysisJob;
-            publishCompletion(channelSelectedJob);
+            // 다른 서버가 먼저 알림 대기를 끝냈으면 그쪽이 보냈으므로 보내지 않는다.
+            if (!analysisJobStore.acknowledgeNotification(channelSelectedJob.id())) { return true; }
+            publishCompletionOrReopen(channelSelectedJob);
             return true;
         } catch (DataAccessException | CustomException exception) {
             log.warn("SSE 분석 완료 알림을 보내지 못했습니다. analysisJobId={}", analysisJob.id(), exception);
             return false;
+        }
+    }
+
+    // 다시 대기로 돌리지 못하면 이 알림은 유실되지만, 같은 알림을 두 번 보내지 않는 쪽을 택한다.
+    private void publishCompletionOrReopen(AnalysisJob analysisJob) {
+        try {
+            publishCompletion(analysisJob);
+        } catch (DataAccessException | CustomException exception) {
+            analysisJobStore.reopenNotification(analysisJob.id());
+            throw exception;
         }
     }
 
