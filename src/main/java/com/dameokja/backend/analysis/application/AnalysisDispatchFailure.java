@@ -30,6 +30,7 @@ public class AnalysisDispatchFailure {
         AnalysisCompletion failedCompletion = new AnalysisCompletion(AnalysisStatus.FAILED, BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime(),
                 null, failureCode.toFailure());
         AnalysisJob analysisJob = recordFailure(analysisDispatch, failedCompletion);
+        analysisCompletionNotifier.addPending(analysisJob.id());
         if (analysisDispatchUpdater.fail(leasedDispatch, failureCode)) {
             String requestId = analysisDispatch.getRequestId();
             analysisCompletionNotifier.notifyFinished(analysisJob, requestId, completionOf(analysisJob, requestId));

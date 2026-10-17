@@ -148,6 +148,17 @@ public class AnalysisJobStore {
         throw new ConcurrencyFailureException("분석 완료 알림 경로 선택이 동시 변경과 충돌했습니다.");
     }
 
+    public AnalysisJob fallBackToPush(String id) {
+        String key = PREFIX + id;
+        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            String previous = redis.opsForValue().get(key);
+            AnalysisJob job = requireActive(previous);
+            AnalysisJob pushFallbackJob = job.fallBackToPush();
+            if (pushFallbackJob == job || Long.valueOf(1).equals(replace(key, previous, pushFallbackJob))) { return pushFallbackJob; }
+        }
+        throw new ConcurrencyFailureException("분석 완료 알림 푸시 전환이 동시 변경과 충돌했습니다.");
+    }
+
     // 선점에 성공한 호출만 이벤트를 보낸다. 보내지 못하면 releaseImageEvent로 되돌려 재시도가 다시 선점하게 한다.
     public boolean claimImageEvent(String id, String requestId) {
         String key = PREFIX + id;

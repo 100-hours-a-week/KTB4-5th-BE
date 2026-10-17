@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +23,7 @@ import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
@@ -50,8 +52,10 @@ class AnalysisCallbackDispatchTest {
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final AnalysisCallbackParking analysisCallbackParking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
             JsonMapper.builder().build());
-    private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(analysisJobStore,
-            new AnalysisCompletionNotifier(analysisJobStore, pushes, analysisFinishedEventService, notificationStreamService), analysisDispatchUpdater, analysisCallbackParking);
+    private final AnalysisPendingNotificationStore analysisPendingNotificationStore = spy(new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate()));
+    private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(analysisJobStore, new AnalysisCompletionNotifier(analysisJobStore,
+            analysisPendingNotificationStore, pushes,
+            analysisFinishedEventService, notificationStreamService, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 3), analysisDispatchUpdater, analysisCallbackParking);
     private final AnalysisCallbackService callbacks = new AnalysisCallbackService(analysisJobStore, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier,
             analysisDispatchWorker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
@@ -121,6 +125,16 @@ class AnalysisCallbackDispatchTest {
     void asksForRetryWhenTheCallbackCannotBeParked() {
         doThrow(new DataAccessResourceFailureException("redis")).when(analysisJobStore).isRegistered("ai-0");
         assertUnavailable(() -> callbacks.receive("ai-0", failure));
+    }
+
+    @Test
+    void asksForCallbackRetryOnlyWhenTheNotificationCannotBeScheduled() {
+        AnalysisJob analysisJob = registeredJob(1);
+        doThrow(new DataAccessResourceFailureException("redis")).when(analysisPendingNotificationStore).schedule(any(), any());
+        assertUnavailable(() -> callbacks.receive("ai-0", failure));
+        assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verifyNoInteractions(analysisFinishedEventService, pushes);
+        verify(analysisDispatchUpdater, never()).finish(any());
     }
 
     private AnalysisJob registeredJob(int analysisImages) {
