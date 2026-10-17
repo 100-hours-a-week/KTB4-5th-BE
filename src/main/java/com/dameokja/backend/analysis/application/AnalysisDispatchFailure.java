@@ -1,8 +1,8 @@
 package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
@@ -16,22 +16,21 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class AnalysisDispatchFailure {
-    private static final String MESSAGE = "이미지 분석을 완료하지 못했습니다. 다시 시도해 주세요.";
     private final AnalysisJobStore store;
     private final AnalysisDispatchUpdater updater;
     private final AnalysisCompletionNotifier notifier;
     private final Clock clock;
 
     // 사용자가 보는 Redis 결과를 먼저 실패로 바꾼다. 전달 행을 먼저 끝내면 그 사이 장애에서 결과가 처리 중으로 남는다.
-    public void fail(LeasedDispatch leased, AnalysisDispatch dispatch, String errorCode) {
+    public void fail(LeasedDispatch leased, AnalysisDispatch dispatch, AnalysisFailureCode failureCode) {
         if (store.find(dispatch.getAnalysisJobId()).isEmpty()) {
-            updater.fail(leased, errorCode);
+            updater.fail(leased, failureCode);
             return;
         }
         AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime(),
-                null, new AnalysisCompletionFailure(errorCode, MESSAGE, true, null));
+                null, failureCode.toFailure());
         AnalysisJob job = recordFailure(dispatch, failure);
-        if (updater.fail(leased, errorCode)) {
+        if (updater.fail(leased, failureCode)) {
             String requestId = dispatch.getRequestId();
             notifier.notifyFinished(job, requestId, completionOf(job, requestId));
         }

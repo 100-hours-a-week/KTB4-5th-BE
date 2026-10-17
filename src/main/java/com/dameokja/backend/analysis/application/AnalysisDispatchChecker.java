@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -38,7 +39,7 @@ public class AnalysisDispatchChecker {
             return;
         }
         if (dispatch.isExpired(BusinessTime.now(clock))) {
-            failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_EXPIRED);
+            failure.fail(leased, dispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
             return;
         }
         try {
@@ -70,7 +71,7 @@ public class AnalysisDispatchChecker {
         int attempts = dispatch.getAttemptCount() + 1;
         log.warn("AI에서 작업을 찾지 못해 같은 requestId로 다시 보냅니다. dispatchId={} attempt={}", dispatch.getId(), attempts);
         if (attempts >= properties.maxAttempts()) {
-            failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_UNAVAILABLE);
+            failure.fail(leased, dispatch, AnalysisFailureCode.ANALYSIS_UNAVAILABLE);
             return;
         }
         updater.retryLater(leased, Duration.ZERO, true, AnalysisDispatchErrorCode.AI_JOB_LOST);

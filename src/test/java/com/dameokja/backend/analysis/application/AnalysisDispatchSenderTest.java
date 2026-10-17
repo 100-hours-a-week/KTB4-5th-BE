@@ -19,6 +19,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
@@ -84,7 +85,7 @@ class AnalysisDispatchSenderTest {
         when(applier.applyParked("ai-1")).thenThrow(new DataAccessResourceFailureException("redis"));
         sender.send(LEASED);
         verify(updater).accept(LEASED, "ai-1");
-        verify(updater, never()).retryLater(any(), any(), anyBoolean(), anyString());
+        verify(updater, never()).retryLater(any(), any(), anyBoolean(), any());
     }
 
     @Test
@@ -103,7 +104,7 @@ class AnalysisDispatchSenderTest {
         AnalysisDispatch dispatch = leased(AnalysisDispatchStatus.DISPATCHING, 0);
         when(client.submit(any())).thenThrow(new RestClientResponseException("rejected", status, "rejected", null, null, null));
         sender.send(LEASED);
-        verify(failure).fail(LEASED, dispatch, AnalysisDispatchErrorCode.ANALYSIS_REJECTED);
+        verify(failure).fail(LEASED, dispatch, AnalysisFailureCode.ANALYSIS_REJECTED);
     }
 
     @Test
@@ -115,7 +116,7 @@ class AnalysisDispatchSenderTest {
 
         AnalysisDispatch last = leased(AnalysisDispatchStatus.DISPATCHING, 2);
         sender.send(LEASED);
-        verify(failure).fail(LEASED, last, AnalysisDispatchErrorCode.ANALYSIS_UNAVAILABLE);
+        verify(failure).fail(LEASED, last, AnalysisFailureCode.ANALYSIS_UNAVAILABLE);
     }
 
     @Test
@@ -123,7 +124,7 @@ class AnalysisDispatchSenderTest {
         AnalysisDispatch dispatch = dispatch(AnalysisDispatchStatus.DISPATCHING, 0, NOW.minusMinutes(2), NOW);
         when(repository.findLeased(LEASED.id(), LEASED.token())).thenReturn(Optional.of(dispatch));
         sender.send(LEASED);
-        verify(failure).fail(LEASED, dispatch, AnalysisDispatchErrorCode.ANALYSIS_EXPIRED);
+        verify(failure).fail(LEASED, dispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
         verifyNoInteractions(client);
     }
 
@@ -155,7 +156,7 @@ class AnalysisDispatchSenderTest {
         leased(AnalysisDispatchStatus.AWAITING_CALLBACK, 0);
         sender.send(LEASED);
         verifyNoInteractions(client, failure);
-        verify(updater, never()).retryLater(any(), any(), anyBoolean(), anyString());
+        verify(updater, never()).retryLater(any(), any(), anyBoolean(), any());
     }
 
     private AnalysisDispatch leased(AnalysisDispatchStatus status, int attempts) {

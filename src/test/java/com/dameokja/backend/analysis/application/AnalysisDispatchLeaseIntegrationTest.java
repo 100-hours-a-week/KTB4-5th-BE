@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;
@@ -94,7 +95,7 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
         LeasedDispatch current = leases.leaseDue().getFirst();
 
         assertThat(updater.accept(stale, "ai-stale")).isFalse();
-        assertThat(updater.fail(stale, "ANALYSIS_EXPIRED")).isFalse();
+        assertThat(updater.fail(stale, AnalysisFailureCode.ANALYSIS_EXPIRED)).isFalse();
         assertThat(updater.accept(current, "ai-current")).isTrue();
         assertThat(jdbc.queryForObject("SELECT ai_analysis_id FROM analysis_dispatches", String.class)).isEqualTo("ai-current");
         updater.finish(images.getFirst().requestId());
@@ -106,7 +107,7 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
     void doesNotResendOrCountTheAttemptWhenAiIsBusy() {
         List<AnalysisImage> images = enqueue(1);
         LeasedDispatch leased = leases.leaseDue().getFirst();
-        updater.retryLater(leased, Duration.ofSeconds(5), false, "AI_BUSY");
+        updater.retryLater(leased, Duration.ofSeconds(5), false, AnalysisDispatchErrorCode.AI_BUSY);
 
         assertThat(leases.leaseDue()).isEmpty();
         assertThat(jdbc.queryForObject("SELECT attempt_count FROM analysis_dispatches", Integer.class)).isZero();

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisResponse;
@@ -72,7 +73,7 @@ class AnalysisDispatchCheckerTest {
 
         AnalysisDispatch last = checking(2);
         checker.check(LEASED);
-        verify(failure).fail(LEASED, last, AnalysisDispatchErrorCode.ANALYSIS_UNAVAILABLE);
+        verify(failure).fail(LEASED, last, AnalysisFailureCode.ANALYSIS_UNAVAILABLE);
     }
 
     @Test
@@ -88,7 +89,7 @@ class AnalysisDispatchCheckerTest {
         AnalysisDispatch dispatch = dispatch(AnalysisDispatchStatus.CHECKING, 0, NOW.minusMinutes(2), NOW);
         when(repository.findLeased(LEASED.id(), LEASED.token())).thenReturn(Optional.of(dispatch));
         checker.check(LEASED);
-        verify(failure).fail(LEASED, dispatch, AnalysisDispatchErrorCode.ANALYSIS_EXPIRED);
+        verify(failure).fail(LEASED, dispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
         verifyNoInteractions(client);
     }
 

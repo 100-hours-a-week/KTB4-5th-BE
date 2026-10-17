@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.application;
 
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
+import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
@@ -40,7 +41,7 @@ public class AnalysisDispatchSender {
     private void send(LeasedDispatch leased, AnalysisDispatch dispatch) {
         LocalDateTime now = BusinessTime.now(clock);
         if (dispatch.isExpired(now)) {
-            failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_EXPIRED);
+            failure.fail(leased, dispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
         } else if (store.find(dispatch.getAnalysisJobId()).isPresent()) {
             submit(leased, dispatch);
         } else if (!now.isBefore(dispatch.getCreatedAt().plus(properties.orphanGrace()))) {
@@ -99,17 +100,17 @@ public class AnalysisDispatchSender {
             updater.retryLater(leased, properties.retryDelay(dispatch.getAttemptCount() + 1), false, AnalysisDispatchErrorCode.AI_BUSY);
         } else if (REJECTED_STATUSES.contains(status)) {
             log.warn("AI가 분석 요청을 거절했습니다. dispatchId={} status={}", dispatch.getId(), status);
-            failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_REJECTED);
+            failure.fail(leased, dispatch, AnalysisFailureCode.ANALYSIS_REJECTED);
         } else {
             retryOrFail(leased, dispatch, AnalysisDispatchErrorCode.AI_UNAVAILABLE, exception);
         }
     }
 
-    private void retryOrFail(LeasedDispatch leased, AnalysisDispatch dispatch, String errorCode, RuntimeException cause) {
+    private void retryOrFail(LeasedDispatch leased, AnalysisDispatch dispatch, AnalysisDispatchErrorCode errorCode, RuntimeException cause) {
         int attempts = dispatch.getAttemptCount() + 1;
         log.warn("AI에 분석 요청을 전달하지 못했습니다. dispatchId={} attempt={}", dispatch.getId(), attempts, cause);
         if (attempts >= properties.maxAttempts()) {
-            failure.fail(leased, dispatch, AnalysisDispatchErrorCode.ANALYSIS_UNAVAILABLE);
+            failure.fail(leased, dispatch, AnalysisFailureCode.ANALYSIS_UNAVAILABLE);
             return;
         }
         Duration delay = properties.retryDelay(attempts);
