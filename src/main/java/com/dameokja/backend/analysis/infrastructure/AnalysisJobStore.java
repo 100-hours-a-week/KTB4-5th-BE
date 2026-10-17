@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.data.redis.connection.DataType;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
@@ -92,11 +93,7 @@ public class AnalysisJobStore {
         for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             String previous = redis.opsForValue().get(key);
             AnalysisJob updated = requireOwned(previous, userId).register(requestId, analysisId);
-            Long replaced = replace(key, previous, updated);
-            if (Long.valueOf(-1).equals(replaced)) {
-                throw new IllegalStateException("다른 작업에 접수된 AI 작업 ID입니다.");
-            }
-            if (Long.valueOf(1).equals(replaced)) {
+            if (Long.valueOf(1).equals(replace(key, previous, updated))) {
                 return;
             }
         }
@@ -107,13 +104,17 @@ public class AnalysisJobStore {
         return Boolean.TRUE.equals(redis.hasKey(AI_PREFIX + analysisId));
     }
 
-    public AnalysisJob findByAiAnalysisId(String analysisId) {
-        String jobId = redis.opsForValue().get(AI_PREFIX + analysisId);
-        return requireActive(jobId == null ? null : redis.opsForValue().get(PREFIX + jobId));
+    // 같은 사진을 다시 요청한 작업은 같은 AI 분석을 함께 쓴다. 만료된 작업은 빼고 돌려준다.
+    public List<String> findJobIdsByAiAnalysisId(String analysisId) {
+        String key = AI_PREFIX + analysisId;
+        List<String> ids = DataType.STRING.equals(redis.type(key))
+                ? Stream.ofNullable(redis.opsForValue().get(key)).toList()
+                : List.copyOf(Objects.requireNonNullElse(redis.opsForSet().members(key), Set.<String>of()));
+        return ids.stream().filter(id -> find(id).isPresent()).sorted().toList();
     }
 
-    public AnalysisJob complete(String analysisId, AnalysisCompletion completion) {
-        return finish(findByAiAnalysisId(analysisId).id(), (job, expiresAt) -> job.complete(analysisId, completion, expiresAt));
+    public AnalysisJob complete(String analysisJobId, String analysisId, AnalysisCompletion completion) {
+        return finish(analysisJobId, (job, expiresAt) -> job.complete(analysisId, completion, expiresAt));
     }
 
     public AnalysisJob fail(String analysisJobId, String requestId, AnalysisCompletion failure) {
@@ -209,9 +210,19 @@ public class AnalysisJobStore {
         String stored = redis.opsForValue().get(key);
         if (stored != null) {
             AnalysisJob job = requireActive(stored);
-            redis.delete(keys(key, job));
+            redis.delete(key);
+            job.analysisImages().stream().filter(image -> image.aiAnalysisId() != null)
+                    .forEach(image -> removeFromAiIndex(AI_PREFIX + image.aiAnalysisId(), analysisJobId));
             redis.opsForZSet().remove(USER_PREFIX + job.userId(), analysisJobId);
         }
+    }
+
+    private void removeFromAiIndex(String key, String analysisJobId) {
+        if (DataType.STRING.equals(redis.type(key))) {
+            if (analysisJobId.equals(redis.opsForValue().get(key))) { redis.delete(key); }
+            return;
+        }
+        redis.opsForSet().remove(key, analysisJobId);
     }
 
     private AnalysisJob requireOwned(String stored, Long userId) {

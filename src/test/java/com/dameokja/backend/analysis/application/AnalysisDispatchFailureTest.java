@@ -24,6 +24,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -78,7 +79,7 @@ class AnalysisDispatchFailureTest {
         analysisJobStore.register("job-1", 7L, requestId, "ai-1");
         AnalysisCompletion earlier = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.now(clock), null,
                 new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "실패", true, null));
-        analysisJobStore.complete("ai-1", earlier);
+        AnalysisJobStores.complete(analysisJobStore, "ai-1", earlier);
         failure.fail(LEASED, dispatchOf(analysisJob), AnalysisFailureCode.ANALYSIS_EXPIRED);
         assertThat(analysisJobStore.findOwned("job-1", 7L).analysisImages().getFirst().completion()).isEqualTo(earlier);
         verify(analysisDispatchUpdater).fail(LEASED, AnalysisFailureCode.ANALYSIS_EXPIRED);

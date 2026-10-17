@@ -67,7 +67,7 @@ class AnalysisCallbackDispatchTest {
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
         InOrder order = inOrder(analysisDispatchUpdater, analysisFinishedEventService, analysisDispatchWorker);
-        order.verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId());
+        order.verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId(), analysisJob.id());
         order.verify(analysisFinishedEventService).publishImageFinished(7L, analysisJob.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
         order.verify(analysisDispatchWorker).wakeUp();
     }
@@ -75,14 +75,14 @@ class AnalysisCallbackDispatchTest {
     @Test
     void keepsTheSavedResultButAsksForRetryWhenTheDispatchCannotBeFinished() {
         AnalysisJob analysisJob = registeredJob(1);
-        doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchUpdater).finish(any());
+        doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchUpdater).finish(any(), any());
         assertUnavailable(() -> callbacks.receive("ai-0", failure));
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
         verifyNoInteractions(analysisFinishedEventService, pushes, analysisDispatchWorker);
         clearInvocations(analysisDispatchUpdater);
-        doNothing().when(analysisDispatchUpdater).finish(any());
+        doNothing().when(analysisDispatchUpdater).finish(any(), any());
         callbacks.receive("ai-0", failure);
-        verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId());
+        verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId(), analysisJob.id());
     }
 
     @Test
@@ -96,7 +96,7 @@ class AnalysisCallbackDispatchTest {
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-0");
         assertThat(analysisCompletionApplier.applyParked("ai-0")).isTrue();
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
-        verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId());
+        verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId(), analysisJob.id());
         verify(analysisFinishedEventService).publishImageFinished(7L, analysisJob.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
         assertThat(analysisCallbackParking.find("ai-0")).isEmpty();
         assertThat(analysisCompletionApplier.applyParked("ai-0")).isFalse();
@@ -116,7 +116,7 @@ class AnalysisCallbackDispatchTest {
         AnalysisJob analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("image-0", "ab".repeat(32))));
         callbacks.receive("ai-0", failure);
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-0");
-        doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchUpdater).finish(any());
+        doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchUpdater).finish(any(), any());
         assertUnavailable(() -> analysisCompletionApplier.applyParked("ai-0"));
         assertThat(analysisCallbackParking.find("ai-0")).contains(failure);
     }
@@ -134,7 +134,26 @@ class AnalysisCallbackDispatchTest {
         assertUnavailable(() -> callbacks.receive("ai-0", failure));
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
         verifyNoInteractions(analysisFinishedEventService, pushes);
-        verify(analysisDispatchUpdater, never()).finish(any());
+        verify(analysisDispatchUpdater, never()).finish(any(), any());
+    }
+
+    // 같은 사진을 다시 요청한 작업들은 AI 분석 하나를 함께 쓰므로, 콜백 한 번으로 모든 작업이 끝나야 한다.
+    @Test
+    void appliesOneCallbackToEveryJobSharingTheAiAnalysis() {
+        AnalysisImage analysisImage = AnalysisImage.pending("image-0", "ab".repeat(32), "same-request");
+        AnalysisJob first = analysisJobStore.create(7L, "AUTO", List.of(analysisImage));
+        AnalysisJob second = analysisJobStore.create(7L, "AUTO", List.of(analysisImage));
+        analysisJobStore.register(first.id(), 7L, "same-request", "ai-0");
+        analysisJobStore.register(second.id(), 7L, "same-request", "ai-0");
+
+        callbacks.receive("ai-0", failure);
+
+        assertThat(analysisJobStore.findOwned(first.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        assertThat(analysisJobStore.findOwned(second.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
+        verify(analysisDispatchUpdater).finish("same-request", first.id());
+        verify(analysisDispatchUpdater).finish("same-request", second.id());
+        verify(analysisFinishedEventService).publishImageFinished(7L, first.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        verify(analysisFinishedEventService).publishImageFinished(7L, second.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
     }
 
     private AnalysisJob registeredJob(int analysisImages) {

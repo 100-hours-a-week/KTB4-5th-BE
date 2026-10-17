@@ -63,7 +63,7 @@ class AnalysisDispatchSenderTest {
         InOrder order = inOrder(aiAnalysisClient, analysisJobStore, analysisDispatchUpdater);
         order.verify(aiAnalysisClient).submit(request.capture());
         order.verify(analysisJobStore).register("job-1", 7L, analysisDispatch.getRequestId(), "ai-1");
-        order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1");
+        order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1", false);
         assertThat(request.getValue().requestId()).isEqualTo(analysisDispatch.getRequestId());
         assertThat(request.getValue().image().sha256()).isEqualTo("ab".repeat(32));
     }
@@ -75,7 +75,7 @@ class AnalysisDispatchSenderTest {
         analysisDispatchSender.send(LEASED);
         InOrder order = inOrder(analysisJobStore, analysisDispatchUpdater, analysisCompletionApplier);
         order.verify(analysisJobStore).register(eq("job-1"), eq(7L), anyString(), eq("ai-1"));
-        order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1");
+        order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1", true);
         order.verify(analysisCompletionApplier).applyParked("ai-1");
     }
 
@@ -85,7 +85,7 @@ class AnalysisDispatchSenderTest {
         when(aiAnalysisClient.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse("ai-1", "COMPLETED", null, 1000));
         when(analysisCompletionApplier.applyParked("ai-1")).thenThrow(new DataAccessResourceFailureException("redis"));
         analysisDispatchSender.send(LEASED);
-        verify(analysisDispatchUpdater).accept(LEASED, "ai-1");
+        verify(analysisDispatchUpdater).accept(LEASED, "ai-1", true);
         verify(analysisDispatchUpdater, never()).retryLater(any(), any(), anyBoolean(), any());
     }
 
@@ -149,7 +149,7 @@ class AnalysisDispatchSenderTest {
         doThrow(new DataAccessResourceFailureException("redis")).when(analysisJobStore).register(anyString(), any(), anyString(), eq("ai-1"));
         analysisDispatchSender.send(LEASED);
         verify(analysisDispatchUpdater).retryLater(LEASED, Duration.ofSeconds(1), false, AnalysisDispatchErrorCode.REGISTER_FAILED);
-        verify(analysisDispatchUpdater, never()).accept(any(), anyString());
+        verify(analysisDispatchUpdater, never()).accept(any(), anyString(), anyBoolean());
     }
 
     @Test

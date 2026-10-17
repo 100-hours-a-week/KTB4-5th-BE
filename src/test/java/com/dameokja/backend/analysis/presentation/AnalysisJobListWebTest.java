@@ -25,6 +25,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.OAuthSecurityConfig;
@@ -130,7 +131,7 @@ class AnalysisJobListWebTest {
         return job;
     }
 
-    private void complete(String analysisId, AnalysisCompletion completion) { store.complete(analysisId, completion); }
+    private void complete(String analysisId, AnalysisCompletion completion) { AnalysisJobStores.complete(store, analysisId, completion); }
 
     private AnalysisCompletion success(AnalysisCompletionItem... items) {
         return new AnalysisCompletion(AnalysisStatus.COMPLETED, now(), new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of(items)), null);

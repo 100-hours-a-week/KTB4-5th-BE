@@ -304,7 +304,7 @@ INSERT INTO analysis_dispatch_gates (gate_id) VALUES (1);
 
 CREATE TABLE analysis_dispatches (
     analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',
-    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. 재전송도 같은 값 사용',
+    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. (사용자, objectKey, sha256, inputHint)에서 파생해 같은 사진 재요청과 재전송이 같은 값을 쓴다',
     analysis_job_id CHAR(36) NOT NULL COMMENT 'Redis 분석 묶음 ID',
     user_id BIGINT NOT NULL,
     object_key VARCHAR(512) NOT NULL,
@@ -325,7 +325,7 @@ CREATE TABLE analysis_dispatches (
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (analysis_dispatch_id),
-    UNIQUE KEY uk_analysis_dispatch_request (request_id),
+    UNIQUE KEY uk_analysis_dispatch_request (request_id, analysis_job_id),
     KEY ix_analysis_dispatch_due (status, next_attempt_at),
     KEY ix_analysis_dispatch_lease (status, lease_until),
     CONSTRAINT ck_analysis_dispatch_status CHECK (status IN ('PENDING','DISPATCHING','AWAITING_CALLBACK','CHECKING','DONE','FAILED')),
