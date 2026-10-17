@@ -32,6 +32,12 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, Objects.requireNonNull(channel), publishedImageEvents);
     }
 
+    // SSE로 끝내 알리지 못하면 푸시로 바꾼다. 이미 푸시면 그대로 둔다.
+    public AnalysisJob fallBackToPush() {
+        if (!notificationPending || notificationChannel == AnalysisNotificationChannel.PUSH) { return this; }
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, AnalysisNotificationChannel.PUSH, publishedImageEvents);
+    }
+
     public AnalysisJob register(String requestId, String analysisId) {
         if (analysisImages.stream().noneMatch(analysisImage -> analysisImage.requestId().equals(requestId))) {
             throw new IllegalArgumentException("작업에 속하지 않은 이미지 요청입니다.");
