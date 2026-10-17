@@ -49,9 +49,10 @@ def s03(r):
     r['observations'] = {'first': summary(c, first, started), 'secondStatus': second_done['data']['status'],
                          'secondCompletedAfterSeconds': second_seconds, 'lateCallbackStatus': late.status_code,
                          'lateCallbackBody': late.json(), 'callbackAttempts': len(ai_callbacks([ai_id]))}
-    check(r, first_done['data']['status'] == 'FAILED', '콜백을 끝내 못 받은 작업이 처리 중으로 남지 않고 실패로 끝난다')
+    check(r, first_done['data']['status'] == 'COMPLETED', '콜백을 끝내 못 받은 작업은 기한 확인에서 AI 조회 결과로 완료된다')
+    check(r, list(executions(request_ids(first)).values()) == [1], '회수할 때 다시 분석하지 않는다')
     check(r, second_done['data']['status'] == 'COMPLETED', '뒤 작업은 완료된다')
-    check(r, late.status_code == 409, '실패로 끝난 뒤 늦은 콜백은 409로 거절된다')
+    check(r, late.status_code == 200, '조회 결과로 완료한 뒤 같은 결과의 늦은 콜백은 멱등 200')
 
 
 @scenario('S05', '처리 중·대기 중 AI 프로세스 종료 (S04·S09 포함)')

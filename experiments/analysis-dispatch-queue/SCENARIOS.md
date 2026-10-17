@@ -134,6 +134,9 @@ UPDATE analysis_dispatch_slots
 | W (슬롯 1) | d9d54b0 | 2026-10-17 전체 13건 | S04·S05·S09·S11·S16·S17·S19·S22·S23·S24, Q06·Q07·Q09·Q12·Q13 | S03(고착 없이 실패로 끝남) | — | F2, F3 | `evidence/W/results.json` |
 | P (슬롯 10) | d9d54b0 | 2026-10-17 전체 13건 | S04·S05·S09·S11·S16·S17·S19·S22·S23·S24, Q06·Q07·Q09·Q12·Q13 | S03(고착 없이 실패로 끝남) | — | F2 | `evidence/P/results.json` |
 
+| W (슬롯 1) | e4e489b | 2026-10-17 F2 수정 후 재실행 | 13건 모두 (S03 포함) | — | — | — | `evidence/W/results.json` (S17은 러너 CSRF 오류로 단독 재실행해 병합) |
+| P (슬롯 10) | e4e489b | 2026-10-17 F2 수정 후 재실행 | 13건 모두 (S03 포함) | — | — | — | `evidence/P/results.json` |
+
 실험값: 콜백 기한 5s, 전체 기한 30s, 최대 시도 5, lease 5s, tick 1s. 러너는 13개 묶음으로 Q01·Q03·Q07·Q10을 포함해 실행한다(Q02·Q04·Q05·Q08·Q11은 별도 시나리오 없음, S05·S22·S16·S03이 일부 대신 확인).
 
 | 지표 | W | P |
@@ -143,7 +146,8 @@ UPDATE analysis_dispatch_slots
 | S17·Q06 AI가 들고 있는 최대 건수 | 1 | 5 (AI 큐 4 + 처리 1) |
 | 중복 분석 (S17·Q06·S19·S23) | 0 | 0 |
 | Q12 사용자 B 대기 (A 6장 뒤) | 8.3s | 7.8s |
-| S03 콜백 유실 뒤 다음 작업 | 33.0s 뒤 FAILED (전체 기한 만료) | 1.7s 뒤 COMPLETED |
+| S03 콜백 유실 뒤 다음 작업 | 33.0s 뒤 FAILED (전체 기한 만료) → F2 후 7.4s 뒤 COMPLETED | 1.7s 뒤 COMPLETED |
+| S03 콜백 유실 작업 자체 | FAILED → F2 후 7.6s에 조회로 COMPLETED, 분석 1회 | FAILED → F2 후 6.3s에 조회로 COMPLETED |
 | S05 AI 종료 시 재분석 | AI에 있던 1건만 재분석 | AI에 있던 2건 재분석 |
 
 ### 발견 사항
@@ -156,4 +160,7 @@ UPDATE analysis_dispatch_slots
   - 남은 점: 보관 콜백을 전송 워커가 적용한 경우 다음 전송은 주기 tick(1s)을 기다린다(워커 순환 의존 때문에 즉시 wakeUp하지 않음). W 처리량 영향은 Q01·Q03에서 확인.
 - **F2 (S03, W·P):** 콜백 3회가 모두 실패한 작업은 AI가 `COMPLETED`이고 결과를 갖고 있는데도 BE가 기한 확인에서 연장만 반복하다 전체 기한 뒤 `ANALYSIS_EXPIRED`로 실패한다(`lastAiStatus=COMPLETED`). 사용자는 결과가 있는 분석을 실패로 받는다. 원인: `AnalysisDispatchChecker`가 AI GET의 상태만 보고 결과(result/error)는 쓰지 않는다. 대응 후보: 기한 확인에서 AI가 COMPLETED·FAILED면 GET 응답의 결과를 콜백과 같은 경로(`AnalysisCompletionApplier`)로 적용.
 - **F3 (S03, W만):** F2 때문에 W는 유실 작업이 전체 기한 내내 슬롯을 잡아 뒤 작업도 대기 중 전체 기한을 넘겨 실패했다. 운영값(전체 기한 7d)에서는 슬롯이 최대 7일 막힐 수 있다. F2가 해결되면 막히는 시간은 콜백 기한(운영 10m)으로 줄어든다. P는 다른 슬롯으로 1.7초 만에 진행.
+  - **대응 (e4e489b, 사용자 선택: BE에서 변환):** 기한 확인에서 AI가 COMPLETED·FAILED면 GET 응답을 콜백 형식으로 바꿔(`AiImageAnalysisResponse.toCompletion`, AI `_callback_item`과 같은 규칙) 콜백과 같은 경로로 적용한다. 바꿀 수 없는 결과는 슬롯을 잡지 않도록 바로 `ANALYSIS_UNAVAILABLE`로 실패. 운영 콜백 기한(=조회 주기)은 2분(12899fe).
+  - 재실행: W·P 13건 모두 PASS. 늦게 온 같은 결과 콜백은 멱등 200.
+  - 관찰: P의 S17·Q06에서 AI 대기열이 실험 콜백 기한(5s)보다 길어 13건이 콜백 도착 직전 조회로 먼저 완료됐다. 결과는 같아 중복 분석·충돌은 없었지만, 뒤이은 콜백도 이미지 완료 SSE 이벤트를 한 번 더 발행한다(작업 완료 알림은 `notificationPending`으로 1회). 기존 AI 콜백 재시도 때와 같은 동작이며, 운영 조회 주기 2분에서는 드물다.
 
