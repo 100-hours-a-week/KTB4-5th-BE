@@ -130,6 +130,12 @@ analysis:
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
   # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
   parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
+  notification:
+    retry-enabled: ${ANALYSIS_NOTIFICATION_RETRY_ENABLED:true}
+    poll-interval: ${ANALYSIS_NOTIFICATION_POLL_INTERVAL:1s}
+    # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
+    retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
+    sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
     poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
