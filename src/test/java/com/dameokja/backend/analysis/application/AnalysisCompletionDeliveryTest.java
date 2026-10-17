@@ -55,11 +55,12 @@ class AnalysisCompletionDeliveryTest {
     private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
     private final AnalysisDispatchUpdater analysisDispatchUpdater = mock(AnalysisDispatchUpdater.class);
+    private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final AnalysisCallbackParking analysisCallbackParking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
             JsonMapper.builder().build());
     private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(store,
             new AnalysisCompletionNotifier(store, pushes, analysisFinishedEventService, notificationStreamService), analysisDispatchUpdater, analysisCallbackParking);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(store, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier, analysisDispatchWorker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 

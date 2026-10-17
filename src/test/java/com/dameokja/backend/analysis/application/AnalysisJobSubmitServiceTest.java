@@ -4,19 +4,19 @@ import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitRequest;
-import com.dameokja.backend.analysis.infrastructure.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -31,11 +31,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
+import org.mockito.InOrder;
+import org.springframework.dao.DataAccessResourceFailureException;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(RedisTestSupport.class)
@@ -44,34 +43,33 @@ class AnalysisJobSubmitServiceTest {
     private final Instant instant = Instant.parse("2026-10-08T01:00:00Z");
     private final Duration duration = Duration.ofMinutes(1);
     private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
-    private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
-    private final AiAnalysisClient aiAnalysisClient = mock(AiAnalysisClient.class);
-    private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, aiAnalysisClient);
+    private final AnalysisJobStore analysisJobStore = spy(new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build()));
+    private final AnalysisDispatchQueue analysisDispatchQueue = mock(AnalysisDispatchQueue.class);
+    private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
+    private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(
+            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, analysisDispatchQueue, analysisDispatchWorker);
 
     @Test
-    void submitsStoredChecksumsInOrderAndReturnsTheGroupAfterAllRegistrations() {
+    void queuesEveryImageInOrderAndReturnsTheQueuedGroupWithoutWaitingForAi() {
         issue("first", "ab");
         issue("second", "cd");
-        when(aiAnalysisClient.submit(any())).thenReturn(accepted("ai-first"), accepted("ai-second"));
         AnalysisJob analysisJob = analysisJobSubmitService.submit(7L, List.of("first", "second"), "RECEIPT");
-        ArgumentCaptor<AiImageAnalysisSubmitRequest> argumentCaptor = ArgumentCaptor.forClass(AiImageAnalysisSubmitRequest.class);
-        verify(aiAnalysisClient, times(2)).submit(argumentCaptor.capture());
-        List<AiImageAnalysisSubmitRequest> aiImageAnalysisSubmitRequests = argumentCaptor.getAllValues();
-        assertThat(aiImageAnalysisSubmitRequests).extracting(aiImageAnalysisSubmitRequest -> aiImageAnalysisSubmitRequest.image().objectKey()).containsExactly("first", "second");
-        assertThat(aiImageAnalysisSubmitRequests).extracting(aiImageAnalysisSubmitRequest -> aiImageAnalysisSubmitRequest.image().sha256()).containsExactly("ab".repeat(32), "cd".repeat(32));
-        assertThat(aiImageAnalysisSubmitRequests).extracting(AiImageAnalysisSubmitRequest::inputHint).containsOnly("RECEIPT");
-        assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::requestId).doesNotHaveDuplicates()
-                .containsExactlyElementsOf(aiImageAnalysisSubmitRequests.stream().map(AiImageAnalysisSubmitRequest::requestId).toList());
-        assertThat(analysisJob.id()).isNotBlank().isNotIn("ai-first", "ai-second");
-        assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
+        ArgumentCaptor<List<AnalysisImage>> analysisImages = imagesCaptor();
+        InOrder order = inOrder(analysisDispatchQueue, analysisJobStore, analysisDispatchWorker);
+        order.verify(analysisDispatchQueue).enqueue(eq(analysisJob.id()), eq(7L), eq("RECEIPT"), analysisImages.capture());
+        order.verify(analysisJobStore).create(analysisJob.id(), 7L, "RECEIPT", analysisImages.getValue());
+        order.verify(analysisDispatchWorker).wakeUp();
+        assertThat(analysisImages.getValue()).extracting(AnalysisImage::objectKey).containsExactly("first", "second");
+        assertThat(analysisImages.getValue()).extracting(AnalysisImage::sha256).containsExactly("ab".repeat(32), "cd".repeat(32));
+        assertThat(analysisImages.getValue()).extracting(AnalysisImage::requestId).doesNotHaveDuplicates();
+        assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
         assertThat(analysisJob.submittedAt()).isEqualTo(instant.atZone(BusinessTime.ZONE).toOffsetDateTime());
         assertThat(analysisJob.expiresAt()).isNull();
-        verifyNoMoreInteractions(aiAnalysisClient);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"missing", "other-owner", "profile", "expired"})
-    void validatesEveryImageBeforeSubmittingAnyToAi(String objectKey) {
+    void validatesEveryImageBeforeQueueingAny(String objectKey) {
         issue("first", "ab");
         if (!objectKey.equals("missing")) {
             imageUploadMetadataStore.save(objectKey.equals("other-owner") ? 8L : 7L,
@@ -82,50 +80,30 @@ class AnalysisJobSubmitServiceTest {
         }
         assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first", objectKey), null)).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode.code").isEqualTo("IMAGE-422-001");
-        verifyNoInteractions(aiAnalysisClient);
-    }
-
-    @ParameterizedTest
-    @CsvSource({"0,IMAGE-503-001", "400,GLOBAL-400-001", "429,IMAGE-429-001", "503,IMAGE-503-001"})
-    void stopsOnSecondAcceptanceFailureInsteadOfReturningAnIncompleteGroup(int status, String code) {
-        issue("first", "ab");
-        issue("second", "cd");
-        issue("third", "ef");
-        RestClientException restClientException = status == 0 ? new RestClientException("timeout")
-                : new RestClientResponseException("AI rejection", status, "error", null, null, null);
-        when(aiAnalysisClient.submit(any())).thenReturn(accepted("ai-first")).thenThrow(restClientException);
-        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first", "second", "third"), null)).isInstanceOf(CustomException.class)
-                .hasCause(restClientException).extracting("exceptionCode.code").isEqualTo(code);
-        verify(aiAnalysisClient, times(2)).submit(argThat(aiImageAnalysisSubmitRequest -> "AUTO".equals(aiImageAnalysisSubmitRequest.inputHint())));
-        verifyNoMoreInteractions(aiAnalysisClient);
-        assertNoStoredJob();
+        verifyNoInteractions(analysisDispatchQueue, analysisDispatchWorker);
     }
 
     @Test
-    void refusesAcceptanceWithoutAnAiJobId() {
+    void createsNoJobWhenTheQueueCannotBeSaved() {
         issue("first", "ab");
-        when(aiAnalysisClient.submit(any())).thenReturn(accepted(" "));
-        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(CustomException.class)
-                .extracting("exceptionCode.code").isEqualTo("IMAGE-503-001");
-        assertNoStoredJob();
-    }
-
-    @Test
-    void discardsTheGroupWhenAnAcceptedIdCannotBeRegistered() {
-        issue("first", "ab");
-        issue("second", "cd");
-        analysisJobStore.create(8L, "AUTO", List.of(AnalysisImage.pending("other", "ef".repeat(32))));
-        String otherJobId = redisTemplate().keys("analysis:job:*").iterator().next().substring("analysis:job:".length());
-        analysisJobStore.register(otherJobId, 8L, analysisJobStore.findOwned(otherJobId, 8L).analysisImages().getFirst().requestId(), "ai-taken");
-        when(aiAnalysisClient.submit(any())).thenReturn(accepted("ai-first"), accepted("ai-taken"));
-        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first", "second"), null)).isInstanceOf(IllegalStateException.class);
-        assertThat(redisTemplate().keys("analysis:job:*")).containsExactly("analysis:job:" + otherJobId);
-        assertThat(redisTemplate().keys("analysis:ai:*")).containsExactly("analysis:ai:ai-taken");
-    }
-
-    private void assertNoStoredJob() {
+        doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchQueue).enqueue(anyString(), any(), anyString(), anyList());
+        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(DataAccessResourceFailureException.class);
         assertThat(redisTemplate().keys("analysis:job:*")).isEmpty();
-        assertThat(redisTemplate().keys("analysis:ai:*")).isEmpty();
+        verifyNoInteractions(analysisDispatchWorker);
+    }
+
+    @Test
+    void leavesQueuedImagesForTheWorkerWhenTheJobCannotBeCreated() {
+        issue("first", "ab");
+        doThrow(new DataAccessResourceFailureException("redis")).when(analysisJobStore).create(anyString(), any(), anyString(), anyList());
+        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(DataAccessResourceFailureException.class);
+        verify(analysisDispatchQueue).enqueue(anyString(), eq(7L), eq("AUTO"), anyList());
+        verifyNoInteractions(analysisDispatchWorker);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ArgumentCaptor<List<AnalysisImage>> imagesCaptor() {
+        return ArgumentCaptor.forClass(List.class);
     }
 
     private void issue(String objectKey, String sha256Prefix) {
@@ -133,6 +111,4 @@ class AnalysisJobSubmitServiceTest {
         when(clock.withZone(any())).thenReturn(Clock.fixed(instant, BusinessTime.ZONE));
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, objectKey, sha256Prefix.repeat(32));
     }
-
-    private AiImageAnalysisSubmitResponse accepted(String id) { return new AiImageAnalysisSubmitResponse(id, "QUEUED", instant.atZone(BusinessTime.ZONE).toOffsetDateTime(), 1000); }
 }

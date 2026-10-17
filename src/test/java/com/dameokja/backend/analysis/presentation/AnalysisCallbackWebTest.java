@@ -18,6 +18,7 @@ import com.dameokja.backend.analysis.application.AnalysisCompletionApplier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionNotifier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionValidator;
 import com.dameokja.backend.analysis.application.AnalysisDispatchUpdater;
+import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
@@ -231,6 +232,9 @@ class AnalysisCallbackWebTest {
 
         @Bean
         AnalysisDispatchUpdater dispatches() { return mock(AnalysisDispatchUpdater.class); }
+
+        @Bean
+        AnalysisDispatchWorker worker() { return mock(AnalysisDispatchWorker.class); }
 
         @Bean
         AnalysisFinishedEventService events() { return mock(AnalysisFinishedEventService.class); }

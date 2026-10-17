@@ -47,22 +47,25 @@ class AnalysisCallbackDispatchTest {
     private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
     private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
     private final AnalysisDispatchUpdater analysisDispatchUpdater = mock(AnalysisDispatchUpdater.class);
+    private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final AnalysisCallbackParking analysisCallbackParking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
             JsonMapper.builder().build());
     private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(analysisJobStore,
             new AnalysisCompletionNotifier(analysisJobStore, pushes, analysisFinishedEventService, notificationStreamService), analysisDispatchUpdater, analysisCallbackParking);
-    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(analysisJobStore, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier);
+    private final AnalysisCallbackService callbacks = new AnalysisCallbackService(analysisJobStore, new AnalysisCompletionValidator(), analysisCallbackParking, analysisCompletionApplier,
+            analysisDispatchWorker);
     private final AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-16T12:00:00+09:00"),
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
     @Test
-    void finishesTheDispatchBeforeNotifying() {
+    void finishesTheDispatchBeforeNotifyingAndWakesTheWorkerForTheNextImage() {
         AnalysisJob analysisJob = registeredJob(1);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
-        InOrder order = inOrder(analysisDispatchUpdater, analysisFinishedEventService);
+        InOrder order = inOrder(analysisDispatchUpdater, analysisFinishedEventService, analysisDispatchWorker);
         order.verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId());
         order.verify(analysisFinishedEventService).publishImageFinished(7L, analysisJob.id(), "image-0", AnalysisStatus.FAILED, 1, 0, 1);
+        order.verify(analysisDispatchWorker).wakeUp();
     }
 
     @Test
@@ -71,7 +74,7 @@ class AnalysisCallbackDispatchTest {
         doThrow(new DataAccessResourceFailureException("mysql")).when(analysisDispatchUpdater).finish(any());
         assertUnavailable(() -> callbacks.receive("ai-0", failure));
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
-        verifyNoInteractions(analysisFinishedEventService, pushes);
+        verifyNoInteractions(analysisFinishedEventService, pushes, analysisDispatchWorker);
         clearInvocations(analysisDispatchUpdater);
         doNothing().when(analysisDispatchUpdater).finish(any());
         callbacks.receive("ai-0", failure);
@@ -84,7 +87,7 @@ class AnalysisCallbackDispatchTest {
         callbacks.receive("ai-0", failure);
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isNull();
         assertThat(analysisCallbackParking.find("ai-0")).contains(failure);
-        verifyNoInteractions(analysisDispatchUpdater, analysisFinishedEventService);
+        verifyNoInteractions(analysisDispatchUpdater, analysisFinishedEventService, analysisDispatchWorker);
 
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-0");
         assertThat(analysisCompletionApplier.applyParked("ai-0")).isTrue();
@@ -101,7 +104,7 @@ class AnalysisCallbackDispatchTest {
         doReturn(false).doCallRealMethod().when(analysisJobStore).isRegistered("ai-0");
         callbacks.receive("ai-0", failure);
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(failure);
-        verify(analysisDispatchUpdater).finish(analysisJob.analysisImages().getFirst().requestId());
+        verify(analysisDispatchWorker).wakeUp();
     }
 
     @Test
