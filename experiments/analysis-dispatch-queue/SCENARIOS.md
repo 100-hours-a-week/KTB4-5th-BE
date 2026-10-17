@@ -130,9 +130,13 @@ UPDATE analysis_dispatch_slots
 | C (기존) | 11c624e / AI 4a03494 | 2026-10-16 | — | — | S03~S05, S09~S11, S16, S19, S21, S24 | — | `../REPORT.html` |
 | P | b36b2a84 | 미실행 | | | | | |
 | W | b36b2a84 | 2026-10-17 스모크(S11)만 | | | | 아래 F1 | `evidence/smoke/S11.json` |
+| W | 980cffc | 2026-10-17 스모크(S11)만 | S11 | | | — | `evidence/W/S11.json` (클라우드 세션) |
 
 ### 발견 사항
 
 - **F1 (스모크 S11, W):** 첫 AI 접수 응답이 유실된 사이 AI가 0.3초 만에 분석을 끝내고 콜백을 보냈다. BE는 아직 AI 작업 ID를 Redis에 등록하기 전이라 콜백 3회 모두 503(IMAGE-503-003)을 줬고 AI는 포기했다. 이후 BE의 같은 requestId 재전송은 AI 멱등으로 같은 ID를 받아 등록했지만 콜백은 다시 오지 않아, 기한 확인은 `last_ai_status=COMPLETED`로 연장만 반복한다. 전체 기한(실험 30초) 뒤 실패로 끝나는 구조. 원래 보고서의 "AI ID 등록 전 수신" 경계가 큐 구조에서도 남는다.
   - 1단계 후보: (a) 콜백에 requestId가 없으므로 BE가 analysisId 미등록 콜백을 받으면 AI GET으로 requestId를 확인해 등록 후 수락, (b) 기한 확인에서 AI가 COMPLETED면 결과를 회수할 수단 마련, (c) AI 콜백 재시도 연장.
   - 근본: 2단계에서 콜백에 requestId 포함 + AI outbox.
+  - **1단계 대응 (980cffc, 사용자 선택: 콜백 보관):** 미등록 analysisId 콜백은 Redis `analysis:parked:<analysisId>`에 보관(TTL `analysis.parked-callback-ttl`, 기본 10m)하고 200으로 응답한다. 같은 requestId 재전송으로 ID를 등록한 전송 워커가 보관된 결과를 적용하고, 실패하면 콜백 기한 확인이 다시 적용한다. 보관 뒤 등록 여부를 한 번 더 확인해 보관·등록 경쟁을 막는다.
+  - 재실행: S11(W) PASS. 사용자 202, 2.0초 만에 COMPLETED, 분석 1회. BE 로그에 "등록 전에 도착한 콜백을 적용했습니다" 확인. 이전에는 전체 기한(30초) 뒤 실패.
+  - 남은 점: 보관 콜백을 전송 워커가 적용한 경우 다음 전송은 주기 tick(1s)을 기다린다(워커 순환 의존 때문에 즉시 wakeUp하지 않음). W 처리량 영향은 Q01·Q03에서 확인.
