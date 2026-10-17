@@ -22,7 +22,8 @@ final class AnalysisApiExamples {
               "submittedAt":"2026-10-08T10:00:00+09:00","expiresAt":"2026-10-15T10:00:00+09:00","pollAfterMs":null,
               "results":[{"imageObjectKey":"example-images/analysis/7/receipt.jpg","status":"COMPLETED","recognitionStatus":"NEEDS_REVIEW",
                 "documentType":"RECEIPT","items":[{"itemId":"item-1","displayStatus":"NEEDS_REVIEW","name":"우유","category":"DAIRY",
-                  "storageType":"REFRIGERATED","measureType":"COUNT","quantity":2,"weight":{"value":null,"unit":"NONE"},"expiration":null,
+                  "storageType":"REFRIGERATED","measureType":"COUNT","quantity":2,"weight":{"value":null,"unit":"NONE"},
+                  "expiration":{"date":null,"dateType":"ESTIMATED_CONSUMPTION_WINDOW","estimatedRange":{"from":"2026-10-15","to":"2026-10-18"}},
                   "reviewReasons":[{"field":"EXPIRATION","code":"EXPIRATION_ESTIMATED",
                     "messages":["표시된 소비기한이 없어 보관 조건을 기준으로 예상했습니다."]}]}],"error":null}],"error":null}}
             """;
