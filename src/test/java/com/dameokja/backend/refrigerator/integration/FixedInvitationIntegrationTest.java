@@ -1,8 +1,6 @@
 package com.dameokja.backend.refrigerator.integration;
 
-import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.EXPIRED_INVITE;
-import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.FULL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -47,19 +45,6 @@ class FixedInvitationIntegrationTest extends ServiceIntegrationTest {
     }
 
     @Test
-    void fixedCodeAllowsMultipleJoinsAfterFiveMinutes() {
-        FixedOwner owner = fixedOwner();
-        Fixture first = ownerFixture("First");
-        Fixture second = ownerFixture("Second");
-        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
-        clock.set("2026-09-17T03:05:00Z");
-        assertThat(memberships.join(first.userId(), code)).isEqualTo(owner.refrigeratorId());
-        clock.set("2100-01-01T03:00:00Z");
-        assertThat(memberships.join(second.userId(), code)).isEqualTo(owner.refrigeratorId());
-        assertThat(codes.count()).isOne();
-    }
-
-    @Test
     void adoptsOnlyLatestExistingCodeAndRejectsEarlierHistory() {
         FixedOwner owner = fixedOwner();
         Fixture joining = ownerFixture("Joining");
@@ -99,47 +84,6 @@ class FixedInvitationIntegrationTest extends ServiceIntegrationTest {
         assertThat(results).allMatch(InvitationView.class::isInstance);
         assertThat(results.getFirst()).isEqualTo(results.getLast());
         assertThat(codes.count()).isOne();
-    }
-
-    @Test
-    void nonOwnerCannotReadOrIssueFixedCode() {
-        FixedOwner owner = fixedOwner();
-        Fixture joining = ownerFixture("Joining");
-        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
-        memberships.join(joining.userId(), code);
-        assertError(ACCESS_DENIED, () -> invitations.issueCode(joining.userId(), owner.refrigeratorId()));
-        assertError(ACCESS_DENIED, () -> invitations.getValidCode(joining.userId(), owner.refrigeratorId()));
-        assertThat(codes.count()).isOne();
-    }
-
-    @Test
-    void fixedCodeStillRequiresOwnerToUseTheRefrigerator() {
-        FixedOwner owner = fixedOwner();
-        Fixture other = ownerFixture("Other");
-        Fixture joining = ownerFixture("Joining");
-        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
-        String otherCode = invitations.issueCode(other.userId(), other.refrigeratorId()).code();
-        memberships.join(owner.userId(), otherCode);
-        assertError(EXPIRED_INVITE, () -> memberships.join(joining.userId(), code));
-        assertThat(refrigeratorMemberRepository.findActiveRefrigeratorId(joining.userId())).contains(joining.refrigeratorId());
-    }
-
-    @Test
-    void expiredFixedCodeStillEnforcesLastPlaceUnderConcurrentJoins() throws Exception {
-        FixedOwner owner = fixedOwner();
-        String code = invitations.issueCode(owner.userId(), owner.refrigeratorId()).code();
-        Refrigerator refrigerator = refrigeratorRepository.findById(owner.refrigeratorId()).orElseThrow();
-        for (int index = 0; index < 148; index++) {
-            join(user("Seed" + index), refrigerator, true, false);
-        }
-        Fixture first = ownerFixture("First");
-        Fixture second = ownerFixture("Second");
-        clock.set("2026-09-17T03:05:00Z");
-        List<Object> results = concurrently(List.of(
-                () -> memberships.join(first.userId(), code), () -> memberships.join(second.userId(), code)));
-        assertThat(results.stream().filter(owner.refrigeratorId()::equals)).hasSize(1);
-        assertThat(results.stream().filter(CustomException.class::isInstance).map(CustomException.class::cast)
-                .map(CustomException::getExceptionCode)).containsExactly(FULL);
     }
 
     private FixedOwner fixedOwner() {

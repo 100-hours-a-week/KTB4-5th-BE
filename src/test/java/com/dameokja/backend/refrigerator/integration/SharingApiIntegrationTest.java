@@ -43,7 +43,8 @@ class SharingApiIntegrationTest extends ServiceIntegrationTest {
         String base = "/api/v1/refrigerators/" + refrigeratorId;
         login(owner.getId());
         String code = json(call("POST", base + "/invitations", "", 200)).at("/data/code").asText();
-        clock.set("2026-09-17T03:06:00Z");
+        clock.set("2100-01-01T03:00:00Z");
+        login(owner.getId());
         JsonNode retrieved = json(call("GET", base + "/invitations", "", 200));
         assertThat(retrieved.at("/data/code").asText()).isEqualTo(code);
         assertThat(retrieved.at("/data/expiresAt").asText()).isEqualTo("2099-12-31T00:05:00+09:00");
