@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,12 @@ class IngredientQuantityUpdateIntegrationTest extends ServiceIntegrationTest {
     @Autowired MembershipService memberships;
     @Autowired InvitationService invitations;
     @Autowired PlatformTransactionManager transactions;
+
+    @AfterEach
+    void cleanQuantityFixtures() {
+        // 커밋된 잠금 검증 데이터가 같은 MySQL을 쓰는 뒤 테스트에 섞이지 않게 한다.
+        cleanDatabaseAndResetTime();
+    }
 
     @Test
     void quantityUpdateLocksUserAndIngredientButNotRefrigeratorOrMembership() throws Exception {
