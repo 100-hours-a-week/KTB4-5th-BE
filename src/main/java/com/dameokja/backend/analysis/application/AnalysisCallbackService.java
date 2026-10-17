@@ -17,6 +17,7 @@ public class AnalysisCallbackService {
     private final AnalysisCompletionValidator validator;
     private final AnalysisCallbackParking analysisCallbackParking;
     private final AnalysisCompletionApplier analysisCompletionApplier;
+    private final AnalysisDispatchWorker analysisDispatchWorker;
 
     public void receive(String analysisId, AnalysisCompletion completion) {
         try {
@@ -28,6 +29,7 @@ public class AnalysisCallbackService {
             return;
         }
         analysisCompletionApplier.apply(analysisId, completion);
+        analysisDispatchWorker.wakeUp();
     }
 
     // AI 접수 응답이 유실되면 콜백이 AI ID 등록보다 먼저 온다. AI 콜백 재시도는 1초 안에 끝나므로 503 대신 보관하고,
