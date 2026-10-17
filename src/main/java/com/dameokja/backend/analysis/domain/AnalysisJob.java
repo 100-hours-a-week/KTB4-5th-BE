@@ -83,6 +83,10 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel, publishedImageEvents);
     }
 
+    public AnalysisJob reopenNotification() {
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, notificationChannel, publishedImageEvents);
+    }
+
     // 같은 결과가 콜백·조회로 여러 번 적용돼도 이미지 완료 이벤트는 한 번만 보내려고, 보낸 이력을 작업과 함께 보관한다.
     public boolean imageEventPublished(String requestId) { return publishedImageEvents.contains(requestId); }
 

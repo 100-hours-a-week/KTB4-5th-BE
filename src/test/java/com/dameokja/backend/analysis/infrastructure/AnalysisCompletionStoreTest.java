@@ -90,6 +90,18 @@ class AnalysisCompletionStoreTest {
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
     }
 
+    // 여러 서버가 같은 작업을 재처리해도 알림 대기를 먼저 끝낸 한 곳만 완료 알림을 보내고, 보내지 못하면 되돌려 다시 보낸다.
+    @Test
+    void letsOnlyOneCallerAcknowledgeTheNotificationUntilItIsReopened() {
+        AnalysisJob job = registeredJob("ai-first");
+        store.complete("ai-first", completed());
+        assertThat(store.acknowledgeNotification(job.id())).isTrue();
+        assertThat(newStore(NOW).acknowledgeNotification(job.id())).isFalse();
+        store.reopenNotification(job.id());
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isTrue();
+        assertThat(newStore(NOW).acknowledgeNotification(job.id())).isTrue();
+    }
+
     @Test
     void repeatsAnIdenticalResultWithoutReplacingItAndRejectsAConflictingResult() {
         AnalysisJob job = registeredJob("ai-first");

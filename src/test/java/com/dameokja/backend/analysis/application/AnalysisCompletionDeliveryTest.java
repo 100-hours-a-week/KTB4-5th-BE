@@ -212,13 +212,13 @@ class AnalysisCompletionDeliveryTest {
     }
 
     @Test
-    void retriesTheSameSseChannelAfterAcknowledgementFails() {
+    void retriesTheSameSseChannelOnceWhenTheNotificationCannotBeAcknowledged() {
         AnalysisJob job = registeredJob(1);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         doThrow(new DataAccessResourceFailureException("ack")).doCallRealMethod().when(store).acknowledgeNotification(job.id());
         callbacks.receive("ai-0", failure);
         retry(3);
-        verify(analysisFinishedEventService, times(2)).publish(7L, job.id(), AnalysisStatus.FAILED, 1, 0, 1, store.findOwned(job.id(), 7L).expiresAt());
+        verify(analysisFinishedEventService).publish(7L, job.id(), AnalysisStatus.FAILED, 1, 0, 1, store.findOwned(job.id(), 7L).expiresAt());
         verifyNoInteractions(pushes);
     }
 
