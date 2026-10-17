@@ -67,6 +67,25 @@ def s05(r):
     check(r, all(f['data']['status'] == 'COMPLETED' for f in finals), 'AI 재시작 뒤 두 작업 모두 완료된다')
 
 
+@scenario('S10', '같은 사진을 처리 중·완료 후 다시 요청')
+def s10(r):
+    reset_queue(); ai_control(delay=3); c = session(); key = upload(); started = time.monotonic()
+    first = job_id(submit(c, [key])); time.sleep(0.5); second = job_id(submit(c, [key]))
+    first_done = finished(c, first, 30); second_done = finished(c, second, 30)
+    third_started = time.monotonic(); third = job_id(submit(c, [key])); third_done = finished(c, third, 30)
+    third_seconds = round(time.monotonic() - third_started, 2)
+    jobs = [first, second, third]
+    rids = {rid for j in jobs for rid in request_ids(j)}
+    ai_ids = {d['aiAnalysisId'] for j in jobs for d in dispatches(j)}
+    r['observations'] = {'jobs': [summary(c, j, started) for j in jobs], 'requestIds': sorted(rids), 'aiAnalysisIds': sorted(ai_ids),
+                         'thirdCompletedAfterSeconds': third_seconds, 'aiCallbacks': len(ai_callbacks(ai_ids))}
+    check(r, all(f['data']['status'] == 'COMPLETED' for f in (first_done, second_done, third_done)), '세 작업 모두 완료된다')
+    check(r, len(rids) == 1 and len(ai_ids) == 1, '같은 requestId로 AI 분석 하나를 함께 쓴다')
+    check(r, list(executions(rids).values()) == [1], '분석은 1회')
+    check(r, third_seconds < 4, 'AI가 이미 끝낸 분석은 콜백 기한(5초)을 기다리지 않고 바로 조회한다')
+    ai_control(delay=0.3)
+
+
 @scenario('S11', 'BE→AI 접수 응답 유실')
 def s11(r):
     reset_queue(); c = session(); control(submit_drop=1); started = time.monotonic()
@@ -224,4 +243,4 @@ def q13(r):
     check(r, len(proxy_submits()) == before, 'AI에 보내지 않는다')
 
 
-SCENARIOS = [s11, s16, s22, s24, q09, q13, s19, s23, s05, s03, s17, q12, q06]
+SCENARIOS = [s10, s11, s16, s22, s24, q09, q13, s19, s23, s05, s03, s17, q12, q06]
