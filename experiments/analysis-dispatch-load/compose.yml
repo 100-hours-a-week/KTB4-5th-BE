@@ -1,0 +1,23 @@
+name: ktb-dispatch-lab
+services:
+  mysql:
+    image: mysql:8.4.8
+    environment:
+      MYSQL_ROOT_PASSWORD: lab-root-only
+      MYSQL_DATABASE: dispatch_lab
+      MYSQL_USER: sandbox
+      MYSQL_PASSWORD: sandbox-only
+      TZ: Asia/Seoul
+    ports: ["127.0.0.1:33306:3306"]
+    command: ["--log-bin-trust-function-creators=1"]
+    volumes:
+      - ${LAB_SCHEMA:-../../src/main/resources/db/schema.sql}:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -usandbox -psandbox-only dispatch_lab -e 'SELECT 1 FROM analysis_dispatch_gates LIMIT 1' >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 3s
+      retries: 90
+  redis:
+    image: redis:8.8.0-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports: ["127.0.0.1:36379:6379"]
