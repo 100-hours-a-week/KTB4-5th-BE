@@ -22,6 +22,8 @@ public class AnalysisDispatchWorker {
     // 기한이 지난 작업을 먼저 정리해야 슬롯이 비어 새 작업을 보낼 수 있다.
     public synchronized void poll() {
         analysisDispatchLeaseService.leaseExpired().forEach(leasedDispatch -> start(() -> analysisDispatchChecker.check(leasedDispatch)));
+        // 전송기는 기한이 지난 행을 AI에 보내지 않고 ANALYSIS_EXPIRED로 끝낸다.
+        analysisDispatchLeaseService.leaseExpiredPending().forEach(leasedDispatch -> start(() -> analysisDispatchSender.send(leasedDispatch)));
         if (!aiAnalysisClient.ready()) {
             return;
         }

@@ -42,6 +42,16 @@ public class AnalysisDispatchLeaseService {
                 leasedAt.plus(analysisDispatchProperties.leaseDuration())));
     }
 
+    // AI가 준비되지 않았거나 슬롯이 차 있어도 기한이 지난 대기 작업은 끝내야 사용자가 다시 요청할 수 있다.
+    // AI에 보내지 않고 실패로만 끝내므로 게이트와 슬롯 수를 보지 않는다.
+    @Transactional
+    public List<LeasedDispatch> leaseExpiredPending() {
+        LocalDateTime now = BusinessTime.now(clock);
+        List<Long> dispatchIds = analysisDispatchRepository.findExpiredPendingIdsWithSkipLock(now, analysisDispatchProperties.checkBatchSize());
+        return record(dispatchIds, now, (leaseToken, leasedAt) -> analysisDispatchRepository.markDispatching(dispatchIds, leaseToken, leasedAt,
+                leasedAt.plus(analysisDispatchProperties.leaseDuration())));
+    }
+
     private List<LeasedDispatch> record(List<Long> dispatchIds, LocalDateTime now, LeaseUpdate leaseUpdate) {
         if (dispatchIds.isEmpty()) {
             return List.of();

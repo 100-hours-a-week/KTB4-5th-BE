@@ -37,6 +37,16 @@ public interface AnalysisDispatchRepository extends JpaRepository<AnalysisDispat
             """, nativeQuery = true)
     List<Long> findLeaseExpiredIdsWithSkipLock(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
+    @Query(value = """
+            SELECT analysis_dispatch_id
+            FROM analysis_dispatches
+            WHERE status = 'PENDING' AND expires_at <= :now
+            ORDER BY expires_at, analysis_dispatch_id
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Long> findExpiredPendingIdsWithSkipLock(@Param("now") LocalDateTime now, @Param("limit") int limit);
+
     @Modifying
     @Query(value = """
             UPDATE analysis_dispatches

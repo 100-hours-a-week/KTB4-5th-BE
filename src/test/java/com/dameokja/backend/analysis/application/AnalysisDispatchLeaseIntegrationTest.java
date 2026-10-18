@@ -88,6 +88,22 @@ class AnalysisDispatchLeaseIntegrationTest extends MySqlJpaTest {
         assertThat(statusOf(analysisImages.getLast())).isEqualTo("AWAITING_CALLBACK");
     }
 
+    // 슬롯이 차서 보내지 못한 대기 작업도 기한이 지나면 꺼내야 실패로 끝낼 수 있다.
+    @Test
+    void leasesOnlyExpiredQueuedImagesEvenWhenSlotsAreFull() {
+        List<AnalysisImage> analysisImages = enqueue(4);
+        analysisDispatchLeaseService.leaseDue();
+        jdbcTemplate.update("UPDATE analysis_dispatches SET expires_at = ? WHERE request_id = ?", NOW, analysisImages.get(2).requestId());
+
+        List<LeasedDispatch> expired = analysisDispatchLeaseService.leaseExpiredPending();
+
+        assertThat(expired).hasSize(1);
+        assertThat(statusOf(analysisImages.get(2))).isEqualTo("DISPATCHING");
+        assertThat(statusOf(analysisImages.get(3))).isEqualTo("PENDING");
+        assertThat(analysisDispatchUpdater.fail(expired.getFirst(), AnalysisFailureCode.ANALYSIS_EXPIRED)).isTrue();
+        assertThat(statusOf(analysisImages.get(2))).isEqualTo("FAILED");
+    }
+
     @Test
     void ignoresResultsFromAWorkerWhoseLeaseWasTakenOver() {
         List<AnalysisImage> analysisImages = enqueue(1);

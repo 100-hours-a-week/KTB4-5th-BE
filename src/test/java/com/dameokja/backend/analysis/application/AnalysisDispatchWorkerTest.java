@@ -34,6 +34,14 @@ class AnalysisDispatchWorkerTest {
     }
 
     @Test
+    void finishesExpiredQueuedImagesWhileAiIsNotReady() {
+        when(analysisDispatchLeaseService.leaseExpiredPending()).thenReturn(List.of(LEASED));
+        when(aiAnalysisClient.ready()).thenReturn(false);
+        analysisDispatchWorker.poll();
+        verify(analysisDispatchSender, timeout(1000)).send(LEASED);
+    }
+
+    @Test
     void sendsLeasedImagesWhenAiIsReady() {
         when(aiAnalysisClient.ready()).thenReturn(true);
         when(analysisDispatchLeaseService.leaseDue()).thenReturn(List.of(LEASED));
