@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-@MockitoBean(types = OAuthSecurityConfig.class)
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
 @SpringJUnitConfig(SecurityWebTestSupport.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {

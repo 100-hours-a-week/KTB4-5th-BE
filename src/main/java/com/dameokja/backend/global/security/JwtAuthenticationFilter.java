@@ -5,6 +5,7 @@ import org.springframework.security.core.context.SecurityContext;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
+import com.dameokja.backend.user.application.UserAccessService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ import org.springframework.web.util.WebUtils;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final SecurityErrorHandler securityErrorHandler;
+    private final UserAccessService userAccessService;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -72,6 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(AccessTokenPayload accessTokenPayload, HttpServletRequest request) {
+        userAccessService.validateActive(accessTokenPayload.userId());
         SimpleGrantedAuthority grantedAuthority =
                 new SimpleGrantedAuthority("ROLE_" + accessTokenPayload.role().name());
         UsernamePasswordAuthenticationToken authentication =

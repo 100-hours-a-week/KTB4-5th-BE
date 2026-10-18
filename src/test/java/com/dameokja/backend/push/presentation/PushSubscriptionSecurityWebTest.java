@@ -44,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@MockitoBean(types = OAuthSecurityConfig.class)
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
 @SpringJUnitConfig(PushSubscriptionSecurityWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {
