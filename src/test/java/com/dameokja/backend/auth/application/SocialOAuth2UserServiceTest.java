@@ -103,6 +103,25 @@ class SocialOAuth2UserServiceTest {
     }
 
     @Test
+    void kakaoDefaultImageUrlIsNotImportedAsMemberPhoto() {
+        String response = profile("123", "member@example.com", "true", "true");
+        respond(response.substring(0, response.length() - 2)
+                + ",\"profile\":{\"is_default_image\":true,\"profile_image_url\":\"https://k.kakaocdn.net/default.jpg\"}}}");
+        assertThat(service.loadUser(request("kakao")).identity().profileImageUrl()).isNull();
+        server.verify();
+    }
+
+    @Test
+    void kakaoUserPhotoIsRetainedWhenDefaultImageFlagIsFalse() {
+        String imageUrl = "https://k.kakaocdn.net/member.jpg";
+        String response = profile("123", "member@example.com", "true", "true");
+        respond(response.substring(0, response.length() - 2)
+                + ",\"profile\":{\"is_default_image\":false,\"profile_image_url\":\"" + imageUrl + "\"}}}");
+        assertThat(service.loadUser(request("kakao")).identity().profileImageUrl()).isEqualTo(imageUrl);
+        server.verify();
+    }
+
+    @Test
     void rejectsUnsupportedProviderWithoutSendingUserInfoRequest() {
         assertThatThrownBy(() -> service.loadUser(request("google")))
                 .isInstanceOfSatisfying(OAuth2AuthenticationException.class,

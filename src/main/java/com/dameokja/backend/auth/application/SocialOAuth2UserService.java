@@ -51,6 +51,8 @@ public class SocialOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     private String kakaoProfileImage(Object account) {
         if (account instanceof Map<?, ?> attributes
                 && attributes.get("profile") instanceof Map<?, ?> profile
+                // 카카오 기본 사진도 URL이 제공되므로 URL 유무만으로 구분할 수 없다.
+                && !Boolean.TRUE.equals(profile.get("is_default_image"))
                 && profile.get("profile_image_url") instanceof String url && !url.isBlank()) {
             return url;
         }
