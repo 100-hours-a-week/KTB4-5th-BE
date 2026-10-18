@@ -1,5 +1,8 @@
 package com.dameokja.backend.analysis.presentation;
 
+import com.dameokja.backend.analysis.application.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.AnalysisOverdueJobExpirer;
+import java.time.Duration;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
@@ -286,8 +289,12 @@ class AnalysisJobQueryWebTest {
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, GlobalExceptionHandler.class,
-            AnalysisController.class, AnalysisJobQueryService.class, AnalysisJobStore.class})
+            AnalysisController.class, AnalysisJobQueryService.class, AnalysisOverdueJobExpirer.class, AnalysisJobStore.class})
     static class WebConfiguration {
+        @Bean
+        AnalysisDispatchProperties analysisDispatchProperties() {
+            return new AnalysisDispatchProperties(1, Duration.ofSeconds(30), Duration.ofMinutes(2), Duration.ofMinutes(30), 3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
+        }
         @Bean
         static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean

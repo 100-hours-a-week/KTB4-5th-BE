@@ -1,5 +1,8 @@
 package com.dameokja.backend.analysis.presentation;
 
+import com.dameokja.backend.analysis.application.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.AnalysisOverdueJobExpirer;
+import java.time.Duration;
 import static org.mockito.Mockito.mock;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -156,8 +159,12 @@ class AnalysisJobDeleteWebTest {
     @TestConfiguration(proxyBeanMethods = false)
     @EnableWebMvc
     @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, CsrfController.class,
-            GlobalExceptionHandler.class, AnalysisController.class, AnalysisJobQueryService.class, AnalysisJobDeleteService.class, AnalysisJobStore.class})
+            GlobalExceptionHandler.class, AnalysisController.class, AnalysisJobQueryService.class, AnalysisOverdueJobExpirer.class, AnalysisJobDeleteService.class, AnalysisJobStore.class})
     static class WebConfiguration {
+        @Bean
+        AnalysisDispatchProperties analysisDispatchProperties() {
+            return new AnalysisDispatchProperties(1, Duration.ofSeconds(30), Duration.ofMinutes(2), Duration.ofMinutes(30), 3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
+        }
         @Bean
         static ConversionService conversionService() { return new ApplicationConversionService(); }
         // 결과 만료 시각을 Redis 키 만료에도 쓰므로 실제 현재 시각을 기준으로 둔다.
