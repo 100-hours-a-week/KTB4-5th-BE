@@ -62,7 +62,7 @@ class AnalysisJobQueryServiceTest {
         when(clock.withZone(any())).thenReturn(Clock.fixed(INSTANT, BusinessTime.ZONE));
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl("http://ai.example.com").defaultHeader("X-Internal-API-Key", "test-key");
         mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder).build();
-        analysisJobQueryService = new AnalysisJobQueryService(analysisJobStore);
+        analysisJobQueryService = new AnalysisJobQueryService(analysisJobStore, new AnalysisOverdueJobExpirer(analysisJobStore, AnalysisDispatchFixture.PROPERTIES, clock));
         analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
