@@ -10,17 +10,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedback, Long> {
-    // 전송 중에 BE가 멈춰 선점 기한이 지난 행도 다시 가져간다.
+    // 상태별로 나눠 조회해야 (status, 시각) 인덱스 범위만 읽는다. 끝난 행이 쌓여도 조회 비용이 늘지 않는다.
     @Query(value = """
             SELECT analysis_feedback_id
             FROM analysis_feedbacks
-            WHERE ((status = 'PENDING' AND next_attempt_at <= :now) OR (status = 'SENDING' AND lease_until <= :now))
-              AND expires_at > :now
+            WHERE status = 'PENDING' AND next_attempt_at <= :now AND expires_at > :now
             ORDER BY next_attempt_at, analysis_feedback_id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
     List<Long> findDueIdsWithSkipLock(@Param("now") LocalDateTime now, @Param("limit") int limit);
+
+    // 전송 중에 BE가 멈춰 선점 기한이 지난 행을 다시 가져간다.
+    @Query(value = """
+            SELECT analysis_feedback_id
+            FROM analysis_feedbacks
+            WHERE status = 'SENDING' AND lease_until <= :now AND expires_at > :now
+            ORDER BY lease_until, analysis_feedback_id
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Long> findLeaseExpiredIdsWithSkipLock(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
     @Modifying
     @Query(value = """
@@ -64,7 +74,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
     @Query(value = """
             UPDATE analysis_feedbacks
             SET status = 'FAILED', lease_token = NULL, lease_until = NULL, last_error_code = :errorCode, finished_at = :now, updated_at = :now
-            WHERE expires_at <= :now AND (status = 'PENDING' OR (status = 'SENDING' AND lease_until <= :now))
+            WHERE status IN ('PENDING','SENDING') AND expires_at <= :now AND (status = 'PENDING' OR lease_until <= :now)
             """, nativeQuery = true)
     int failExpired(@Param("errorCode") String errorCode, @Param("now") LocalDateTime now);
 }

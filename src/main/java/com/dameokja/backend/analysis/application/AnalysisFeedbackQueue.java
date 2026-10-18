@@ -6,6 +6,7 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +33,8 @@ public class AnalysisFeedbackQueue {
 
     public List<LeasedFeedback> leaseDue() {
         LocalDateTime now = BusinessTime.now(clock);
-        List<Long> feedbackIds = analysisFeedbackRepository.findDueIdsWithSkipLock(now, analysisFeedbackProperties.batchSize());
+        List<Long> feedbackIds = new ArrayList<>(analysisFeedbackRepository.findLeaseExpiredIdsWithSkipLock(now, analysisFeedbackProperties.batchSize()));
+        feedbackIds.addAll(analysisFeedbackRepository.findDueIdsWithSkipLock(now, analysisFeedbackProperties.batchSize() - feedbackIds.size()));
         if (feedbackIds.isEmpty()) {
             return List.of();
         }
