@@ -109,6 +109,18 @@ class AnalysisIngredientServiceTest {
         assertThatThrownBy(() -> fraction.toCommand(RegistrationSource.RECEIPT)).isInstanceOf(CustomException.class);
     }
 
+    @Test
+    void treatsZeroQuantityOfWeightItemAsUnused() {
+        AnalysisIngredientCommand.Item weight = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.WEIGHT, BigDecimal.ZERO, new AnalysisIngredientCommand.Weight(BigDecimal.TEN, WeightUnit.ML), count.expiration());
+        IngredientCreateCommand command = weight.toCommand(RegistrationSource.FOOD_IMAGE);
+        assertThat(command.quantity()).isNull();
+        assertThat(command.weightValue()).isEqualTo(BigDecimal.TEN);
+        AnalysisIngredientCommand.Item weightWithQuantity = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.WEIGHT, BigDecimal.ONE, weight.weight(), count.expiration());
+        assertThat(weightWithQuantity.toCommand(RegistrationSource.FOOD_IMAGE).quantity()).isEqualTo(1);
+    }
+
     @SafeVarargs
     private AnalysisIngredientCommand request(List<AnalysisIngredientCommand.Item>... items) {
         List<AnalysisIngredientCommand.Image> images = java.util.stream.IntStream.range(0, items.length)
