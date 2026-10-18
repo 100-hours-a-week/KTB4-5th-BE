@@ -63,6 +63,7 @@ public class OAuthCallbackHandler implements AuthenticationSuccessHandler, Authe
             boolean cancelled = Boolean.TRUE.equals(request.getAttribute(BrowserAuthorizationRequestRepository.VALIDATED))
                     && exception instanceof OAuth2AuthenticationException oauth
                     && "access_denied".equals(oauth.getError().getErrorCode());
+            log.warn("OAuth 로그인 실패: {}", exception.getMessage());
             redirect(response, "/login?error=" + (cancelled ? "OAUTH_CANCELLED" : "OAUTH_LOGIN_FAILED"));
         } finally {
             SecurityContextHolder.clearContext();
