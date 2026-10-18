@@ -29,4 +29,4 @@ python -I lab/summarize.py evidence
 docker compose -f compose.yml down --volumes
 ```
 
-포트: BE 38080(2대째 38083), AI 38081, MySQL 33306, Redis 36379.
+포트: BE 38080(2~4대째 38083·38084·38085), AI 38081, MySQL 33306, Redis 36379.

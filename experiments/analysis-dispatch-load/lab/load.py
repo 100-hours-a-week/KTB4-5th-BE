@@ -36,7 +36,7 @@ JAR = Path(os.environ.get('LAB_JAR', str(ROOT / 'be.jar')))
 AI_SOURCE = os.environ.get('LAB_AI_SOURCE', str(ROOT / 'source/ai-4a03494/fastapi'))
 AI_MAIN_SOURCE = os.environ.get('LAB_AI_MAIN_SOURCE', str(ROOT / 'source/ai-main/fastapi'))
 AI = 'http://127.0.0.1:38081'
-BE_PORTS = (38080, 38083)
+BE_PORTS = (38080, 38083, 38084, 38085)
 USERS = list(range(900001, 900301))
 PROBE_PATH = '/api/v1/refrigerators/current'
 processes = {}
@@ -268,7 +268,7 @@ async def probe(clients, rate, stop_event, entries, phase):
     await asyncio.gather(*tasks)
 
 
-async def submit(client, images, entries):
+async def submit(client, images, entries, stage=None):
     keys = [upload_key(client.user) for _ in range(images)]
     started = time.monotonic()
     try:
@@ -277,7 +277,7 @@ async def submit(client, images, entries):
         status = response.status_code
     except httpx.HTTPError:
         status = 0
-    entries.append({'t': time.time(), 'ms': (time.monotonic() - started) * 1000, 'status': status, 'images': images})
+    entries.append({'t': time.time(), 'ms': (time.monotonic() - started) * 1000, 'status': status, 'images': images, 'stage': stage})
 
 
 PROMETHEUS_PATTERN = re.compile(r'^(hikaricp_connections_(?:active|pending|idle|timeout_total|acquire_seconds_max|acquire_seconds_sum|acquire_seconds_count)|jvm_threads_live_threads)\{?[^ ]*\s+([0-9.eE+-]+)', re.M)
@@ -501,6 +501,23 @@ async def observe_tail(port, limit_seconds=900):
 
 # ---------- 시나리오 ----------
 
+def stage_summary(spec, probe_entries, submit_entries, samples):
+    if spec['load']['type'] != 'ramp':
+        return None
+    names = [f'rate{rate}' for rate, _ in spec['load']['stages']] + ['drain']
+    summary = {}
+    for name in names:
+        stage_probes = [entry for entry in probe_entries if entry['phase'] == name]
+        stage_submits = [entry for entry in submit_entries if entry.get('stage') == name]
+        summary[name] = {'probe': latency_summary(stage_probes), 'submit': latency_summary(stage_submits)}
+        if stage_probes:
+            stage_start, stage_end = stage_probes[0]['t'], stage_probes[-1]['t']
+            in_stage = [sample for sample in samples if stage_start <= sample.get('t', 0) <= stage_end]
+            if in_stage:
+                summary[name]['lastSample'] = in_stage[-1]
+    return summary
+
+
 async def run_scenario(spec):
     scenario_id = spec['id']
     print('START', scenario_id, spec['title'], flush=True)
@@ -557,6 +574,23 @@ async def run_scenario(spec):
             while time.monotonic() < deadline:
                 await submit(client, load['images'], submit_entries)
         await asyncio.gather(*(worker(number) for number in range(load['concurrency'])))
+    elif load['type'] == 'ramp':
+        # 응답을 기다리지 않고 단계마다 정한 속도로 접수한다. 사용자가 실제로 몰리는 모양이라 BE가 느려져도 요청이 줄지 않는다.
+        tasks = []
+        number = 0
+        for rate, seconds in load['stages']:
+            phase[0] = f'rate{rate}'
+            stage_started = time.monotonic()
+            next_time = stage_started
+            while time.monotonic() - stage_started < seconds:
+                port = ports[number % len(ports)]
+                client = clients[port][number % len(USERS)]
+                tasks.append(asyncio.create_task(submit(client, load['images'], submit_entries, phase[0])))
+                number += 1
+                next_time += 1 / rate
+                await asyncio.sleep(max(0, next_time - time.monotonic()))
+        phase[0] = 'drain'
+        await asyncio.gather(*tasks)
     submitted_seconds = time.monotonic() - load_started
 
     timeout = spec.get('drainTimeout', 600)
@@ -579,6 +613,7 @@ async def run_scenario(spec):
               'durationSeconds': round(duration, 1), 'submitSeconds': round(submitted_seconds, 1), 'loadToDrainSeconds': round(drained_seconds, 1),
               'probe': {phase_name: latency_summary([entry for entry in probe_entries if entry['phase'] == phase_name]) for phase_name in ('before', 'load', 'after')},
               'submit': latency_summary(submit_entries),
+              'stages': stage_summary(spec, probe_entries, submit_entries, samples),
               'submitPerSecond': round(len(submit_entries) / submitted_seconds, 1) if submitted_seconds else None,
               'dispatch': dispatch_summary(since_id),
               'pool': {str(port): pool_summary(samples, port) for port in ports},
@@ -597,6 +632,7 @@ async def run_scenario(spec):
 
 SLOW_AI = {'consumers': 2, 'queue': 100, 'delay': 1.0}
 FAST_AI = {'consumers': 16, 'queue': 100, 'delay': 0.05}
+RAMP_STAGES = [(25, 60), (50, 60), (100, 60), (200, 60)]
 SCENARIOS = [
     {'id': 'B0', 'title': '기준: 분석 요청 없음', 'ai': SLOW_AI, 'load': {'type': 'burst', 'requests': 0, 'images': 1, 'spreadSeconds': 0}, 'warmup': 30},
     {'id': 'B1', 'title': '몰림: 100명 x 3장, 느린 AI(소비자 2, 1초)', 'ai': SLOW_AI, 'load': {'type': 'burst', 'requests': 100, 'images': 3, 'spreadSeconds': 3}},
@@ -647,6 +683,16 @@ SCENARIOS = [
      'waitingRows': 100000, 'load': {'type': 'burst', 'requests': 200, 'images': 2, 'spreadSeconds': 3}},
     {'id': 'B1FIX', 'title': '몰림: 100명 x 3장, 느린 AI, 개선안', 'ai': SLOW_AI, 'jar': 'be-coalesce.jar', 'expireIndex': True,
      'load': {'type': 'burst', 'requests': 100, 'images': 3, 'spreadSeconds': 3}},
+    # 개선안을 넣은 상태에서 응답을 기다리지 않는 접수를 초당 25→50→100→200건으로 올리며 BE 대수별 한계점을 본다.
+    {'id': 'R1', 'title': '단계 증가 접수, BE 1대, 개선안', 'ai': FAST_AI, 'jar': 'be-coalesce.jar', 'expireIndex': True, 'drainTimeout': 1800,
+     'load': {'type': 'ramp', 'images': 1, 'stages': RAMP_STAGES}},
+    {'id': 'R2', 'title': '단계 증가 접수, BE 2대, 개선안', 'ai': FAST_AI, 'jar': 'be-coalesce.jar', 'expireIndex': True, 'drainTimeout': 1800, 'instances': 2,
+     'load': {'type': 'ramp', 'images': 1, 'stages': RAMP_STAGES}},
+    {'id': 'R4', 'title': '단계 증가 접수, BE 4대, 개선안', 'ai': FAST_AI, 'jar': 'be-coalesce.jar', 'expireIndex': True, 'drainTimeout': 1800, 'instances': 4,
+     'load': {'type': 'ramp', 'images': 1, 'stages': RAMP_STAGES}},
+    # 슬롯 10개가 처리량을 막는지, 슬롯을 늘리면 게이트 잠금이 다음 병목이 되는지 가른다.
+    {'id': 'R4S40', 'title': '단계 증가 접수, BE 4대, 개선안, 슬롯 40', 'ai': FAST_AI, 'jar': 'be-coalesce.jar', 'expireIndex': True, 'drainTimeout': 1800, 'instances': 4,
+     'slots': 40, 'lockTrace': True, 'load': {'type': 'ramp', 'images': 1, 'stages': RAMP_STAGES}},
 ]
 
 
