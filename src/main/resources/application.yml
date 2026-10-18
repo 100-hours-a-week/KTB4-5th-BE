@@ -141,6 +141,16 @@ analysis:
     # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
     retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
     sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
+  feedback:
+    enabled: ${ANALYSIS_FEEDBACK_ENABLED:true}
+    poll-interval: ${ANALYSIS_FEEDBACK_POLL_INTERVAL:10s}
+    # AI가 받지 못한 피드백을 다시 보내는 간격. AI가 꺼져 있을 때는 ready 확인에서 걸러져 시도하지 않는다.
+    retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:10m}
+    # 한 번에 가져간 행을 모두 보낼 때까지의 점유 기한. 넘기면 BE가 멈춘 것으로 보고 다른 서버가 다시 가져간다.
+    lease-duration: ${ANALYSIS_FEEDBACK_LEASE_DURATION:5m}
+    # 밤에 꺼진 AI가 주말을 넘겨 켜져도 보낼 수 있게 두고, 그보다 오래된 피드백은 FAILED로 끝낸다.
+    expires-after: ${ANALYSIS_FEEDBACK_EXPIRES_AFTER:3d}
+    batch-size: ${ANALYSIS_FEEDBACK_BATCH_SIZE:20}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
     poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
