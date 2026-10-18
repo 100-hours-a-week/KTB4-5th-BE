@@ -37,10 +37,10 @@ public class AnalysisCompletionValidator {
         MeasureType measure = item.measureType();
         AnalysisCompletionItem.Weight weight = item.weight();
         if (measure == MeasureType.COUNT) {
-            require(item.quantity() == null || item.quantity() >= 1 && item.quantity() <= 100);
-            require(weight.value() == null && weight.unit() == WeightUnit.NONE);
+            require(item.quantity() == null || item.quantity() >= 0 && item.quantity() <= 100);
+            require((weight.value() == null || weight.value().signum() == 0) && weight.unit() == WeightUnit.NONE);
         } else if (measure == MeasureType.WEIGHT) {
-            require(item.quantity() == null && (weight.value() == null || weight.value().signum() > 0));
+            require((item.quantity() == null || item.quantity() == 0) && (weight.value() == null || weight.value().signum() >= 0));
             require(weight.unit() != WeightUnit.NONE);
         } else {
             require(measure == null && item.quantity() == null && weight.value() == null && weight.unit() == null);
