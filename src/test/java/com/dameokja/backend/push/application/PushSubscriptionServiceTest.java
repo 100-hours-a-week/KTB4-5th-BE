@@ -52,7 +52,7 @@ class PushSubscriptionServiceTest {
     }
 
     private void stubActiveUser(long id) {
-        when(userAccessService.getActive(id)).thenReturn(userWithId(id));
+        when(userAccessService.lockActive(id)).thenReturn(userWithId(id));
     }
 
     private UserDevice existingDevice(User owner, String endpoint, String p256dh, String auth) {
@@ -93,7 +93,7 @@ class PushSubscriptionServiceTest {
 
     @Test
     void rejectsRegisterWhenUserNotActive() {
-        when(userAccessService.getActive(1L))
+        when(userAccessService.lockActive(1L))
                 .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
 
         assertThatThrownBy(() -> service.register(1L, "https://fcm.googleapis.com/fcm/send/1", "p256dh", "auth-secret"))

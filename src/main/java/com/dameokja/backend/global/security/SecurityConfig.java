@@ -1,6 +1,7 @@
 package com.dameokja.backend.global.security;
 
 import jakarta.servlet.DispatcherType;
+import com.dameokja.backend.user.application.UserAccessService;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +66,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtProvider, securityErrorHandler);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(UserAccessService userAccessService) {
+        return new JwtAuthenticationFilter(jwtProvider, securityErrorHandler, userAccessService);
     }
 
     @Bean

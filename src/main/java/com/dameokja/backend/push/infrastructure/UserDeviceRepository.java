@@ -3,6 +3,7 @@ package com.dameokja.backend.push.infrastructure;
 import com.dameokja.backend.push.domain.UserDevice;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -24,4 +25,8 @@ public interface UserDeviceRepository extends JpaRepository<UserDevice, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select device from UserDevice device where device.id = :deviceId")
     Optional<UserDevice> findByIdForUpdate(@Param("deviceId") Long deviceId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select device from UserDevice device where device.user.id = :userId order by device.id")
+    List<UserDevice> findAllByUserIdForUpdate(@Param("userId") Long userId);
 }

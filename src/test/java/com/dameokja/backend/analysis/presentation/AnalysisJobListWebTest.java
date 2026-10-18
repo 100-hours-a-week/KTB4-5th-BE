@@ -64,7 +64,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-@MockitoBean(types = OAuthSecurityConfig.class)
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
 @SpringJUnitConfig(AnalysisJobListWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",

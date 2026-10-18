@@ -29,7 +29,7 @@ public class PushSubscriptionService {
 
     public PushSubscriptionResult register(
             Long userId, String endpoint, String p256dhKey, String authSecretPlain) {
-        User user = userAccessService.getActive(userId);
+        User user = userAccessService.lockActive(userId);
         if (!PushEndpointPolicy.isAllowed(endpoint)) {
             throw new CustomException(GlobalExceptionCode.BAD_REQUEST,
                     List.of(FieldError.of("BODY", "/endpoint", "FORMAT",
@@ -64,8 +64,7 @@ public class PushSubscriptionService {
         return new PushSubscriptionResult(existing.getId(), false);
     }
 
-    // existing.getStatus()는 이 구독(UserDevice) 자체의 ACTIVE/DISABLED 여부이며, 사용자 계정 상태와는
-    // 별개다. 사용자 계정이 활성인지는 register() 진입 시 userAccessService.getActive()로 이미 확인했다.
+    // 구독 상태와 별개로 register()에서 회원을 잠가 탈퇴와 등록·갱신을 직렬화한다.
     private boolean hasChanged(UserDevice existing, String p256dhKey, String authSecretPlain) {
         if (existing.getStatus() != UserDeviceStatus.ACTIVE) {
             return true;
@@ -85,6 +84,14 @@ public class PushSubscriptionService {
             throw new CustomException(PushExceptionCode.SUBSCRIPTION_FORBIDDEN);
         }
         device.disable();
+    }
+
+    /**
+     * 회원 잠금을 획득한 탈퇴 트랜잭션에서 본인의 전체 푸시 구독을 비활성화한다.
+     * @param userId 탈퇴 처리 중인 회원 ID
+     */
+    public void disableAll(Long userId) {
+        userDeviceRepository.findAllByUserIdForUpdate(userId).forEach(UserDevice::disable);
     }
 
     // 푸시 서비스가 구독 만료를 응답했을 때 시스템이 호출하므로 사용자 활성 여부와 소유자를 검증하지 않는다.

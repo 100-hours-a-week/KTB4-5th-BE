@@ -27,7 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-@org.springframework.test.context.bean.override.mockito.MockitoBean(types = com.dameokja.backend.global.security.OAuthSecurityConfig.class)
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = {com.dameokja.backend.global.security.OAuthSecurityConfig.class,
+        com.dameokja.backend.user.application.UserAccessService.class})
 @SpringJUnitConfig({AnalysisJobListWebTest.WebConfiguration.class, AnalysisIngredientWebTest.Configuration.class})
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=", "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d"})
