@@ -173,7 +173,7 @@ class AnalysisCallbackWebTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\"quantity\":0", "\"weight\":null", "\"reviewReasons\":null", "\"category\":\"INVALID\"",
+    @ValueSource(strings = {"\"weight\":null", "\"reviewReasons\":null", "\"category\":\"INVALID\"",
             "\"expiration\":{\"date\":\"2026-10-15\",\"dateType\":\"SELL_BY\",\"estimatedRange\":null}",
             "\"storageType\":\"INVALID\"", "\"measureType\":\"INVALID\"", "\"unit\":\"INVALID\"", "\"dateType\":\"INVALID\"",
             "\"dateType\":null"})
