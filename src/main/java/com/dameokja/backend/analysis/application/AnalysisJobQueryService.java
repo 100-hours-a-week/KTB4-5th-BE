@@ -10,13 +10,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AnalysisJobQueryService {
     private final AnalysisJobStore analysisJobStore;
+    private final AnalysisOverdueJobExpirer analysisOverdueJobExpirer;
 
     public AnalysisJobResult get(Long userId, String analysisId) {
-        return toResult(analysisJobStore.findOwned(analysisId, userId));
+        return toResult(analysisOverdueJobExpirer.expireIfOverdue(analysisJobStore.findOwned(analysisId, userId)));
     }
 
     public List<AnalysisJobResult> list(Long userId) {
-        return analysisJobStore.findAllOwned(userId).stream().map(this::toResult).toList();
+        return analysisJobStore.findAllOwned(userId).stream().map(analysisOverdueJobExpirer::expireIfOverdue).map(this::toResult).toList();
     }
 
     private AnalysisJobResult toResult(AnalysisJob job) {

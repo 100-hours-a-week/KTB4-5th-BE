@@ -21,7 +21,9 @@ public record AnalysisIngredientCommand(@NotBlank String analysisId, @NotEmpty @
             }
             Integer count;
             try {
-                count = quantity == null ? null : quantity.intValueExact();
+                // 중량형의 수량 0은 수량을 쓰지 않는다는 뜻이므로 값이 없는 것으로 본다.
+                boolean unusedWeightQuantity = measureType == MeasureType.WEIGHT && quantity != null && quantity.signum() == 0;
+                count = quantity == null || unusedWeightQuantity ? null : quantity.intValueExact();
             } catch (ArithmeticException exception) {
                 throw new CustomException(IngredientExceptionCode.INVALID_INPUT);
             }

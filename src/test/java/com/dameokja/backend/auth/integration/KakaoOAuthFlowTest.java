@@ -5,6 +5,7 @@ import com.dameokja.backend.support.ServiceIntegrationTest;
 import jakarta.servlet.http.Cookie;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -110,6 +111,17 @@ class KakaoOAuthFlowTest extends ServiceIntegrationTest {
     void authorizationUsesKakaoConfiguredConsentsWithoutForcingPhotoScope() throws Exception {
         String redirect = start().getResponse().getRedirectedUrl();
         assertThat(UriComponentsBuilder.fromUriString(redirect).build().getQueryParams()).doesNotContainKey("scope");
+    }
+
+    @Test
+    void standaloneAppRequestsKakaoAccountLoginOnly() throws Exception {
+        assertThat(UriComponentsBuilder.fromUriString(start().getResponse().getRedirectedUrl()).build().getQueryParams())
+                .doesNotContainKey("prompt");
+        MvcResult standalone = request(get("/api/v1/auth/oauth/kakao").param("standalone", "1"));
+        assertThat(standalone.getResponse().getStatus()).isEqualTo(302);
+        assertThat(UriComponentsBuilder.fromUriString(standalone.getResponse().getRedirectedUrl()).build().getQueryParams())
+                .containsEntry("prompt", List.of("login")).containsKeys("state", "code_challenge");
+        assertThat(standalone.getResponse().getCookie("oauthRequest")).isNotNull();
     }
 
     private MvcResult start() throws Exception {
