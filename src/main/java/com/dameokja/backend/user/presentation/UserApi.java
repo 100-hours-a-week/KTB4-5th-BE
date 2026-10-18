@@ -33,6 +33,21 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "회원", description = "회원 API")
 public interface UserApi {
 
+    @Operation(summary = "회원 탈퇴", description = "인증된 본인을 탈퇴 처리하고 모든 기기의 갱신 토큰을 폐기합니다. "
+            + "공유 냉장고 방장은 남은 유효 구성원에게 자동 위임하며, 마지막 구성원이면 냉장고를 삭제 상태로 전환합니다. "
+            + "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. 요청 본문은 없습니다. "
+            + "성공 시 인증 쿠키를 삭제하고 CSRF 토큰을 교체하며, 응답 본문 없이 204를 반환합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "회원 탈퇴 성공", content = @Content),
+            @ApiResponse(responseCode = "401", description = "로그인 필요 또는 유효하지 않은 인증 정보 (GLOBAL-401-001)"),
+            @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001)"),
+            @ApiResponse(responseCode = "404", description = "회원 없음 (USER-404-001)"),
+            @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
+    })
+    ResponseEntity<Void> withdraw(@Parameter(hidden = true) Long userId,
+            @Parameter(hidden = true) HttpServletRequest request,
+            @Parameter(hidden = true) HttpServletResponse response);
+
     @Operation(summary = "내 정보 조회", description = "accessToken 쿠키로 인증한 회원의 프로필·활성 냉장고·만든 요리 수를 조회합니다. "
             + "email은 저장된 카카오 이메일이며, 연결된 카카오 계정이나 이메일이 없으면 null입니다. "
             + "profileImageUrl은 S3 임시 조회 URL이며 유효기간이 지나면 이 API를 다시 조회해야 합니다.")

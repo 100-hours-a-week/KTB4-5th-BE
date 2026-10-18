@@ -14,6 +14,7 @@ import com.dameokja.backend.user.presentation.request.UserProfileUpdateRequest;
 import com.dameokja.backend.user.presentation.response.UserProfileUpdateResponse;
 import com.dameokja.backend.user.application.SignupResult;
 import com.dameokja.backend.user.application.UserSignupService;
+import com.dameokja.backend.user.application.UserWithdrawalService;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
 import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;
 import com.dameokja.backend.user.presentation.response.UserSuccessCode;
@@ -27,6 +28,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,6 +45,17 @@ public class UserController implements UserApi {
     private final CsrfTokenRotator csrfTokenRotator;
     private final UserProfileService userProfileService;
     private final ProfileImageService profileImageService;
+    private final UserWithdrawalService userWithdrawalService;
+
+    @Override
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> withdraw(@CurrentUserId Long userId,
+            HttpServletRequest request, HttpServletResponse response) {
+        userWithdrawalService.withdraw(userId);
+        csrfTokenRotator.rotate(request, response);
+        authCookies.clear(response);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 
     @Override
     @GetMapping("/me")
