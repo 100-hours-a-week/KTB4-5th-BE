@@ -223,3 +223,23 @@ SSE 경로·인증·이벤트 이름과 데이터·재조회·기존 JSON 폴링
 실패·오류·skip은 모두 0건이다. assemble과 test 태스크로 운영·테스트 소스 컴파일과 실행 JAR 생성을 확인했다.
 전체 테스트는 다시 실행하지 않았다. 실제 Redis와 같은 JVM의 두 HTTP 서버 전달을 확인했으며, 독립 서버 프로세스·실제 브라우저·운영 프록시·외부 API 원본 재동기화는 미확인이다.
 운영 DB·실제 외부 푸시 발송·배포는 수행하지 않았다.
+
+
+## 2026-10-19 추방 당사자 kicked 신호
+
+추방 처리와 개인 냉장고 활성화가 커밋된 뒤 기존 V2 SSE 연결로 다음 프레임을 보낸다.
+
+```text
+event: kicked
+data: {}
+
+```
+
+`MembershipService.kick`이 `MemberKicked` 내부 사건을 등록한다. `NotificationRedisPubSub`가 AFTER_COMMIT에
+`fridgely:members:kicked`로 발행하고 각 서버가 당사자의 해당 공유 냉장고 기존 연결들에 전달한다.
+서버 내부의 사용자·냉장고 ID는 라우팅용이며 브라우저 data에는 포함하지 않는다. 롤백이면 발행하지 않는다.
+전송 실패는 커밋된 추방을 되돌리지 않으며, 실패한 연결만 정리한다. 영속 재전송은 기존 SSE와 같이 제공하지 않는다.
+
+프론트 연동 계약은 기존 연결 종료 → `GET /api/v1/refrigerators/current` 재조회 → 개인 냉장고로 전환이다.
+신호를 놓치면 기존 공유 요청의 `REFRIGERATOR-403-001` 확인 시 같은 재조회로 복구한다.
+남은 구성원의 `MEMBER_KICKED` 인앱 알림, 추방 API의 204·빈 본문, 다른 SSE 이벤트는 유지한다.

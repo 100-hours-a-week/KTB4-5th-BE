@@ -15,6 +15,7 @@ public class NotificationPubSubConfig {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(notificationPubSub, new ChannelTopic(NotificationRedisPubSub.CHANNEL));
+        container.addMessageListener(notificationPubSub, new ChannelTopic(NotificationRedisPubSub.KICKED_CHANNEL));
         container.addMessageListener(analysisPubSub, new ChannelTopic(AnalysisFinishedRedisPubSub.CHANNEL));
         container.addMessageListener(analysisPubSub, new ChannelTopic(AnalysisFinishedRedisPubSub.IMAGE_FINISHED_CHANNEL));
         return container;

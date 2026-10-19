@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import java.io.IOException;
@@ -29,6 +30,37 @@ class NotificationSseConnectionsTest {
         emitters.add(second);
         emitters.add(otherUser);
         connections = new NotificationSseConnections(emitters::remove, mock(NotificationConnectionPresence.class));
+    }
+
+    @Test
+    void kickedSendsEmptyJsonToEveryMatchingConnectionOnly() throws Exception {
+        connections.connect(1L, 17L);
+        connections.connect(1L, 17L);
+        connections.connect(2L, 17L);
+
+        connections.notifyKicked(new MemberKicked(1L, 17L));
+
+        ArgumentCaptor<SseEmitter.SseEventBuilder> events = ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
+        verify(first, times(2)).send(events.capture());
+        assertThat(events.getValue().build()).anyMatch(part -> part.getData().equals("{}"));
+        assertThat(events.getValue().build()).anyMatch(part -> part.getData().toString().contains("event:kicked"));
+        verify(second, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(otherUser).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void kickedIgnoresOtherFridgesAndCleansFailedConnections() throws Exception {
+        connections.connect(1L, 17L);
+        connections.connect(1L, 18L);
+        doThrow(new IOException("closed")).when(first).send(any(SseEmitter.SseEventBuilder.class));
+
+        connections.notifyKicked(new MemberKicked(1L, 17L));
+        connections.notifyKicked(new MemberKicked(3L, 17L));
+        connections.heartbeat();
+
+        verify(first, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(first).completeWithError(any(IOException.class));
+        verify(second, times(2)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
     @Test

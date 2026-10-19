@@ -3,6 +3,7 @@ package com.dameokja.backend.notification.infrastructure;
 import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -76,6 +77,18 @@ final class NotificationSseConnection {
                 .name("notifications-changed")
                 .data(Map.of("refrigeratorId", changed.refrigeratorId().toString()));
         emitter.send(event);
+    }
+
+    /**
+     * 추방 당사자의 기존 공유 냉장고 연결에만 빈 JSON 데이터를 보낸다.
+     * @param kicked 서버 내부 전달 대상을 나타내는 추방 사건
+     * @throws IOException 전송 실패 시 호출자가 연결을 정리하도록 전달한다.
+     */
+    public void sendKicked(MemberKicked kicked) throws IOException {
+        if (!userId.equals(kicked.userId()) || !refrigeratorId.equals(kicked.refrigeratorId())) {
+            return;
+        }
+        emitter.send(SseEmitter.event().name("kicked").data("{}"));
     }
 
     public void sendAnalysisImageFinished(AnalysisImageFinished imageFinished) throws IOException {

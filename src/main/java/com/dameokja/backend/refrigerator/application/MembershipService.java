@@ -8,6 +8,7 @@ import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.MembershipNotificationService;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMemberManager;
@@ -19,6 +20,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.resilience.annotation.Retryable;
@@ -36,6 +38,7 @@ public class MembershipService {
     private final RefrigeratorRepository refrigeratorRepository;
     private final Clock clock;
     private final MembershipNotificationService membershipNotifications;
+    private final ApplicationEventPublisher events;
 
     /**
      * 사용자와 관련 냉장고를 잠그고 가입 검증부터 선택 전환·저장까지 한 트랜잭션으로 처리한다.
@@ -92,6 +95,7 @@ public class MembershipService {
 
         restorePersonalRefrigerator(targetRefrigeratorMembership, targetRefrigeratorMemberManager);
         membershipNotifications.kicked(targetRefrigeratorMembership, refrigeratorMemberRepository.findLiveMembersForUpdate(refrigeratorId));
+        events.publishEvent(new MemberKicked(targetUserId, refrigeratorId));
     }
 
     private void prepareJoin(User user, Refrigerator refrigerator, RefrigeratorMemberManager refrigeratorMemberManager) {

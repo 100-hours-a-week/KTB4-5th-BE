@@ -3,6 +3,7 @@ package com.dameokja.backend.notification.infrastructure;
 import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,6 +38,16 @@ final class UserSseConnections {
         connections.forEach(connection -> {
             try {
                 connection.sendChanged(changed);
+            } catch (IOException | RuntimeException exception) {
+                removeFailedConnection(connection, exception);
+            }
+        });
+    }
+
+    public void notifyKicked(MemberKicked kicked) {
+        connections.forEach(connection -> {
+            try {
+                connection.sendKicked(kicked);
             } catch (IOException | RuntimeException exception) {
                 removeFailedConnection(connection, exception);
             }
