@@ -82,8 +82,8 @@ public interface IngredientApi {
             @Parameter(description = "이름 부분검색. 앞뒤 공백 제거 후 1자 이상, 빈 입력은 전체. %, _는 문자 그대로 검색. category·filter와 AND. 변경 시 커서 초기화") String keyword);
     @Operation(
             summary = "재고 상세 조회",
-            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. "
-                    + "baseDate는 요청 시점의 KST 날짜이며 상태·D-day의 계산 기준입니다."
+            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. baseDate는 요청 시점의 KST 날짜이며 상태·D-day의 계산 기준입니다. "
+                    + "ownerNickname은 기존 owner_id에 연결된 최초 등록 회원의 현재 닉네임이며 다른 구성원이 조회하거나 수정해도 등록자 기준으로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(

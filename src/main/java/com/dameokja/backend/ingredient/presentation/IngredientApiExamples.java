@@ -7,6 +7,7 @@ final class IngredientApiExamples {
               "message": "재고 상세 조회 성공",
               "data": {
                 "baseDate": "2026-09-16",
+                "ownerNickname": "등록자",
                 "ingredientId": "1",
                 "name": "두부",
                 "category": "TOFU_BEAN",

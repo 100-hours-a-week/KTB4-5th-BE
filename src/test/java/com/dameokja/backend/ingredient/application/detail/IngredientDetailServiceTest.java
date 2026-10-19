@@ -53,6 +53,7 @@ class IngredientDetailServiceTest {
 
         assertThat(result.ingredient()).isSameAs(ingredient);
         assertThat(result.businessDate()).isEqualTo(LocalDate.of(2026, 9, 16));
+        assertThat(result.ownerNickname()).isEqualTo("등록자");
         verify(accessService).validateReadAccess(2L, 10L);
     }
 
