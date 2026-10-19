@@ -141,6 +141,11 @@ analysis:
     # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
     retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
     sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
+  feedback:
+    retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:10m}
+    lease-duration: ${ANALYSIS_FEEDBACK_LEASE_DURATION:5m}
+    expires-after: ${ANALYSIS_FEEDBACK_EXPIRES_AFTER:3d}
+    batch-size: ${ANALYSIS_FEEDBACK_BATCH_SIZE:20}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
     poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
