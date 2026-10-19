@@ -48,14 +48,21 @@ class AnalysisIngredientServiceTest {
         order.verify(store).delete("job");
     }
 
-    @Test
-    void preservesResultAndStillSendsRemainingFeedbackOnFailure() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void deletesResultAndStillSendsRemainingFeedbackOnFailure(boolean allFeedbacksFail) {
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         when(ai.feedback(eq("ai-receipt"), any())).thenThrow(new RestClientException("unavailable"));
+        if (allFeedbacksFail) {
+            when(ai.feedback(eq("ai-product"), any())).thenThrow(new RestClientException("unavailable"));
+        }
         assertThat(service.create(7L, 1L, request(List.of(count), List.of(count)))).isSameAs(result);
-        verify(ai).feedback(eq("ai-product"), any());
-        verify(store, never()).delete(any());
+        org.mockito.InOrder order = inOrder(creator, ai, store);
+        order.verify(creator).create(eq(7L), eq(1L), any());
+        order.verify(ai).feedback(eq("ai-receipt"), any());
+        order.verify(ai).feedback(eq("ai-product"), any());
+        order.verify(store).delete("job");
     }
 
     @ParameterizedTest

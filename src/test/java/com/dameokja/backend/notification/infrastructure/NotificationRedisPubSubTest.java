@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.dameokja.backend.notification.domain.NotificationChanged;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.DefaultMessage;
@@ -24,6 +25,30 @@ class NotificationRedisPubSubTest {
         receive("{\"userId\":1,\"refrigeratorId\":17}");
 
         verify(connections).notifyChanged(1L, 17L);
+    }
+
+    @Test
+    void kickedUsesItsOwnChannelAndRejectsInvalidRoutingData() {
+        notificationPubSub.afterCommit(new MemberKicked(1L, 17L));
+        verify(redis).convertAndSend(NotificationRedisPubSub.KICKED_CHANNEL, "{\"userId\":1,\"refrigeratorId\":17}");
+        for (String body : new String[] {"null", "not-json", "{\"userId\":1}", "{\"userId\":1,\"refrigeratorId\":0}"}) {
+            receiveKicked(body);
+        }
+        verifyNoInteractions(connections);
+        receiveKicked("{\"userId\":1,\"refrigeratorId\":17}");
+        verify(connections).notifyKicked(new MemberKicked(1L, 17L));
+        verifyNoMoreInteractions(connections);
+    }
+
+    @Test
+    void kickedPublicationFailureDoesNotFailAnAlreadyCommittedRemoval() {
+        doThrow(new IllegalStateException("redis unavailable")).when(redis).convertAndSend(anyString(), anyString());
+        assertThatCode(() -> notificationPubSub.afterCommit(new MemberKicked(1L, 17L))).doesNotThrowAnyException();
+    }
+
+    private void receiveKicked(String body) {
+        notificationPubSub.onMessage(new DefaultMessage(NotificationRedisPubSub.KICKED_CHANNEL.getBytes(StandardCharsets.UTF_8),
+                body.getBytes(StandardCharsets.UTF_8)), null);
     }
 
     @Test

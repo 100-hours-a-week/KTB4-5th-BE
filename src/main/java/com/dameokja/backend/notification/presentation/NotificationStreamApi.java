@@ -21,6 +21,10 @@ public interface NotificationStreamApi {
             GET /api/v1/refrigerators/{refrigeratorId}/notifications/unread-count를 재조회합니다.
             변경 이벤트의 refrigeratorId가 현재 활성 냉장고와 같을 때 재조회합니다.
             알림·수신자 저장, 단건·전체 읽음 변경의 DB 커밋 후 발행하며 푸시 성공을 기다리지 않습니다.
+            추방·개인 냉장고 활성화 커밋 후 당사자의 해당 공유 냉장고 기존 연결에만 kicked(data:{})를 보냅니다.
+            kicked 수신 시 기존 연결을 닫고 GET /api/v1/refrigerators/current 재조회 후 개인 냉장고로 전환합니다.
+            인앱 알림 저장과 별개이며 냉장고 ID를 데이터에 포함하지 않습니다. 롤백 시 전송하지 않습니다.
+            신호 유실 시 기존 공유 요청의 REFRIGERATOR-403-001에서 현재 냉장고를 재조회해 복구합니다.
             image-analysis.image-finished와 image-analysis.finished는 냉장고와 관계없이 분석 요청자 본인의 모든 연결에 전달합니다.
             이미지 하나가 COMPLETED·FAILED로 종료될 때마다 마지막 이미지를 포함해 image-finished를 먼저 발행합니다. 개별 이벤트는 푸시를 생성하지 않습니다.
             마지막 이미지의 개별 이벤트 발행 뒤에는 finished 또는 기존 푸시도 처리합니다. 개별 이벤트에는 imageObjectKey·imageStatus와 expiresAt:null을 보냅니다.
@@ -51,6 +55,9 @@ public interface NotificationStreamApi {
 
                             event:image-analysis.finished
                             data:{"analysisId":"analysis-id","status":"PARTIALLY_COMPLETED","totalImageCount":2,"completedImageCount":1,"failedImageCount":1,"expiresAt":"2026-10-22T19:00:00+09:00"}
+
+                            event:kicked
+                            data:{}
 
                             :heartbeat
 

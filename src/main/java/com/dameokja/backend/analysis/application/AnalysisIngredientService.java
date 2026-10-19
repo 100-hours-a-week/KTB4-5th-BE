@@ -69,21 +69,18 @@ public class AnalysisIngredientService {
     }
 
     private void sendAndCleanup(String jobId, List<Feedback> feedbacks) {
-        boolean success = true;
         for (Feedback feedback : feedbacks) {
             try {
                 aiAnalysisClient.feedback(feedback.aiId(), feedback.request());
             } catch (RuntimeException exception) {
-                success = false;
                 log.warn("재고 등록 후 AI 피드백 실패: jobId={}, aiId={}, itemId={}", jobId, feedback.aiId(), feedback.itemId(), exception);
             }
         }
-        if (success) {
-            try {
-                analysisJobStore.delete(jobId);
-            } catch (RuntimeException exception) {
-                log.warn("재고 등록 후 분석 결과 삭제 실패: jobId={}", jobId, exception);
-            }
+        // 이미 등록된 재고를 다시 등록하지 않도록 피드백 전송 성공 여부와 관계없이 결과를 지운다.
+        try {
+            analysisJobStore.delete(jobId);
+        } catch (RuntimeException exception) {
+            log.warn("재고 등록 후 분석 결과 삭제 실패: jobId={}", jobId, exception);
         }
     }
 
