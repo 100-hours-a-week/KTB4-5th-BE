@@ -1,0 +1,269 @@
+package com.dameokja.backend.analysis.infrastructure;
+
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
+import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisImage;
+import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
+import com.dameokja.backend.analysis.domain.AnalysisReviewReason;
+import com.dameokja.backend.analysis.domain.AnalysisStatus;
+import com.dameokja.backend.analysis.domain.RecognitionStatus;
+import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
+import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.support.RedisTestSupport;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.script.RedisScript;
+import tools.jackson.databind.json.JsonMapper;
+
+@ExtendWith(RedisTestSupport.class)
+class AnalysisCompletionStoreTest {
+    private static final Instant NOW = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+    private static final Duration TTL = Duration.ofHours(1);
+    private final AnalysisJobStore store = newStore(NOW);
+
+    @Test
+    void persistsAResultForAnotherInstanceAndStartsItsRetentionDeadline() {
+        AnalysisJob job = registeredJob("ai-first");
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isEqualTo(-1L);
+        AnalysisCompletion result = completed();
+        AnalysisJobStores.complete(store, "ai-first", result);
+        String stored = redisTemplate().opsForValue().get("analysis:job:" + job.id());
+        assertThat(JsonMapper.builder().build().readTree(stored).at("/analysisImages/0/completion/completedAt").asString())
+                .isEqualTo("2026-10-13T10:00:10+09:00");
+        AnalysisJob restored = AnalysisJobStores.findByAiAnalysisId(newStore(NOW.plusSeconds(5)), "ai-first");
+        assertThat(restored.userId()).isEqualTo(7L);
+        assertThat(restored.analysisImages().getFirst().completion()).isEqualTo(result);
+        assertThat(restored.notificationPending()).isTrue();
+        assertThat(restored.expiresAt().toInstant()).isEqualTo(NOW.plus(TTL));
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
+        assertThat(redisTemplate().getExpire("analysis:ai:ai-first", TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
+    }
+
+    @Test
+    void atomicallyKeepsOneChannelAcrossConcurrentSelectionsAndPreservesRetention() throws Exception {
+        AnalysisJob job = registeredJob("ai-first");
+        AnalysisJob completed = AnalysisJobStores.complete(store, "ai-first", completed());
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<AnalysisJob> sse = executor.submit(() -> {
+                start.await();
+                return newStore(NOW).selectNotificationChannel(job.id(), AnalysisNotificationChannel.SSE);
+            });
+            Future<AnalysisJob> push = executor.submit(() -> {
+                start.await();
+                return newStore(NOW).selectNotificationChannel(job.id(), AnalysisNotificationChannel.PUSH);
+            });
+            start.countDown();
+            assertThat(sse.get(5, TimeUnit.SECONDS).notificationChannel()).isEqualTo(push.get(5, TimeUnit.SECONDS).notificationChannel());
+        }
+        store.acknowledgeNotification(job.id());
+        AnalysisJob handled = store.selectNotificationChannel(job.id(), AnalysisNotificationChannel.SSE);
+        assertThat(handled.notificationPending()).isFalse();
+        assertThat(handled.expiresAt()).isEqualTo(completed.expiresAt());
+        assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isBetween(1L, TTL.toMillis());
+    }
+
+    // 여러 서버가 같은 작업을 재처리해도 알림 대기를 먼저 끝낸 한 곳만 완료 알림을 보내고, 보내지 못하면 되돌려 다시 보낸다.
+    @Test
+    void letsOnlyOneCallerAcknowledgeTheNotificationUntilItIsReopened() {
+        AnalysisJob job = registeredJob("ai-first");
+        AnalysisJobStores.complete(store, "ai-first", completed());
+        assertThat(store.acknowledgeNotification(job.id())).isTrue();
+        assertThat(newStore(NOW).acknowledgeNotification(job.id())).isFalse();
+        store.reopenNotification(job.id());
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isTrue();
+        assertThat(newStore(NOW).acknowledgeNotification(job.id())).isTrue();
+    }
+
+    @Test
+    void repeatsAnIdenticalResultWithoutReplacingItAndRejectsAConflictingResult() {
+        AnalysisJob job = registeredJob("ai-first");
+        AnalysisJobStores.complete(store, "ai-first", completed());
+        String stored = redisTemplate().opsForValue().get("analysis:job:" + job.id());
+        AnalysisCompletion sameInstant = new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T10:00:10+09:00"), completed().result(), null);
+        AnalysisJobStores.complete(store, "ai-first", sameInstant);
+        assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "ai-first", failed())).isInstanceOf(CustomException.class)
+                .extracting("exceptionCode").isEqualTo(AnalysisExceptionCode.RESULT_CONFLICT);
+        assertThat(redisTemplate().opsForValue().get("analysis:job:" + job.id())).isEqualTo(stored);
+    }
+
+    @Test
+    void simultaneousCallbacksRetainBothResultsAndOnlyFinishTheWholeGroup() throws Exception {
+        AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first"), image("second")));
+        store.register(job.id(), 7L, job.analysisImages().get(0).requestId(), "ai-first");
+        store.register(job.id(), 7L, job.analysisImages().get(1).requestId(), "ai-second");
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<AnalysisJob> first = executor.submit(() -> completeAfterStart(start, "ai-first", completed()));
+            Future<AnalysisJob> second = executor.submit(() -> completeAfterStart(start, "ai-second", failed()));
+            start.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+        }
+        AnalysisJob restored = store.findOwned(job.id(), 7L);
+        assertThat(restored.analysisImages()).extracting(AnalysisImage::completion).containsExactly(completed(), failed());
+        assertThat(restored.notificationPending()).isTrue();
+    }
+
+    @Test
+    void simultaneousDuplicatesFinishWithoutChangingTheStoredResult() throws Exception {
+        AnalysisJob job = registeredJob("ai-first");
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<AnalysisJob> first = executor.submit(() -> completeAfterStart(start, "ai-first", completed()));
+            Future<AnalysisJob> second = executor.submit(() -> completeAfterStart(start, "ai-first", completed()));
+            start.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(second.get(5, TimeUnit.SECONDS));
+        }
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(completed());
+    }
+
+    @Test
+    void waitsForEveryImageIncludingFailuresAndDoesNotRequeueAnAlreadyHandledNotification() {
+        AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first"), image("second")));
+        store.register(job.id(), 7L, job.analysisImages().get(0).requestId(), "ai-first");
+        store.register(job.id(), 7L, job.analysisImages().get(1).requestId(), "ai-second");
+        assertThat(AnalysisJobStores.complete(store, "ai-first", failed()).notificationPending()).isFalse();
+        AnalysisJob completedJob = AnalysisJobStores.complete(store, "ai-second", failed());
+        assertThat(completedJob.notificationPending()).isTrue();
+        AnalysisJob handled = new AnalysisJob(job.id(), job.userId(), job.inputHint(), completedJob.analysisImages(), job.submittedAt(), completedJob.expiresAt(), false);
+        redisTemplate().opsForValue().set("analysis:job:" + job.id(), JsonMapper.builder().build().writeValueAsString(handled), TTL);
+        assertThat(AnalysisJobStores.complete(store, "ai-second", failed()).notificationPending()).isFalse();
+    }
+
+    @Test
+    void preservesNullableFieldsDatesDecimalMeasurementsAndReviewReasons() {
+        registeredJob("ai-first");
+        AnalysisCompletionItem item = new AnalysisCompletionItem("item-1", RecognitionStatus.NEEDS_REVIEW,
+                null, IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new AnalysisCompletionItem.Weight(new BigDecimal("150.50"), WeightUnit.ML),
+                new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.ESTIMATED_CONSUMPTION_WINDOW,
+                        new AnalysisCompletionItem.EstimatedRange(LocalDate.parse("2026-10-14"), LocalDate.parse("2026-10-16"))),
+                List.of(new AnalysisReviewReason(AnalysisReviewReason.Field.EXPIRATION, AnalysisReviewReason.Code.EXPIRATION_ESTIMATED,
+                        List.of("보관 조건으로 예상했습니다.", "소비기한을 확인해 주세요.")),
+                        new AnalysisReviewReason(AnalysisReviewReason.Field.ITEM, AnalysisReviewReason.Code.ITEM_REVIEW_REQUIRED, List.of("상품명을 확인해 주세요."))));
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, completed().completedAt(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of(item)), null);
+        AnalysisJobStores.complete(store, "ai-first", completion);
+        assertThat(AnalysisJobStores.findByAiAnalysisId(newStore(NOW), "ai-first").analysisImages().getFirst().completion()).isEqualTo(completion);
+    }
+
+    @Test
+    void sharesOneAiAnalysisBetweenJobsThatRequestedTheSamePhoto() {
+        AnalysisJob first = registeredJob("ai-first");
+        AnalysisJob second = store.create(7L, "RECEIPT", List.of(image("first")));
+        store.register(second.id(), 7L, second.analysisImages().getFirst().requestId(), "ai-first");
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactlyInAnyOrder(first.id(), second.id());
+
+        store.complete(first.id(), "ai-first", completed());
+        assertThat(store.findOwned(second.id(), 7L).analysisImages().getFirst().completion()).isNull();
+        store.delete(first.id());
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactly(second.id());
+    }
+
+    // 집합 색인 이전에 문자열로 저장된 색인도 그대로 찾고, 다음 등록 때 집합으로 옮긴다.
+    @Test
+    void migratesAStringIndexToASetWhenAnotherJobRegisters() {
+        AnalysisJob first = store.create(7L, "RECEIPT", List.of(image("first")));
+        String firstJson = redisTemplate().opsForValue().get("analysis:job:" + first.id());
+        redisTemplate().opsForValue().set("analysis:job:" + first.id(), firstJson.replace("\"aiAnalysisId\":null", "\"aiAnalysisId\":\"ai-first\""));
+        redisTemplate().opsForValue().set("analysis:ai:ai-first", first.id());
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactly(first.id());
+
+        AnalysisJob second = store.create(7L, "RECEIPT", List.of(image("first")));
+        store.register(second.id(), 7L, second.analysisImages().getFirst().requestId(), "ai-first");
+        assertThat(redisTemplate().type("analysis:ai:ai-first").code()).isEqualTo("set");
+        assertThat(store.findJobIdsByAiAnalysisId("ai-first")).containsExactlyInAnyOrder(first.id(), second.id());
+    }
+
+    @Test
+    void refusesUnregisteredAndExpiredResultsWithoutRestoringExpiredJobs() {
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "unknown", completed())).isInstanceOf(CustomException.class);
+        AnalysisJob job = registeredJob("ai-first");
+        AnalysisJobStores.complete(store, "ai-first", completed());
+        assertThatThrownBy(() -> AnalysisJobStores.complete(newStore(NOW.plus(TTL)), "ai-first", completed())).isInstanceOf(CustomException.class);
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion()).isEqualTo(completed());
+        redisTemplate().delete("analysis:job:" + job.id());
+        assertThatThrownBy(() -> AnalysisJobStores.complete(store, "ai-first", completed())).isInstanceOf(CustomException.class);
+        assertThat(redisTemplate().hasKey("analysis:job:" + job.id())).isFalse();
+    }
+
+    @Test
+    void readsExistingJobJsonAndBuildsItsIndexWithoutLosingTheRequest() {
+        AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first")));
+        String key = "analysis:job:" + job.id();
+        String legacy = redisTemplate().opsForValue().get(key).replace(",\"notificationPending\":false", "").replace(",\"completion\":null", "").replace(",\"notificationChannel\":null", "");
+        redisTemplate().opsForValue().set(key, legacy, TTL);
+        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+        assertThat(store.findOwned(job.id(), 7L).notificationChannel()).isNull();
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-first");
+        assertThat(AnalysisJobStores.findByAiAnalysisId(store, "ai-first").analysisImages().getFirst().requestId()).isEqualTo(job.analysisImages().getFirst().requestId());
+    }
+
+    @Test
+    void doesNotRecreateAJobOrIndexIfTheJobExpiresBetweenReadAndReplacement() {
+        AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first")));
+        String key = "analysis:job:" + job.id();
+        String previous = redisTemplate().opsForValue().get(key);
+        redisTemplate().delete(key);
+        RedisScript<Long> replace = RedisScript.of(new ClassPathResource("redis/analysis/replace-analysis-job.lua"), Long.class);
+        assertThat(redisTemplate().execute(replace, List.of(key, "analysis:ai:ai-first"), previous, previous, job.id())).isZero();
+        assertThat(redisTemplate().hasKey(key)).isFalse();
+        assertThat(redisTemplate().hasKey("analysis:ai:ai-first")).isFalse();
+    }
+
+    private AnalysisJob completeAfterStart(CountDownLatch start, String analysisId, AnalysisCompletion completion) throws Exception {
+        start.await();
+        return AnalysisJobStores.complete(newStore(NOW), analysisId, completion);
+    }
+
+    private AnalysisJob registeredJob(String analysisId) {
+        AnalysisJob job = store.create(7L, "RECEIPT", List.of(image("first")));
+        store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), analysisId);
+        return store.findOwned(job.id(), 7L);
+    }
+
+    private AnalysisJobStore newStore(Instant instant) {
+        return new AnalysisJobStore(Clock.fixed(instant, BusinessTime.ZONE), TTL, redisTemplate(), JsonMapper.builder().build());
+    }
+
+    private AnalysisImage image(String key) { return AnalysisImage.pending(key, "ab".repeat(32)); }
+
+    private AnalysisCompletion completed() {
+        return new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.parse("2026-10-13T01:00:10Z"),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of()), null);
+    }
+
+    private AnalysisCompletion failed() {
+        return new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.parse("2026-10-13T01:00:10Z"), null,
+                new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석을 수행하지 못했습니다.", true, 1000));
+    }
+}

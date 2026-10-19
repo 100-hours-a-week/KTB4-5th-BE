@@ -2,6 +2,8 @@ package com.dameokja.backend.global.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
+import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -13,4 +15,9 @@ import org.springframework.context.annotation.Configuration;
         )
 )
 public class OpenApiConfig {
+
+    @Bean
+    GlobalOpenApiCustomizer errorResponseOpenApiCustomizer() {
+        return new ErrorResponseOpenApiCustomizer();
+    }
 }

@@ -52,7 +52,7 @@ class RefrigeratorAccessServiceTest {
         RefrigeratorMember refrigeratorMember = ownerMembershipRequested
                 ? RefrigeratorMember.owner(user, refrigerator)
                 : new RefrigeratorMember(user, refrigerator);
-        refrigeratorMember.changeActiveStatus(true);
+        refrigeratorMember.activate();
         when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L))
                 .thenReturn(Optional.of(refrigeratorMember));
         assertThatCode(() -> refrigeratorAccessService.validateWriteAccess(1L, 10L))

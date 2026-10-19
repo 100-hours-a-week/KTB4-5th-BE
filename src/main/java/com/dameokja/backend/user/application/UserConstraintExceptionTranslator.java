@@ -17,6 +17,10 @@ final class UserConstraintExceptionTranslator {
                 if (matchesConstraint(constraintName, "uk_users_nickname")) {
                     return new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
                 }
+                if (matchesConstraint(constraintName, "uk_social_provider_identity")
+                        || matchesConstraint(constraintName, "uk_social_user_provider")) {
+                    return new CustomException(UserExceptionCode.SOCIAL_ACCOUNT_DUPLICATE);
+                }
                 if (matchesConstraint(constraintName, "uk_users_login_id")) {
                     return new CustomException(UserExceptionCode.LOGIN_ID_DUPLICATE);
                 }

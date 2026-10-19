@@ -39,12 +39,13 @@ CREATE TABLE users (
 CREATE TABLE refrigerators (
     refrigerator_id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL COMMENT '생성 시 소유자 닉네임으로 초기화. 이후 독립 관리',
-    capacity SMALLINT NOT NULL DEFAULT 100 COMMENT '냉장고당 재고 행 등록 상한. 서비스에서 동시성 제어',
+    capacity SMALLINT NOT NULL DEFAULT 1500 COMMENT '냉장고당 재고 행 등록 상한. 서비스에서 동시성 제어',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     deleted_at DATETIME(6) NULL COMMENT '마지막 구성원 탈퇴 시 soft delete. 접근, 가입, 재고 변경, 추천, 푸시 차단. 보관 종료 및 FK 정리 후 hard delete',
     expired_count INT NOT NULL DEFAULT 0 COMMENT '이번 달 만료 재고 행 누적. 재고 삭제 후에도 유지',
     expired_count_month CHAR(7) NOT NULL COMMENT 'YYYY-MM. 생성 시 현재 월. 월 변경 시 카운트와 원자 갱신. 과거 월 미보관',
+    expired_counted_on DATE NULL COMMENT '이 한국 날짜 00시까지의 만료 반영 완료. 미집계는 NULL',
     PRIMARY KEY (refrigerator_id),
     CONSTRAINT ck_refrigerators_capacity CHECK (capacity > 0),
     CONSTRAINT ck_refrigerators_expired_count CHECK (expired_count >= 0),
@@ -57,6 +58,7 @@ CREATE TABLE refrigerator_members (
     user_id BIGINT NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 0 COMMENT '현재 사용 중인 냉장고. 전환 시 개인 관계 보존',
     active_marker BIGINT GENERATED ALWAYS AS (IF(is_active=1,user_id,NULL)) STORED COMMENT '회원당 활성 냉장고 최대 1개. 가입 자격과 무관',
+    ended_at DATETIME(6) NULL COMMENT 'NULL이면 유효 참여. 현재 선택 is_active와 구분',
     role VARCHAR(20) NOT NULL DEFAULT 'MEMBER' COMMENT 'OWNER / MEMBER. 냉장고에 소유자 FK 중복 저장하지 않음',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -65,6 +67,7 @@ CREATE TABLE refrigerator_members (
     UNIQUE KEY uk_members_active_marker (active_marker),
     KEY ix_members_user (user_id),
     CONSTRAINT ck_members_active CHECK (is_active IN (0,1)),
+    CONSTRAINT ck_members_ended CHECK (ended_at IS NULL OR is_active = 0),
     CONSTRAINT ck_members_role CHECK (role IN ('OWNER','MEMBER')),
     CONSTRAINT fk_members_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
     CONSTRAINT fk_members_user FOREIGN KEY (user_id) REFERENCES users (user_id)
@@ -100,6 +103,7 @@ CREATE TABLE invite_codes (
 CREATE TABLE ingredients (
     ingredient_id BIGINT NOT NULL AUTO_INCREMENT,
     refrigerator_id BIGINT NOT NULL,
+    owner_id BIGINT NOT NULL COMMENT '최초 등록 회원. 도입 전 재고는 당시 냉장고 소유자로 보정',
     name VARCHAR(100) NOT NULL COMMENT '사용자 입력 또는 OCR 원문',
     category VARCHAR(20) NOT NULL,
     storage_type VARCHAR(20) NOT NULL DEFAULT 'REFRIGERATED' COMMENT 'REFRIGERATED / FROZEN',
@@ -115,6 +119,8 @@ CREATE TABLE ingredients (
     PRIMARY KEY (ingredient_id),
     KEY ix_ingredients_refrigerator_expiration (refrigerator_id, expiration_date, ingredient_id),
     KEY ix_ingredients_expiration (expiration_date, refrigerator_id),
+    KEY ix_ingredients_registered_by_user (owner_id),
+    CONSTRAINT fk_ingredients_registered_by_user FOREIGN KEY (owner_id) REFERENCES users (user_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_ingredients_category CHECK (category IN ('VEGETABLE','FRUIT','MEAT','SEAFOOD','DAIRY','TOFU_BEAN','GRAINS_NOODLE','PROCESSED_FOOD','SEASONING','BEVERAGE','OTHER')),
     CONSTRAINT ck_ingredients_storage CHECK (storage_type IN ('REFRIGERATED','FROZEN')),
     CONSTRAINT ck_ingredients_source CHECK (registration_source IN ('DIRECT','RECEIPT','FOOD_IMAGE')),
@@ -192,7 +198,7 @@ CREATE TABLE cooking_records (
 
 CREATE TABLE notifications (
     notification_id BIGINT NOT NULL AUTO_INCREMENT,
-    type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED. 추천 푸시는 저장하지 않음',
+    type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED / MEMBER_LEFT. 추천 푸시는 저장하지 않음',
     title VARCHAR(150) NOT NULL COMMENT '발송 시점 제목',
     body VARCHAR(500) NOT NULL COMMENT '발송 시점 본문. 대상 재료명 및 수량 포함',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '정렬: created_at DESC, notification_id DESC',
@@ -200,7 +206,7 @@ CREATE TABLE notifications (
     refrigerator_id BIGINT NOT NULL COMMENT '알림 발생 냉장고. 활성 냉장고별 조회',
     PRIMARY KEY (notification_id),
     KEY ix_notifications_refrigerator_time (refrigerator_id, created_at DESC, notification_id DESC),
-    CONSTRAINT ck_notifications_type CHECK (type IN ('EXPIRED','EXPIRING','MEMBER_JOINED','MEMBER_KICKED')),
+    CONSTRAINT ck_notifications_type CHECK (type IN ('EXPIRED','EXPIRING','MEMBER_JOINED','MEMBER_KICKED','MEMBER_LEFT')),
     CONSTRAINT fk_notifications_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
@@ -219,13 +225,13 @@ CREATE TABLE notification_recipients (
 CREATE TABLE notification_preferences (
     preference_id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    type VARCHAR(20) NOT NULL COMMENT 'EXPIRATION / RECIPE',
+    type VARCHAR(20) NOT NULL COMMENT 'EXPIRATION / RECIPE / ANALYSIS',
     is_enabled TINYINT(1) NOT NULL DEFAULT TRUE COMMENT '수신 설정 변경은 UPDATE. 행 삭제하지 않음',
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (preference_id),
     UNIQUE KEY uk_preferences_user_type (user_id, type),
-    CONSTRAINT ck_preferences_type CHECK (type IN ('EXPIRATION','RECIPE')),
+    CONSTRAINT ck_preferences_type CHECK (type IN ('EXPIRATION','RECIPE','ANALYSIS')),
     CONSTRAINT ck_preferences_enabled CHECK (is_enabled IN (0,1)),
     CONSTRAINT fk_preferences_user FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
@@ -253,7 +259,7 @@ CREATE TABLE user_devices (
 CREATE TABLE push_notifications (
     push_notification_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '구독별 논리 작업. 재시도는 같은 행 사용',
     dispatch_key VARCHAR(191) NOT NULL COMMENT '논리 이벤트 키',
-    kind VARCHAR(20) NOT NULL COMMENT 'INBOX / RECOMMENDATION',
+    kind VARCHAR(20) NOT NULL COMMENT 'INBOX / RECOMMENDATION / ANALYSIS',
     user_device_id BIGINT NOT NULL,
     subscription_version BIGINT NOT NULL COMMENT '생성 당시 구독 버전',
     payload JSON NOT NULL COMMENT '문구 및 내부 경로 스냅샷. 재시도로 추천 재생성하지 않음',
@@ -261,31 +267,99 @@ CREATE TABLE push_notifications (
     attempt_count INT NOT NULL DEFAULT 0,
     next_attempt_at DATETIME(6) NULL COMMENT 'PENDING / RETRY는 필수',
     lease_until DATETIME(6) NULL COMMENT 'PROCESSING은 필수. 작업 점유 만료',
-    claim_token VARCHAR(64) NULL COMMENT 'PROCESSING은 필수. 늦은 worker 결과 갱신 차단',
+    lease_token VARCHAR(64) NULL COMMENT 'PROCESSING은 필수. 늦은 worker 결과 갱신 차단',
     expires_at DATETIME(6) NOT NULL COMMENT '경과 시 재시도 금지',
     accepted_at DATETIME(6) NULL COMMENT 'ACCEPTED만 필수, 나머지는 NULL. 푸시 서비스 수락이며 읽음 아님',
     last_error_code VARCHAR(64) NULL COMMENT '오류 분류. URL 또는 비밀키 원문 기록 금지',
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    notification_id BIGINT NULL COMMENT 'INBOX는 필수, RECOMMENDATION은 NULL',
+    notification_id BIGINT NULL COMMENT 'INBOX는 필수, RECOMMENDATION / ANALYSIS는 NULL',
     user_id BIGINT NOT NULL COMMENT '생성 당시 수신자. 발송 전 현재 구독 소유자 및 접근권한 재검증',
-    refrigerator_id BIGINT NOT NULL COMMENT '생성 당시 냉장고. 발송 전 접근권한 재검증',
+    refrigerator_id BIGINT NULL COMMENT 'ANALYSIS는 NULL, 나머지는 생성 당시 냉장고',
     PRIMARY KEY (push_notification_id),
     UNIQUE KEY uk_push_dispatch_subscription (dispatch_key, user_device_id, subscription_version),
     KEY ix_push_device (user_device_id),
     KEY ix_push_notification (notification_id),
     KEY ix_push_user (user_id),
     KEY ix_push_refrigerator (refrigerator_id),
-    CONSTRAINT ck_push_kind CHECK (kind IN ('INBOX','RECOMMENDATION')),
+    CONSTRAINT ck_push_kind CHECK (kind IN ('INBOX','RECOMMENDATION','ANALYSIS')),
     CONSTRAINT ck_push_status CHECK (status IN ('PENDING','PROCESSING','RETRY','ACCEPTED','FAILED','CANCELLED')),
     CONSTRAINT ck_push_version CHECK (subscription_version > 0),
     CONSTRAINT ck_push_attempts CHECK (attempt_count >= 0),
     CONSTRAINT ck_push_schedule CHECK (status NOT IN ('PENDING','RETRY') OR next_attempt_at IS NOT NULL),
-    CONSTRAINT ck_push_claim CHECK (status <> 'PROCESSING' OR (lease_until IS NOT NULL AND claim_token IS NOT NULL)),
+    CONSTRAINT ck_push_claim CHECK (status <> 'PROCESSING' OR (lease_until IS NOT NULL AND lease_token IS NOT NULL)),
     CONSTRAINT ck_push_accepted CHECK ((status = 'ACCEPTED' AND accepted_at IS NOT NULL) OR (status <> 'ACCEPTED' AND accepted_at IS NULL)),
-    CONSTRAINT ck_push_notification CHECK ((kind = 'INBOX' AND notification_id IS NOT NULL) OR (kind = 'RECOMMENDATION' AND notification_id IS NULL)),
+    CONSTRAINT ck_push_notification CHECK ((kind = 'INBOX' AND notification_id IS NOT NULL) OR (kind IN ('RECOMMENDATION','ANALYSIS') AND notification_id IS NULL)),
+    CONSTRAINT ck_push_refrigerator CHECK ((kind = 'ANALYSIS' AND refrigerator_id IS NULL) OR (kind <> 'ANALYSIS' AND refrigerator_id IS NOT NULL)),
     CONSTRAINT fk_push_device FOREIGN KEY (user_device_id) REFERENCES user_devices (user_device_id),
     CONSTRAINT fk_push_notification FOREIGN KEY (notification_id) REFERENCES notifications (notification_id),
     CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_push_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_dispatch_gates (
+    gate_id TINYINT NOT NULL COMMENT '항상 1. 이 행 잠금으로 여러 BE의 진행 중 개수 판단과 선점을 직렬화',
+    PRIMARY KEY (gate_id),
+    CONSTRAINT ck_analysis_dispatch_gate_single CHECK (gate_id = 1)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+INSERT INTO analysis_dispatch_gates (gate_id) VALUES (1);
+
+CREATE TABLE analysis_dispatches (
+    analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',
+    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. (사용자, objectKey, sha256, inputHint)에서 파생해 같은 사진 재요청과 재전송이 같은 값을 쓴다',
+    analysis_job_id CHAR(36) NOT NULL COMMENT 'Redis 분석 묶음 ID',
+    user_id BIGINT NOT NULL,
+    object_key VARCHAR(512) NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    input_hint VARCHAR(16) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    ai_analysis_id VARCHAR(64) NULL COMMENT '마지막으로 접수된 AI 작업 ID',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI 전송 실패·재전송 횟수. 429와 AI 준비 전 보류는 제외',
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token VARCHAR(64) NULL,
+    lease_until DATETIME(6) NULL COMMENT 'DISPATCHING·CHECKING은 점유 만료, AWAITING_CALLBACK은 콜백 기한',
+    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 FAILED',
+    last_ai_status VARCHAR(20) NULL COMMENT '마지막 AI 작업 조회 상태',
+    last_error_code VARCHAR(64) NULL,
+    dispatched_at DATETIME(6) NULL COMMENT '마지막 전송 시작',
+    accepted_at DATETIME(6) NULL COMMENT '마지막 AI 접수',
+    finished_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_dispatch_id),
+    UNIQUE KEY uk_analysis_dispatch_request (request_id, analysis_job_id),
+    KEY ix_analysis_dispatch_due (status, next_attempt_at),
+    KEY ix_analysis_dispatch_lease (status, lease_until),
+    CONSTRAINT ck_analysis_dispatch_status CHECK (status IN ('PENDING','DISPATCHING','AWAITING_CALLBACK','CHECKING','DONE','FAILED')),
+    CONSTRAINT ck_analysis_dispatch_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_dispatch_lease CHECK (status NOT IN ('DISPATCHING','AWAITING_CALLBACK','CHECKING')
+        OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_dispatch_awaiting CHECK (status NOT IN ('AWAITING_CALLBACK','CHECKING') OR ai_analysis_id IS NOT NULL),
+    CONSTRAINT ck_analysis_dispatch_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_feedbacks (
+    analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI에 보낼 품목 하나의 피드백',
+    ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
+    item_id VARCHAR(128) NOT NULL COMMENT 'AI 분석 결과의 품목 ID',
+    feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token VARCHAR(64) NULL,
+    lease_until DATETIME(6) NULL COMMENT 'SENDING 점유 만료. 지나면 다른 서버가 다시 가져감',
+    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 보내지 않고 FAILED',
+    last_error_code VARCHAR(64) NULL,
+    finished_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_feedback_id),
+    KEY ix_analysis_feedback_due (status, next_attempt_at),
+    KEY ix_analysis_feedback_lease (status, lease_until),
+    KEY ix_analysis_feedback_expiry (status, expires_at),
+    CONSTRAINT ck_analysis_feedback_status CHECK (status IN ('PENDING','SENDING','DONE','FAILED')),
+    CONSTRAINT ck_analysis_feedback_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_feedback_lease CHECK (status <> 'SENDING' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_feedback_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;

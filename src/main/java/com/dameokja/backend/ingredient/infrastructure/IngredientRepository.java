@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.infrastructure;
 
 import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import java.time.LocalDate;
@@ -32,42 +33,51 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     long countByRefrigerator_IdAndExpirationDateBefore(Long refrigeratorId, LocalDate date);
 
+    long countByRefrigerator_IdAndExpirationDateGreaterThanEqualAndExpirationDateLessThan(
+            Long refrigeratorId, LocalDate from, LocalDate before);
+
+    @Query(value = "select ingredient_id from ingredients where refrigerator_id = :refrigeratorId "
+            + "and expiration_date >= :from and expiration_date < :before order by ingredient_id for update", nativeQuery = true)
+    List<Long> findExpirationIdsForUpdate(@Param("refrigeratorId") Long refrigeratorId,
+            @Param("from") LocalDate from, @Param("before") LocalDate before);
+
     List<Ingredient> findByRefrigerator_IdAndIdInAndExpirationDateBefore(
             Long refrigeratorId, Collection<Long> ids, LocalDate date);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
+            + "and i.owner.id = :ownerId "
             + "and i.name = :#{#details.name()} "
             + "and i.storageType = :#{#details.storageType()} "
             + "and i.expirationDate = :#{#details.expirationDate()} "
             + "and i.measurement.measureType = :#{#details.measurement().measureType} "
             + "and i.measurement.weightUnit = :#{#details.measurement().weightUnit} order by i.id")
-    List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId,
+    List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId, @Param("ownerId") Long ownerId,
             @Param("details") IngredientDetails details);
 
     @Query(IngredientListJpql.FILTERED_COUNT)
     long countFiltered(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType);
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern);
 
     @Query(IngredientListJpql.EXPIRATION_ASC)
     List<Ingredient> findExpirationAscPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.CREATED_DESC)
     List<Ingredient> findCreatedDescPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 
     @Query(IngredientListJpql.NAME_ASC)
     List<Ingredient> findNameAscPage(@Param("refrigeratorId") Long refrigeratorId,
             @Param("expirationFrom") LocalDate expirationFrom, @Param("expirationTo") LocalDate expirationTo,
-            @Param("storageType") StorageType storageType,
+            @Param("storageType") StorageType storageType, @Param("category") IngredientCategory category, @Param("keywordPattern") String keywordPattern,
             @Param("cursorExpirationDate") LocalDate cursorExpirationDate, @Param("cursorCreatedAt") LocalDateTime cursorCreatedAt,
             @Param("cursorName") String cursorName, @Param("cursorId") Long cursorId, Limit limit);
 }

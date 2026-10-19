@@ -4,10 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.ingredient.exception.IngredientExceptionCode;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class MeasurementTest {
+
+    @ParameterizedTest
+    @EnumSource(MeasureType.class)
+    void rejectsZeroAmountWhenCreatingInventory(MeasureType measureType) {
+        Integer quantity = measureType == MeasureType.COUNT ? 0 : null;
+        BigDecimal weight = measureType == MeasureType.WEIGHT ? BigDecimal.ZERO : null;
+        WeightUnit unit = measureType == MeasureType.WEIGHT ? WeightUnit.G : WeightUnit.NONE;
+
+        assertThatThrownBy(() -> Measurement.of(measureType, quantity, weight, unit))
+                .isInstanceOf(CustomException.class).extracting("exceptionCode")
+                .isEqualTo(IngredientExceptionCode.INVALID_AMOUNT);
+    }
 
     @Test
     void acceptsIntegerWeightWithDecimalScale() {

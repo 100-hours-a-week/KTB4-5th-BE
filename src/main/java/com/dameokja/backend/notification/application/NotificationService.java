@@ -5,6 +5,7 @@ import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService;
 import com.dameokja.backend.notification.domain.Notification;
+import com.dameokja.backend.notification.domain.NotificationChanged;
 import com.dameokja.backend.notification.domain.NotificationExceptionCode;
 import com.dameokja.backend.notification.domain.NotificationRecipient;
 import com.dameokja.backend.notification.infrastructure.NotificationRecipientRepository;
@@ -15,6 +16,7 @@ import java.time.Clock;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository recipientRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public NotificationListResult getNotifications(Long userId, Long refrigeratorId,
             NotificationListRequest request) {
@@ -69,13 +72,18 @@ public class NotificationService {
         NotificationRecipient recipient = recipientRepository
                 .findByNotificationIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CustomException(GlobalExceptionCode.FORBIDDEN));
-        recipient.markRead(BusinessTime.now(clock));
+        if (recipient.markRead(BusinessTime.now(clock))) {
+            events.publishEvent(new NotificationChanged(userId, notification.getRefrigerator().getId()));
+        }
     }
 
     @Transactional
     public void readAllNotifications(Long userId, Long refrigeratorId) {
         validateRefrigeratorAccess(userId, refrigeratorId);
-        recipientRepository.markAllRead(userId, refrigeratorId, BusinessTime.now(clock));
+        int changed = recipientRepository.markAllRead(userId, refrigeratorId, BusinessTime.now(clock));
+        if (changed > 0) {
+            events.publishEvent(new NotificationChanged(userId, refrigeratorId));
+        }
     }
 
     @Transactional

@@ -1,10 +1,12 @@
 package com.dameokja.backend.user.application;
 
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.push.application.PushSubscriptionService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.auth.application.AuthService;
 import org.springframework.stereotype.Service;
@@ -26,16 +28,20 @@ public class UserWithdrawalService {
     private final RefrigeratorLifecycleService refrigeratorLifecycleService;
     private final Clock clock;
     private final AuthService authService;
+    private final SocialAccountRepository socialAccountRepository;
+    private final PushSubscriptionService pushSubscriptionService;
 
     public void withdraw(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(UserExceptionCode.USER_NOT_FOUND));
+        socialAccountRepository.deleteAllByUserId(userId);
+        pushSubscriptionService.disableAll(userId);
         if (user.getStatus() == UserStatus.WITHDRAWN) {
             authService.revokeAllUserSessions(userId);
             return;
         }
         LocalDateTime withdrawnAt = now();
-        refrigeratorLifecycleService.deleteOwned(userId, withdrawnAt);
+        refrigeratorLifecycleService.endUserMemberships(userId, withdrawnAt);
         user.withdraw(generateReplacementNickname(), withdrawnAt);
         userRepository.flush();
         authService.revokeAllUserSessions(userId);

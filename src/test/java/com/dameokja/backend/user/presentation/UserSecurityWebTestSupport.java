@@ -6,8 +6,13 @@ import com.dameokja.backend.auth.presentation.CsrfTokenRotator;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
+import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
+import com.dameokja.backend.user.application.NicknameValidationService;
 import com.dameokja.backend.user.application.UserSignupService;
+import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.UserProfileService;
+import com.dameokja.backend.image.application.ProfileImageService;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +23,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,6 +38,7 @@ import static org.mockito.Mockito.reset;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
 @SpringJUnitConfig(UserSecurityWebTestSupport.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {
@@ -42,11 +49,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 abstract class UserSecurityWebTestSupport {
     @Autowired WebApplicationContext context;
     @Autowired UserSignupService userSignupService;
+    @Autowired NicknameValidationService nicknameValidationService;
+    @Autowired UserProfileService userProfileService;
+    @Autowired ProfileImageService profileImageService;
+    @Autowired UserWithdrawalService userWithdrawalService;
     MockMvc mockMvc;
 
     @BeforeEach
     void setup() {
-        reset(userSignupService);
+        reset(userSignupService, nicknameValidationService, userProfileService, profileImageService,
+                userWithdrawalService);
         mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 
@@ -69,5 +81,13 @@ abstract class UserSecurityWebTestSupport {
         Clock clock() { return Clock.systemUTC(); }
         @Bean
         UserSignupService userSignupService() { return mock(UserSignupService.class); }
+        @Bean
+        NicknameValidationService nicknameValidationService() { return mock(NicknameValidationService.class); }
+        @Bean
+        UserProfileService userProfileService() { return mock(UserProfileService.class); }
+        @Bean
+        ProfileImageService profileImageService() { return mock(ProfileImageService.class); }
+        @Bean
+        UserWithdrawalService userWithdrawalService() { return mock(UserWithdrawalService.class); }
     }
 }

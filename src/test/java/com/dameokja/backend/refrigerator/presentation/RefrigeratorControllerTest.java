@@ -22,7 +22,7 @@ class RefrigeratorControllerTest {
     @Test
     void returnsActiveRefrigeratorList() {
         when(refrigeratorService.getActiveRefrigerators(1L))
-                .thenReturn(List.of(new RefrigeratorView(10L, "fridge", (short) 100, 3)));
+                .thenReturn(List.of(new RefrigeratorView(10L, "fridge", (short) 1500, 3)));
         RefrigeratorController controller = new RefrigeratorController(refrigeratorService);
 
         ResponseEntity<SuccessResponse<List<RefrigeratorResponse>>> response =
@@ -31,7 +31,7 @@ class RefrigeratorControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody().code()).isEqualTo("REFRIGERATOR-200-001");
         assertThat(response.getBody().data())
-                .containsExactly(new RefrigeratorResponse(10L, "fridge", (short) 100, 3));
+                .containsExactly(new RefrigeratorResponse(10L, "fridge", (short) 1500, 3));
     }
 
     @Test

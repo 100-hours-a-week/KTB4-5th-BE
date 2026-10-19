@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.presentation.response;
 
+import com.dameokja.backend.user.domain.User;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
@@ -28,7 +29,7 @@ class IngredientCreateResponseTest {
         Ingredient ingredient = ingredient(previous);
         ingredient.mergeMeasurement(added);
         IngredientWriteItem item = IngredientWriteItem.merged(ingredient, previous, added);
-        IngredientWriteResult result = new IngredientWriteResult(List.of(item), 0, 1, 1, 100);
+        IngredientWriteResult result = new IngredientWriteResult(List.of(item), 0, 1, 1, 1500);
 
         IngredientCreateResponse response = IngredientCreateResponse.from(result);
 
@@ -43,7 +44,7 @@ class IngredientCreateResponseTest {
         Refrigerator refrigerator = new Refrigerator("냉장고", "2026-09");
         IngredientDetails details = new IngredientDetails("우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED,
                 measurement, LocalDate.of(2026, 9, 21));
-        Ingredient ingredient = new Ingredient(refrigerator, details, RegistrationSource.DIRECT);
+        Ingredient ingredient = new Ingredient(refrigerator, details, RegistrationSource.DIRECT, new User("등록자", "test"));
         ReflectionTestUtils.setField(ingredient, "id", 10L);
         return ingredient;
     }

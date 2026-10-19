@@ -42,11 +42,12 @@ public class NotificationRecipient {
         this.user = Objects.requireNonNull(user, "알림 수신자는 필수입니다.");
     }
 
-    public void markRead(LocalDateTime readAt) {
+    public boolean markRead(LocalDateTime readAt) {
         Objects.requireNonNull(readAt, "알림을 읽은 시각은 필수입니다.");
         if (this.readAt != null) {
-            return;
+            return false;
         }
         this.readAt = readAt;
+        return true;
     }
 }

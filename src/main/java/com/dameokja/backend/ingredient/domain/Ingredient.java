@@ -2,11 +2,14 @@ package com.dameokja.backend.ingredient.domain;
 
 import com.dameokja.backend.global.common.BaseEntity;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import com.dameokja.backend.global.exception.CustomException;
+import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_UPDATE_VALUE;
 
 @Getter
 @Entity
@@ -20,6 +23,10 @@ public class Ingredient extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refrigerator_id", nullable = false, updatable = false)
     private Refrigerator refrigerator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false, updatable = false)
+    private User owner;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -46,8 +53,9 @@ public class Ingredient extends BaseEntity {
     private RegistrationSource registrationSource;
 
     public Ingredient(Refrigerator refrigerator, IngredientDetails details,
-                      RegistrationSource registrationSource) {
+                      RegistrationSource registrationSource, User owner) {
         this.refrigerator = refrigerator;
+        this.owner = java.util.Objects.requireNonNull(owner);
         this.name = details.name();
         this.category = details.category();
         this.storageType = details.storageType();
@@ -62,6 +70,21 @@ public class Ingredient extends BaseEntity {
         this.storageType = details.storageType();
         this.measurement = details.measurement();
         this.expirationDate = details.expirationDate();
+    }
+
+    public void updateMeasurement(Measurement measurement) {
+        this.measurement = measurement;
+    }
+
+    public boolean requiresMergeFor(IngredientDetails details) {
+        return !name.equals(details.name()) || storageType != details.storageType()
+                || !expirationDate.equals(details.expirationDate());
+    }
+
+    public void validateEditable(LocalDate businessDate) {
+        if (expirationDate.isBefore(businessDate)) {
+            throw new CustomException(INVALID_UPDATE_VALUE);
+        }
     }
 
     public void mergeMeasurement(Measurement addition) {

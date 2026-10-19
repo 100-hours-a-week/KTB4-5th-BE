@@ -52,7 +52,7 @@ class PushSubscriptionServiceTest {
     }
 
     private void stubActiveUser(long id) {
-        when(userAccessService.getActive(id)).thenReturn(userWithId(id));
+        when(userAccessService.lockActive(id)).thenReturn(userWithId(id));
     }
 
     private UserDevice existingDevice(User owner, String endpoint, String p256dh, String auth) {
@@ -93,7 +93,7 @@ class PushSubscriptionServiceTest {
 
     @Test
     void rejectsRegisterWhenUserNotActive() {
-        when(userAccessService.getActive(1L))
+        when(userAccessService.lockActive(1L))
                 .thenThrow(new CustomException(UserExceptionCode.USER_NOT_ACTIVE));
 
         assertThatThrownBy(() -> service.register(1L, "https://fcm.googleapis.com/fcm/send/1", "p256dh", "auth-secret"))
@@ -220,5 +220,26 @@ class PushSubscriptionServiceTest {
         service.invalidate(1100L);
 
         verifyNoInteractions(userAccessService);
+    }
+    @Test
+    void preservesARenewedSubscriptionWhenAnOldRequestExpires() {
+        UserDevice existing = existingDevice(userWithId(1L), "endpoint", "old", "old-secret");
+        existing.renew("new", encryptor.encrypt("new-secret"), "enc-v1", "vapid-v1");
+        when(userDeviceRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+
+        service.invalidate(1L, 1L);
+
+        assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.ACTIVE);
+        assertThat(existing.getSubscriptionVersion()).isEqualTo(2L);
+    }
+
+    @Test
+    void invalidatesAnUnchangedSubscriptionUnderTheRowLock() {
+        UserDevice existing = existingDevice(userWithId(1L), "endpoint", "key", "secret");
+        when(userDeviceRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+
+        service.invalidate(1L, 1L);
+
+        assertThat(existing.getStatus()).isEqualTo(UserDeviceStatus.INVALID);
     }
 }

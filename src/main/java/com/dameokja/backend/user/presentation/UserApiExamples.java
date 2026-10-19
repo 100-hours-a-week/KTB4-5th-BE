@@ -1,6 +1,40 @@
 package com.dameokja.backend.user.presentation;
 
 final class UserApiExamples {
+    static final String PROFILE_UPDATE_REQUEST = """
+            {
+              "nickname": "david",
+              "profileImage": "images/profile/1/uploaded.png"
+            }
+            """;
+
+    static final String PROFILE_UPDATE_RESPONSE = """
+            {
+              "code": "USER-200-004",
+              "message": "회원정보 수정 성공",
+              "data": {
+                "userId": "1",
+                "nickname": "david",
+                "profileImageUrl": "https://example.com/profile?X-Amz-Signature=example"
+              }
+            }
+            """;
+
+    static final String PROFILE_RESPONSE = """
+            {
+              "code": "USER-200-003",
+              "message": "회원정보 조회 성공",
+              "data": {
+                "userId": "1",
+                "nickname": "dave",
+                "email": "dave@example.com",
+                "profileImageUrl": "https://example.com/profile?X-Amz-Signature=example",
+                "activeRefrigeratorIds": ["1"],
+                "cookingCount": 3
+              }
+            }
+            """;
+
     static final String SIGNUP_REQUEST = """
             {
               "loginId": "user1",
@@ -15,6 +49,56 @@ final class UserApiExamples {
               "message": "회원가입 성공",
               "data": {
                 "activeRefrigeratorIds": ["1"]
+              }
+            }
+            """;
+
+    static final String NICKNAME_VALIDATION_REQUEST = """
+            {
+              "nickname": "냉장고요정"
+            }
+            """;
+
+    static final String NICKNAME_VALIDATION_AVAILABLE = """
+            {
+              "code": "USER-200-001",
+              "message": "사용 가능한 닉네임",
+              "data": {
+                "valid": true,
+                "reason": null
+              }
+            }
+            """;
+
+    static final String NICKNAME_VALIDATION_INVALID_FORMAT = """
+            {
+              "code": "USER-200-001",
+              "message": "닉네임은 2~10자, 한글·영문·숫자만 가능합니다.",
+              "data": {
+                "valid": false,
+                "reason": "닉네임 형식 위반"
+              }
+            }
+            """;
+
+    static final String NICKNAME_VALIDATION_PROHIBITED = """
+            {
+              "code": "USER-200-001",
+              "message": "부적절한 닉네임입니다.",
+              "data": {
+                "valid": false,
+                "reason": "금칙어"
+              }
+            }
+            """;
+
+    static final String NICKNAME_VALIDATION_DUPLICATE = """
+            {
+              "code": "USER-200-001",
+              "message": "중복된 닉네임입니다.",
+              "data": {
+                "valid": false,
+                "reason": "닉네임 중복"
               }
             }
             """;

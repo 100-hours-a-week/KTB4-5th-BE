@@ -1,10 +1,16 @@
 package com.dameokja.backend.support;
 
+import com.dameokja.backend.auth.infrastructure.RefreshSessionStore;
+import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRepository;
+import com.dameokja.backend.refrigerator.application.InvitationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
+import com.dameokja.backend.user.application.NicknamePolicy;
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
@@ -22,20 +28,29 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
         "spring.config.import=",
+        "push.dispatch.enabled=false",
         "app.user.default-profile-image-key=profiles/default.png"
 })
-@Import(ServiceIntegrationTest.TimeConfiguration.class)
+@ExtendWith(RedisTestSupport.class)
+@Import({ServiceIntegrationTest.TimeConfiguration.class, RedisTestSupport.Configuration.class})
+// 하위 테스트마다 스파이 조합이 다르면 컨텍스트가 따로 만들어져 DB 연결이 쌓이므로 한곳에 모은다. 스파이는 테스트마다 초기화된다.
+@MockitoSpyBean(types = {UserRepository.class, RefrigeratorRepository.class, RefrigeratorMemberRepository.class,
+        NotificationPreferenceRepository.class, SocialAccountRepository.class, RefreshSessionStore.class,
+        JwtProvider.class, NicknamePolicy.class, InvitationService.class})
 public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     @Autowired
     protected UserRepository userRepository;
@@ -51,7 +66,14 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected TestClock clock;
 
     @BeforeEach
-    void cleanDatabaseAndResetTime() {
+    @AfterEach
+    protected void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM push_notifications");
+        jdbcTemplate.update("DELETE FROM notification_recipients");
+        jdbcTemplate.update("DELETE FROM notifications");
+        jdbcTemplate.update("DELETE FROM ingredients");
+        jdbcTemplate.update("DELETE FROM invite_codes");
+        jdbcTemplate.update("DELETE FROM social_accounts");
         jdbcTemplate.update("DELETE FROM refrigerator_members");
         jdbcTemplate.update("DELETE FROM refrigerators");
         jdbcTemplate.update("DELETE FROM notification_preferences");
@@ -71,7 +93,11 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
             User user, Refrigerator refrigerator, boolean active, boolean owner) {
         RefrigeratorMember refrigeratorMember = owner ? RefrigeratorMember.owner(user, refrigerator)
                 : new RefrigeratorMember(user, refrigerator);
-        refrigeratorMember.changeActiveStatus(active);
+        if (active) {
+            refrigeratorMember.activate();
+        } else {
+            refrigeratorMember.deactivate();
+        }
         return refrigeratorMemberRepository.save(refrigeratorMember);
     }
 
@@ -85,13 +111,14 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     protected record Fixture(Long userId, Long refrigeratorId) {}
 
     protected int rows(String tableName) {
-        if (!Set.of("users", "refrigerators", "refrigerator_members", "notification_preferences").contains(tableName)) {
+        if (!Set.of("users", "refrigerators", "refrigerator_members", "notification_preferences", "social_accounts").contains(tableName)) {
             throw new IllegalArgumentException("Not a fixture table");
         }
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
     }
 
     protected void assertEmptyDatabase() {
+        assertThat(rows("social_accounts")).isZero();
         assertThat(rows("users")).isZero();
         assertThat(rows("refrigerators")).isZero();
         assertThat(rows("refrigerator_members")).isZero();

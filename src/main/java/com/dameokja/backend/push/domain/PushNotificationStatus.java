@@ -6,5 +6,6 @@ public enum PushNotificationStatus {
     RETRY,
     ACCEPTED,
     FAILED,
-    CANCELLED
+    CANCELLED,
+    PROCESSING
 }
