@@ -1,0 +1,25 @@
+-- analysis_feedbacks가 없는 기존 DB에 수동 적용한다. 애플리케이션 시작 시 자동 실행하지 않는다.
+CREATE TABLE analysis_feedbacks (
+    analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI에 보낼 품목 하나의 피드백',
+    ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
+    item_id VARCHAR(128) NOT NULL COMMENT 'AI 분석 결과의 품목 ID',
+    feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token VARCHAR(64) NULL,
+    lease_until DATETIME(6) NULL COMMENT 'SENDING 점유 만료. 지나면 다른 서버가 다시 가져감',
+    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 보내지 않고 FAILED',
+    last_error_code VARCHAR(64) NULL,
+    finished_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_feedback_id),
+    KEY ix_analysis_feedback_due (status, next_attempt_at),
+    KEY ix_analysis_feedback_lease (status, lease_until),
+    KEY ix_analysis_feedback_expiry (status, expires_at),
+    CONSTRAINT ck_analysis_feedback_status CHECK (status IN ('PENDING','SENDING','DONE','FAILED')),
+    CONSTRAINT ck_analysis_feedback_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_feedback_lease CHECK (status <> 'SENDING' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_feedback_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
