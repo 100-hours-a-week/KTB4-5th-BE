@@ -148,7 +148,7 @@ class IngredientControllerTest {
         Ingredient ingredient = ingredient();
         LocalDate businessDate = LocalDate.of(2026, 9, 16);
         when(ingredientDetailService.getDetail(2L, 1L))
-                .thenReturn(new IngredientDetailResult(ingredient, businessDate));
+                .thenReturn(new IngredientDetailResult(ingredient, businessDate, "등록자"));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
                 ingredientListService);
@@ -159,6 +159,7 @@ class IngredientControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getETag()).isEqualTo(IngredientEtag.of(ingredient));
         assertThat(response.getBody().code()).isEqualTo("INGREDIENT-200-003");
+        assertThat(response.getBody().data().ownerNickname()).isEqualTo("등록자");
         assertThat(response.getBody().data().ingredient().status()).isEqualTo(IngredientStatus.EXPIRED);
         assertThat(response.getBody().data().ingredient().daysUntilExpiration()).isEqualTo(-1);
     }

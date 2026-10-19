@@ -28,6 +28,6 @@ public class IngredientDetailService {
         Long refrigeratorId = ingredient.getRefrigerator().getId();
         refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
 
-        return new IngredientDetailResult(ingredient, businessDate);
+        return new IngredientDetailResult(ingredient, businessDate, ingredient.getOwner().getNickname());
     }
 }
