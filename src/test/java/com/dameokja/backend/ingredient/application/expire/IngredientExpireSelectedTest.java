@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.expire;
 
+import com.dameokja.backend.user.domain.User;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
@@ -98,6 +99,6 @@ class IngredientExpireSelectedTest {
     private Ingredient ingredient(String name) {
         IngredientDetails details = new IngredientDetails(name, IngredientCategory.OTHER, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BUSINESS_DATE.minusDays(1));
-        return new Ingredient(refrigerator, details, RegistrationSource.DIRECT);
+        return new Ingredient(refrigerator, details, RegistrationSource.DIRECT, new User("등록자", "test"));
     }
 }

@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.infrastructure;
 
+import com.dameokja.backend.user.domain.User;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.ingredient.application.list.IngredientListCursor;
@@ -37,10 +38,12 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     IngredientRepository ingredientRepository;
 
     private Refrigerator refrigerator;
+    private User owner;
 
     @BeforeEach
     void setUp() {
         refrigerator = persist(new Refrigerator("냉장고", "2026-09"));
+        owner = persist(new User("등록자", "test"));
     }
 
     @ParameterizedTest
@@ -88,7 +91,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
     void excludesOtherRefrigerators() {
         ingredient("우유", 1, 1);
         Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
-        persist(new Ingredient(other, details("두부", 1), RegistrationSource.DIRECT));
+        persist(new Ingredient(other, details("두부", 1), RegistrationSource.DIRECT, owner));
         flushAndClear();
 
         List<Ingredient> page = ingredientRepository.findExpirationAscPage(
@@ -104,7 +107,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         ingredient("사흘뒤", 3, 1);
         ingredient("나흘뒤", 4, 1);
         persist(new Ingredient(refrigerator, new IngredientDetails("냉동만두", IngredientCategory.OTHER, StorageType.FROZEN,
-                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
+                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT, owner));
         flushAndClear();
 
         assertThat(names(BASE_DATE, BASE_DATE.plusDays(3), null)).containsExactly("냉동만두", "사흘뒤", "오늘");
@@ -118,9 +121,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         ingredient("오늘", 0, 1);
         ingredient("나흘뒤", 4, 1);
         persist(new Ingredient(refrigerator, new IngredientDetails("냉동만두", IngredientCategory.OTHER, StorageType.FROZEN,
-                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
+                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT, owner));
         Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
-        persist(new Ingredient(other, details("두부", 0), RegistrationSource.DIRECT));
+        persist(new Ingredient(other, details("두부", 0), RegistrationSource.DIRECT, owner));
         flushAndClear();
 
         Long refrigeratorId = refrigerator.getId();
@@ -139,9 +142,9 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
         ingredient("만두", 0, 1, StorageType.FROZEN);
         ingredient("만료두부", -1, 1, StorageType.FROZEN);
         persist(new Ingredient(refrigerator, new IngredientDetails("채소두부", IngredientCategory.VEGETABLE, StorageType.FROZEN,
-                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT));
+                Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), BASE_DATE), RegistrationSource.DIRECT, owner));
         Refrigerator other = persist(new Refrigerator("다른냉장고", "2026-09"));
-        persist(new Ingredient(other, details("타냉장고두부", 0, StorageType.FROZEN), RegistrationSource.DIRECT));
+        persist(new Ingredient(other, details("타냉장고두부", 0, StorageType.FROZEN), RegistrationSource.DIRECT, owner));
         flushAndClear();
 
         assertThat(readAllPages(sortType, BASE_DATE, BASE_DATE.plusDays(3), StorageType.FROZEN, IngredientCategory.OTHER, "%두부%"))
@@ -216,7 +219,7 @@ class IngredientListRepositoryTest extends MySqlJpaTest {
 
     private void ingredient(String name, int daysUntilExpiration, int createdDay, StorageType storageType) {
         Ingredient ingredient = persist(new Ingredient(
-                refrigerator, details(name, daysUntilExpiration, storageType), RegistrationSource.DIRECT));
+                refrigerator, details(name, daysUntilExpiration, storageType), RegistrationSource.DIRECT, owner));
         entityManager.flush();
         entityManager.createNativeQuery("update ingredients set created_at = ?1 where ingredient_id = ?2")
                 .setParameter(1, BASE_TIME.plusDays(createdDay))

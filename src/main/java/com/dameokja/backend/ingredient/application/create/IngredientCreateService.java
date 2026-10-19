@@ -10,6 +10,8 @@ import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.domain.User;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -26,25 +28,27 @@ public class IngredientCreateService {
     private final IngredientRepository ingredientRepository;
     private final IngredientPolicy ingredientPolicy;
     private final Clock clock;
+    private final UserAccessService userAccessService;
 
     public IngredientWriteResult create(
             Long userId, Long refrigeratorId,
             List<IngredientCreateCommand> commands) {
         LocalDate businessDate = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
+        User owner = userAccessService.getActive(userId);
         long existingIngredientCount = ingredientRepository.countByRefrigeratorId(refrigeratorId);
-        List<IngredientWriteItem> writeItems = createOrMergeIngredients(refrigerator, commands, businessDate, existingIngredientCount);
+        List<IngredientWriteItem> writeItems = createOrMergeIngredients(refrigerator, owner, commands, businessDate, existingIngredientCount);
 
         return createResult(refrigerator, writeItems, existingIngredientCount);
     }
 
-    private List<IngredientWriteItem> createOrMergeIngredients(Refrigerator refrigerator,
+    private List<IngredientWriteItem> createOrMergeIngredients(Refrigerator refrigerator, User owner,
             List<IngredientCreateCommand> commands, LocalDate date, long existingCount) {
         List<IngredientWriteItem> results = new ArrayList<>();
         long newlyCreatedCount = 0;
 
         for (IngredientCreateCommand command : commands) {
-            IngredientWriteItem result = createOrMergeIngredient(refrigerator, command, date, existingCount + newlyCreatedCount);
+            IngredientWriteItem result = createOrMergeIngredient(refrigerator, owner, command, date, existingCount + newlyCreatedCount);
             results.add(result);
             newlyCreatedCount += result.created() ? 1 : 0;
         }
@@ -52,18 +56,18 @@ public class IngredientCreateService {
         return List.copyOf(results);
     }
 
-    private IngredientWriteItem createOrMergeIngredient(Refrigerator refrigerator,
+    private IngredientWriteItem createOrMergeIngredient(Refrigerator refrigerator, User owner,
             IngredientCreateCommand command, LocalDate date, long usedSlots) {
         IngredientDetails requestedDetails = toDetails(command);
         IngredientDetails details = ingredientPolicy.validateForCreate(requestedDetails, date);
-        List<Ingredient> mergeCandidates = ingredientRepository.findMergeCandidates(refrigerator.getId(), details);
+        List<Ingredient> mergeCandidates = ingredientRepository.findMergeCandidates(refrigerator.getId(), owner.getId(), details);
 
         if (!mergeCandidates.isEmpty()) {
             Ingredient mergeTarget = mergeCandidates.getFirst();
             return merge(mergeTarget, details);
         }
 
-        Ingredient ingredient = createNew(refrigerator, command, details, usedSlots);
+        Ingredient ingredient = createNew(refrigerator, owner, command, details, usedSlots);
         return IngredientWriteItem.created(ingredient);
     }
 
@@ -77,12 +81,12 @@ public class IngredientCreateService {
         return new IngredientWriteResult(writeItems, createdCount, mergedCount, totalIngredientCount, capacity);
     }
 
-    private Ingredient createNew(Refrigerator refrigerator, IngredientCreateCommand command,
+    private Ingredient createNew(Refrigerator refrigerator, User owner, IngredientCreateCommand command,
             IngredientDetails details, long usedSlots) {
         if (usedSlots >= refrigerator.getCapacity()) {
             throw new CustomException(CAPACITY_EXCEEDED);
         }
-        Ingredient ingredient = new Ingredient(refrigerator, details, command.registrationSource());
+        Ingredient ingredient = new Ingredient(refrigerator, details, command.registrationSource(), owner);
         return ingredientRepository.saveAndFlush(ingredient);
     }
 

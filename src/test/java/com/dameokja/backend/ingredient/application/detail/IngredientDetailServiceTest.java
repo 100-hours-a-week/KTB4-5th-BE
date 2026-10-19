@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.detail;
 
+import com.dameokja.backend.user.domain.User;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.NOT_FOUND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,7 +72,7 @@ class IngredientDetailServiceTest {
                 "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.WEIGHT, null, new BigDecimal("300"), WeightUnit.G),
                 LocalDate.of(2026, 9, 15));
-        Ingredient ingredient = new Ingredient(refrigerator, details, RegistrationSource.RECEIPT);
+        Ingredient ingredient = new Ingredient(refrigerator, details, RegistrationSource.RECEIPT, new User("등록자", "test"));
         ReflectionTestUtils.setField(ingredient, "id", 1L);
         return ingredient;
     }

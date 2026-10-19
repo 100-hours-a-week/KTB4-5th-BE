@@ -2,6 +2,7 @@ package com.dameokja.backend.ingredient.domain;
 
 import com.dameokja.backend.global.common.BaseEntity;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -22,6 +23,10 @@ public class Ingredient extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refrigerator_id", nullable = false, updatable = false)
     private Refrigerator refrigerator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false, updatable = false)
+    private User owner;
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -48,8 +53,9 @@ public class Ingredient extends BaseEntity {
     private RegistrationSource registrationSource;
 
     public Ingredient(Refrigerator refrigerator, IngredientDetails details,
-                      RegistrationSource registrationSource) {
+                      RegistrationSource registrationSource, User owner) {
         this.refrigerator = refrigerator;
+        this.owner = java.util.Objects.requireNonNull(owner);
         this.name = details.name();
         this.category = details.category();
         this.storageType = details.storageType();

@@ -75,9 +75,13 @@ abstract class NotificationGenerationTestSupport extends MySqlJpaTest {
     }
 
     protected void ingredient(long id, long refrigeratorId, String name, int remainingDays) {
+        ingredient(id, refrigeratorId, name, remainingDays, USER);
+    }
+
+    protected void ingredient(long id, long refrigeratorId, String name, int remainingDays, long ownerId) {
         jdbc.update("INSERT INTO ingredients(ingredient_id,refrigerator_id,name,category,quantity,"
-                + "expiration_date,registration_source) VALUES (?,?,?,'OTHER',7,?,'DIRECT')",
-                id, refrigeratorId, name, TODAY.plusDays(remainingDays));
+                + "expiration_date,registration_source,owner_id) VALUES (?,?,?,'OTHER',7,?,'DIRECT',?)",
+                id, refrigeratorId, name, TODAY.plusDays(remainingDays), ownerId);
     }
 
     protected List<Message> messages(long refrigeratorId) {

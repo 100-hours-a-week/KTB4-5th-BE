@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.list;
 
+import com.dameokja.backend.user.domain.User;
 import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.INVALID_CURSOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -162,7 +163,7 @@ class IngredientListServiceTest {
     private Ingredient ingredient(Long id, LocalDate expirationDate) {
         IngredientDetails details = new IngredientDetails("두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), expirationDate);
-        Ingredient ingredient = new Ingredient(new Refrigerator("냉장고", "2026-09"), details, RegistrationSource.DIRECT);
+        Ingredient ingredient = new Ingredient(new Refrigerator("냉장고", "2026-09"), details, RegistrationSource.DIRECT, new User("등록자", "test"));
         ReflectionTestUtils.setField(ingredient, "id", id);
         ReflectionTestUtils.setField(ingredient, "createdAt", LocalDateTime.of(2026, 9, 20, 9, 0));
         return ingredient;

@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.presentation.response;
 
+import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
@@ -21,7 +22,7 @@ class IngredientResponseTest {
     void usesStoredSeoulDateAsCreatedDate() {
         IngredientDetails details = new IngredientDetails("두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), LocalDate.of(2026, 9, 10));
-        Ingredient ingredient = new Ingredient(new Refrigerator("냉장고", "2026-09"), details, RegistrationSource.DIRECT);
+        Ingredient ingredient = new Ingredient(new Refrigerator("냉장고", "2026-09"), details, RegistrationSource.DIRECT, new User("등록자", "test"));
         ReflectionTestUtils.setField(ingredient, "id", 1L);
         ReflectionTestUtils.setField(ingredient, "createdAt", LocalDateTime.of(2026, 9, 1, 23, 30));
 
