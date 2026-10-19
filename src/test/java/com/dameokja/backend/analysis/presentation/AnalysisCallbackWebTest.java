@@ -19,6 +19,7 @@ import com.dameokja.backend.analysis.application.AnalysisCompletionNotifier;
 import com.dameokja.backend.analysis.application.AnalysisCompletionValidator;
 import com.dameokja.backend.analysis.application.AnalysisDispatchUpdater;
 import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
+import com.dameokja.backend.analysis.application.AnalysisImageResult;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
@@ -32,6 +33,7 @@ import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationStreamService;
 import com.dameokja.backend.support.RedisTestSupport;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -215,6 +218,27 @@ class AnalysisCallbackWebTest {
     void rejectsInvalidOrMissingDocumentType(String documentType) throws Exception {
         send(BODY.replace("\"documentType\":\"PRODUCT\"", "\"documentType\":" + documentType), "local-ai-test", 400);
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {"COUNT,G", "COUNT,ML", "COUNT,NONE", "COUNT,NULL", "WEIGHT,G", "WEIGHT,ML",
+            "WEIGHT,NONE", "WEIGHT,NULL", "NULL,G", "NULL,ML", "NULL,NONE", "NULL,NULL"}, nullValues = "NULL")
+    void preservesZeroAmountsFromCallbackToQuery(String measureType, String unit) throws Exception {
+        String item = """
+                {"itemId":"item-1","displayStatus":"UNRECOGNIZED","name":null,"category":null,"storageType":null,
+                 "measureType":%s,"quantity":0,"weight":{"value":0,"unit":%s},
+                 "expiration":{"date":null,"dateType":"UNKNOWN","estimatedRange":null},"reviewReasons":[]}
+                """.formatted(jsonEnum(measureType), jsonEnum(unit));
+        String callback = BODY.replace("[]", "[" + item + "]");
+        send(callback, "local-ai-test", 200);
+        send(callback, "local-ai-test", 200);
+        AnalysisImageResult.Item result = AnalysisImageResult.fromStored(store.findOwned(job.id(), 7L).analysisImages().getFirst()).items().getFirst();
+        assertThat(result.quantity()).isZero();
+        assertThat(result.weight().value()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.weight().unit() == null ? null : result.weight().unit().name()).isEqualTo(unit);
+        assertThat(result.measureType() == null ? null : result.measureType().name()).isEqualTo(measureType);
+    }
+
+    private static String jsonEnum(String value) { return value == null ? "null" : "\"" + value + "\""; }
 
     private void send(String body, String key, int expected) throws Exception {
         mvc.perform(post(PATH).header("X-Internal-API-Key", key).contentType(MediaType.APPLICATION_JSON).content(body))

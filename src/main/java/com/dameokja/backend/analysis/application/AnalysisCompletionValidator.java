@@ -5,8 +5,6 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
-import com.dameokja.backend.ingredient.domain.MeasureType;
-import com.dameokja.backend.ingredient.domain.WeightUnit;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -34,17 +32,8 @@ public class AnalysisCompletionValidator {
 
     private void validateMeasure(AnalysisCompletionItem item) {
         require(item.weight() != null);
-        MeasureType measure = item.measureType();
-        AnalysisCompletionItem.Weight weight = item.weight();
-        if (measure == MeasureType.COUNT) {
-            require(item.quantity() == null || item.quantity() >= 0 && item.quantity() <= 100);
-            require((weight.value() == null || weight.value().signum() == 0) && weight.unit() == WeightUnit.NONE);
-        } else if (measure == MeasureType.WEIGHT) {
-            require((item.quantity() == null || item.quantity() == 0) && (weight.value() == null || weight.value().signum() >= 0));
-            require(weight.unit() != WeightUnit.NONE);
-        } else {
-            require(measure == null && item.quantity() == null && weight.value() == null && weight.unit() == null);
-        }
+        require(item.quantity() == null || item.quantity() >= 0 && item.quantity() <= 100);
+        require(item.weight().value() == null || item.weight().value().signum() >= 0);
     }
 
     private void validateExpiration(AnalysisCompletionItem.Expiration expiration) {
