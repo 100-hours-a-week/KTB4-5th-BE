@@ -1,6 +1,7 @@
 package com.dameokja.backend.notification.infrastructure;
 
 import com.dameokja.backend.notification.domain.NotificationChanged;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class NotificationRedisPubSub implements MessageListener {
     static final String CHANNEL = "fridgely:notifications:changed";
+    static final String KICKED_CHANNEL = "fridgely:members:kicked";
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
     private final NotificationSseConnections connections;
@@ -30,9 +32,26 @@ public class NotificationRedisPubSub implements MessageListener {
         }
     }
 
+    @TransactionalEventListener
+    public void afterCommit(MemberKicked kicked) {
+        try {
+            redis.convertAndSend(KICKED_CHANNEL, mapper.writeValueAsString(kicked));
+        } catch (RuntimeException exception) {
+            // 이미 확정된 추방을 전송 장애 때문에 실패로 응답하지 않는다.
+            log.warn("추방 신호 발행 실패", exception);
+        }
+    }
+
     @Override
     public void onMessage(Message message, byte[] pattern) {
         try {
+            if (KICKED_CHANNEL.equals(new String(message.getChannel(), StandardCharsets.UTF_8))) {
+                MemberKicked kicked = mapper.readValue(new String(message.getBody(), StandardCharsets.UTF_8), MemberKicked.class);
+                if (kicked != null) {
+                    connections.notifyKicked(kicked);
+                }
+                return;
+            }
             NotificationChanged changed = mapper.readValue(
                     new String(message.getBody(), StandardCharsets.UTF_8), NotificationChanged.class);
             if (changed == null) {

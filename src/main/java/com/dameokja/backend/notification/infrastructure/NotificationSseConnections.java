@@ -3,6 +3,7 @@ package com.dameokja.backend.notification.infrastructure;
 import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
+import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.Map;
@@ -63,6 +64,15 @@ public class NotificationSseConnections {
         }
         group.notifyChanged(new NotificationChanged(userId, refrigeratorId));
         removeEmptyGroup(userId);
+    }
+
+    public void notifyKicked(MemberKicked kicked) {
+        UserSseConnections group = connections.get(kicked.userId());
+        if (group == null) {
+            return;
+        }
+        group.notifyKicked(kicked);
+        removeEmptyGroup(kicked.userId());
     }
 
     /** 냉장고와 관계없이 작업 소유자의 모든 로컬 연결에 분석 종료를 전달한다. */
