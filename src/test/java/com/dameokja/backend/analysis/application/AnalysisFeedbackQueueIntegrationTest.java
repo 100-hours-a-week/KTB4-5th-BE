@@ -17,14 +17,18 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -53,10 +57,21 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired ObjectMapper mapper;
     @Autowired PlatformTransactionManager transactionManager;
+    private TimeZone originalTimeZone;
+
+    @BeforeEach
+    void useUtcJvmTimeZone() {
+        originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+    }
 
     @AfterEach
     void cleanUp() {
-        jdbcTemplate.update("DELETE FROM analysis_feedbacks");
+        try {
+            jdbcTemplate.update("DELETE FROM analysis_feedbacks");
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
     }
 
     @Test
@@ -64,16 +79,19 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
         enqueue(1);
         LeasedFeedback leased = queue.leaseDue().getFirst();
         assertThat(mapper.readValue(queue.findLeased(leased).orElseThrow().getFeedbackBody(), AiAnalysisFeedbackRequest.class)).isEqualTo(request);
+        assertThat(row(leased.id())).containsEntry("lease_until", NOW.plus(LEASE_DURATION));
         assertThat(queue.leaseDue()).isEmpty();
         queue.finish(leased);
         assertThat(row(leased.id())).containsEntry("status", "DONE").containsEntry("attempt_count", 0)
-                .containsEntry("lease_token", null).containsEntry("lease_until", null);
+                .containsEntry("lease_token", null).containsEntry("lease_until", null).containsEntry("finished_at", NOW);
         assertThat(queue.findLeased(leased)).isEmpty();
         assertThat(queue.leaseDue()).isEmpty();
     }
 
-    @Test
-    void reservesRetryAndDoesNotLeaseItBeforeTheScheduledTime() {
+    @ParameterizedTest
+    @ValueSource(strings = {"UTC", "Asia/Seoul", "America/New_York"})
+    void reservesRetryAndDoesNotLeaseItBeforeTheScheduledTime(String timeZone) {
+        TimeZone.setDefault(TimeZone.getTimeZone(timeZone));
         enqueue(1);
         LeasedFeedback leased = queue.leaseDue().getFirst();
         queue.retryLater(leased, AnalysisFeedbackErrorCode.AI_BUSY);
@@ -171,7 +189,7 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
     }
 
     private Map<String, Object> row(Long id) {
-        return jdbcTemplate.queryForMap("SELECT status, attempt_count, last_error_code, lease_token, lease_until FROM analysis_feedbacks WHERE analysis_feedback_id = ?", id);
+        return jdbcTemplate.queryForMap("SELECT status, attempt_count, last_error_code, lease_token, lease_until, finished_at FROM analysis_feedbacks WHERE analysis_feedback_id = ?", id);
     }
 
     @TestConfiguration(proxyBeanMethods = false)

@@ -6,6 +6,7 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 @Transactional
 @RequiredArgsConstructor
 public class AnalysisFeedbackQueue {
+    private static final DateTimeFormatter SQL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
     private final AnalysisFeedbackRepository analysisFeedbackRepository;
     private final AnalysisFeedbackProperties analysisFeedbackProperties;
     private final ObjectMapper objectMapper;
@@ -36,13 +38,13 @@ public class AnalysisFeedbackQueue {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public List<LeasedFeedback> leaseDue() {
         LocalDateTime now = BusinessTime.now(clock);
-        List<Long> feedbackIds = new ArrayList<>(analysisFeedbackRepository.findLeaseExpiredIdsWithSkipLock(now, analysisFeedbackProperties.batchSize()));
-        feedbackIds.addAll(analysisFeedbackRepository.findDueIdsWithSkipLock(now, analysisFeedbackProperties.batchSize() - feedbackIds.size()));
+        List<Long> feedbackIds = new ArrayList<>(analysisFeedbackRepository.findLeaseExpiredIdsWithSkipLock(sqlTime(now), analysisFeedbackProperties.batchSize()));
+        feedbackIds.addAll(analysisFeedbackRepository.findDueIdsWithSkipLock(sqlTime(now), analysisFeedbackProperties.batchSize() - feedbackIds.size()));
         if (feedbackIds.isEmpty()) {
             return List.of();
         }
         String leaseToken = UUID.randomUUID().toString();
-        analysisFeedbackRepository.markSending(feedbackIds, leaseToken, now, now.plus(analysisFeedbackProperties.leaseDuration()));
+        analysisFeedbackRepository.markSending(feedbackIds, leaseToken, sqlTime(now), sqlTime(now.plus(analysisFeedbackProperties.leaseDuration())));
         return feedbackIds.stream().map(id -> new LeasedFeedback(id, leaseToken)).toList();
     }
 
@@ -52,19 +54,23 @@ public class AnalysisFeedbackQueue {
     }
 
     public void finish(LeasedFeedback leasedFeedback) {
-        analysisFeedbackRepository.finish(leasedFeedback.id(), leasedFeedback.token(), BusinessTime.now(clock));
+        analysisFeedbackRepository.finish(leasedFeedback.id(), leasedFeedback.token(), sqlTime(BusinessTime.now(clock)));
     }
 
     public void retryLater(LeasedFeedback leasedFeedback, AnalysisFeedbackErrorCode errorCode) {
         LocalDateTime now = BusinessTime.now(clock);
-        analysisFeedbackRepository.reschedule(leasedFeedback.id(), leasedFeedback.token(), now.plus(analysisFeedbackProperties.retryDelay()), errorCode.name(), now);
+        analysisFeedbackRepository.reschedule(leasedFeedback.id(), leasedFeedback.token(), sqlTime(now.plus(analysisFeedbackProperties.retryDelay())),
+                errorCode.name(), sqlTime(now));
     }
 
     public void fail(LeasedFeedback leasedFeedback, AnalysisFeedbackErrorCode errorCode) {
-        analysisFeedbackRepository.fail(leasedFeedback.id(), leasedFeedback.token(), errorCode.name(), BusinessTime.now(clock));
+        analysisFeedbackRepository.fail(leasedFeedback.id(), leasedFeedback.token(), errorCode.name(), sqlTime(BusinessTime.now(clock)));
     }
 
     public void failExpired() {
-        analysisFeedbackRepository.failExpired(AnalysisFeedbackErrorCode.EXPIRED.name(), BusinessTime.now(clock));
+        analysisFeedbackRepository.failExpired(AnalysisFeedbackErrorCode.EXPIRED.name(), sqlTime(BusinessTime.now(clock)));
     }
+
+    // native 파라미터의 Timestamp 변환을 피하고 서울 벽시각을 DATETIME으로 그대로 전달한다.
+    private String sqlTime(LocalDateTime value) { return value.format(SQL_TIME); }
 }
