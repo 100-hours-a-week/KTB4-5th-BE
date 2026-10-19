@@ -103,6 +103,7 @@ CREATE TABLE invite_codes (
 CREATE TABLE ingredients (
     ingredient_id BIGINT NOT NULL AUTO_INCREMENT,
     refrigerator_id BIGINT NOT NULL,
+    owner_id BIGINT NOT NULL COMMENT '최초 등록 회원. 도입 전 재고는 당시 냉장고 소유자로 보정',
     name VARCHAR(100) NOT NULL COMMENT '사용자 입력 또는 OCR 원문',
     category VARCHAR(20) NOT NULL,
     storage_type VARCHAR(20) NOT NULL DEFAULT 'REFRIGERATED' COMMENT 'REFRIGERATED / FROZEN',
@@ -118,6 +119,8 @@ CREATE TABLE ingredients (
     PRIMARY KEY (ingredient_id),
     KEY ix_ingredients_refrigerator_expiration (refrigerator_id, expiration_date, ingredient_id),
     KEY ix_ingredients_expiration (expiration_date, refrigerator_id),
+    KEY ix_ingredients_registered_by_user (owner_id),
+    CONSTRAINT fk_ingredients_registered_by_user FOREIGN KEY (owner_id) REFERENCES users (user_id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_ingredients_category CHECK (category IN ('VEGETABLE','FRUIT','MEAT','SEAFOOD','DAIRY','TOFU_BEAN','GRAINS_NOODLE','PROCESSED_FOOD','SEASONING','BEVERAGE','OTHER')),
     CONSTRAINT ck_ingredients_storage CHECK (storage_type IN ('REFRIGERATED','FROZEN')),
     CONSTRAINT ck_ingredients_source CHECK (registration_source IN ('DIRECT','RECEIPT','FOOD_IMAGE')),

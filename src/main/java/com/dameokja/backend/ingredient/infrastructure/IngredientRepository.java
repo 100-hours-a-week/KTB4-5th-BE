@@ -46,12 +46,13 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
+            + "and i.owner.id = :ownerId "
             + "and i.name = :#{#details.name()} "
             + "and i.storageType = :#{#details.storageType()} "
             + "and i.expirationDate = :#{#details.expirationDate()} "
             + "and i.measurement.measureType = :#{#details.measurement().measureType} "
             + "and i.measurement.weightUnit = :#{#details.measurement().weightUnit} order by i.id")
-    List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId,
+    List<Ingredient> findMergeCandidates(@Param("refrigeratorId") Long refrigeratorId, @Param("ownerId") Long ownerId,
             @Param("details") IngredientDetails details);
 
     @Query(IngredientListJpql.FILTERED_COUNT)

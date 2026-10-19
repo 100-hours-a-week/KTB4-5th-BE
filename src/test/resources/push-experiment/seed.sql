@@ -24,10 +24,10 @@ SELECT 2*id-1+device.n, CONCAT('https://fcm.googleapis.com/send/push-experiment/
     'test-v1', 'test-v1', 1, 'ACTIVE', @now, @now, id FROM experiment_numbers
 CROSS JOIN JSON_TABLE('[{"n":0,"label":"laptop"},{"n":1,"label":"smartphone"}]', '$[*]'
     COLUMNS(n INT PATH '$.n', label VARCHAR(20) PATH '$.label')) device;
-INSERT INTO ingredients (refrigerator_id, name, category, quantity, expiration_date, registration_source, created_at, updated_at)
+INSERT INTO ingredients (refrigerator_id, name, category, quantity, expiration_date, registration_source, created_at, updated_at, owner_id)
 SELECT id, material.name, 'TOFU_BEAN', 1,
     DATE_ADD(DATE(@now), INTERVAL (CASE WHEN id <= @notification_targets THEN material.days ELSE 7 END) DAY),
-    'DIRECT', @now, @now
+    'DIRECT', @now, @now, id
 FROM experiment_numbers
 CROSS JOIN JSON_TABLE('[{"name":"만료두부","days":-1},{"name":"오늘두부","days":0},{"name":"임박두부","days":3},{"name":"여유두부","days":7}]', '$[*]'
     COLUMNS(name VARCHAR(100) PATH '$.name', days INT PATH '$.days')) material;

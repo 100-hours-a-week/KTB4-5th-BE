@@ -181,7 +181,7 @@ class IngredientQuantityUpdateIntegrationTest extends ServiceIntegrationTest {
         IngredientDetails details = new IngredientDetails("달걀", IngredientCategory.OTHER, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 10, null, WeightUnit.NONE), LocalDate.of(2026, 9, 25));
         return ingredients.saveAndFlush(new Ingredient(refrigeratorRepository.findById(owner.refrigeratorId()).orElseThrow(),
-                details, RegistrationSource.DIRECT));
+                details, RegistrationSource.DIRECT, userRepository.findById(owner.userId()).orElseThrow()));
     }
 
     private IngredientUpdateFields quantity(int quantity) {

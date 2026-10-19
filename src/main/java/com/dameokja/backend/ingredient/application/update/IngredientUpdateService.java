@@ -85,7 +85,7 @@ public class IngredientUpdateService {
     }
 
     private List<Ingredient> findDuplicates(Ingredient ingredient, IngredientDetails details) {
-        return ingredientRepository.findMergeCandidates(ingredient.getRefrigerator().getId(), details).stream()
+        return ingredientRepository.findMergeCandidates(ingredient.getRefrigerator().getId(), ingredient.getOwner().getId(), details).stream()
                 .filter(candidate -> !candidate.getId().equals(ingredient.getId()))
                 .toList();
     }

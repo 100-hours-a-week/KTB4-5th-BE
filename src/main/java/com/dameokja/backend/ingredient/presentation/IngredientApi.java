@@ -113,8 +113,8 @@ public interface IngredientApi {
     @Operation(
             summary = "재고 수정",
             description = "상세 조회에서 받은 ETag를 사용해 재고의 제공된 필드만 수정합니다. 이미 만료된 재고의 수정은 모든 필드에 대해 422 INGREDIENT-422-004로 거절합니다. "
-                    + "측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
-                    + "수정 결과가 같은 냉장고의 다른 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같으면 그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
+                    + "최초 등록자, 측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
+                    + "같은 냉장고·등록자의 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같아지면 그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -237,7 +237,7 @@ public interface IngredientApi {
             summary = "직접 입력 재고 일괄 등록",
             description = "직접 입력한 재고를 1~20건 등록하며 서버가 등록 방식을 DIRECT로 지정합니다. registrationSource는 요청에서 받지 않습니다. "
                     + "사진 인식 등록은 /api/v1/refrigerators/{refrigeratorId}/ingredients/from-analysis를 사용합니다. "
-                    + "동일한 기존 재고가 있으면 자동 합산하고 기존 최초 등록 방식을 유지하며, 합산 내역을 응답합니다."
+                    + "인증된 회원을 최초 등록자로 저장합니다. 같은 등록자의 동일한 기존 재고가 있으면 자동 합산하고 기존 최초 등록 방식을 유지하며, 합산 내역을 응답합니다."
     )
     @ApiResponses({
             @ApiResponse(

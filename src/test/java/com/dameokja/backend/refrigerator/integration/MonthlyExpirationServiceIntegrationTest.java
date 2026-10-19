@@ -209,7 +209,7 @@ class MonthlyExpirationServiceIntegrationTest extends ServiceIntegrationTest {
     private Ingredient ingredient(Fixture fixture, String name, String expiration) {
         IngredientDetails details = new IngredientDetails(name, IngredientCategory.OTHER, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 10, null, WeightUnit.NONE), LocalDate.parse(expiration));
-        return ingredients.saveAndFlush(new Ingredient(saved(fixture), details, RegistrationSource.DIRECT));
+        return ingredients.saveAndFlush(new Ingredient(saved(fixture), details, RegistrationSource.DIRECT, userRepository.findById(fixture.userId()).orElseThrow()));
     }
 
     private Refrigerator saved(Fixture fixture) {

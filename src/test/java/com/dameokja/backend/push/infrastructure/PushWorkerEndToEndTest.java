@@ -95,8 +95,8 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     @Test
     void batchReturnsBeforeHttpFinishesAndScheduledWorkerDrainsAllJobsWithinCapacity() throws Exception {
         devices(8);
-        jdbc.update("INSERT INTO ingredients(refrigerator_id,name,category,quantity,expiration_date,registration_source) "
-                + "VALUES (?,'우유','OTHER',1,'2026-09-25','DIRECT')", OWNER);
+        jdbc.update("INSERT INTO ingredients(refrigerator_id,name,category,quantity,expiration_date,registration_source,owner_id) "
+                + "VALUES (?,'우유','OTHER',1,'2026-09-25','DIRECT',?)", OWNER, OWNER);
         http.block(4);
         CompletableFuture.runAsync(batch::runExpirationNotificationBatch).get(3, TimeUnit.SECONDS);
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(slots.freeSlotCount()).isZero());

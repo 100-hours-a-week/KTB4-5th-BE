@@ -126,6 +126,6 @@ class MypageIntegrationTest extends ServiceIntegrationTest {
         Refrigerator refrigerator = refrigeratorRepository.findById(fixture.refrigeratorId()).orElseThrow();
         IngredientDetails details = new IngredientDetails("달걀", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE), LocalDate.of(2026, 9, 16));
-        return ingredients.save(new Ingredient(refrigerator, details, RegistrationSource.DIRECT));
+        return ingredients.save(new Ingredient(refrigerator, details, RegistrationSource.DIRECT, userRepository.findById(fixture.userId()).orElseThrow()));
     }
 }

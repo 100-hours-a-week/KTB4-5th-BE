@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.update;
 
+import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,8 +53,11 @@ class IngredientUpdateServiceTest {
     private Refrigerator refrigerator;
     private Ingredient ingredient;
 
+    private final User registrant = new User("등록자", "test");
+
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(registrant, "id", 1L);
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         ingredient = ingredient(refrigerator, LocalDate.of(2026, 9, 24));
@@ -160,7 +164,7 @@ class IngredientUpdateServiceTest {
     void mergesDuplicateIntoUpdatedIngredientAndDeletesDuplicate() {
         Ingredient duplicate = ingredient(refrigerator, LocalDate.of(2026, 9, 25));
         ReflectionTestUtils.setField(duplicate, "id", 21L);
-        when(ingredientRepository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(ingredient, duplicate));
+        when(ingredientRepository.findMergeCandidates(eq(10L), eq(1L), any())).thenReturn(List.of(ingredient, duplicate));
 
         IngredientUpdateResult result = updateService.update(
                 1L, 20L, IngredientEtag.of(ingredient), fieldsWithExpiration(LocalDate.of(2026, 9, 25)));
@@ -175,7 +179,7 @@ class IngredientUpdateServiceTest {
 
     @Test
     void returnsNoMergedItemsWhenOnlyItselfMatches() {
-        when(ingredientRepository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(ingredient));
+        when(ingredientRepository.findMergeCandidates(eq(10L), eq(1L), any())).thenReturn(List.of(ingredient));
 
         IngredientUpdateResult result = updateService.update(1L, 20L, IngredientEtag.of(ingredient),
                 fieldsWithExpiration(LocalDate.of(2026, 9, 25)));
@@ -201,7 +205,7 @@ class IngredientUpdateServiceTest {
         order.verify(accessService).validateReadAccess(1L, 10L);
         order.verify(ingredientRepository).findByIdForUpdate(20L);
         verify(accessService, never()).lockForWrite(any(), any());
-        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any(), any());
     }
 
     @Test
@@ -215,7 +219,7 @@ class IngredientUpdateServiceTest {
         updateService.update(1L, 20L, IngredientEtag.of(ingredient), fields);
 
         assertThat(ingredient.getName()).isEqualTo(" 두부 ");
-        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any(), any());
     }
 
     @Test
@@ -230,7 +234,7 @@ class IngredientUpdateServiceTest {
         assertThat(result.ingredient().getName()).isEqualTo("두부");
         assertThat(result.ingredient().getCategory()).isEqualTo(IngredientCategory.OTHER);
         verify(accessService).lockForWrite(1L, 10L);
-        verify(ingredientRepository, never()).findMergeCandidates(any(), any());
+        verify(ingredientRepository, never()).findMergeCandidates(any(), any(), any());
     }
 
     private IngredientUpdateFields fieldsWithExpiration(LocalDate expirationDate) {
@@ -252,7 +256,7 @@ class IngredientUpdateServiceTest {
                 "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 Measurement.of(MeasureType.WEIGHT, null, new BigDecimal("300"), WeightUnit.G),
                 expirationDate);
-        Ingredient result = new Ingredient(owner, details, RegistrationSource.RECEIPT);
+        Ingredient result = new Ingredient(owner, details, RegistrationSource.RECEIPT, registrant);
         ReflectionTestUtils.setField(result, "id", 20L);
         return result;
     }

@@ -130,7 +130,8 @@ class MembershipAvailabilityIntegrationTest extends ServiceIntegrationTest {
 
     private void seedIngredient(Long refrigeratorId) {
         jdbcTemplate.update("INSERT INTO ingredients "
-                + "(refrigerator_id,name,category,storage_type,measure_type,quantity,weight_unit,expiration_date,registration_source) "
-                + "VALUES (?,'carrot','VEGETABLE','REFRIGERATED','COUNT',1,'NONE','2026-10-20','DIRECT')", refrigeratorId);
+                + "(refrigerator_id,name,category,storage_type,measure_type,quantity,weight_unit,expiration_date,registration_source,owner_id) "
+                + "VALUES (?,'carrot','VEGETABLE','REFRIGERATED','COUNT',1,'NONE','2026-10-20','DIRECT',"
+                + "(SELECT user_id FROM refrigerator_members WHERE refrigerator_id=? AND role='OWNER' LIMIT 1))", refrigeratorId, refrigeratorId);
     }
 }
