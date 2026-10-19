@@ -142,6 +142,8 @@ analysis:
     retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
     sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
   feedback:
+    enabled: ${ANALYSIS_FEEDBACK_ENABLED:true}
+    poll-interval: ${ANALYSIS_FEEDBACK_POLL_INTERVAL:10s}
     retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:10m}
     lease-duration: ${ANALYSIS_FEEDBACK_LEASE_DURATION:5m}
     expires-after: ${ANALYSIS_FEEDBACK_EXPIRES_AFTER:3d}

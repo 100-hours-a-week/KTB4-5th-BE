@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -22,14 +23,15 @@ public class AnalysisIngredientService {
     private static final int MAX_ITEMS = 20;
     private final AnalysisJobStore analysisJobStore;
     private final IngredientCreateService ingredientCreateService;
-    private final AiAnalysisClient aiAnalysisClient;
+    private final AnalysisFeedbackQueue analysisFeedbackQueue;
+    private final TransactionTemplate transactionTemplate;
 
-    // 외부 전송과 결과 삭제는 재고 등록 트랜잭션이 커밋된 후 수행한다.
+    // 피드백은 재고와 같은 트랜잭션으로 큐에 넣어 등록이 커밋되면 함께 남게 한다. Redis 결과 삭제는 되돌릴 수 없어 커밋 뒤에 한다.
     public IngredientWriteResult create(Long userId, Long refrigeratorId, AnalysisIngredientCommand request) {
         AnalysisJob job = analysisJobStore.findOwned(request.analysisId(), userId);
         List<Feedback> feedbacks = prepareRegistration(job, request);
-        IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).toList());
-        sendAndCleanup(job.id(), feedbacks);
+        IngredientWriteResult result = transactionTemplate.execute(status -> registerWithFeedbacks(userId, refrigeratorId, feedbacks));
+        deleteResult(job.id());
         return result;
     }
 
@@ -68,15 +70,14 @@ public class AnalysisIngredientService {
         return feedbacks;
     }
 
-    private void sendAndCleanup(String jobId, List<Feedback> feedbacks) {
-        for (Feedback feedback : feedbacks) {
-            try {
-                aiAnalysisClient.feedback(feedback.aiId(), feedback.request());
-            } catch (RuntimeException exception) {
-                log.warn("재고 등록 후 AI 피드백 실패: jobId={}, aiId={}, itemId={}", jobId, feedback.aiId(), feedback.itemId(), exception);
-            }
-        }
-        // 이미 등록된 재고를 다시 등록하지 않도록 피드백 전송 성공 여부와 관계없이 결과를 지운다.
+    private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
+        IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).toList());
+        feedbacks.forEach(feedback -> analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request()));
+        return result;
+    }
+
+    // 결과가 남아 있으면 같은 항목을 다시 등록할 수 있으므로, 피드백 전송을 기다리지 않고 등록이 커밋되면 바로 지운다.
+    private void deleteResult(String jobId) {
         try {
             analysisJobStore.delete(jobId);
         } catch (RuntimeException exception) {
