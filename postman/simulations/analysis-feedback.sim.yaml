@@ -1,0 +1,5 @@
+simulation: analysis-feedback
+routing: path
+mocks:
+  - routeKey: ai
+    path: ../mocks/analysis-feedback/config.yaml

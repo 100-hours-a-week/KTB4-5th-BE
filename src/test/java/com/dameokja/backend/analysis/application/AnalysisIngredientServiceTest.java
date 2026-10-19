@@ -19,50 +19,44 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.web.client.RestClientException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class AnalysisIngredientServiceTest {
     private final AnalysisJobStore store = mock(AnalysisJobStore.class);
     private final IngredientCreateService creator = mock(IngredientCreateService.class);
-    private final AiAnalysisClient ai = mock(AiAnalysisClient.class);
-    private final AnalysisIngredientService service = new AnalysisIngredientService(store, creator, ai);
+    private final AnalysisFeedbackQueue queue = mock(AnalysisFeedbackQueue.class);
+    private final AnalysisIngredientService service = new AnalysisIngredientService(store, creator, queue,
+            new TransactionTemplate(mock(PlatformTransactionManager.class)));
     private final AnalysisIngredientCommand.Item count = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
             StorageType.REFRIGERATED, MeasureType.COUNT, BigDecimal.TWO, null, LocalDate.parse("2026-10-20"));
     private final IngredientWriteResult result = new IngredientWriteResult(List.of(), 2, 0, 2, 100);
 
     @Test
-    void registersBeforeFeedbackAndDeletesWholeJobUsingImageAiIds() {
+    void registersAndQueuesConfirmedFeedbackThenDeletesResult() {
         AnalysisIngredientCommand.Item weight = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
                 StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new AnalysisIngredientCommand.Weight(BigDecimal.TEN, WeightUnit.ML), count.expiration());
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(List.of(count), List.of(weight)))).isSameAs(result);
-        org.mockito.InOrder order = inOrder(creator, ai, store);
+        org.mockito.InOrder order = inOrder(creator, queue, store);
         order.verify(creator).create(eq(7L), eq(1L), argThat(commands -> commands.getFirst().registrationSource() == RegistrationSource.RECEIPT
                 && commands.getLast().registrationSource() == RegistrationSource.FOOD_IMAGE));
-        order.verify(ai).feedback(eq("ai-receipt"), argThat(f -> f.itemId().equals("item") && f.action().equals("CORRECTED")
+        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.itemId().equals("item") && f.action().equals("CORRECTED")
                 && f.consentForModelImprovement() && f.confirmed().quantity() == 2 && f.confirmed().weightUnit() == WeightUnit.NONE
                 && f.confirmed().expirationSource().equals("USER_CONFIRMED")));
-        order.verify(ai).feedback(eq("ai-product"), argThat(f -> f.confirmed().quantity() == null && f.confirmed().weightValue().equals(BigDecimal.TEN)
+        order.verify(queue).enqueue(eq("ai-product"), argThat(f -> f.confirmed().quantity() == null && f.confirmed().weightValue().equals(BigDecimal.TEN)
                 && f.confirmed().weightUnit() == WeightUnit.ML));
         order.verify(store).delete("job");
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void deletesResultAndStillSendsRemainingFeedbackOnFailure(boolean allFeedbacksFail) {
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
+    @Test
+    void keepsResultWhenFeedbackCannotBeQueuedBecauseRegistrationRollsBack() {
+        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
-        when(ai.feedback(eq("ai-receipt"), any())).thenThrow(new RestClientException("unavailable"));
-        if (allFeedbacksFail) {
-            when(ai.feedback(eq("ai-product"), any())).thenThrow(new RestClientException("unavailable"));
-        }
-        assertThat(service.create(7L, 1L, request(List.of(count), List.of(count)))).isSameAs(result);
-        org.mockito.InOrder order = inOrder(creator, ai, store);
-        order.verify(creator).create(eq(7L), eq(1L), any());
-        order.verify(ai).feedback(eq("ai-receipt"), any());
-        order.verify(ai).feedback(eq("ai-product"), any());
-        order.verify(store).delete("job");
+        doThrow(new IllegalStateException("db unavailable")).when(queue).enqueue(any(), any());
+        assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(IllegalStateException.class);
+        verify(store, never()).delete(any());
     }
 
     @ParameterizedTest
@@ -84,19 +78,19 @@ class AnalysisIngredientServiceTest {
         AnalysisIngredientCommand command = new AnalysisIngredientCommand("job", scenario.equals("DUPLICATE_IMAGE") ? List.of(image, image) : List.of(image));
         assertThatThrownBy(() -> service.create(7L, 1L, command)).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
-        verifyNoInteractions(creator, ai);
+        verifyNoInteractions(creator, queue);
         verify(store, never()).delete(any());
     }
 
     @Test
-    void doesNotSendFeedbackOnOwnershipOrInventoryFailureAndToleratesCleanupFailure() {
+    void doesNotQueueFeedbackOnOwnershipOrInventoryFailureAndToleratesCleanupFailure() {
         when(store.findOwned("job", 7L)).thenThrow(new CustomException(GlobalExceptionCode.FORBIDDEN));
         assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class);
-        verifyNoInteractions(creator, ai);
+        verifyNoInteractions(creator, queue);
         doReturn(job(image("receipt", AnalysisDocumentType.RECEIPT))).when(store).findOwned("job", 7L);
         when(creator.create(eq(7L), eq(1L), any())).thenThrow(new IllegalStateException("rollback"));
         assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(IllegalStateException.class);
-        verifyNoInteractions(ai);
+        verifyNoInteractions(queue);
         verify(store, never()).delete(any());
         doReturn(result).when(creator).create(eq(7L), eq(1L), any());
         doThrow(new IllegalStateException("redis unavailable")).when(store).delete("job");
@@ -110,7 +104,7 @@ class AnalysisIngredientServiceTest {
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(items))).isSameAs(result);
-        verify(ai, times(20)).feedback(eq("ai-receipt"), any());
+        verify(queue, times(20)).enqueue(eq("ai-receipt"), any());
         AnalysisIngredientCommand.Item fraction = new AnalysisIngredientCommand.Item("item", count.name(), count.category(), count.storageType(),
                 count.measureType(), new BigDecimal("1.5"), null, count.expiration());
         assertThatThrownBy(() -> fraction.toCommand(RegistrationSource.RECEIPT)).isInstanceOf(CustomException.class);
