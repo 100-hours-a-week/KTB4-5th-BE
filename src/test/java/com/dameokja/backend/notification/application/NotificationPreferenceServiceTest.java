@@ -33,7 +33,7 @@ class NotificationPreferenceServiceTest {
 
         ArgumentCaptor<NotificationPreference> savedCaptor =
                 ArgumentCaptor.forClass(NotificationPreference.class);
-        verify(notificationPreferenceRepository, times(2)).save(savedCaptor.capture());
+        verify(notificationPreferenceRepository, times(3)).save(savedCaptor.capture());
         List<NotificationPreference> saved = savedCaptor.getAllValues();
         assertThat(saved).extracting(
                         NotificationPreference::getUser,
@@ -41,7 +41,8 @@ class NotificationPreferenceServiceTest {
                         NotificationPreference::getIsEnabled)
                 .containsExactlyInAnyOrder(
                         tuple(user, NotificationPreferenceType.EXPIRATION, true),
-                        tuple(user, NotificationPreferenceType.RECIPE, false));
+                        tuple(user, NotificationPreferenceType.RECIPE, false),
+                        tuple(user, NotificationPreferenceType.ANALYSIS, true));
     }
 
     @Test

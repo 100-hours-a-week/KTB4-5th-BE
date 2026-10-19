@@ -13,6 +13,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,10 +40,14 @@ public class ExpirationNotificationService {
         LocalDate businessDate = BusinessTime.today(clock);
 
         List<Ingredient> ingredients = ingredientExpirationService.findNotificationTargets(refrigeratorId, businessDate);
-        List<Notification> notifications = createNotifications(refrigerator, ingredients, businessDate);
-
-        List<User> recipients = extractRecipients(members);
-        saveNotifications(notifications, recipients);
+        Map<Long, List<Ingredient>> ingredientsByOwner = ingredients.stream()
+                .collect(Collectors.groupingBy(ingredient -> ingredient.getOwner().getId()));
+        for (RefrigeratorMember member : members) {
+            User owner = member.getUser();
+            List<Ingredient> ownedIngredients = ingredientsByOwner.getOrDefault(owner.getId(), List.of());
+            List<Notification> notifications = createNotifications(refrigerator, ownedIngredients, businessDate);
+            saveNotifications(notifications, List.of(owner));
+        }
     }
 
     private List<Notification> createNotifications(Refrigerator refrigerator, List<Ingredient> ingredients, LocalDate businessDate) {
@@ -63,12 +69,6 @@ public class ExpirationNotificationService {
             notifications.add(notificationFactory.create(refrigerator, expiredIngredients, businessDate));
         }
         return notifications;
-    }
-
-    private List<User> extractRecipients(List<RefrigeratorMember> members) {
-        return members.stream()
-                .map(RefrigeratorMember::getUser)
-                .toList();
     }
 
     private void saveNotifications(List<Notification> notifications, List<User> recipients) {

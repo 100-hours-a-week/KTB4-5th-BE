@@ -11,14 +11,15 @@ import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples
 import static com.dameokja.backend.ingredient.presentation.IngredientApiExamples.UPDATE_RESPONSE;
 
 import com.dameokja.backend.global.response.SuccessResponse;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireSelectedRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientCreateRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientDetailResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
-import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,12 +35,13 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "재고", description = "냉장고 재고 API")
 public interface IngredientApi {
-
     @Operation(
             summary = "냉장고 재고 목록 조회",
             description = "커서 기반 무한 스크롤로 재고 목록을 조회합니다. 만료 여부와 관계없이 선택한 정렬 기준을 적용합니다. "
-                    + "다음 페이지는 같은 sort와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
-                    + "상태(status)는 첫 페이지 요청 날짜(KST) 기준으로 계산합니다."
+                    + "다음 페이지는 같은 sort·filter·category·keyword와 응답의 nextCursor를 보내고, 마지막 페이지면 nextCursor는 null입니다. "
+                    + "baseDate는 첫 페이지 요청 날짜(KST)이며 상태·D-day·상태 필터는 다음 페이지도 같은 날짜로 계산합니다. "
+                    + "기준일이 요청 시점의 KST 날짜보다 이전이면 outdated는 true입니다. "
+                    + "자정 이후에도 기존 커서는 유효하며, 오늘 기준으로 갱신하려면 cursor 없이 첫 페이지부터 조회합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -47,7 +49,7 @@ public interface IngredientApi {
                     description = "냉장고 재고 목록 조회 성공",
                     content = @Content(mediaType = "application/json", examples = @ExampleObject(value = LIST_RESPONSE))
             ),
-            @ApiResponse(responseCode = "400", description = "size·sort·filter 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
+            @ApiResponse(responseCode = "400", description = "size·sort·filter·category 형식 오류 (INGREDIENT-400-003), 유효하지 않은 커서 (INGREDIENT-400-004)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
@@ -75,11 +77,13 @@ public interface IngredientApi {
                             + "/ REFRIGERATED(냉장) / FROZEN(냉동). 바꾸면 cursor 없이 첫 페이지부터 다시 조회",
                     schema = @Schema(allowableValues = {"NORMAL", "EXPIRING_SOON", "EXPIRED", "REFRIGERATED", "FROZEN"})
             )
-            String filter);
-
+            String filter,
+            @Parameter(description = "단일 선택. 생략 시 전체. filter와 AND. 변경 시 커서 초기화", schema = @Schema(implementation = IngredientCategory.class)) String category,
+            @Parameter(description = "이름 부분검색. 앞뒤 공백 제거 후 1자 이상, 빈 입력은 전체. %, _는 문자 그대로 검색. category·filter와 AND. 변경 시 커서 초기화") String keyword);
     @Operation(
             summary = "재고 상세 조회",
-            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다."
+            description = "재고 상세 정보와 수정 요청에 사용할 현재 버전 ETag를 조회합니다. baseDate는 요청 시점의 KST 날짜이며 상태·D-day의 계산 기준입니다. "
+                    + "ownerNickname은 기존 owner_id에 연결된 최초 등록 회원의 현재 닉네임이며 다른 구성원이 조회하거나 수정해도 등록자 기준으로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -95,7 +99,7 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
-    ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
+    ResponseEntity<SuccessResponse<IngredientDetailResponse>> getDetail(
             @Parameter(hidden = true) Long userId,
             @Parameter(
                     name = "ingredientId",
@@ -108,10 +112,9 @@ public interface IngredientApi {
 
     @Operation(
             summary = "재고 수정",
-            description = "상세 조회에서 받은 ETag를 사용해 재고의 제공된 필드만 수정합니다. "
-                    + "측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
-                    + "수정 결과가 같은 냉장고의 다른 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같으면 "
-                    + "그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
+            description = "상세 조회에서 받은 ETag를 사용해 재고의 제공된 필드만 수정합니다. 이미 만료된 재고의 수정은 모든 필드에 대해 422 INGREDIENT-422-004로 거절합니다. "
+                    + "최초 등록자, 측정 방식, 등록 방식, 등록일과 이미지는 변경할 수 없습니다. "
+                    + "같은 냉장고·등록자의 재고와 이름·보관 방식·유통기한·측정 방식·단위가 같아지면 그 재고의 수량을 수정한 재고에 더하고 기존 재고는 삭제합니다. 합친 내역은 mergedItems로 반환합니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -128,7 +131,8 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "404", description = "재고를 찾을 수 없음 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "409", description = "합산 시 허용 수량 초과 (INGREDIENT-409-004)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)"),
-            @ApiResponse(responseCode = "422", description = "재고 수정 규칙 위반 (INGREDIENT-422-001~004)"),
+            @ApiResponse(responseCode = "422", description = "재고 수정 규칙 위반 "
+                    + "(INGREDIENT-422-001, INGREDIENT-422-002, INGREDIENT-422-003, INGREDIENT-422-004)"),
             @ApiResponse(responseCode = "428", description = "If-Match 헤더가 누락됨 (INGREDIENT-428-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
@@ -161,7 +165,7 @@ public interface IngredientApi {
 
     @Operation(
             summary = "재고 만료 처리",
-            description = "입력한 수량만큼 재고에서 차감하고, 잔량이 0이면 재고를 삭제합니다."
+            description = "입력한 수량만큼 재고에서 차감하고, 잔량이 0이면 재고를 삭제합니다. 월별 만료 수는 날짜 경과 시 집계하며 비우기·삭제 후에도 유지됩니다."
     )
     @ApiResponses({
             @ApiResponse(
@@ -175,7 +179,7 @@ public interface IngredientApi {
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "다른 냉장고의 재고 (INGREDIENT-404-001)"),
             @ApiResponse(responseCode = "412", description = "ETag가 현재 버전과 다름 (INGREDIENT-412-001)"),
-            @ApiResponse(responseCode = "422", description = "처리 수량 또는 측정값 조합이 유효하지 않음 (INGREDIENT-422-005~006)"),
+            @ApiResponse(responseCode = "422", description = "처리 수량 또는 측정값 조합이 유효하지 않음 (INGREDIENT-422-005, INGREDIENT-422-006)"),
             @ApiResponse(responseCode = "428", description = "If-Match 헤더가 누락됨 (INGREDIENT-428-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
@@ -197,14 +201,13 @@ public interface IngredientApi {
 
     @Operation(
             summary = "만료 재고 선택 만료 처리",
-            description = "선택한 만료 재고를 한 번에 삭제합니다. "
-                    + "선택한 재고 중 이 냉장고에 있고 유통기한이 오늘(Asia/Seoul)보다 이전인 재고만 삭제하며, "
+            description = "선택한 만료 재고를 한 번에 삭제합니다. 선택한 재고 중 이 냉장고에 있고 유통기한이 오늘(Asia/Seoul)보다 이전인 재고만 삭제하며, "
                     + "이미 삭제됐거나 그사이 유통기한이 바뀐 재고는 건너뜁니다. 오늘 만료되는 재고(D-0)는 제외합니다. "
-                    + "삭제한 재고 수만큼 이번 달 만료 처리 수를 늘립니다. 삭제 대상이 없어도 204를 반환하며, 되돌릴 수 없습니다."
+                    + "삭제 전 미집계 만료분을 반영하며, 집계한 재고는 삭제해도 이번 달 누적에 유지합니다. 삭제 대상이 없어도 204를 반환하며, 되돌릴 수 없습니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "만료 재고 선택 만료 처리 성공 (본문 없음)"),
-            @ApiResponse(responseCode = "400", description = "ingredientIds 누락·빈 목록·null 포함·100개 초과 (INGREDIENT-400-003)"),
+            @ApiResponse(responseCode = "400", description = "ingredientIds 누락·빈 목록·null 포함·1,500개 초과 (INGREDIENT-400-003)"),
             @ApiResponse(responseCode = "401", description = "로그인이 필요함 (GLOBAL-401-001)"),
             @ApiResponse(responseCode = "403", description = "냉장고 접근 권한이 없음 (REFRIGERATOR-403-001)"),
             @ApiResponse(responseCode = "404", description = "냉장고를 찾을 수 없음 (REFRIGERATOR-404-001)"),
@@ -231,8 +234,10 @@ public interface IngredientApi {
             IngredientExpireSelectedRequest request);
 
     @Operation(
-            summary = "재고 일괄 등록",
-            description = "냉장고에 재고를 1~20건 등록합니다. 동일한 기존 재고가 있으면 별도 확인 요청 없이 자동 합산하고, 합산 내역을 응답합니다."
+            summary = "직접 입력 재고 일괄 등록",
+            description = "직접 입력한 재고를 1~20건 등록하며 서버가 등록 방식을 DIRECT로 지정합니다. registrationSource는 요청에서 받지 않습니다. "
+                    + "사진 인식 등록은 /api/v1/refrigerators/{refrigeratorId}/ingredients/from-analysis를 사용합니다. "
+                    + "인증된 회원을 최초 등록자로 저장합니다. 같은 등록자의 동일한 기존 재고가 있으면 자동 합산하고 기존 최초 등록 방식을 유지하며, 합산 내역을 응답합니다."
     )
     @ApiResponses({
             @ApiResponse(

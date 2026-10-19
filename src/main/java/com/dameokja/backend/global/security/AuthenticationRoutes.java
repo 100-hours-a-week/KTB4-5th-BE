@@ -9,8 +9,12 @@ public final class AuthenticationRoutes {
     public static final RequestMatcher PUBLIC = new OrRequestMatcher(
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/sessions"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/users"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/users/oauth"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/users/nickname-validations"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/auth/token-renewals"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/auth/csrf"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/auth/oauth/kakao"),
+            PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/auth/oauth/code/kakao"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET,
                     "/api/v1/push-subscriptions/vapid-public-key"),
             PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/swagger-ui.html"),

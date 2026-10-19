@@ -2,7 +2,9 @@ package com.dameokja.backend.ingredient.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult;
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireResult;
@@ -18,11 +20,12 @@ import com.dameokja.backend.ingredient.presentation.request.IngredientExpireRequ
 import com.dameokja.backend.ingredient.presentation.request.IngredientListRequest;
 import com.dameokja.backend.ingredient.presentation.request.IngredientUpdateRequest;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;
+import com.dameokja.backend.ingredient.presentation.response.IngredientDetailResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientExpireResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientListResponse;
-import com.dameokja.backend.ingredient.presentation.response.IngredientResponse;
 import com.dameokja.backend.ingredient.presentation.response.IngredientUpdateResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -65,21 +68,23 @@ public class IngredientController implements IngredientApi {
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) String size,
             @RequestParam(required = false) String sort,
-            @RequestParam(required = false) String filter) {
-        IngredientListRequest request = new IngredientListRequest(cursor, size, sort, filter);
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword) {
+        IngredientListRequest request = new IngredientListRequest(cursor, size, sort, filter, category, keyword);
         IngredientListResult result = ingredientListService.getList(userId, refrigeratorId, request.sortType(),
-                request.ingredientFilter(), request.cursorToken(), request.pageSize());
+                request.ingredientFilter(), request.ingredientCategory(), request.keywordValue(), request.cursorToken(), request.pageSize());
         IngredientListResponse response = IngredientListResponse.from(result);
         return ResponseEntity.ok(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, response));
     }
 
     @Override
     @GetMapping("/ingredients/{ingredientId}")
-    public ResponseEntity<SuccessResponse<IngredientResponse>> getDetail(
+    public ResponseEntity<SuccessResponse<IngredientDetailResponse>> getDetail(
             @CurrentUserId Long userId, @PathVariable Long ingredientId) {
         IngredientDetailResult result = ingredientDetailService.getDetail(userId, ingredientId);
-        IngredientResponse response = IngredientResponse.of(result.ingredient(), result.businessDate());
-        SuccessResponse<IngredientResponse> body = SuccessResponse.of(DETAIL_CODE, DETAIL_MESSAGE, response);
+        IngredientDetailResponse response = IngredientDetailResponse.from(result);
+        SuccessResponse<IngredientDetailResponse> body = SuccessResponse.of(DETAIL_CODE, DETAIL_MESSAGE, response);
 
         return ResponseEntity.ok().eTag(IngredientEtag.of(result.ingredient())).body(body);
     }
@@ -130,10 +135,10 @@ public class IngredientController implements IngredientApi {
     public ResponseEntity<SuccessResponse<IngredientCreateResponse>> create(
             @CurrentUserId Long userId, @PathVariable Long refrigeratorId,
             @Valid @RequestBody IngredientCreateRequest request) {
-        var commands = request.toCommands();
-        var result = ingredientCreateService.create(userId, refrigeratorId, commands);
-        var response = IngredientCreateResponse.from(result);
-        var body = SuccessResponse.of(CREATED_CODE, CREATED_MESSAGE, response);
+        List<IngredientCreateCommand> commands = request.toCommands();
+        IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, commands);
+        IngredientCreateResponse response = IngredientCreateResponse.from(result);
+        SuccessResponse<IngredientCreateResponse> body = SuccessResponse.of(CREATED_CODE, CREATED_MESSAGE, response);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 }

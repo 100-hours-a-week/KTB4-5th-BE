@@ -6,6 +6,8 @@ final class IngredientApiExamples {
               "code": "INGREDIENT-200-003",
               "message": "재고 상세 조회 성공",
               "data": {
+                "baseDate": "2026-09-16",
+                "ownerNickname": "등록자",
                 "ingredientId": "1",
                 "name": "두부",
                 "category": "TOFU_BEAN",
@@ -35,7 +37,6 @@ final class IngredientApiExamples {
                   "weightValue": 300,
                   "weightUnit": "G",
                   "expirationDate": "2026-09-17",
-                  "registrationSource": "RECEIPT",
                   "imageUploadId": null
                 },
                 {
@@ -47,7 +48,6 @@ final class IngredientApiExamples {
                   "weightValue": null,
                   "weightUnit": "NONE",
                   "expirationDate": "2026-09-17",
-                  "registrationSource": "DIRECT",
                   "imageUploadId": null
                 }
               ]
@@ -79,11 +79,11 @@ final class IngredientApiExamples {
                 "quantity": null,
                 "weightValue": "550.000",
                 "weightUnit": "G",
-                "expirationDate": "2026-09-15",
+                "expirationDate": "2026-09-17",
                 "createdDate": "2026-09-01",
                 "registrationSource": "RECEIPT",
-                "status": "EXPIRED",
-                "daysUntilExpiration": -1,
+                "status": "EXPIRING_SOON",
+                "daysUntilExpiration": 1,
                 "mergedItems": [
                   {
                     "ingredientId": 1,
@@ -137,7 +137,7 @@ final class IngredientApiExamples {
                 "createdCount": 2,
                 "mergedCount": 1,
                 "ingredientsNum": 30,
-                "refrigeratorCapacity": 100,
+                "refrigeratorCapacity": 1500,
                 "mergedItems": [
                   {
                     "ingredientId": 10,
@@ -161,9 +161,12 @@ final class IngredientApiExamples {
               "code": "INGREDIENT-200-002",
               "message": "냉장고 재고 목록 조회 성공",
               "data": {
+                "baseDate": "2026-09-16",
+                "outdated": false,
                 "ingredientsNum": 30,
                 "filteredCount": 30,
-                "refrigeratorCapacity": 100,
+                "refrigeratorCapacity": 1500,
+                "refrigeratorName": "우리집 냉장고",
                 "ingredients": [
                   {
                     "ingredientId": "1",

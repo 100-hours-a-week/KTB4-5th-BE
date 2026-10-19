@@ -15,6 +15,12 @@ public record IngredientUpdateFields(
         UpdateField<WeightUnit> weightUnit,
         UpdateField<LocalDate> expirationDate) {
 
+    public boolean isMeasurementOnly() {
+        return (quantity.provided() || weightValue.provided())
+                && !name.provided() && !category.provided() && !storageType.provided()
+                && !weightUnit.provided() && !expirationDate.provided();
+    }
+
     public record UpdateField<T>(boolean provided, T value) {
 
         public static <T> UpdateField<T> omitted() {

@@ -1,5 +1,7 @@
 package com.dameokja.backend.ingredient.application.create;
 
+import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.user.application.UserAccessService;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
 
 import com.dameokja.backend.global.exception.CustomException;
@@ -28,37 +30,45 @@ import static org.mockito.Mockito.*;
 class IngredientCreateServiceTest {
     @Mock private RefrigeratorAccessService access;
     @Mock private IngredientRepository repository;
+    @Mock private UserAccessService users;
     @Mock private ProhibitedWordChecker prohibitedWords;
     private final Refrigerator refrigerator = new Refrigerator("냉장고", "2026-09");
     private IngredientCreateService service;
 
+    private final User registrant = new User("등록자", "test");
+
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(registrant, "id", 1L);
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"),
                 ZoneId.of("Asia/Seoul"));
         service = new IngredientCreateService(access, repository,
-                new IngredientPolicy(prohibitedWords), clock);
+                new IngredientPolicy(prohibitedWords), clock, users);
+        when(users.getActive(1L)).thenReturn(registrant);
         when(access.lockForWrite(1L, 10L)).thenReturn(refrigerator);
     }
 
     @Test
     void createsNewIngredientInLastSlot() {
-        when(repository.countByRefrigeratorId(10L)).thenReturn(99L);
+        when(repository.countByRefrigeratorId(10L)).thenReturn(1499L);
         when(repository.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         IngredientWriteResult result = service.create(1L, 10L, List.of(command(30)));
         IngredientWriteItem createdItem = result.items().getFirst();
 
         assertThat(createdItem.created()).isTrue();
-        assertThat(result.ingredientsNum()).isEqualTo(100);
+        assertThat(result.capacity()).isEqualTo(1500);
+        assertThat(result.ingredientsNum()).isEqualTo(1500);
         assertThat(createdItem.ingredient().getMeasurement().getQuantity()).isEqualTo((short) 30);
     }
 
     @Test
     void capacityFailureDoesNotSave() {
-        when(repository.countByRefrigeratorId(10L)).thenReturn(100L);
+        when(repository.countByRefrigeratorId(10L)).thenReturn(1500L);
         assertThatThrownBy(() -> service.create(1L, 10L, List.of(command(1))))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getExceptionCode().getCode())
+                .isEqualTo("INGREDIENT-409-001");
         verify(repository, never()).saveAndFlush(any());
     }
 
@@ -95,9 +105,9 @@ class IngredientCreateServiceTest {
 
     private Ingredient candidate(int quantity) {
         Ingredient existing = new Ingredient(refrigerator, details(quantity),
-                RegistrationSource.RECEIPT);
+                RegistrationSource.RECEIPT, registrant);
         ReflectionTestUtils.setField(existing, "id", 20L);
-        when(repository.findMergeCandidates(eq(10L), any())).thenReturn(List.of(existing));
+        when(repository.findMergeCandidates(eq(10L), eq(1L), any())).thenReturn(List.of(existing));
         return existing;
     }
 

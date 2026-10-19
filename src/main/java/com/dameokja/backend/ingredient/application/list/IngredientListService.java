@@ -5,6 +5,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.IngredientFilter;
 import com.dameokja.backend.ingredient.domain.IngredientSortType;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
@@ -31,33 +32,35 @@ public class IngredientListService {
     private final Clock clock;
 
     public IngredientListResult getList(Long userId, Long refrigeratorId, IngredientSortType sortType,
-                                        IngredientFilter filter, String cursorToken, int size) {
+                                        IngredientFilter filter, IngredientCategory category, String keyword, String cursorToken, int size) {
+        LocalDate today = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
-        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter);
+        IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter, category, keyword, today);
         List<Ingredient> rows = ingredientPageReader.read(cursor, size + LOOKAHEAD);
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));
         String nextCursor = rows.size() > size ? cursorCodec.encode(cursor.after(page.getLast())) : null;
-        long ingredientsNum = ingredientRepository.countByRefrigeratorId(refrigeratorId);
-        return new IngredientListResult(page, cursor.baseDate(), ingredientsNum, countFiltered(cursor),
-                refrigerator.getCapacity(), nextCursor);
+        long ingredientsNum = countStored(refrigeratorId);
+        return new IngredientListResult(page, cursor.baseDate(), cursor.baseDate().isBefore(today), ingredientsNum, countFiltered(cursor),
+                refrigerator.getCapacity(), refrigerator.getName(), nextCursor);
     }
+
+    public long countStored(Long refrigeratorId) { return ingredientRepository.countByRefrigeratorId(refrigeratorId); }
 
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
     private long countFiltered(IngredientListCursor cursor) {
         IngredientFilter filter = cursor.filter();
         LocalDate expirationFrom = filter == null ? null : filter.expirationFrom(cursor.baseDate());
         LocalDate expirationTo = filter == null ? null : filter.expirationTo(cursor.baseDate());
-        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType());
+        return ingredientRepository.countFiltered(cursor.refrigeratorId(), expirationFrom, expirationTo, cursor.storageType(), cursor.category(), cursor.keywordPattern());
     }
 
     private IngredientListCursor cursorOf(String cursorToken, IngredientSortType sortType, Long refrigeratorId,
-                                          IngredientFilter filter) {
-        LocalDate today = BusinessTime.today(clock);
+                                          IngredientFilter filter, IngredientCategory category, String keyword, LocalDate today) {
         if (cursorToken == null) {
-            return IngredientListCursor.first(sortType, refrigeratorId, filter, today);
+            return IngredientListCursor.first(sortType, refrigeratorId, filter, category, keyword, today);
         }
         IngredientListCursor cursor = cursorCodec.decode(cursorToken);
-        if (!cursor.matches(sortType, refrigeratorId, filter, today)) {
+        if (!cursor.matches(sortType, refrigeratorId, filter, category, keyword, today)) {
             throw new CustomException(INVALID_CURSOR);
         }
         return cursor;

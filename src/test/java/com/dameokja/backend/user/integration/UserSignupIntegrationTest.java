@@ -14,7 +14,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,7 +25,7 @@ class UserSignupIntegrationTest extends ServiceIntegrationTest {
     @Autowired UserSignupService signup;
     @Autowired AuthService auth;
     @Autowired PasswordEncoder encoder;
-    @MockitoSpyBean JwtProvider jwtProvider;
+    @Autowired JwtProvider jwtProvider;
 
     @Test
     void persistsHashedCredentialsAndPersonalRefrigeratorWithUsableTokens() {

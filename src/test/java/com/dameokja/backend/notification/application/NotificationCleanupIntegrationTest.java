@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -14,15 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-@Import({NotificationRecipientService.class, NotificationService.class})
-@Transactional(propagation = Propagation.NOT_SUPPORTED)
-class NotificationCleanupIntegrationTest extends MySqlJpaTest {
+class NotificationCleanupIntegrationTest extends NotificationServiceJpaTest {
     private static final long USER = 980001L;
     private static final long OTHER_USER = 980002L;
     private static final long FRIDGE = 980001L;
@@ -33,8 +26,8 @@ class NotificationCleanupIntegrationTest extends MySqlJpaTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired NotificationRecipientService recipientService;
     @Autowired NotificationService notificationService;
-    @MockitoBean RefrigeratorAccessService refrigeratorAccessService;
-    @MockitoBean ExpiredIngredientCountService expiredIngredientCountService;
+    @Autowired RefrigeratorAccessService refrigeratorAccessService;
+    @Autowired ExpiredIngredientCountService expiredIngredientCountService;
 
     @BeforeEach
     void seedUsersAndFridges() {

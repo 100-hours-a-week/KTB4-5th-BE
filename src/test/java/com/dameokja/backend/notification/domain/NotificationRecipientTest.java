@@ -38,8 +38,8 @@ class NotificationRecipientTest {
         NotificationRecipient recipient = new NotificationRecipient(notification, user);
         LocalDateTime firstReadAt = LocalDateTime.of(2026, 9, 25, 8, 10);
 
-        recipient.markRead(firstReadAt);
-        recipient.markRead(firstReadAt.plusHours(1));
+        assertThat(recipient.markRead(firstReadAt)).isTrue();
+        assertThat(recipient.markRead(firstReadAt.plusHours(1))).isFalse();
 
         assertThat(recipient.getReadAt()).isEqualTo(firstReadAt);
     }

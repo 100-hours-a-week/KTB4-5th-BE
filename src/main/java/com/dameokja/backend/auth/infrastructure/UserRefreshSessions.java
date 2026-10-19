@@ -22,6 +22,11 @@ final class UserRefreshSessions {
         sessions = new HashMap<>();
     }
 
+    UserRefreshSessions(Map<UUID, RefreshTokenRecord> tokens, Map<UUID, RefreshSessionRecord> sessions) {
+        this.tokens = new HashMap<>(tokens);
+        this.sessions = new HashMap<>(sessions);
+    }
+
     UserRefreshSessions(UserRefreshSessions original) {
         tokens = new HashMap<>(original.tokens);
         sessions = new HashMap<>(original.sessions);

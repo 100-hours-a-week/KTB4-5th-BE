@@ -2,11 +2,49 @@ spring:
   application:
     name: backend
 
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_REST_API_KEY}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: ${KAKAO_REDIRECT_URI}
+            # scope를 생략하면 카카오 앱에 설정된 동의항목을 사용한다.
+            # 미설정 사진 권한을 강제 요청해 로그인이 막히지 않도록 한다.
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me?secure_resource=true
+            user-name-attribute: id
+
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dameokja}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:dameokja_dev}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:2}
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_TIMEOUT:2s}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+      repositories:
+        enabled: false
 
   jpa:
     hibernate:
@@ -37,8 +75,20 @@ auth:
   cookie:
     secure: ${AUTH_COOKIE_SECURE:true}
 
+oauth:
+  frontend-base-url: ${OAUTH_FRONTEND_BASE_URL}
+
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+refrigerator:
+  invitation:
+    # 카테부 냉장고의 실제 ID로 설정한다. 0이면 모든 냉장고에 기존 5분 정책을 적용한다.
+    fixed-refrigerator-id: ${KTB_REFRIGERATOR_ID:0}
+
+notification:
+  expiration-batch:
+    cron: ${NOTIFICATION_EXPIRATION_CRON:0 0 8 * * *}
 
 push:
   auth-encryption:
@@ -50,16 +100,74 @@ push:
     key-version: ${PUSH_VAPID_KEY_VERSION}
     # 비워 두면 VAPID JWT에서 sub 클레임을 생략한다. 값을 넣을 때는 mailto: 또는 https: 형식이다.
     subject: ${PUSH_VAPID_SUBJECT:}
-  # 매일 8시(서울) 만료·임박 알림 푸시 배치. 끄면 스케줄러 빈을 등록하지 않는다.
+  # 만료·임박 푸시 작업 생성 여부. 꺼도 인앱 알림 생성과 보관 정리는 유지한다.
   expiration-batch:
     enabled: ${PUSH_EXPIRATION_BATCH_ENABLED:true}
+  # 분석 완료 푸시 유효기간. 결과 보관기간(analysis.result-ttl)과 별도로 짧게 둔다.
+  analysis-ttl: ${PUSH_ANALYSIS_TTL:1h}
   dispatch:
+    enabled: ${PUSH_DISPATCH_ENABLED:true}
+    poll-interval: ${PUSH_DISPATCH_POLL_INTERVAL:1s}
+    lease-duration: ${PUSH_DISPATCH_LEASE_DURATION:30s}
     concurrency: ${PUSH_DISPATCH_CONCURRENCY:20}
   test-api:
     # 로컬 수동 검증용 발송 API(PushTestController). 배포 환경은 기본값 false를 유지하고, 로컬에서만 .env로 켠다.
     enabled: ${PUSH_TEST_API_ENABLED:false}
 
+image:
+  storage:
+    bucket: ${S3_BUCKET}
+    region: ${S3_REGION}
+    prefix: ${S3_UPLOAD_PREFIX}
+    presigned-url-ttl: ${S3_PRESIGNED_URL_TTL}
+    max-upload-bytes: ${S3_MAX_UPLOAD_BYTES}
+    allowed-content-types: ${S3_ALLOWED_CONTENT_TYPES}
+
+ai:
+  analysis:
+    base-url: ${AI_BASE_URL}
+    api-key: ${AI_INTERNAL_API_KEY}
+    connect-timeout: ${AI_CONNECT_TIMEOUT}
+    read-timeout: ${AI_READ_TIMEOUT}
+
+analysis:
+  job-ttl: ${ANALYSIS_JOB_TTL}
+  result-ttl: ${ANALYSIS_RESULT_TTL:7d}
+  # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
+  parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
+  notification:
+    retry-enabled: ${ANALYSIS_NOTIFICATION_RETRY_ENABLED:true}
+    poll-interval: ${ANALYSIS_NOTIFICATION_POLL_INTERVAL:1s}
+    # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
+    retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
+    sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
+  feedback:
+    enabled: ${ANALYSIS_FEEDBACK_ENABLED:true}
+    poll-interval: ${ANALYSIS_FEEDBACK_POLL_INTERVAL:10s}
+    retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:10m}
+    lease-duration: ${ANALYSIS_FEEDBACK_LEASE_DURATION:5m}
+    expires-after: ${ANALYSIS_FEEDBACK_EXPIRES_AFTER:3d}
+    batch-size: ${ANALYSIS_FEEDBACK_BATCH_SIZE:20}
+  dispatch:
+    enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
+    poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
+    # AI에 동시에 맡기는 이미지 수. AI 대기열(기본 100)보다 작게 두어 429 없이 보낸다. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
+    slots: ${ANALYSIS_DISPATCH_SLOTS:10}
+    lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
+    # 콜백 유실을 기다리지 않고 회수하려고, 콜백이 없으면 이 주기마다 AI에 조회한다. AI 결과 보관(1h)보다 짧아야 한다.
+    callback-timeout: ${ANALYSIS_DISPATCH_CALLBACK_TIMEOUT:2m}
+    # 사용자가 결과를 기다리는 시간으로 의미 있는 상한. 넘으면 재시도 가능한 ANALYSIS_EXPIRED로 끝내 다시 요청하게 한다.
+    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:30m}
+    max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:3}
+    retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
+    orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
+    check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
+
 management:
+  health:
+    redis:
+      # Redis를 사용하는 배포 환경에서는 REDIS_HEALTH_ENABLED=true를 적용한다.
+      enabled: ${REDIS_HEALTH_ENABLED:false}
   endpoints:
     web:
       exposure:
