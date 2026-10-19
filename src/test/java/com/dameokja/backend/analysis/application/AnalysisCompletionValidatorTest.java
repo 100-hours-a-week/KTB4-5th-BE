@@ -19,6 +19,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class AnalysisCompletionValidatorTest {
@@ -38,6 +39,14 @@ class AnalysisCompletionValidatorTest {
         assertThatThrownBy(() -> validator.validate(completion)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"COUNT,G", "COUNT,ML", "COUNT,NONE", "COUNT,NULL", "WEIGHT,G", "WEIGHT,ML",
+            "WEIGHT,NONE", "WEIGHT,NULL", "NULL,G", "NULL,ML", "NULL,NONE", "NULL,NULL"}, nullValues = "NULL")
+    void acceptsZeroAmountsRegardlessOfMeasurementCombination(MeasureType measureType, WeightUnit unit) {
+        assertThatCode(() -> validator.validate(completedItem(measureType, 0, BigDecimal.ZERO, unit, UNKNOWN)))
+                .doesNotThrowAnyException();
+    }
+
     static Stream<AnalysisCompletion> validCompletions() {
         return Stream.of(completed(AnalysisDocumentType.OTHER, List.of()),
                 completed(AnalysisDocumentType.PRODUCT, List.of(item(null, null, null, null, UNKNOWN))),
@@ -45,6 +54,9 @@ class AnalysisCompletionValidatorTest {
                 completed(AnalysisDocumentType.RECEIPT, List.of(item(MeasureType.WEIGHT, null, null, null, UNKNOWN))),
                 completed(AnalysisDocumentType.RECEIPT, List.of(item(MeasureType.COUNT, 0, BigDecimal.ZERO, WeightUnit.NONE, UNKNOWN))),
                 completed(AnalysisDocumentType.RECEIPT, List.of(item(MeasureType.WEIGHT, 0, BigDecimal.ZERO, WeightUnit.G, UNKNOWN))),
+                completedItem(MeasureType.COUNT, 1, BigDecimal.ONE, WeightUnit.G, UNKNOWN),
+                completedItem(MeasureType.WEIGHT, 1, BigDecimal.ONE, WeightUnit.G, UNKNOWN),
+                completedItem(null, null, null, WeightUnit.NONE, UNKNOWN),
                 completed(AnalysisDocumentType.PRODUCT, List.of(item(MeasureType.WEIGHT, null, BigDecimal.ONE, WeightUnit.G,
                         new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.ESTIMATED_CONSUMPTION_WINDOW,
                                 new AnalysisCompletionItem.EstimatedRange(DATE, DATE.plusDays(2)))))),
@@ -57,9 +69,9 @@ class AnalysisCompletionValidatorTest {
         return Stream.of(completed(null, List.of()), completed(AnalysisDocumentType.OTHER, List.of(count)),
                 completed(AnalysisDocumentType.RECEIPT, List.of(count, count)),
                 completedItem(MeasureType.COUNT, 101, null, WeightUnit.NONE, UNKNOWN),
-                completedItem(MeasureType.COUNT, 1, BigDecimal.ONE, WeightUnit.G, UNKNOWN),
-                completedItem(MeasureType.WEIGHT, 1, BigDecimal.ONE, WeightUnit.G, UNKNOWN),
-                completedItem(null, null, null, WeightUnit.NONE, UNKNOWN),
+                completedItem(MeasureType.COUNT, -1, null, WeightUnit.NONE, UNKNOWN),
+                completedItem(MeasureType.WEIGHT, null, BigDecimal.ONE.negate(), WeightUnit.G, UNKNOWN),
+                completedItem(null, -1, BigDecimal.ZERO, null, UNKNOWN),
                 completedItem(null, null, null, null, new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.USE_BY, null)),
                 completedItem(null, null, null, null, new AnalysisCompletionItem.Expiration(DATE, AnalysisExpirationDateType.UNKNOWN, null)),
                 completedItem(null, null, null, null, new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.ESTIMATED_CONSUMPTION_WINDOW,

@@ -55,6 +55,7 @@ public interface AnalysisApi {
             + "UNRECOGNIZED, NEEDS_REVIEW, AI_ESTIMATED, RECOGNIZED 순이며 빈 결과는 UNRECOGNIZED입니다. 모두 대기 중이면 QUEUED, "
             + "대기·처리 중 이미지가 남으면 PROCESSING입니다. 모든 이미지가 종료되면 COMPLETED, PARTIALLY_COMPLETED 또는 FAILED입니다. "
             + "pollAfterMs는 진행 중 1000, 종료 시 null입니다. 값만 있는 필드는 직접 반환하며 weight는 value·unit 객체입니다. confidence와 imageQuality는 반환하지 않습니다. "
+            + "미인식 수량·중량의 0과 측정 방식·단위 조합을 콜백에서 받은 그대로 반환하며, 실제 등록 가능한 조합인지는 재고 등록에서 검증합니다. "
             + "reviewReasons는 field·code·messages 객체 배열이며 사유가 없으면 빈 배열입니다. messages는 하나 이상의 비어 있지 않은 문자열입니다. "
             + "expiresAt은 묶음 종료 결과 저장 전 null이며, 전체 종료를 확정해 저장한 시점부터 기본 7일입니다. 조회로 연장하지 않습니다. "
             + "Redis에 보관한 결과를 반환하며 사용자 조회에서 AI API를 호출하지 않습니다. AI 접수 전에는 QUEUED, 접수 후 종료 결과가 없으면 PROCESSING입니다. "
