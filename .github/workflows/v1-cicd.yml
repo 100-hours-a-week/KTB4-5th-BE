@@ -17,8 +17,8 @@ concurrency:
 jobs:
   build:
     name: 검증 및 이미지 빌드
-    # dev(v2, t3)는 amd64, main(v1 prod, t4g)은 ARM 러너에서 해당 아키텍처만 빌드한다.
-    runs-on: ${{ github.ref_name == 'main' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    # 모든 환경의 이미지를 AMD64로 한 번만 빌드한다.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -54,7 +54,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: ${{ github.ref_name == 'main' && 'linux/arm64' || 'linux/amd64' }}
+          platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -68,123 +68,37 @@ jobs:
           DIGEST: ${{ steps.docker.outputs.digest }}
         run: echo "image=$IMAGE_NAME@$DIGEST" >> "$GITHUB_OUTPUT"
 
-  build-v2:
-    name: v2 이미지 빌드 (main, amd64)
-    # v2(stage·prod)는 x86(t3)이라 main에서도 amd64 이미지를 따로 만든다. v1 prod가 내려가면 build로 합친다.
-    if: github.event_name == 'push' && github.ref_name == 'main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image: ${{ steps.reference.outputs.image }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-          cache: gradle
-      # 테스트는 build job이 같은 커밋으로 돌리고, stage 배포는 두 job이 모두 성공해야 시작한다.
-      - name: JAR 빌드
-        run: bash ./gradlew --no-daemon bootJar
-      - name: 이미지 이름
-        id: name
-        env:
-          REPOSITORY: ${{ github.repository }}
-        run: echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v4
-      - name: GHCR 로그인
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: 이미지 빌드 및 푸시
-        id: docker
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.name.outputs.image }}:${{ github.sha }}-amd64
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha,scope=v2
-          cache-to: type=gha,mode=max,scope=v2
-      - name: 배포 이미지 고정
-        id: reference
-        env:
-          IMAGE_NAME: ${{ steps.name.outputs.image }}
-          DIGEST: ${{ steps.docker.outputs.digest }}
-        run: echo "image=$IMAGE_NAME@$DIGEST" >> "$GITHUB_OUTPUT"
-
-  deploy:
-    name: 배포
-    # stage 배포가 끝난 뒤 GitHub Environment "prod" 승인을 받아야 v1 prod에 배포한다.
+  request-prod:
+    name: 앱 prod 승인 및 CLOUD 승인 요청
     needs: [build, deploy-stage]
-    environment: prod
-    # dev는 v2(ECS)로 전환되어 deploy-v2가 배포한다. 이 job은 prod(main)를 명시적으로 활성화했을 때만 배포한다.
-    if: >-
-      github.event_name == 'push' &&
-      github.ref_name == 'main' && vars.CD_ENABLED == 'true'
+    if: github.event_name == 'push' && github.ref_name == 'main' && vars.CD_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    # 값은 Environment가 아니라 브랜치별 Repository 설정에서 고른다 (Environment는 승인용).
-    concurrency:
-      group: deploy-${{ github.ref_name }}
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      packages: read
+    timeout-minutes: 5
+    environment: prod
     steps:
-      - name: SSH 배포
+      - name: CLOUD 승인 워크플로 실행
         env:
-          DEPLOY_HOST: ${{ github.ref_name == 'main' && vars.PROD_DEPLOY_HOST || vars.DEV_DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          COMPOSE_PROJECT: ${{ vars.COMPOSE_PROJECT }}
-          COMPOSE_FILE_NAME: ${{ vars.COMPOSE_FILE_NAME }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ github.ref_name == 'main' && secrets.PROD_SSH_KNOWN_HOSTS || secrets.DEV_SSH_KNOWN_HOSTS }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 환경별 Secret 이름을 먼저 선택해 운영 값이 없어도 개발 값으로 대체되지 않게 한다.
-          APP_ENV: ${{ secrets[github.ref_name == 'main' && 'PROD_APP_ENV' || 'DEV_APP_ENV'] }}
+          GH_TOKEN: ${{ secrets.CLOUD_DISPATCH_TOKEN }}
+          SOURCE_REPO: ${{ github.event.repository.name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
           IMAGE: ${{ needs.build.outputs.image }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
-          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
-          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9_./-]+$ ]]
-          [[ "$COMPOSE_PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]]
-          [[ "$COMPOSE_FILE_NAME" =~ ^[a-zA-Z0-9._-]+\.ya?ml$ ]]
-          [[ "$IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]
-          [[ "$GHCR_USER" =~ ^[a-zA-Z0-9_-]+(\[bot\])?$ ]]
-          test -n "$SSH_PRIVATE_KEY"
-          test -n "$SSH_KNOWN_HOSTS"
-          test -n "$GHCR_TOKEN"
-          if [[ -z "$APP_ENV" ]]; then
-            echo "::error::현재 브랜치에 해당하는 DEV_APP_ENV 또는 PROD_APP_ENV Secret을 등록하세요."
-            exit 1
-          fi
-          umask 077
-          key=$(mktemp)
-          hosts=$(mktemp)
-          trap 'rm -f "$key" "$hosts"' EXIT
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key"
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$hosts"
-          { printf '%s\n' "$GHCR_TOKEN"; printf '%s\n' "$APP_ENV"; } | ssh -i "$key" -p "$DEPLOY_PORT" \
-            -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$hosts" -o ConnectTimeout=15 \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && bash scripts/deploy-v1.sh backend '$IMAGE' '$COMPOSE_PROJECT' '$COMPOSE_FILE_NAME' '$GHCR_USER'"
+          test -n "$GH_TOKEN" || { echo "CLOUD_DISPATCH_TOKEN Secret이 필요합니다."; exit 1; }
+          jq -n --arg repository "$SOURCE_REPO" --arg run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" --arg image "$IMAGE" \
+            '{ref:"main", inputs:{repository:$repository, run_id:$run_id, run_attempt:$run_attempt, image:$image}}' |
+            gh api --method POST repos/100-hours-a-week/KTB4-5th-CLOUD/actions/workflows/prod-approval.yml/dispatches --input -
+          # 앱 실행은 요청 접수까지 담당하고 승인·운영 배포 결과는 CLOUD에서 확인한다.
+          {
+            echo '### CLOUD prod 배포 요청 접수 완료'
+            echo 'stage 배포와 요청 전달이 완료되었습니다. prod 배포 완료를 뜻하지 않습니다.'
+            echo '[CLOUD 승인 및 배포 실행 확인](https://github.com/100-hours-a-week/KTB4-5th-CLOUD/actions/workflows/prod-approval.yml)'
+            printf -- '- 요청 실행: `%s.%s`\n' "$RUN_ID" "$RUN_ATTEMPT"
+            printf -- '- 이미지: `%s`\n' "$IMAGE"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-v2:
     name: v2 dev 배포
@@ -201,7 +115,7 @@ jobs:
 
   deploy-stage:
     name: v2 stage 배포
-    needs: [build, build-v2]
+    needs: build
     # main에 합쳐진 이미지를 stage에 바로 배포한다. prod는 이 이미지(digest)를 승인 후 그대로 쓴다.
     if: github.event_name == 'push' && github.ref_name == 'main'
     permissions:
@@ -212,4 +126,4 @@ jobs:
       env: stage
       service: app
       container: backend
-      image: ${{ needs.build-v2.outputs.image }}
+      image: ${{ needs.build.outputs.image }}
