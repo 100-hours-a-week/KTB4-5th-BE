@@ -3,9 +3,11 @@ package com.dameokja.backend.analysis.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.dameokja.backend.analysis.domain.*;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.*;
 import com.dameokja.backend.support.ServiceIntegrationTest;
@@ -17,6 +19,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -25,6 +28,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
     @Autowired AnalysisIngredientService service;
     @Autowired AnalysisJobStore store;
     @MockitoSpyBean AnalysisFeedbackQueue queue;
+    @MockitoBean AiAnalysisClient ai;
 
     @AfterEach
     void cleanFeedbacks() {
@@ -55,9 +59,11 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
             assertThat(store.find(job.id())).isEmpty();
             assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks", String.class))
                     .isEqualTo("확정우유");
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("PENDING");
         }
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ingredients", Integer.class)).isEqualTo(queueFails ? 0 : 1);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(queueFails ? 0 : 1);
+        verifyNoInteractions(ai);
     }
 
     private AnalysisJob completedJob(Long userId) {
