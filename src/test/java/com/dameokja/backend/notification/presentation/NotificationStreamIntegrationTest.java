@@ -10,6 +10,7 @@ import com.dameokja.backend.notification.application.NotificationService;
 import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
 import com.dameokja.backend.support.MySqlDatabaseTest;
 import com.dameokja.backend.user.domain.UserRole;
+import com.zaxxer.hikari.HikariDataSource;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -39,11 +40,12 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"spring.config.import=", "spring.jpa.show-sql=false", "push.expiration-batch.enabled=false"})
+        properties = {"spring.config.import=", "spring.jpa.show-sql=false", "push.expiration-batch.enabled=false", "push.dispatch.enabled=false"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
+    @Autowired HikariDataSource dataSource;
     @Autowired JwtProvider jwt;
     @Autowired NotificationService notifications;
     @Autowired NotificationSseConnections connections;
@@ -73,6 +75,7 @@ class NotificationStreamIntegrationTest extends MySqlDatabaseTest {
     @Test
     void realRedisReadSignalsReachAllOwnHttpConnectionsAndReconnectGetsCurrentState() throws Exception {
         try (Probe first = open(950001); Probe second = open(950001); Probe other = open(950002)) {
+            assertThat(dataSource.getHikariPoolMXBean().getActiveConnections()).isZero();
             notifications.readNotification(950001L, 950001L);
             first.expectChanged();
             second.expectChanged();
