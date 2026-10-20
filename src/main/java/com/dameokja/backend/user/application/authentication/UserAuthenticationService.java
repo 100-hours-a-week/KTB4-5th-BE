@@ -29,12 +29,12 @@ public class UserAuthenticationService {
         // 탈퇴와 동일하게 PK로 잠가 로그인 ID 인덱스와의 잠금 순서 충돌을 피한다.
         Long userId = userRepository.findIdByLoginId(loginId)
                 .orElseThrow(() -> new CustomException(
-                        AuthExceptionCode.LOGIN_ID_NOT_FOUND));
+                        AuthExceptionCode.INVALID_CREDENTIALS));
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(
-                        AuthExceptionCode.LOGIN_ID_NOT_FOUND));
+                        AuthExceptionCode.INVALID_CREDENTIALS));
         if (!loginId.equals(user.getLoginId())) {
-            throw new CustomException(AuthExceptionCode.LOGIN_ID_NOT_FOUND);
+            throw new CustomException(AuthExceptionCode.INVALID_CREDENTIALS);
         }
         String passwordHash = user.getPasswordHash();
         if (password == null || password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES

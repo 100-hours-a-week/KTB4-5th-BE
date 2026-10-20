@@ -62,16 +62,20 @@ class AuthContractWebTest extends SecurityWebTestSupport {
     }
 
     @Test
-    void unknownLoginIdUsesNotFoundCode() throws Exception {
+    void invalidCredentialsUsesUnauthorizedCode() throws Exception {
         when(userAuthenticationService.authenticate("user1", "password1"))
-                .thenThrow(new CustomException(AuthExceptionCode.LOGIN_ID_NOT_FOUND));
+                .thenThrow(new CustomException(AuthExceptionCode.INVALID_CREDENTIALS));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/auth/sessions").cookie(csrf)
                         .header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"loginId\":\"user1\",\"password\":\"password1\"}"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("AUTH-404-001"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("""
+                        {"code":"AUTH-401-001","message":"아이디·비밀번호가 틀렸습니다."}
+                        """))
+                .andExpect(jsonPath("$.errors").doesNotExist())
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

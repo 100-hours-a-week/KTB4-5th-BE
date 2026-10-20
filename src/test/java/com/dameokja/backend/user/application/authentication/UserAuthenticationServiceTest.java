@@ -43,12 +43,28 @@ class UserAuthenticationServiceTest {
     }
 
     @Test
-    void unknownUserRequiresAuthentication() {
+    void unknownUserReturnsSameErrorAsWrongPassword() {
         when(repository.findIdByLoginId("unknown")).thenReturn(Optional.empty());
         assertCode(() -> service.authenticate("unknown", "password"),
-                AuthExceptionCode.LOGIN_ID_NOT_FOUND);
+                AuthExceptionCode.INVALID_CREDENTIALS);
         assertCode(() -> service.authenticate("unknown", "한".repeat(30)),
-                AuthExceptionCode.LOGIN_ID_NOT_FOUND);
+                AuthExceptionCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    void userDeletedBeforeLockReturnsInvalidCredentials() {
+        when(repository.findIdByLoginId("user")).thenReturn(Optional.of(1L));
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
+        assertCode(() -> service.authenticate("user", "password"),
+                AuthExceptionCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    void loginIdChangedBeforeLockReturnsInvalidCredentials() {
+        when(repository.findIdByLoginId("previous")).thenReturn(Optional.of(1L));
+        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(user()));
+        assertCode(() -> service.authenticate("previous", "password"),
+                AuthExceptionCode.INVALID_CREDENTIALS);
     }
 
     @Test
