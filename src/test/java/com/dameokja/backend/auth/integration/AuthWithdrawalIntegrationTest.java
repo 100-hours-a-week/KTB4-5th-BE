@@ -9,7 +9,7 @@ import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityExceptionCode;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserCredentials;
 import com.dameokja.backend.user.domain.UserStatus;

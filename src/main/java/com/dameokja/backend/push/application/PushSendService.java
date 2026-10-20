@@ -10,7 +10,7 @@ import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.push.infrastructure.WebPushResult;
 import com.dameokja.backend.push.infrastructure.WebPushSender;
 import com.dameokja.backend.push.infrastructure.WebPushTarget;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

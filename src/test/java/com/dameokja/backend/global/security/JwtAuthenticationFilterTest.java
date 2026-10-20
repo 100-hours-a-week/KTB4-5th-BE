@@ -2,7 +2,7 @@ package com.dameokja.backend.global.security;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.user.domain.UserRole;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;

@@ -1,7 +1,7 @@
 package com.dameokja.backend.global.security;
 
 import jakarta.servlet.DispatcherType;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

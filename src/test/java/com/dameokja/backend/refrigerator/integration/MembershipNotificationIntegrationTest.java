@@ -7,7 +7,7 @@ import com.dameokja.backend.notification.application.MembershipNotificationServi
 import com.dameokja.backend.refrigerator.application.InvitationService;
 import com.dameokja.backend.refrigerator.application.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

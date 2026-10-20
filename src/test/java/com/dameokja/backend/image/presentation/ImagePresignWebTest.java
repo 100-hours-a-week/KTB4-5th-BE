@@ -40,7 +40,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig(ImagePresignWebTest.WebConfiguration.class)
 @WebAppConfiguration
 class ImagePresignWebTest {

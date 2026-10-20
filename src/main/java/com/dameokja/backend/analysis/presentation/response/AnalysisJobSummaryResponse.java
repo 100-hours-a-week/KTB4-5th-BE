@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.presentation.response;
 
-import com.dameokja.backend.analysis.application.AnalysisImageResult;
-import com.dameokja.backend.analysis.application.AnalysisJobResult;
+import com.dameokja.backend.analysis.application.job.AnalysisImageResult;
+import com.dameokja.backend.analysis.application.job.AnalysisJobResult;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.domain.RecognitionStatus;

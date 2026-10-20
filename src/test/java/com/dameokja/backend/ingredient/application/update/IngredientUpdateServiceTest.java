@@ -27,7 +27,7 @@ import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;

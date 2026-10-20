@@ -2,7 +2,7 @@ package com.dameokja.backend.user.integration;
 
 import com.dameokja.backend.auth.domain.OAuthProvider;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import com.dameokja.backend.user.domain.SocialAccount;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserStatus;

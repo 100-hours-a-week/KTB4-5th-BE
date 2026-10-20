@@ -7,7 +7,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.dameokja.backend.analysis.application.AnalysisIngredientService;
+import com.dameokja.backend.analysis.application.registration.AnalysisIngredientService;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -28,7 +28,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 @org.springframework.test.context.bean.override.mockito.MockitoBean(types = {com.dameokja.backend.global.security.OAuthSecurityConfig.class,
-        com.dameokja.backend.user.application.UserAccessService.class})
+        com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig({AnalysisJobListWebTest.WebConfiguration.class, AnalysisIngredientWebTest.Configuration.class})
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=", "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d"})

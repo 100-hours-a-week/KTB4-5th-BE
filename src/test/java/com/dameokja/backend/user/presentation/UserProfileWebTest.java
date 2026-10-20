@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.user.application.UserProfile;
+import com.dameokja.backend.user.application.profile.UserProfile;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;

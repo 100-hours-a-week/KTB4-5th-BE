@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
+import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

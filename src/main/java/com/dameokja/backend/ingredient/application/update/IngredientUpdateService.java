@@ -9,7 +9,7 @@ import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;

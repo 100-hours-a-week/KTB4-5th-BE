@@ -1,12 +1,12 @@
 package com.dameokja.backend.auth.presentation;
 
+import com.dameokja.backend.user.application.authentication.OAuthLoginService.LoginResult;
 import com.dameokja.backend.auth.application.OAuthPrincipal;
 import com.dameokja.backend.auth.infrastructure.BrowserAuthorizationRequestRepository;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
-import com.dameokja.backend.user.application.OAuthLoginService;
-import com.dameokja.backend.user.application.OAuthLoginService.LoginResult;
+import com.dameokja.backend.user.application.authentication.OAuthLoginService;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

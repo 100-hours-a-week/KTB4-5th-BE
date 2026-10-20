@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.AnalysisDispatchProperties;
-import com.dameokja.backend.analysis.application.AnalysisOverdueJobExpirer;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.job.AnalysisOverdueJobExpirer;
 import java.time.Duration;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
@@ -15,14 +15,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisClient;
+import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -68,7 +68,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig(AnalysisJobQueryWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",

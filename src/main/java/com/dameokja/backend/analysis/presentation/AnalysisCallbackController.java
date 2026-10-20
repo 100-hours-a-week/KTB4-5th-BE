@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.AnalysisCallbackService;
+import com.dameokja.backend.analysis.application.completion.AnalysisCallbackService;
 import com.dameokja.backend.analysis.presentation.request.AnalysisCallbackRequest;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;

@@ -5,7 +5,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.user.application.AuthenticatedUser;
+import com.dameokja.backend.user.application.authentication.AuthenticatedUser;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;

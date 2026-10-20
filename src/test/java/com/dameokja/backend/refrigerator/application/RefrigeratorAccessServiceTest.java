@@ -7,7 +7,7 @@ import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.user.domain.UserExceptionCode;

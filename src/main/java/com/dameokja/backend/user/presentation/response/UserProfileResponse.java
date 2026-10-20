@@ -1,6 +1,6 @@
 package com.dameokja.backend.user.presentation.response;
 
-import com.dameokja.backend.user.application.UserProfile;
+import com.dameokja.backend.user.application.profile.UserProfile;
 import java.util.List;
 
 public record UserProfileResponse(String userId, String nickname, String email, String profileImageUrl,
