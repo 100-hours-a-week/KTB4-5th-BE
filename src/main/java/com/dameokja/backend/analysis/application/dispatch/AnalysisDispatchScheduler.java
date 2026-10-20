@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class AnalysisDispatchScheduler {
     private final AnalysisDispatchWorker analysisDispatchWorker;
 
-    @Scheduled(fixedDelayString = "${analysis.dispatch.poll-interval:1s}")
+    @Scheduled(fixedDelayString = "${analysis.dispatch.poll-interval:5s}")
     public void poll() {
         analysisDispatchWorker.poll();
     }
