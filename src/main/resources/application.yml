@@ -150,7 +150,7 @@ analysis:
     batch-size: ${ANALYSIS_FEEDBACK_BATCH_SIZE:20}
   dispatch:
     enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
-    poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:1s}
+    poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:5s}
     # AI에 동시에 맡기는 이미지 수. AI 대기열(기본 100)보다 작게 두어 429 없이 보낸다. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
     slots: ${ANALYSIS_DISPATCH_SLOTS:10}
     lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
