@@ -5,9 +5,9 @@ import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRe
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.RegisterUserCommand;
-import com.dameokja.backend.user.application.RegistrationResult;
-import com.dameokja.backend.user.application.UserRegistrationService;
+import com.dameokja.backend.user.application.registration.RegisterUserCommand;
+import com.dameokja.backend.user.application.registration.RegistrationResult;
+import com.dameokja.backend.user.application.registration.UserRegistrationService;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CyclicBarrier;

@@ -5,7 +5,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.refrigerator.application.*;
 import com.dameokja.backend.refrigerator.domain.*;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -11,8 +11,8 @@ import com.dameokja.backend.notification.application.NotificationPreferenceServi
 import com.dameokja.backend.notification.application.NotificationPreferenceView;
 import com.dameokja.backend.notification.domain.NotificationPreferenceType;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
-import com.dameokja.backend.user.application.UserProfile;
-import com.dameokja.backend.user.application.UserProfileService;
+import com.dameokja.backend.user.application.profile.UserProfile;
+import com.dameokja.backend.user.application.profile.UserProfileService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

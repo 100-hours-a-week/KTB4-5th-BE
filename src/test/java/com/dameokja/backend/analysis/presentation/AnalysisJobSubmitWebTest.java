@@ -13,11 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisDispatchQueue;
-import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
-import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
+import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
@@ -63,7 +63,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(RedisTestSupport.class)
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",

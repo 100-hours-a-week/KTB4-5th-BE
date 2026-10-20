@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.AnalysisIngredientCommand;
-import com.dameokja.backend.analysis.application.AnalysisIngredientService;
+import com.dameokja.backend.analysis.application.registration.AnalysisIngredientCommand;
+import com.dameokja.backend.analysis.application.registration.AnalysisIngredientService;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
 import com.dameokja.backend.ingredient.presentation.response.IngredientCreateResponse;

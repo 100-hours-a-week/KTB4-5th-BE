@@ -5,7 +5,7 @@ import org.springframework.security.core.context.SecurityContext;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

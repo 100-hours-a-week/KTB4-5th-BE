@@ -9,8 +9,8 @@ import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.security.SecurityConfig;
 import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
-import com.dameokja.backend.user.application.AuthenticatedUser;
-import com.dameokja.backend.user.application.UserAuthenticationService;
+import com.dameokja.backend.user.application.authentication.AuthenticatedUser;
+import com.dameokja.backend.user.application.authentication.UserAuthenticationService;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig(SecurityWebTestSupport.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {

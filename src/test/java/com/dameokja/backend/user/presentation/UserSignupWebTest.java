@@ -2,7 +2,7 @@ package com.dameokja.backend.user.presentation;
 
 import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.user.application.SignupResult;
+import com.dameokja.backend.user.application.registration.SignupResult;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import jakarta.servlet.http.Cookie;
 import java.util.List;

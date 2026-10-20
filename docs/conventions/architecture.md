@@ -30,6 +30,34 @@ com.dameokja.backend
 - `presentation` 아래는 `request`·`response`로 나눈다. 「팀」 API가 늘면 Controller 한 개와 DTO 수십 개가 한 폴더에 섞여 읽기 어려워지고, 폴더 이름만으로 방향을 알 수 있어야 하기 때문이다.
 - `exception`은 계층이 아니라 그 도메인의 모든 계층이 참조하는 공통 요소다. 「팀」 Entity와 예외 코드가 한 폴더에 섞이면 도메인 모델을 읽을 때 방해된다.
 
+### analysis·user의 하위 패키지
+
+`analysis`·`user`는 기존 계층 안에서 함께 수정하는 파일을 다음과 같이 모은다. 「팀」 전달 큐·피드백·회원 가입 등 서로 다른 흐름의 파일이 한 폴더에 쌓여 필요한 파일을 찾기 어려워졌기 때문이다. 테스트도 대상 코드와 같은 하위 패키지에 둔다.
+
+```text
+analysis/application/
+├── job/           # 분석 접수·조회·삭제·만료와 조회 결과
+├── dispatch/      # AI 전달 큐·선점·전송·재시도
+├── completion/    # 콜백 검증·종료 결과 반영
+├── notification/  # 완료 알림·재처리
+├── feedback/      # 확정한 재고의 피드백 큐·전송
+└── registration/  # 분석 결과로 재고 등록
+analysis/infrastructure/ai/  # AI 클라이언트·통신 DTO·설정
+
+user/application/
+├── access/          # 활성 회원 조회·접근 확인
+├── authentication/  # 일반·소셜 로그인
+├── registration/    # 회원 생성·일반 및 소셜 가입
+├── nickname/        # 닉네임 정책·사용 가능 여부
+├── profile/         # 프로필 조회·수정
+├── withdrawal/      # 탈퇴
+└── support/         # 가입·프로필 수정에서 공유하는 DB 제약 예외 변환
+```
+
+로그인 ID 정책은 회원 생성에서 사용하므로 `user/application/registration`에 둔다. HTTP 경로, DTO 필드, DB·Redis 저장 형식은 패키지 분리로 변경하지 않는다.
+
+### 계층 간 참조
+
 - 참조 방향: `presentation → application → infrastructure`. `domain`(Entity·enum·값 객체)은 다른 계층을 참조하지 않는다. [F3]
 - 저장소는 Spring Data `JpaRepository`를 상속한 인터페이스 하나로 `infrastructure`에 둔다. 별도 인터페이스와 Adapter로 나누지 않는다. 「팀」 저장소가 MySQL 하나뿐이라 위임 메서드만 늘고 얻는 것이 없으며, Spring Data 인터페이스 자체로 테스트 대체가 가능하기 때문이다. 외부 API·캐시가 섞이는 저장소가 생기면 그때 분리를 논의한다. [S3][F2]
 - JPA Entity 하나에 데이터와 변경 메서드를 함께 둔다. Entity와 별도로 도메인 객체를 만들지 않는다. 「팀」 둘을 분리하면 매핑 코드가 늘어나는데, 현재 요구에서는 그 비용을 정당화할 이유가 없다. [F2]
@@ -69,6 +97,7 @@ Controller의 HTTP 처리 흐름과 Swagger 설명이 한 파일에 섞이지 �
 | S2 | [Spring Framework — JDBC Batch Operations](https://docs.spring.io/spring-framework/reference/data-access/jdbc/advanced.html) | 배치로 묶으면 DB 왕복 횟수가 줄어듦 |
 | S3 | [Spring Data JPA — Defining Repository Interfaces](https://docs.spring.io/spring-data/jpa/reference/repositories/definition.html) | 저장소는 `JpaRepository`를 상속한 인터페이스로 선언 |
 | F1 | [Martin Fowler — PresentationDomainDataLayering](https://martinfowler.com/bliki/PresentationDomainDataLayering.html) (2015) | 계층이 커지면 최상위를 도메인 모듈로 나누고 내부를 계층화 |
+| 팀 | 팀 — analysis·user 하위 패키지 정리 (확인 2026-10-20) | 기존 계층 안에서 유스케이스·외부 통신별로 소스와 테스트를 모아 파일 탐색 범위를 줄인다. |
 | F2 | [Martin Fowler — Yagni](https://martinfowler.com/bliki/Yagni.html) (2015) | 미래에 필요할 것 같은 기능은 지금 만들지 않음 |
 | F3 | [Robert C. Martin — The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) (2012) | 소스 코드 의존성은 안쪽으로만 향한다(The Dependency Rule) |
 | P2 | [Jakarta Persistence `@ManyToOne`](https://jakarta.ee/specifications/persistence/3.2/apidocs/jakarta.persistence/jakarta/persistence/manytoone) | 다대일 연관관계 매핑, `fetch` 기본값 EAGER |

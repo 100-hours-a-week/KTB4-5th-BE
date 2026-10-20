@@ -8,7 +8,7 @@ import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
-import com.dameokja.backend.user.application.NicknamePolicy;
+import com.dameokja.backend.user.application.nickname.NicknamePolicy;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.infrastructure.SocialAccountRepository;
 import com.dameokja.backend.user.infrastructure.UserRepository;
