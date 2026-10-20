@@ -46,6 +46,14 @@
 - 비밀번호 등 비밀값은 `application.yml`·Git에 넣지 않는다. [OW1]
 - 현재 `ddl-auto: update`, `show-sql: true`로 개발용 설정이다.
 
+## JPA 요청 범위와 SSE
+
+`spring.jpa.open-in-view: false`로 요청 전체에 걸친 영속성 컨텍스트 유지를 비활성화한다.
+SSE를 오래 유지해도 권한 확인을 마친 DB 연결까지 계속 점유하지 않도록 한다.
+응답에 필요한 데이터는 서비스 트랜잭션 안에서 조회·변환하며, 응답 생성 중 추가 지연 로딩에 의존하지 않는다.
+
+근거: [Spring Boot — Open EntityManager in View](https://docs.spring.io/spring-boot/reference/data/sql.html#data.sql.jpa-and-spring-data.open-entity-manager-in-view), 확인일 2026-10-20.
+
 ## 카테부 냉장고 고정 초대 코드
 
 `KTB_REFRIGERATOR_ID`에 카테부 냉장고의 실제 ID를 지정한다.
