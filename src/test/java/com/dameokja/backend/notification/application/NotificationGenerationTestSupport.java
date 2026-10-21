@@ -4,7 +4,7 @@ import com.dameokja.backend.ingredient.application.IngredientExpirationService;
 import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;
 import java.time.Instant;

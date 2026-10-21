@@ -1,7 +1,7 @@
 package com.dameokja.backend.user.presentation;
 
-import com.dameokja.backend.user.application.NicknameValidationResult;
-import com.dameokja.backend.user.application.NicknameValidationService;
+import com.dameokja.backend.user.application.nickname.NicknameValidationResult;
+import com.dameokja.backend.user.application.nickname.NicknameValidationService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

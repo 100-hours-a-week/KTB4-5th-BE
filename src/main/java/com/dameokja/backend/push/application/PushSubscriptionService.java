@@ -10,7 +10,7 @@ import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.domain.VapidKeyProperties;
 import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.user.domain.User;
 import java.util.List;
 import java.util.Optional;

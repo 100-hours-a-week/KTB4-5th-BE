@@ -1,10 +1,11 @@
 package com.dameokja.backend.user.presentation;
 
+import com.dameokja.backend.user.presentation.response.SignupResponse;
 import com.dameokja.backend.auth.presentation.AuthCookies;
 import com.dameokja.backend.auth.presentation.CsrfTokenRotator;
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.user.application.OAuthSignupService;
-import com.dameokja.backend.user.application.SignupResult;
+import com.dameokja.backend.user.application.registration.OAuthSignupService;
+import com.dameokja.backend.user.application.registration.SignupResult;
 import com.dameokja.backend.user.presentation.request.OAuthSignupRequest;
 import com.dameokja.backend.user.presentation.response.UserSuccessCode;
 import jakarta.servlet.http.HttpServletRequest;

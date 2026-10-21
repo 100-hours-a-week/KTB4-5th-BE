@@ -1,5 +1,6 @@
 package com.dameokja.backend.user.integration;
 
+import com.dameokja.backend.user.application.authentication.OAuthLoginService.LoginResult;
 import com.dameokja.backend.auth.application.AuthService;
 import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.domain.OAuthIdentity;
@@ -7,9 +8,8 @@ import com.dameokja.backend.auth.domain.OAuthProvider;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.OAuthLoginService;
-import com.dameokja.backend.user.application.OAuthLoginService.LoginResult;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.authentication.OAuthLoginService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import com.dameokja.backend.user.domain.SocialAccount;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;

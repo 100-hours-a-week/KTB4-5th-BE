@@ -1,5 +1,6 @@
 package com.dameokja.backend.user.presentation;
 
+import com.dameokja.backend.user.presentation.response.SignupResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.user.presentation.request.OAuthSignupRequest;
 import io.swagger.v3.oas.annotations.Operation;

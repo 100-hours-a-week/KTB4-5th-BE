@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.presentation.response;
 
-import com.dameokja.backend.analysis.application.AnalysisJobResult;
+import com.dameokja.backend.analysis.application.job.AnalysisJobResult;
 import java.util.List;
 
 public record AnalysisJobListResponse(List<AnalysisJobSummaryResponse> analyses) {

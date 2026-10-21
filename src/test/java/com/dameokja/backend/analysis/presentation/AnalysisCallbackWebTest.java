@@ -13,20 +13,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisCallbackService;
-import com.dameokja.backend.analysis.application.AnalysisCompletionApplier;
-import com.dameokja.backend.analysis.application.AnalysisCompletionNotifier;
-import com.dameokja.backend.analysis.application.AnalysisCompletionValidator;
-import com.dameokja.backend.analysis.application.AnalysisDispatchUpdater;
-import com.dameokja.backend.analysis.application.AnalysisDispatchWorker;
-import com.dameokja.backend.analysis.application.AnalysisImageResult;
+import com.dameokja.backend.analysis.application.completion.AnalysisCallbackService;
+import com.dameokja.backend.analysis.application.completion.AnalysisCompletionApplier;
+import com.dameokja.backend.analysis.application.notification.AnalysisCompletionNotifier;
+import com.dameokja.backend.analysis.application.completion.AnalysisCompletionValidator;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchUpdater;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
+import com.dameokja.backend.analysis.application.job.AnalysisImageResult;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
-import com.dameokja.backend.analysis.infrastructure.AiAnalysisProperties;
+import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.application.PushAnalysisCreationService;

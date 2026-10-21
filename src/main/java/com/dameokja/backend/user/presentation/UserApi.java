@@ -11,6 +11,8 @@ import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_RES
 import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_UPDATE_REQUEST;
 import static com.dameokja.backend.user.presentation.UserApiExamples.PROFILE_UPDATE_RESPONSE;
 
+import com.dameokja.backend.user.presentation.request.SignupRequest;
+import com.dameokja.backend.user.presentation.response.SignupResponse;
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.user.presentation.request.NicknameValidationRequest;
 import com.dameokja.backend.user.presentation.response.NicknameValidationResponse;

@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.AnalysisDispatchProperties;
-import com.dameokja.backend.analysis.application.AnalysisOverdueJobExpirer;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.job.AnalysisOverdueJobExpirer;
 import java.time.Duration;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.nullValue;
@@ -14,9 +14,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
@@ -67,7 +67,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
 @SpringJUnitConfig(AnalysisJobListWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",

@@ -1,9 +1,9 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.AnalysisJobResult;
-import com.dameokja.backend.analysis.application.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobResult;
+import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.presentation.request.AnalysisJobSubmitRequest;
 import com.dameokja.backend.analysis.presentation.response.AnalysisJobListResponse;

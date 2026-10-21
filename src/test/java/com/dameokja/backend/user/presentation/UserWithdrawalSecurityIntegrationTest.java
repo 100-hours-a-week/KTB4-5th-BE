@@ -16,7 +16,7 @@ import com.dameokja.backend.push.application.PushSubscriptionService;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserWithdrawalService;
+import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserRole;
 import com.dameokja.backend.user.domain.UserStatus;

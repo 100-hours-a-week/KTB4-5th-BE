@@ -12,8 +12,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.dameokja.backend.auth.domain.OAuthIdentity;
 import com.dameokja.backend.image.infrastructure.KakaoProfileImageDownloader;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.OAuthLoginService;
-import com.dameokja.backend.user.application.OAuthSignupService;
+import com.dameokja.backend.user.application.authentication.OAuthLoginService;
+import com.dameokja.backend.user.application.registration.OAuthSignupService;
 import com.dameokja.backend.user.infrastructure.OAuthRegistrationStore;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;

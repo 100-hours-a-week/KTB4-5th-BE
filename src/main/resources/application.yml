@@ -47,6 +47,8 @@ spring:
         enabled: false
 
   jpa:
+    # SSE 수명과 DB 연결 수명을 분리한다. 필요한 조회는 서비스 트랜잭션 안에서 끝낸다.
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: true

@@ -1,7 +1,7 @@
 package com.dameokja.backend.ingredient.application.create;
 
 import com.dameokja.backend.user.domain.User;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
 
 import com.dameokja.backend.global.exception.CustomException;

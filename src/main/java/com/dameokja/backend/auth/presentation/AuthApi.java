@@ -39,13 +39,15 @@ public interface AuthApi {
                     )
             ),
             @ApiResponse(responseCode = "400", description = "요청 형식 오류 (GLOBAL-400-001)"),
-            @ApiResponse(responseCode = "401", description = "아이디·비밀번호가 틀림 (AUTH-401-001)"),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "아이디 또는 비밀번호 불일치 (AUTH-401-001, 아이디 존재 여부를 구분하지 않음)"
+            ),
             @ApiResponse(
                     responseCode = "403",
                     description = "CSRF 토큰이 없거나 올바르지 않음 (COMMON-403-CSRF-001), "
                             + "탈퇴한 회원 (USER-403-001)"
             ),
-            @ApiResponse(responseCode = "404", description = "존재하지 않는 아이디 (AUTH-404-001)"),
             @ApiResponse(responseCode = "500", description = "서버 오류 (GLOBAL-500-001)")
     })
     SuccessResponse<LoginData> login(

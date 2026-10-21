@@ -9,7 +9,7 @@ import com.dameokja.backend.refrigerator.domain.*;
 import com.dameokja.backend.refrigerator.infrastructure.InviteCodeRepository;
 import com.dameokja.backend.refrigerator.infrastructure.InvitationProperties;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import com.dameokja.backend.user.application.UserAccessService;
+import com.dameokja.backend.user.application.access.UserAccessService;
 import java.security.SecureRandom;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;

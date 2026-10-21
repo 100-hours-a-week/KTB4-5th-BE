@@ -1,5 +1,6 @@
 package com.dameokja.backend.auth.presentation;
 
+import com.dameokja.backend.user.application.authentication.OAuthLoginService.LoginResult;
 import com.dameokja.backend.auth.application.OAuthPrincipal;
 import com.dameokja.backend.auth.application.TokenPair;
 import com.dameokja.backend.auth.domain.OAuthIdentity;
@@ -7,8 +8,7 @@ import com.dameokja.backend.auth.domain.OAuthProvider;
 import com.dameokja.backend.auth.infrastructure.BrowserAuthorizationRequestRepository;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
-import com.dameokja.backend.user.application.OAuthLoginService;
-import com.dameokja.backend.user.application.OAuthLoginService.LoginResult;
+import com.dameokja.backend.user.application.authentication.OAuthLoginService;
 import com.dameokja.backend.user.domain.UserExceptionCode;
 import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
