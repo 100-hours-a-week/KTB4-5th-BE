@@ -46,6 +46,14 @@
 - 비밀번호 등 비밀값은 `application.yml`·Git에 넣지 않는다. [OW1]
 - 현재 `ddl-auto: update`, `show-sql: true`로 개발용 설정이다.
 
+## Sentry DSN
+
+`sentry.dsn`은 `${SENTRY_DSN:}`으로 애플리케이션 실행 환경에서 주입한다. [B3]
+Sentry를 사용하는 배포 환경에서는 배포 전에 런타임 환경변수 `SENTRY_DSN`을 설정한다.
+미설정 또는 빈 값이면 DSN이 빈 문자열로 적용되어 Sentry SDK가 비활성화된다. [SENTRY1]
+실제 DSN은 소스·문서·빌드 이미지에 넣지 않고 배포 환경에서 관리한다. [OW1]
+이미 공개된 기존 DSN의 교체·폐기는 Sentry 프로젝트에서 별도로 수행한다.
+
 ## JPA 요청 범위와 SSE
 
 `spring.jpa.open-in-view: false`로 요청 전체에 걸친 영속성 컨텍스트 유지를 비활성화한다.
@@ -300,3 +308,4 @@ SSE 발행 후 처리 확인이 실패하면 재시도에서 이벤트가 중복
 | R1 | [Spring Boot — Redis](https://docs.spring.io/spring-boot/reference/data/nosql.html#data.nosql.redis) (확인 2026-10-08) | Redis starter의 기본 Lettuce 클라이언트, 연결 팩토리·템플릿 자동 설정 |
 | R2 | [Spring Boot — Common Application Properties](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) (확인 2026-10-08) | Redis 연결·인증·타임아웃·TLS·Repository 및 health check 설정 |
 | K1 | [카카오 REST API](https://developers.kakao.com/docs/ko/kakaologin/rest-api), [앱 설정](https://developers.kakao.com/docs/ko/kakaologin/prerequisite) | 코드 교환·시크릿·콜백·이메일 동의 설정 (확인 2026-10-10) |
+| SENTRY1 | [Sentry Java SDK 8.58.0 소스](https://repo.maven.apache.org/maven2/io/sentry/sentry/8.58.0/sentry-8.58.0-sources.jar) (확인 2026-10-24) | `Sentry.preInitConfigurations`는 빈 DSN이면 SDK를 비활성화한다. |
