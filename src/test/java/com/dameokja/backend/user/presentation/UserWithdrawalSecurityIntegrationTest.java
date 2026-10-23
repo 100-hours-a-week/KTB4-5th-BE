@@ -98,11 +98,11 @@ class UserWithdrawalSecurityIntegrationTest extends ServiceIntegrationTest {
 
         assertDevice(active, UserDeviceStatus.DISABLED, 2L);
         assertDevice(disabled, UserDeviceStatus.DISABLED, 2L);
-        assertDevice(invalid, UserDeviceStatus.DISABLED, 3L);
+        assertDevice(invalid, UserDeviceStatus.INVALID, 2L);
         assertDevice(other, UserDeviceStatus.ACTIVE, 1L);
         withdrawals.withdraw(owner.userId());
         assertDevice(active, UserDeviceStatus.DISABLED, 2L);
-        assertDevice(invalid, UserDeviceStatus.DISABLED, 3L);
+        assertDevice(invalid, UserDeviceStatus.INVALID, 2L);
     }
 
     @Test
