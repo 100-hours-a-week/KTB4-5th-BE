@@ -56,6 +56,9 @@ public class PushSubscriptionService {
         if (!existing.getUser().getId().equals(userId)) {
             throw new CustomException(PushExceptionCode.SUBSCRIPTION_OWNER_CONFLICT);
         }
+        if (existing.getStatus() == UserDeviceStatus.INVALID) {
+            throw new CustomException(PushExceptionCode.SUBSCRIPTION_INVALID);
+        }
         if (hasChanged(existing, p256dhKey, authSecretPlain)) {
             byte[] authSecretEncrypted = pushAuthEncryptor.encrypt(authSecretPlain);
             existing.renew(p256dhKey, authSecretEncrypted, pushAuthEncryptor.getCurrentKeyVersion(),

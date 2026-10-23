@@ -11,12 +11,15 @@ import com.dameokja.backend.global.security.OAuthSecurityConfig;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.push.application.PushSubscriptionResult;
 import com.dameokja.backend.push.application.PushSubscriptionService;
+import com.dameokja.backend.push.exception.PushExceptionCode;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -102,6 +105,21 @@ class PushSubscriptionSecurityWebTest {
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Location"))
                 .andExpect(jsonPath("$.code").value("PUSH-200-002"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PushExceptionCode.class, names = {"SUBSCRIPTION_OWNER_CONFLICT", "SUBSCRIPTION_INVALID"})
+    void registerReturnsDistinctConflictCodes(PushExceptionCode code) throws Exception {
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key", "auth-secret"))
+                .thenThrow(new CustomException(code));
+        Cookie csrf = csrf();
+
+        mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
+                        .header("X-XSRF-TOKEN", csrf.getValue()).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(code.getCode()))
+                .andExpect(jsonPath("$.message").value(code.getMessage()))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

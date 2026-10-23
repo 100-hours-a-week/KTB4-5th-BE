@@ -74,7 +74,7 @@ public class UserDevice extends BaseEntity {
     }
 
     public void disable() {
-        if (this.status == UserDeviceStatus.DISABLED) {
+        if (this.status != UserDeviceStatus.ACTIVE) {
             return;
         }
         this.status = UserDeviceStatus.DISABLED;
