@@ -13,11 +13,15 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.*;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateService;
+import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
+import com.dameokja.backend.ingredient.application.create.IngredientWriteResult;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +33,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
     @Autowired AnalysisIngredientService service;
+    @Autowired IngredientCreateService ingredients;
     @Autowired AnalysisJobStore store;
     @MockitoSpyBean AnalysisFeedbackQueue queue;
     @MockitoBean AiAnalysisClient ai;
@@ -67,6 +72,70 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ingredients", Integer.class)).isEqualTo(queueFails ? 0 : 1);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(queueFails ? 0 : 1);
         verifyNoInteractions(ai);
+    }
+
+    @Test
+    void queuesTheNormalizedStoredNameForEachNewItem() {
+        Fixture owner = ownerFixture("등록자");
+        IngredientWriteResult result = register(owner, List.of(item("milk", "  우유  ", 2), item("egg", " 달걀 ", 3)));
+        assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(result.items()).extracting(write -> write.ingredient().getName()).containsExactly("우유", "달걀");
+        assertFeedback("milk", "우유", 2);
+        assertFeedback("egg", "달걀", 3);
+    }
+
+    @Test
+    void queuesTheExistingNameWhenMergingIntoLegacyInventory() {
+        Fixture owner = ownerFixture("등록자");
+        IngredientWriteResult existing = ingredients.create(owner.userId(), owner.refrigeratorId(), List.of(new IngredientCreateCommand(
+                "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 1, null, WeightUnit.NONE,
+                LocalDate.parse("2026-10-20"), RegistrationSource.DIRECT)));
+        Long ingredientId = existing.items().getFirst().ingredient().getId();
+        String legacyName = "우유";
+        jdbcTemplate.update("UPDATE ingredients SET name=? WHERE ingredient_id=?", legacyName, ingredientId);
+        IngredientWriteResult result = register(owner, List.of(item("milk", " 우유 ", 2)));
+        assertThat(result.createdCount()).isZero();
+        assertThat(result.mergedCount()).isEqualTo(1);
+        assertThat(result.items().getFirst().ingredient().getId()).isEqualTo(ingredientId);
+        assertThat(result.items().getFirst().ingredient().getName()).isEqualTo(legacyName);
+        assertFeedback("milk", legacyName, 2);
+        assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients WHERE ingredient_id=?", Integer.class, ingredientId)).isEqualTo(3);
+    }
+
+    @Test
+    void mapsRepeatedItemsToTheirStoredNameWithoutChangingTheirSubmittedQuantity() {
+        Fixture owner = ownerFixture("등록자");
+        IngredientWriteResult result = register(owner, List.of(item("milk-a", " 우유 ", 2), item("egg", " 달걀 ", 3), item("milk-b", "우유", 4)));
+        assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(result.mergedCount()).isEqualTo(1);
+        assertThat(result.items().getFirst().ingredient().getId()).isEqualTo(result.items().getLast().ingredient().getId());
+        assertFeedback("milk-a", "우유", 2);
+        assertFeedback("egg", "달걀", 3);
+        assertFeedback("milk-b", "우유", 4);
+        assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients WHERE name='우유'", Integer.class)).isEqualTo(6);
+    }
+
+    private IngredientWriteResult register(Fixture owner, List<AnalysisIngredientCommand.Item> items) {
+        List<AnalysisCompletionItem> originals = items.stream().map(item -> new AnalysisCompletionItem(item.itemId(), RecognitionStatus.RECOGNIZED,
+                "원본명", item.category(), item.storageType(), item.measureType(), 1, null, null, List.of())).toList();
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, clock.instant().atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, originals), null);
+        AnalysisJob job = store.create(owner.userId(), "RECEIPT", List.of(new AnalysisImage("image", "hash", "request", "ai-success", completion)));
+        AnalysisIngredientCommand command = new AnalysisIngredientCommand(job.id(), List.of(new AnalysisIngredientCommand.Image("image", items)));
+        return service.create(owner.userId(), owner.refrigeratorId(), command);
+    }
+
+    private AnalysisIngredientCommand.Item item(String itemId, String name, int quantity) {
+        return new AnalysisIngredientCommand.Item(itemId, name, IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT,
+                BigDecimal.valueOf(quantity), null, LocalDate.parse("2026-10-20"));
+    }
+
+    private void assertFeedback(String itemId, String storedName, int requestedQuantity) {
+        assertThat(jdbcTemplate.queryForObject("SELECT name FROM ingredients WHERE name=?", String.class, storedName)).isEqualTo(storedName);
+        assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks WHERE item_id=?",
+                String.class, itemId)).isEqualTo(storedName);
+        assertThat(jdbcTemplate.queryForObject("SELECT JSON_EXTRACT(feedback_body, '$.confirmed.quantity') FROM analysis_feedbacks WHERE item_id=?",
+                Integer.class, itemId)).isEqualTo(requestedQuantity);
     }
 
     private AnalysisJob completedJob(Long userId) {

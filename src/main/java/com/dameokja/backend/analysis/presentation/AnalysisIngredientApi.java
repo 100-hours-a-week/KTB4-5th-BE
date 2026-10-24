@@ -18,6 +18,7 @@ public interface AnalysisIngredientApi {
             + "itemId는 공백이 아닌 최대 64자이며 보관된 AI analysisId도 최대 64자여야 합니다. 길이가 잘못된 기존 결과는 등록하지 않습니다. "
             + "COUNT는 quantity 정수 1~100·weight null, WEIGHT는 quantity null 또는 0·weight.value 정수 1~50000·unit G/ML입니다. "
             + "expiration은 서울 기준 등록일~4년 후입니다. RECEIPT는 RECEIPT, PRODUCT는 FOOD_IMAGE로 기록합니다. 인증된 회원을 등록자로 저장하고 같은 등록자의 재고끼리 자동 합산합니다. "
+            + "피드백의 확정 이름은 신규 등록·합산 후 실제 저장된 재고명을 사용합니다. "
             + "등록 커밋 후 항목별 CORRECTED·consentForModelImprovement=true·expirationSource=USER_CONFIRMED 피드백을 전송합니다. "
             + "모두 성공하면 선택하지 않은 항목을 포함한 묶음 전체를 삭제합니다. 피드백 실패 시 결과를 보존하고 201을 유지합니다. "
             + "삭제 실패도 201을 유지하며 로그에 기록합니다. 응답 유실 시 재고 조회로 확인하고 자동 재등록하지 않습니다.")
