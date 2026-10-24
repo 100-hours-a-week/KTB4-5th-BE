@@ -19,6 +19,10 @@ import static org.mockito.Mockito.when;
 import com.dameokja.backend.analysis.application.completion.AnalysisCompletionApplier;
 import com.dameokja.backend.analysis.application.completion.AnalysisCompletionValidator;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
+import com.dameokja.backend.analysis.domain.RecognitionStatus;
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
@@ -161,6 +165,30 @@ class AnalysisDispatchCheckerTest {
         analysisDispatchChecker.check(LEASED);
         verify(failure).fail(LEASED, analysisDispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
         verifyNoInteractions(aiAnalysisClient);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {64, 65})
+    void validatesRecoveredItemIdsBeforeApplyingTheResult(int length) {
+        AnalysisDispatch dispatch = checking(0);
+        AnalysisCompletionItem item = new AnalysisCompletionItem(
+                "i".repeat(length), RecognitionStatus.NEEDS_REVIEW, null, null, null, null, null,
+                new AnalysisCompletionItem.Weight(null, null),
+                new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.UNKNOWN, null), List.of());
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, COMPLETED_AT,
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of(item)), null);
+        AiImageAnalysisResponse response = mock(AiImageAnalysisResponse.class);
+        when(response.isFinished()).thenReturn(true);
+        when(response.toCompletion()).thenReturn(completion);
+        when(aiAnalysisClient.get("ai-1")).thenReturn(response);
+        analysisDispatchChecker.check(LEASED);
+        if (length == 64) {
+            verify(analysisCompletionApplier).apply("ai-1", completion);
+            verifyNoInteractions(failure);
+        } else {
+            verify(failure).fail(LEASED, dispatch, AnalysisFailureCode.ANALYSIS_UNAVAILABLE);
+            verify(analysisCompletionApplier, never()).apply(anyString(), any());
+        }
     }
 
     private AiImageAnalysisResponse completed() {

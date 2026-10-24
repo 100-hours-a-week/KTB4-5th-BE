@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.application.registration;
 
+import com.dameokja.backend.analysis.domain.AiAnalysisIdentifiers;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.ingredient.application.create.IngredientCreateCommand;
 import com.dameokja.backend.ingredient.domain.*;
@@ -13,7 +14,7 @@ import java.util.List;
 public record AnalysisIngredientCommand(@NotBlank String analysisId, @NotEmpty @Size(max = 20) List<@NotNull @Valid Image> images) {
     public record Image(@NotBlank String imageObjectKey, @NotEmpty @Size(max = 20) List<@NotNull @Valid Item> items) {}
 
-    public record Item(@NotBlank String itemId, @NotBlank String name, @NotNull IngredientCategory category,
+    public record Item(@NotBlank @Size(max = AiAnalysisIdentifiers.MAX_LENGTH) String itemId, @NotBlank String name, @NotNull IngredientCategory category,
             @NotNull StorageType storageType, @NotNull MeasureType measureType, BigDecimal quantity, @Valid Weight weight, @NotNull LocalDate expiration) {
         public IngredientCreateCommand toCommand(RegistrationSource source) {
             if (measureType == MeasureType.COUNT && weight != null) {
