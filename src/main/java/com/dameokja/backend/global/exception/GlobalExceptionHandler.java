@@ -4,14 +4,19 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -60,6 +65,33 @@ public class GlobalExceptionHandler {
         return toResponse(GlobalExceptionCode.NOT_FOUND, List.of());
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException exception) {
+        log.warn("[MethodArgumentTypeMismatch] name={}", exception.getName());
+        return toResponse(GlobalExceptionCode.BAD_REQUEST, List.of());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException exception) {
+        log.warn("[NoResourceFound] method={}", exception.getHttpMethod());
+        return toResponse(GlobalExceptionCode.NOT_FOUND, List.of());
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception) {
+        log.warn("[MethodNotSupported] method={}", exception.getMethod());
+        return toResponse(GlobalExceptionCode.METHOD_NOT_ALLOWED, List.of(), exception.getHeaders());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException exception) {
+        log.warn("[MediaTypeNotSupported] contentType={}", exception.getContentType());
+        return toResponse(GlobalExceptionCode.UNSUPPORTED_MEDIA_TYPE, List.of(), exception.getHeaders());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
             DataIntegrityViolationException exception) {
@@ -75,9 +107,15 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> toResponse(ExceptionCode exceptionCode,
             List<FieldError> fieldErrors) {
+        return toResponse(exceptionCode, fieldErrors, HttpHeaders.EMPTY);
+    }
+
+    private ResponseEntity<ErrorResponse> toResponse(ExceptionCode exceptionCode,
+            List<FieldError> fieldErrors, HttpHeaders headers) {
         HttpStatus httpStatus = exceptionCode.getStatus();
         ErrorResponse errorResponse = ErrorResponse.of(exceptionCode, fieldErrors);
         return ResponseEntity.status(httpStatus)
+                .headers(headers)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(errorResponse);
     }
