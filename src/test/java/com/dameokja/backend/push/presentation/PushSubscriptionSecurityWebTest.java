@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -36,9 +37,11 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -56,10 +59,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "auth.cookie.secure=true"
 })
 class PushSubscriptionSecurityWebTest {
+    private static final String PUBLIC_KEY = "BBsm6R4Q8Y7zDW6IP3LwAqDKguIYBLa83eH8r18Jd9ts8Dyt3xmcoSyL91wjkGIPymgWPJZPeol1iwrLafmJczY";
+    private static final String AUTH_SECRET = "AAAAAAAAAAAAAAAAAAAAAA";
     private static final String BODY = """
             {"endpoint": "https://fcm.googleapis.com/1",
-             "keys": {"p256dh": "p256dh-key", "auth": "auth-secret"}}
-            """;
+             "keys": {"p256dh": "%s", "auth": "%s"}}
+            """.formatted(PUBLIC_KEY, AUTH_SECRET);
 
     @Autowired WebApplicationContext context;
     @Autowired JwtProvider jwtProvider;
@@ -82,8 +87,8 @@ class PushSubscriptionSecurityWebTest {
 
     @Test
     void registerReturnsCreatedWithLocationForNewSubscription() throws Exception {
-        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key",
-                "auth-secret")).thenReturn(new PushSubscriptionResult(501L, true));
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", PUBLIC_KEY,
+                AUTH_SECRET)).thenReturn(new PushSubscriptionResult(501L, true));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
                         .header("X-XSRF-TOKEN", csrf.getValue())
@@ -96,8 +101,8 @@ class PushSubscriptionSecurityWebTest {
 
     @Test
     void registerReturnsOkWithoutLocationForRenewedSubscription() throws Exception {
-        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key",
-                "auth-secret")).thenReturn(new PushSubscriptionResult(501L, false));
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", PUBLIC_KEY,
+                AUTH_SECRET)).thenReturn(new PushSubscriptionResult(501L, false));
         Cookie csrf = csrf();
         mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
                         .header("X-XSRF-TOKEN", csrf.getValue())
@@ -110,7 +115,7 @@ class PushSubscriptionSecurityWebTest {
     @ParameterizedTest
     @EnumSource(value = PushExceptionCode.class, names = {"SUBSCRIPTION_OWNER_CONFLICT", "SUBSCRIPTION_INVALID"})
     void registerReturnsDistinctConflictCodes(PushExceptionCode code) throws Exception {
-        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", "p256dh-key", "auth-secret"))
+        when(pushSubscriptionService.register(7L, "https://fcm.googleapis.com/1", PUBLIC_KEY, AUTH_SECRET))
                 .thenThrow(new CustomException(code));
         Cookie csrf = csrf();
 
@@ -120,6 +125,25 @@ class PushSubscriptionSecurityWebTest {
                 .andExpect(jsonPath("$.code").value(code.getCode()))
                 .andExpect(jsonPath("$.message").value(code.getMessage()))
                 .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"p256dh:long", "auth:long", "p256dh:format", "auth:format"})
+    void rejectsInvalidKeysBeforeCallingService(String scenario) throws Exception {
+        String[] parts = scenario.split(":");
+        String original = parts[0].equals("p256dh") ? PUBLIC_KEY : AUTH_SECRET;
+        String invalid = parts[1].equals("long") ? "A".repeat(129) : "invalid+base64/";
+        Cookie csrf = csrf();
+
+        mockMvc.perform(post("/api/v1/push-subscriptions").cookie(csrf, accessToken())
+                        .header("X-XSRF-TOKEN", csrf.getValue()).contentType(MediaType.APPLICATION_JSON)
+                        .content(BODY.replace(original, invalid)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL-400-001"))
+                .andExpect(jsonPath("$.errors[0].field").value("/keys." + parts[0]))
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString()).doesNotContain(invalid));
+
+        verifyNoInteractions(pushSubscriptionService);
     }
 
     @Test
@@ -133,7 +157,7 @@ class PushSubscriptionSecurityWebTest {
 
     @Test
     void registerReturnsEndpointValidationError() throws Exception {
-        when(pushSubscriptionService.register(7L, "https://127.0.0.1/1", "p256dh-key", "auth-secret"))
+        when(pushSubscriptionService.register(7L, "https://127.0.0.1/1", PUBLIC_KEY, AUTH_SECRET))
                 .thenThrow(new CustomException(GlobalExceptionCode.BAD_REQUEST,
                         List.of(FieldError.of("BODY", "/endpoint", "FORMAT", "허용되지 않은 푸시 구독 주소입니다."))));
         Cookie csrf = csrf();
