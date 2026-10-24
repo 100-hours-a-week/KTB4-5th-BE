@@ -25,6 +25,7 @@ public interface PushSubscriptionApi {
             summary = "푸시 구독 등록·갱신",
             description = "브라우저에서 생성한 Web Push 구독(endpoint, p256dh, auth)을 등록합니다. "
                     + "이미 등록된 endpoint면 본인 구독일 때만 갱신하고, 다른 계정의 구독이면 409를 반환합니다. "
+                    + "서로 다른 계정이 같은 endpoint를 동시에 최초 등록해 유니크 제약이 충돌한 경우에도 409(PUSH-409-001)를 반환합니다. "
                     + "본인 소유라도 INVALID endpoint는 409(PUSH-409-002)로 거절하며 새 브라우저 구독이 필요합니다. "
                     + "p256dh와 auth는 각각 최대 128자의 Base64URL이며 패딩은 있어도 없어도 됩니다. "
                     + "p256dh는 65바이트 비압축 P-256 공개키, auth는 16바이트여야 합니다. "
