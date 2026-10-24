@@ -14,6 +14,7 @@ import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ class AnalysisIngredientWebTest {
     @Autowired JwtProvider jwt;
     @Autowired AnalysisIngredientService service;
 
+    @BeforeEach
+    void resetService() { reset(service); }
+
     @Test
     void returnsCreatedAndEnforcesLoginCsrfAndNestedValidation() throws Exception {
         MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
@@ -54,6 +58,20 @@ class AnalysisIngredientWebTest {
                 AnalysisIngredientApiExamples.REQUEST.replace("\"quantity\":10", "\"quantity\":1.5").replace("\"name\":\"달걀\"", "\"name\":\"\""))) {
             mvc.perform(post(PATH).with(csrf()).cookie(token).contentType("application/json").content(invalid))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("GLOBAL-400-001"));
+        }
+        verify(service, times(1)).create(eq(7L), eq(1L), any());
+    }
+
+    @Test
+    void validatesItemIdLengthBeforeCallingRegistrationService() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        when(context.getBean(java.time.Clock.class).instant()).thenReturn(java.time.Instant.now());
+        Cookie token = new Cookie("accessToken", jwt.createAccessToken(7L, UserRole.USER));
+        when(service.create(eq(7L), eq(1L), any())).thenReturn(new IngredientWriteResult(List.of(), 1, 0, 30, 100));
+        for (int length : List.of(64, 65)) {
+            String body = AnalysisIngredientApiExamples.REQUEST.replace("item_001", "i".repeat(length));
+            mvc.perform(post(PATH).with(csrf()).cookie(token).contentType("application/json").content(body))
+                    .andExpect(status().is(length == 64 ? 201 : 400));
         }
         verify(service, times(1)).create(eq(7L), eq(1L), any());
     }

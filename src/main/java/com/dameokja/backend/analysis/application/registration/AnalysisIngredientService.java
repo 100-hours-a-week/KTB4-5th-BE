@@ -60,13 +60,14 @@ public class AnalysisIngredientService {
     }
 
     private List<Feedback> prepareImageRegistration(AnalysisImage image, List<AnalysisIngredientCommand.Item> items) {
+        validateRegistration(AiAnalysisIdentifiers.isValid(image.aiAnalysisId()));
         AnalysisCompletionSuccess result = image.completion().result();
         Set<String> originalItemIds = result.items().stream().map(AnalysisCompletionItem::itemId).collect(Collectors.toSet());
         Set<String> requestedItemIds = new HashSet<>();
         RegistrationSource source = result.documentType() == AnalysisDocumentType.RECEIPT ? RegistrationSource.RECEIPT : RegistrationSource.FOOD_IMAGE;
         List<Feedback> feedbacks = new ArrayList<>();
         for (AnalysisIngredientCommand.Item item : items) {
-            validateRegistration(requestedItemIds.add(item.itemId()) && originalItemIds.contains(item.itemId()));
+            validateRegistration(AiAnalysisIdentifiers.isValid(item.itemId()) && requestedItemIds.add(item.itemId()) && originalItemIds.contains(item.itemId()));
             feedbacks.add(new Feedback(image.aiAnalysisId(), item.itemId(), item.toCommand(source)));
         }
         return feedbacks;

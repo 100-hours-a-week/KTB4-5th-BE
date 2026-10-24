@@ -19,6 +19,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -121,6 +122,31 @@ class AnalysisIngredientServiceTest {
         AnalysisIngredientCommand.Item weightWithQuantity = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
                 StorageType.REFRIGERATED, MeasureType.WEIGHT, BigDecimal.ONE, weight.weight(), count.expiration());
         assertThat(weightWithQuantity.toCommand(RegistrationSource.FOOD_IMAGE).quantity()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"64,64", "65,4", "10,65", "10,129"})
+    void validatesCachedIdentifiersBeforeWritingInventoryOrFeedback(int analysisIdLength, int itemIdLength) {
+        String aiAnalysisId = "a".repeat(analysisIdLength);
+        String itemId = "i".repeat(itemIdLength);
+        AnalysisImage cached = image("receipt", AnalysisDocumentType.RECEIPT);
+        AnalysisCompletionItem item = new AnalysisCompletionItem(itemId, RecognitionStatus.RECOGNIZED, count.name(), count.category(),
+                count.storageType(), count.measureType(), 2, null, null, List.of());
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.now(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of(item)), null);
+        when(store.findOwned("job", 7L)).thenReturn(job(new AnalysisImage(cached.objectKey(), cached.sha256(), cached.requestId(), aiAnalysisId, completion)));
+        AnalysisIngredientCommand.Item requested = new AnalysisIngredientCommand.Item(itemId, count.name(), count.category(), count.storageType(),
+                count.measureType(), count.quantity(), null, count.expiration());
+        if (analysisIdLength == 64 && itemIdLength == 64) {
+            when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+            assertThat(service.create(7L, 1L, request(List.of(requested)))).isSameAs(result);
+            verify(queue).enqueue(eq(aiAnalysisId), argThat(feedback -> feedback.itemId().equals(itemId)));
+        } else {
+            assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(requested)))).isInstanceOf(CustomException.class)
+                    .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
+            verifyNoInteractions(creator, queue);
+            verify(store, never()).delete(any());
+        }
     }
 
     @SafeVarargs

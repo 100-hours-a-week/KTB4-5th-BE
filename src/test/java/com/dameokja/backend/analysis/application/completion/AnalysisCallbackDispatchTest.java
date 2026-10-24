@@ -65,6 +65,16 @@ class AnalysisCallbackDispatchTest {
             null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null));
 
     @Test
+    void rejectsAnOversizedAiIdBeforeParkingOrApplyingTheCallback() {
+        String analysisId = "a".repeat(65);
+        assertThatThrownBy(() -> callbacks.receive(analysisId, failure)).isInstanceOf(CustomException.class)
+                .extracting("exceptionCode.code").isEqualTo("GLOBAL-400-001");
+        assertThat(analysisCallbackParking.find(analysisId)).isEmpty();
+        verify(analysisJobStore, never()).isRegistered(analysisId);
+        verifyNoInteractions(analysisDispatchUpdater, pushes, analysisFinishedEventService, analysisDispatchWorker);
+    }
+
+    @Test
     void finishesTheDispatchBeforeNotifyingAndWakesTheWorkerForTheNextImage() {
         AnalysisJob analysisJob = registeredJob(1);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);

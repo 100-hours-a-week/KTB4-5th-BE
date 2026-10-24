@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 public interface AnalysisIngredientApi {
     @Operation(summary = "사진 인식 결과 일괄 등록", description = "accessToken·XSRF-TOKEN 쿠키와 X-XSRF-TOKEN 헤더가 필요합니다. "
             + "본인의 보관 중인 작업에서 COMPLETED이고 OTHER가 아닌 이미지의 원본 항목을 선택해 1~20개 등록합니다. "
+            + "itemId는 공백이 아닌 최대 64자이며 보관된 AI analysisId도 최대 64자여야 합니다. 길이가 잘못된 기존 결과는 등록하지 않습니다. "
             + "COUNT는 quantity 정수 1~100·weight null, WEIGHT는 quantity null 또는 0·weight.value 정수 1~50000·unit G/ML입니다. "
             + "expiration은 서울 기준 등록일~4년 후입니다. RECEIPT는 RECEIPT, PRODUCT는 FOOD_IMAGE로 기록합니다. 인증된 회원을 등록자로 저장하고 같은 등록자의 재고끼리 자동 합산합니다. "
             + "등록 커밋 후 항목별 CORRECTED·consentForModelImprovement=true·expirationSource=USER_CONFIRMED 피드백을 전송합니다. "
