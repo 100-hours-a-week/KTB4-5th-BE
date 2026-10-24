@@ -32,10 +32,11 @@ class AnalysisIngredientServiceTest {
             new TransactionTemplate(mock(PlatformTransactionManager.class)));
     private final AnalysisIngredientCommand.Item count = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
             StorageType.REFRIGERATED, MeasureType.COUNT, BigDecimal.TWO, null, LocalDate.parse("2026-10-20"));
-    private final IngredientWriteResult result = new IngredientWriteResult(List.of(), 2, 0, 2, 100);
+    private final IngredientWriteResult result = writeResult(1);
 
     @Test
     void registersAndQueuesConfirmedFeedbackThenDeletesResult() {
+        IngredientWriteResult result = writeResult(2);
         AnalysisIngredientCommand.Item weight = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
                 StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new AnalysisIngredientCommand.Weight(BigDecimal.TEN, WeightUnit.ML), count.expiration());
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
@@ -101,6 +102,7 @@ class AnalysisIngredientServiceTest {
 
     @Test
     void acceptsTwentyItemsAndRejectsFractionalQuantity() {
+        IngredientWriteResult result = writeResult(20);
         List<AnalysisIngredientCommand.Item> items = java.util.stream.IntStream.range(0, 20).mapToObj(i -> new AnalysisIngredientCommand.Item(
                 "item" + i, count.name(), count.category(), count.storageType(), count.measureType(), count.quantity(), null, count.expiration())).toList();
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
@@ -147,6 +149,13 @@ class AnalysisIngredientServiceTest {
             verifyNoInteractions(creator, queue);
             verify(store, never()).delete(any());
         }
+    }
+
+    private IngredientWriteResult writeResult(int size) {
+        Ingredient ingredient = mock(Ingredient.class);
+        when(ingredient.getName()).thenReturn("우유");
+        List<IngredientWriteItem> items = java.util.stream.IntStream.range(0, size).mapToObj(index -> IngredientWriteItem.created(ingredient)).toList();
+        return new IngredientWriteResult(items, size, 0, size, 100);
     }
 
     @SafeVarargs

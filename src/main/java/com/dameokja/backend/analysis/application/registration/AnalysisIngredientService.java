@@ -75,7 +75,11 @@ public class AnalysisIngredientService {
 
     private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
         IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).toList());
-        feedbacks.forEach(feedback -> analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request()));
+        for (int index = 0; index < feedbacks.size(); index++) {
+            Feedback feedback = feedbacks.get(index);
+            String storedName = result.items().get(index).ingredient().getName();
+            analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request(storedName));
+        }
         return result;
     }
 
@@ -93,8 +97,8 @@ public class AnalysisIngredientService {
     }
 
     private record Feedback(String aiId, String itemId, IngredientCreateCommand command) {
-        AiAnalysisFeedbackRequest request() {
-            return AiAnalysisFeedbackRequest.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(command.name(), command.category(),
+        AiAnalysisFeedbackRequest request(String storedName) {
+            return AiAnalysisFeedbackRequest.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(storedName, command.category(),
                     command.storageType(), command.measureType(), command.quantity(), command.weightValue(), command.weightUnit(), command.expirationDate()));
         }
     }
