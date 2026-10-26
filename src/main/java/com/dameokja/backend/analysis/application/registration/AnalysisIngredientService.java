@@ -60,13 +60,14 @@ public class AnalysisIngredientService {
     }
 
     private List<Feedback> prepareImageRegistration(AnalysisImage image, List<AnalysisIngredientCommand.Item> items) {
+        validateRegistration(AiAnalysisIdentifiers.isValid(image.aiAnalysisId()));
         AnalysisCompletionSuccess result = image.completion().result();
         Set<String> originalItemIds = result.items().stream().map(AnalysisCompletionItem::itemId).collect(Collectors.toSet());
         Set<String> requestedItemIds = new HashSet<>();
         RegistrationSource source = result.documentType() == AnalysisDocumentType.RECEIPT ? RegistrationSource.RECEIPT : RegistrationSource.FOOD_IMAGE;
         List<Feedback> feedbacks = new ArrayList<>();
         for (AnalysisIngredientCommand.Item item : items) {
-            validateRegistration(requestedItemIds.add(item.itemId()) && originalItemIds.contains(item.itemId()));
+            validateRegistration(AiAnalysisIdentifiers.isValid(item.itemId()) && requestedItemIds.add(item.itemId()) && originalItemIds.contains(item.itemId()));
             feedbacks.add(new Feedback(image.aiAnalysisId(), item.itemId(), item.toCommand(source)));
         }
         return feedbacks;
@@ -74,7 +75,11 @@ public class AnalysisIngredientService {
 
     private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
         IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).toList());
-        feedbacks.forEach(feedback -> analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request()));
+        for (int index = 0; index < feedbacks.size(); index++) {
+            Feedback feedback = feedbacks.get(index);
+            String storedName = result.items().get(index).ingredient().getName();
+            analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request(storedName));
+        }
         return result;
     }
 
@@ -92,8 +97,8 @@ public class AnalysisIngredientService {
     }
 
     private record Feedback(String aiId, String itemId, IngredientCreateCommand command) {
-        AiAnalysisFeedbackRequest request() {
-            return AiAnalysisFeedbackRequest.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(command.name(), command.category(),
+        AiAnalysisFeedbackRequest request(String storedName) {
+            return AiAnalysisFeedbackRequest.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(storedName, command.category(),
                     command.storageType(), command.measureType(), command.quantity(), command.weightValue(), command.weightUnit(), command.expirationDate()));
         }
     }

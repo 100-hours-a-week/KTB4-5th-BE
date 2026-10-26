@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum PushExceptionCode implements ExceptionCode {
     SUBSCRIPTION_OWNER_CONFLICT(HttpStatus.CONFLICT, "PUSH-409-001",
             "다른 계정에서 이미 사용 중인 구독입니다."),
+    SUBSCRIPTION_INVALID(HttpStatus.CONFLICT, "PUSH-409-002",
+            "만료된 구독입니다. 브라우저에서 새 푸시 구독을 생성해 주세요."),
     SUBSCRIPTION_FORBIDDEN(HttpStatus.FORBIDDEN, "PUSH-403-001", "본인 구독만 해제할 수 있습니다."),
     SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "PUSH-404-001", "구독을 찾을 수 없습니다."),
     LEASE_DURATION_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "PUSH-500-001", "lease 기간은 양수여야 합니다."),

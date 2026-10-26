@@ -1,6 +1,7 @@
 package com.dameokja.backend.analysis.application.dispatch;
 
 import com.dameokja.backend.analysis.application.completion.AnalysisCompletionApplier;
+import com.dameokja.backend.analysis.domain.AiAnalysisIdentifiers;
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
@@ -67,7 +68,7 @@ public class AnalysisDispatchSender {
             return;
         }
         String analysisId = aiImageAnalysisResponse.analysisId();
-        if (analysisId == null || analysisId.isBlank()) {
+        if (!AiAnalysisIdentifiers.isValid(analysisId)) {
             retryOrFail(leasedDispatch, analysisDispatch, AnalysisDispatchErrorCode.AI_UNAVAILABLE, null);
             return;
         }

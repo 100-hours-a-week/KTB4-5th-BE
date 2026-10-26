@@ -15,6 +15,8 @@ import com.dameokja.backend.user.domain.User;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,14 +49,35 @@ public class PushSubscriptionService {
         byte[] authSecretEncrypted = pushAuthEncryptor.encrypt(authSecretPlain);
         UserDevice device = new UserDevice(user, endpoint, p256dhKey, authSecretEncrypted,
                 pushAuthEncryptor.getCurrentKeyVersion(), vapidKeyProperties.getKeyVersion());
-        UserDevice saved = userDeviceRepository.save(device);
-        return new PushSubscriptionResult(saved.getId(), true);
+        try {
+            UserDevice saved = userDeviceRepository.save(device);
+            return new PushSubscriptionResult(saved.getId(), true);
+        } catch (DataIntegrityViolationException exception) {
+            throw translateCreateFailure(exception);
+        }
+    }
+
+    private RuntimeException translateCreateFailure(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException constraint) {
+                String name = constraint.getConstraintName();
+                if ("uk_devices_endpoint".equals(name) || name != null && name.endsWith(".uk_devices_endpoint")) {
+                    return new CustomException(PushExceptionCode.SUBSCRIPTION_OWNER_CONFLICT);
+                }
+            }
+            cause = cause.getCause();
+        }
+        return exception;
     }
 
     private PushSubscriptionResult renew(
             UserDevice existing, Long userId, String p256dhKey, String authSecretPlain) {
         if (!existing.getUser().getId().equals(userId)) {
             throw new CustomException(PushExceptionCode.SUBSCRIPTION_OWNER_CONFLICT);
+        }
+        if (existing.getStatus() == UserDeviceStatus.INVALID) {
+            throw new CustomException(PushExceptionCode.SUBSCRIPTION_INVALID);
         }
         if (hasChanged(existing, p256dhKey, authSecretPlain)) {
             byte[] authSecretEncrypted = pushAuthEncryptor.encrypt(authSecretPlain);

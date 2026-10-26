@@ -1,5 +1,6 @@
 package com.dameokja.backend.analysis.application.completion;
 
+import com.dameokja.backend.analysis.domain.AiAnalysisIdentifiers;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
@@ -24,7 +25,7 @@ public class AnalysisCompletionValidator {
         }
         Set<String> ids = new HashSet<>();
         for (AnalysisCompletionItem item : result.items()) {
-            require(hasText(item.itemId()) && ids.add(item.itemId()) && item.displayStatus() != null);
+            require(AiAnalysisIdentifiers.isValid(item.itemId()) && ids.add(item.itemId()) && item.displayStatus() != null);
             validateMeasure(item);
             validateExpiration(item.expiration());
         }

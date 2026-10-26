@@ -229,6 +229,20 @@ JWT 서명 키는 `JWT_SECRET`으로 주입하는 Base64 인코딩의 충분히 
 DB 통합 테스트는 실제 자격 증명 조회, 직접 탈퇴 폐기·DB 롤백 시 캐시 상태,
 동시 로그인·갱신과 탈퇴, 재사용 폐기가 DB 트랜잭션 롤백에도 유지되는지를 확인한다.
 
+## Web Push의 jose4j 사용과 CVE-2023-31582
+
+확인일: 2026-10-23. 이슈 #184의 의존성 갱신으로 jose4j 선언 버전을 `0.7.9`에서 `0.9.7`로 변경했다.
+변경 전 `dependencyInsight --dependency jose4j --configuration runtimeClasspath`의 실제 선택 버전도 `0.7.9`였다.
+
+[CVE-2023-31582 공지](https://github.com/advisories/GHSA-7g24-qg88-p43q)는 `0.9.3` 미만의 jose4j가
+낮은 PBES2 반복 횟수(1,000회 이하)를 허용하는 암호화 안전성 문제다. CPU 고갈 DoS를 설명하는 공지가 아니다.
+
+`WebPushSender` → `WebPushRequestFactory.create` → web-push `5.1.2`의 `AbstractPushService.prepareRequest` 경로에서
+jose4j는 서버 VAPID 키로 ES256 JWS를 생성한다. 페이로드 암호화는 web-push의 `HttpEce`가 담당하며 PBES2/JWE를 사용하지 않는다.
+외부 구독 입력의 endpoint·p256dh·auth는 푸시 요청 생성에 사용되지만, 확인한 경로에서 PBES2 반복 횟수나 JWE 입력으로 처리되지 않는다.
+사용자 인증 JWT는 별도 JJWT(`JwtProvider`)를 사용한다. 따라서 현재 확인한 코드에서는 이 CVE의 취약 처리 경로로 이어지는 외부 입력을 찾지 못했다.
+이 결과는 해당 CVE의 사용 경로 검토이며 서비스 전체의 취약점 부재를 의미하지 않는다.
+
 ## 근거
 
 확인일 2026-09-20. 구현 시 Spring Security 7.1.1 로컬 소스도 확인했다.
@@ -245,3 +259,6 @@ DB 통합 테스트는 실제 자격 증명 조회, 직접 탈퇴 폐기·DB 롤
 | 팀: 로그아웃 정책 추가 합의 | 로그아웃도 정상 access를 요구하도록 기존 접근 정책을 유지한다. |
 | 팀: 필터 무상태화 추가 합의 | JWT 필터는 요청마다 DB를 조회하지 않고 서명된 토큰만으로 인증한다. 활성 상태·role 최신화는 로그인·갱신 시점으로 한정한다. |
 | 팀: 예외 코드 단순화 추가 합의 | 인증 API의 입력 검증·예상하지 못한 서버 오류도 엔드포인트별로 분기하지 않고 다른 컨트롤러와 동일하게 공통 전역 코드로 응답한다. |
+| [jose4j CVE-2023-31582 공지](https://github.com/advisories/GHSA-7g24-qg88-p43q) (확인 2026-10-23) | 낮은 PBES2 반복 횟수 문제, 영향 버전 `< 0.9.3`, 최초 수정 버전 `0.9.3` |
+| [Maven Central jose4j 메타데이터](https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/maven-metadata.xml) (확인 2026-10-23) | 유지보수 배포 버전 `0.9.7` 확인 |
+| [web-push 5.1.2 소스 JAR](https://repo.maven.apache.org/maven2/nl/martijndwars/web-push/5.1.2/web-push-5.1.2-sources.jar) (확인 2026-10-23) | `AbstractPushService.prepareRequest`의 ES256 JWS 생성과 `HttpEce` 암호화 경로 확인 |

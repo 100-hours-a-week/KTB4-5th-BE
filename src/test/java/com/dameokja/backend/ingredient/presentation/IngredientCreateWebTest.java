@@ -14,9 +14,12 @@ import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -49,6 +52,26 @@ class IngredientCreateWebTest {
 
         verify(service).create(isNull(), eq(1L), argThat(commands -> commands.size() == 1
                 && commands.getFirst().registrationSource() == RegistrationSource.DIRECT));
+    }
+
+    static Stream<Arguments> requestsWithNullItems() {
+        return Stream.of(
+                Arguments.of("null", 0),
+                Arguments.of(ITEM + ",null", 1),
+                Arguments.of("null," + ITEM, 0));
+    }
+
+    @ParameterizedTest
+    @MethodSource("requestsWithNullItems")
+    void rejectsNullItemsBeforeCallingService(String items, int nullIndex) throws Exception {
+        mvc.perform(post(PATH).contentType("application/json").content("{\"items\":[" + items + "]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("GLOBAL-400-001"))
+                .andExpect(jsonPath("$.errors[0].location").value("BODY"))
+                .andExpect(jsonPath("$.errors[0].field").value("/items[" + nullIndex + "]"))
+                .andExpect(jsonPath("$.errors[0].code").value("FORMAT"));
+
+        verifyNoInteractions(service);
     }
 
     @ParameterizedTest

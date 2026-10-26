@@ -161,6 +161,24 @@ class AnalysisDispatchSenderTest {
         verify(analysisDispatchUpdater, never()).retryLater(any(), any(), anyBoolean(), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {64, 65})
+    void validatesAiIdsBeforeRegisteringOrAccepting(int length) {
+        leased(AnalysisDispatchStatus.DISPATCHING, 0);
+        String analysisId = "a".repeat(length);
+        when(aiAnalysisClient.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse(analysisId, "QUEUED", null, 1000));
+        analysisDispatchSender.send(LEASED);
+        if (length == 64) {
+            verify(analysisJobStore).register(eq("job-1"), eq(7L), anyString(), eq(analysisId));
+            verify(analysisDispatchUpdater).accept(LEASED, analysisId, false);
+        } else {
+            verify(analysisJobStore, never()).register(anyString(), any(), anyString(), anyString());
+            verify(analysisDispatchUpdater, never()).accept(any(), anyString(), anyBoolean());
+            verify(analysisDispatchUpdater).retryLater(LEASED, Duration.ofSeconds(1), true, AnalysisDispatchErrorCode.AI_UNAVAILABLE);
+            verifyNoInteractions(analysisCompletionApplier);
+        }
+    }
+
     private AnalysisDispatch leased(AnalysisDispatchStatus status, int attempts) {
         AnalysisDispatch analysisDispatch = dispatch(status, attempts);
         when(analysisDispatchRepository.findLeased(LEASED.id(), LEASED.token())).thenReturn(Optional.of(analysisDispatch));

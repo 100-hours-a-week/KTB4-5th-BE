@@ -47,6 +47,19 @@ class AnalysisCompletionValidatorTest {
                 .doesNotThrowAnyException();
     }
 
+    @ParameterizedTest
+    @CsvSource({"64,true", "65,false", "129,false"})
+    void limitsItemIdsToTheAiFeedbackContract(int length, boolean valid) {
+        AnalysisCompletionItem item = new AnalysisCompletionItem("i".repeat(length), RecognitionStatus.NEEDS_REVIEW,
+                null, null, null, null, null, new AnalysisCompletionItem.Weight(null, null), UNKNOWN, List.of());
+        AnalysisCompletion completion = completed(AnalysisDocumentType.PRODUCT, List.of(item));
+        if (valid) {
+            assertThatCode(() -> validator.validate(completion)).doesNotThrowAnyException();
+        } else {
+            assertThatThrownBy(() -> validator.validate(completion)).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     static Stream<AnalysisCompletion> validCompletions() {
         return Stream.of(completed(AnalysisDocumentType.OTHER, List.of()),
                 completed(AnalysisDocumentType.PRODUCT, List.of(item(null, null, null, null, UNKNOWN))),

@@ -23,7 +23,8 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "알림", description = "알림 목록과 읽음 상태 API")
 public interface NotificationApi {
 
-    @Operation(summary = "알림 목록 조회", description = "본인이 받은 활성 냉장고 알림을 최신순으로 최대 99개 조회합니다.")
+    @Operation(summary = "알림 목록 조회", description = "본인이 받은 활성 냉장고 알림을 최신순으로 최대 99개 조회합니다. "
+            + "cursor는 생성 시각·양수 알림 ID·조회 누적 수 3개 항목의 Base64URL 인코딩입니다. 누락·공백이면 첫 페이지를 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "알림 목록 조회 성공",
                     content = @Content(examples = @ExampleObject(value = LIST_RESPONSE))),
