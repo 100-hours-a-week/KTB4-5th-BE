@@ -19,8 +19,8 @@ public interface AnalysisIngredientApi {
             + "COUNT는 quantity 정수 1~100·weight null, WEIGHT는 quantity null 또는 0·weight.value 정수 1~50000·unit G/ML입니다. "
             + "expiration은 서울 기준 등록일~4년 후입니다. RECEIPT는 RECEIPT, PRODUCT는 FOOD_IMAGE로 기록합니다. 인증된 회원을 등록자로 저장하고 같은 등록자의 재고끼리 자동 합산합니다. "
             + "피드백의 확정 이름은 신규 등록·합산 후 실제 저장된 재고명을 사용합니다. "
-            + "등록 커밋 후 항목별 CORRECTED·consentForModelImprovement=true·expirationSource=USER_CONFIRMED 피드백을 전송합니다. "
-            + "모두 성공하면 선택하지 않은 항목을 포함한 묶음 전체를 삭제합니다. 피드백 실패 시 결과를 보존하고 201을 유지합니다. "
+            + "등록 시 AI 분석 ID별로 refrigeratorId·items[]를 포함한 피드백을 재고와 같은 트랜잭션으로 큐에 저장합니다. 각 항목은 CORRECTED·동의 true·expirationSource=USER_CONFIRMED입니다. "
+            + "큐 저장 실패는 재고 등록도 롤백합니다. 커밋 후 선택하지 않은 항목을 포함한 묶음 전체를 삭제하고 201을 반환합니다. AI 전송 실패는 큐에서 재시도합니다. "
             + "삭제 실패도 201을 유지하며 로그에 기록합니다. 응답 유실 시 재고 조회로 확인하고 자동 재등록하지 않습니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "재고 일괄등록 성공 (INGREDIENT-201-001)", content = @Content(mediaType = "application/json",
