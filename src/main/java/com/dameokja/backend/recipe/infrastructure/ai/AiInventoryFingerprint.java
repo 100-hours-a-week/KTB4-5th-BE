@@ -11,12 +11,12 @@ import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.core.json.JsonWriteFeature;
 
-final class AiInventoryFingerprint {
+public final class AiInventoryFingerprint {
     private static final JsonMapper MAPPER = JsonMapper.builder().disable(JsonWriteFeature.WRITE_HEX_UPPER_CASE).build();
 
     private AiInventoryFingerprint() {}
 
-    static String of(List<AiRecipeInventoryItem> inventory) {
+    public static String of(List<AiRecipeInventoryItem> inventory) {
         List<Map<String, Object>> rows = inventory.stream().sorted(Comparator.comparing(AiRecipeInventoryItem::ingredientId))
                 .map(AiInventoryFingerprint::row).toList();
         try {

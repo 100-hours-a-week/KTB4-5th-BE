@@ -26,6 +26,8 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
 
     long countByRefrigeratorId(Long refrigeratorId);
 
+    List<Ingredient> findAllByRefrigerator_IdOrderByIdAsc(Long refrigeratorId);
+
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
             + "and i.expirationDate <= :expirationThrough order by i.expirationDate, i.id")
     List<Ingredient> findExpirationNotificationTargets(@Param("refrigeratorId") Long refrigeratorId,
