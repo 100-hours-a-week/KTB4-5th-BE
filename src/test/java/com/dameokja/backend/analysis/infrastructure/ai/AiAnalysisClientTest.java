@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,9 +102,9 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"itemId":"item_001","action":"CORRECTED","consentForModelImprovement":true,
+                        {"refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item_001","action":"CORRECTED",
                          "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED","measureType":"WEIGHT","quantity":null,
-                          "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}
+                          "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}
                         """, true))
                 .andRespond(withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"feedbackId":"feedback-1","analysisId":"analysis-3","status":"RECORDED"}
@@ -121,7 +122,7 @@ class AiAnalysisClientTest {
     }
 
     private AiAnalysisFeedbackRequest milkFeedback() {
-        return AiAnalysisFeedbackRequest.corrected("item_001", AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
-                StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new BigDecimal("1000"), WeightUnit.ML, LocalDate.of(2026, 10, 20)));
+        return new AiAnalysisFeedbackRequest(17L, true, List.of(AiAnalysisFeedbackRequest.Item.corrected("item_001", AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new BigDecimal("1000"), WeightUnit.ML, LocalDate.of(2026, 10, 20)))));
     }
 }

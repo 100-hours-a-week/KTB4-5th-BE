@@ -21,10 +21,10 @@ import tools.jackson.databind.json.JsonMapper;
 class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
     private static final LocalDateTime NOW = BusinessTime.now(Clock.fixed(Instant.parse("2026-10-19T01:00:00Z"), BusinessTime.ZONE));
     private static final String BODY = """
-            {"itemId":"item-1","action":"CORRECTED","consentForModelImprovement":true,
+            {"refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item-1","action":"CORRECTED",
              "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED",
                           "measureType":"WEIGHT","quantity":null,"weightValue":10.5,
-                          "weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}
+                          "weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}
             """;
 
     @Autowired JdbcTemplate jdbcTemplate;
@@ -32,13 +32,12 @@ class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
 
     @Test
     void reloadsConfirmedPayloadAndPendingSchedule() {
-        AnalysisFeedback saved = repository.saveAndFlush(AnalysisFeedback.pending("ai-1", "item-1", BODY, NOW, NOW.plusDays(3)));
+        AnalysisFeedback saved = repository.saveAndFlush(AnalysisFeedback.pending("ai-1", BODY, NOW, NOW.plusDays(3)));
         flushAndClear();
         AnalysisFeedback found = repository.findById(saved.getId()).orElseThrow();
         JsonMapper mapper = JsonMapper.builder().build();
         assertThat(mapper.readTree(found.getFeedbackBody())).isEqualTo(mapper.readTree(BODY));
         assertThat(found.getAiAnalysisId()).isEqualTo("ai-1");
-        assertThat(found.getItemId()).isEqualTo("item-1");
         assertThat(found.getStatus()).isEqualTo(AnalysisFeedbackStatus.PENDING);
         assertThat(found.getAttemptCount()).isZero();
         assertThat(found.getNextAttemptAt()).isEqualTo(NOW);
@@ -78,8 +77,8 @@ class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
     private void insertPending() {
         jdbcTemplate.update("""
                 INSERT INTO analysis_feedbacks
-                    (ai_analysis_id, item_id, feedback_body, next_attempt_at, expires_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, "ai-1", "item-1", BODY, NOW, NOW.plusDays(3), NOW, NOW);
+                    (ai_analysis_id, feedback_body, next_attempt_at, expires_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, "ai-1", BODY, NOW, NOW.plusDays(3), NOW, NOW);
     }
 }

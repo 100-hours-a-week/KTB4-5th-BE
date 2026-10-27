@@ -54,8 +54,11 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
     private static final Duration RETRY_DELAY = Duration.ofMinutes(10);
     private static final Duration LEASE_DURATION = Duration.ofMinutes(5);
     private static final Duration EXPIRES_AFTER = Duration.ofDays(3);
-    private final AiAnalysisFeedbackRequest request = AiAnalysisFeedbackRequest.corrected("item-1", AiAnalysisFeedbackRequest.Confirmed.userConfirmed(
-            "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 2, null, WeightUnit.NONE, LocalDate.parse("2026-10-20")));
+    private final AiAnalysisFeedbackRequest request = new AiAnalysisFeedbackRequest(17L, true, List.of(
+            AiAnalysisFeedbackRequest.Item.corrected("item-1", AiAnalysisFeedbackRequest.Confirmed.userConfirmed(
+            "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 2, null, WeightUnit.NONE, LocalDate.parse("2026-10-20"))),
+            AiAnalysisFeedbackRequest.Item.corrected("item-2", AiAnalysisFeedbackRequest.Confirmed.userConfirmed(
+                    "계란", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 1, null, WeightUnit.NONE, LocalDate.parse("2026-10-20")))));
 
     @Autowired AnalysisFeedbackQueue queue;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -99,6 +102,8 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
         enqueue(1);
         LeasedFeedback leased = queue.leaseDue().getFirst();
         queue.retryLater(leased, AnalysisFeedbackErrorCode.AI_BUSY);
+        assertThat(mapper.readValue(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class), AiAnalysisFeedbackRequest.class))
+                .isEqualTo(request);
         assertThat(row(leased.id())).containsEntry("status", "PENDING").containsEntry("attempt_count", 1).containsEntry("last_error_code", "AI_BUSY");
         assertThat(jdbcTemplate.queryForObject("SELECT next_attempt_at FROM analysis_feedbacks", LocalDateTime.class)).isEqualTo(NOW.plus(RETRY_DELAY));
         assertThat(queue.leaseDue()).isEmpty();

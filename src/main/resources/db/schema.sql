@@ -340,9 +340,8 @@ CREATE TABLE analysis_dispatches (
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE analysis_feedbacks (
-    analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI에 보낼 품목 하나의 피드백',
+    analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI 분석 하나에 보낼 피드백 묶음',
     ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
-    item_id VARCHAR(128) NOT NULL COMMENT 'AI 분석 결과의 품목 ID',
     feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',

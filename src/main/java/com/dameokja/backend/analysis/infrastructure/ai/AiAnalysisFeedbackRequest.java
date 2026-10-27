@@ -6,11 +6,17 @@ import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
-public record AiAnalysisFeedbackRequest(String itemId, String action, Confirmed confirmed, boolean consentForModelImprovement) {
-    // AI 계약에는 아직 수정 여부별 action이 없어 확정값은 모두 CORRECTED로 보낸다.
-    public static AiAnalysisFeedbackRequest corrected(String itemId, Confirmed confirmed) {
-        return new AiAnalysisFeedbackRequest(itemId, "CORRECTED", confirmed, true);
+public record AiAnalysisFeedbackRequest(Long refrigeratorId, boolean consentForModelImprovement, List<Item> items) {
+    public AiAnalysisFeedbackRequest {
+        items = List.copyOf(items);
+    }
+
+    public record Item(String itemId, String action, Confirmed confirmed) {
+        public static Item corrected(String itemId, Confirmed confirmed) {
+            return new Item(itemId, "CORRECTED", confirmed);
+        }
     }
 
     public record Confirmed(String name, IngredientCategory category, StorageType storageType, MeasureType measureType, Integer quantity,

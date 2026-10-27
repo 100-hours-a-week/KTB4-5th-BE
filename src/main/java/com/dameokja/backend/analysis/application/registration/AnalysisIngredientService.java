@@ -10,7 +10,9 @@ import com.dameokja.backend.ingredient.application.create.*;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -75,11 +77,13 @@ public class AnalysisIngredientService {
 
     private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
         IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).toList());
+        Map<String, List<AiAnalysisFeedbackRequest.Item>> itemsByAnalysis = new LinkedHashMap<>();
         for (int index = 0; index < feedbacks.size(); index++) {
             Feedback feedback = feedbacks.get(index);
             String storedName = result.items().get(index).ingredient().getName();
-            analysisFeedbackQueue.enqueue(feedback.aiId(), feedback.request(storedName));
+            itemsByAnalysis.computeIfAbsent(feedback.aiId(), ignored -> new ArrayList<>()).add(feedback.request(storedName));
         }
+        itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
         return result;
     }
 
@@ -97,8 +101,8 @@ public class AnalysisIngredientService {
     }
 
     private record Feedback(String aiId, String itemId, IngredientCreateCommand command) {
-        AiAnalysisFeedbackRequest request(String storedName) {
-            return AiAnalysisFeedbackRequest.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(storedName, command.category(),
+        AiAnalysisFeedbackRequest.Item request(String storedName) {
+            return AiAnalysisFeedbackRequest.Item.corrected(itemId, AiAnalysisFeedbackRequest.Confirmed.userConfirmed(storedName, command.category(),
                     command.storageType(), command.measureType(), command.quantity(), command.weightValue(), command.weightUnit(), command.expirationDate()));
         }
     }

@@ -20,6 +20,9 @@ import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.StreamSupport;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,7 +68,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         } else {
             assertThat(service.create(owner.userId(), owner.refrigeratorId(), command).createdCount()).isEqualTo(1);
             assertThat(store.find(job.id())).isEmpty();
-            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks", String.class))
+            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.items[0].confirmed.name')) FROM analysis_feedbacks", String.class))
                     .isEqualTo("확정우유");
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("PENDING");
         }
@@ -79,6 +82,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         Fixture owner = ownerFixture("등록자");
         IngredientWriteResult result = register(owner, List.of(item("milk", "  우유  ", 2), item("egg", " 달걀 ", 3)));
         assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(1);
         assertThat(result.items()).extracting(write -> write.ingredient().getName()).containsExactly("우유", "달걀");
         assertFeedback("milk", "우유", 2);
         assertFeedback("egg", "달걀", 3);
@@ -107,6 +111,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         Fixture owner = ownerFixture("등록자");
         IngredientWriteResult result = register(owner, List.of(item("milk-a", " 우유 ", 2), item("egg", " 달걀 ", 3), item("milk-b", "우유", 4)));
         assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(1);
         assertThat(result.mergedCount()).isEqualTo(1);
         assertThat(result.items().getFirst().ingredient().getId()).isEqualTo(result.items().getLast().ingredient().getId());
         assertFeedback("milk-a", "우유", 2);
@@ -132,10 +137,13 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
 
     private void assertFeedback(String itemId, String storedName, int requestedQuantity) {
         assertThat(jdbcTemplate.queryForObject("SELECT name FROM ingredients WHERE name=?", String.class, storedName)).isEqualTo(storedName);
-        assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks WHERE item_id=?",
-                String.class, itemId)).isEqualTo(storedName);
-        assertThat(jdbcTemplate.queryForObject("SELECT JSON_EXTRACT(feedback_body, '$.confirmed.quantity') FROM analysis_feedbacks WHERE item_id=?",
-                Integer.class, itemId)).isEqualTo(requestedQuantity);
+        String body = jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class);
+        JsonNode items = JsonMapper.builder().build().readTree(body).path("items");
+        List<JsonNode> matching = StreamSupport.stream(items.spliterator(), false)
+                .filter(item -> item.path("itemId").asText().equals(itemId)).toList();
+        assertThat(matching).hasSize(1);
+        assertThat(matching.getFirst().path("confirmed").path("name").asText()).isEqualTo(storedName);
+        assertThat(matching.getFirst().path("confirmed").path("quantity").asInt()).isEqualTo(requestedQuantity);
     }
 
     private AnalysisJob completedJob(Long userId) {

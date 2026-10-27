@@ -4,6 +4,7 @@ import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.global.config.ai.AiClientConfig;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
+import com.dameokja.backend.ingredient.domain.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -12,6 +13,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,7 @@ class AiAnalysisHttpTransportTest {
     private static final String SHA256 = "a".repeat(64);
     private final AtomicReference<String> upgradeHeader = new AtomicReference<>();
     private final AtomicReference<String> requestBody = new AtomicReference<>();
+    private final AtomicInteger requests = new AtomicInteger();
     private HttpServer httpServer;
     private HttpClient httpClient;
     private AiAnalysisClient aiAnalysisClient;
@@ -59,15 +64,35 @@ class AiAnalysisHttpTransportTest {
         assertThat(jsonNode.path("image").path("sha256").asText()).isEqualTo(SHA256);
     }
 
+    @Test
+    void sendsBothItemsInOneHttpRequest() {
+        AiAnalysisFeedbackRequest.Confirmed confirmed = AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.COUNT, 2, null, WeightUnit.NONE, LocalDate.of(2026, 10, 31));
+        AiAnalysisFeedbackRequest request = new AiAnalysisFeedbackRequest(17L, true, List.of(
+                AiAnalysisFeedbackRequest.Item.corrected("item-1", confirmed), AiAnalysisFeedbackRequest.Item.corrected("item-2", confirmed)));
+        assertThat(aiAnalysisClient.feedback("ai-123", request).status()).isEqualTo("RECORDED");
+        assertThat(requests.get()).isEqualTo(1);
+        JsonNode body = JsonMapper.builder().build().readTree(requestBody.get());
+        assertThat(body.path("refrigeratorId").asLong()).isEqualTo(17L);
+        assertThat(body.path("items").size()).isEqualTo(2);
+        assertThat(body.path("items").get(0).path("itemId").asText()).isEqualTo("item-1");
+        assertThat(body.path("items").get(1).path("itemId").asText()).isEqualTo("item-2");
+    }
+
     private void acceptAnalysis(HttpExchange httpExchange) throws IOException {
         try (httpExchange) {
+            requests.incrementAndGet();
             upgradeHeader.set(httpExchange.getRequestHeaders().getFirst("Upgrade"));
             requestBody.set(new String(httpExchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             byte[] responseBody = """
                     {"analysisId":"analysis-1","status":"QUEUED","submittedAt":"2026-10-09T01:00:00Z","pollAfterMs":1000}
                     """.getBytes(StandardCharsets.UTF_8);
             httpExchange.getResponseHeaders().set("Content-Type", "application/json");
-            httpExchange.sendResponseHeaders(202, responseBody.length);
+            boolean feedback = httpExchange.getRequestURI().getPath().endsWith("/feedback");
+            if (feedback) {
+                responseBody = "{\"feedbackId\":\"fb-1\",\"status\":\"RECORDED\"}".getBytes(StandardCharsets.UTF_8);
+            }
+            httpExchange.sendResponseHeaders(feedback ? 201 : 202, responseBody.length);
             httpExchange.getResponseBody().write(responseBody);
         }
     }

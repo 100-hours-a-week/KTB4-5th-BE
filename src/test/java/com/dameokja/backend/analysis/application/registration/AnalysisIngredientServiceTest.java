@@ -45,11 +45,12 @@ class AnalysisIngredientServiceTest {
         org.mockito.InOrder order = inOrder(creator, queue, store);
         order.verify(creator).create(eq(7L), eq(1L), argThat(commands -> commands.getFirst().registrationSource() == RegistrationSource.RECEIPT
                 && commands.getLast().registrationSource() == RegistrationSource.FOOD_IMAGE));
-        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.itemId().equals("item") && f.action().equals("CORRECTED")
-                && f.consentForModelImprovement() && f.confirmed().quantity() == 2 && f.confirmed().weightUnit() == WeightUnit.NONE
-                && f.confirmed().expirationSource().equals("USER_CONFIRMED")));
-        order.verify(queue).enqueue(eq("ai-product"), argThat(f -> f.confirmed().quantity() == null && f.confirmed().weightValue().equals(BigDecimal.TEN)
-                && f.confirmed().weightUnit() == WeightUnit.ML));
+        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.refrigeratorId().equals(1L) && f.items().size() == 1
+                && f.items().getFirst().itemId().equals("item") && f.items().getFirst().action().equals("CORRECTED")
+                && f.consentForModelImprovement() && f.items().getFirst().confirmed().quantity() == 2 && f.items().getFirst().confirmed().weightUnit() == WeightUnit.NONE
+                && f.items().getFirst().confirmed().expirationSource().equals("USER_CONFIRMED")));
+        order.verify(queue).enqueue(eq("ai-product"), argThat(f -> f.items().getFirst().confirmed().quantity() == null && f.items().getFirst().confirmed().weightValue().equals(BigDecimal.TEN)
+                && f.items().getFirst().confirmed().weightUnit() == WeightUnit.ML));
         order.verify(store).delete("job");
     }
 
@@ -108,7 +109,13 @@ class AnalysisIngredientServiceTest {
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(items))).isSameAs(result);
-        verify(queue, times(20)).enqueue(eq("ai-receipt"), any());
+        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
+            assertThat(feedback.refrigeratorId()).isEqualTo(1L);
+            assertThat(feedback.items()).extracting(com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest.Item::itemId)
+                    .containsExactlyElementsOf(items.stream().map(AnalysisIngredientCommand.Item::itemId).toList());
+            return true;
+        }));
+        verifyNoMoreInteractions(queue);
         AnalysisIngredientCommand.Item fraction = new AnalysisIngredientCommand.Item("item", count.name(), count.category(), count.storageType(),
                 count.measureType(), new BigDecimal("1.5"), null, count.expiration());
         assertThatThrownBy(() -> fraction.toCommand(RegistrationSource.RECEIPT)).isInstanceOf(CustomException.class);
@@ -142,7 +149,7 @@ class AnalysisIngredientServiceTest {
         if (analysisIdLength == 64 && itemIdLength == 64) {
             when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
             assertThat(service.create(7L, 1L, request(List.of(requested)))).isSameAs(result);
-            verify(queue).enqueue(eq(aiAnalysisId), argThat(feedback -> feedback.itemId().equals(itemId)));
+            verify(queue).enqueue(eq(aiAnalysisId), argThat(feedback -> feedback.items().getFirst().itemId().equals(itemId)));
         } else {
             assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(requested)))).isInstanceOf(CustomException.class)
                     .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");

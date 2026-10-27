@@ -30,7 +30,7 @@ public class AnalysisFeedbackQueue {
 
     public void enqueue(String aiAnalysisId, AiAnalysisFeedbackRequest feedbackRequest) {
         LocalDateTime now = BusinessTime.now(clock);
-        analysisFeedbackRepository.save(AnalysisFeedback.pending(aiAnalysisId, feedbackRequest.itemId(), objectMapper.writeValueAsString(feedbackRequest),
+        analysisFeedbackRepository.save(AnalysisFeedback.pending(aiAnalysisId, objectMapper.writeValueAsString(feedbackRequest),
                 now, now.plus(analysisFeedbackProperties.expiresAfter())));
     }
 
