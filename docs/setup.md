@@ -151,6 +151,16 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 조회 응답에서 값만 있는 필드는 직접 반환하고 `weight`만 `value`·`unit` 객체를 유지한다. `confidence`와 `imageQuality`는 AI 원본 응답에만 유지한다.
 종료 콜백으로 저장한 결과를 사용자 GET에서 반환한다. 재고 등록은 후속 구현 범위다.
 
+## AI 추천 호출 설정
+
+분석·추천 클라이언트는 공통 `AiClientConfig`·`AiClientProperties`와 HTTP 연결을 사용한다.
+읽기 타임아웃은 `AI_RECIPE_READ_TIMEOUT`으로 분리하며 기본값은 60초다.
+AI 추천이 분석 접수보다 오래 걸릴 수 있어 분석 클라이언트의 읽기 제한을 바꾸지 않는다.
+`AiRecipeClient.recommend`는 위키 요청 필드만 전송하고, 위키에 없는 선택 입력은 AI 기본값을 사용한다.
+응답은 확인 후보·필요량·재고별 사용량·경고·추적 정보까지 포함한 `AiRecipeRecommendationResponse` record로 수신한다.
+HTTP·통신 실패와 요청 냉장고·재고 지문·모드가 다른 응답은 `RestClientException` 계열로 전달한다.
+외부 추천 API, 작업 큐, 결과 캐시, 레시피 저장·재고 차감은 이 클라이언트가 수행하지 않는다.
+
 ## 이미지 업로드 발급 내역
 
 업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
