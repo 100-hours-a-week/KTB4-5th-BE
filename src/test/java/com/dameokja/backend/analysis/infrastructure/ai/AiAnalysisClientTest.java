@@ -1,5 +1,7 @@
 package com.dameokja.backend.analysis.infrastructure.ai;
 
+import com.dameokja.backend.global.config.ai.AiClientConfig;
+import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.StorageType;
@@ -37,10 +39,10 @@ class AiAnalysisClientTest {
 
     @BeforeEach
     void setUp() {
-        AiAnalysisProperties properties = new AiAnalysisProperties(URI.create(URL), "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
-        AiAnalysisConfig config = new AiAnalysisConfig();
-        httpClient = config.aiAnalysisHttpClient(properties);
-        RestClient.Builder builder = config.restClientBuilder(properties, httpClient);
+        AiClientProperties properties = new AiClientProperties(URI.create(URL), "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
+        AiClientConfig config = new AiClientConfig();
+        httpClient = config.aiHttpClient(properties);
+        RestClient.Builder builder = config.restClientBuilder(properties, httpClient, properties.readTimeout());
         server = MockRestServiceServer.bindTo(builder).build();
         client = new AiAnalysisClient(builder.build());
     }

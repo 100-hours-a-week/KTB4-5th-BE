@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure.ai;
+package com.dameokja.backend.global.config.ai;
 
 import java.util.Arrays;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -8,17 +8,17 @@ import org.springframework.boot.context.properties.bind.validation.BindValidatio
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AiAnalysisConfigTest {
-    private static final String[] VALID_PROPERTIES = {"ai.analysis.base-url=http://ai.example.com", "ai.analysis.api-key=test-key",
-            "ai.analysis.connect-timeout=1s", "ai.analysis.read-timeout=2s"};
+class AiClientConfigTest {
+    private static final String[] VALID_PROPERTIES = {"ai.base-url=http://ai.example.com", "ai.api-key=test-key",
+            "ai.connect-timeout=1s", "ai.read-timeout=2s"};
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withUserConfiguration(AiAnalysisConfig.class)
+            .withUserConfiguration(AiClientConfig.class)
             .withPropertyValues(VALID_PROPERTIES);
 
     @ParameterizedTest
-    @ValueSource(strings = {"ai.analysis.api-key=", "ai.analysis.base-url=ftp://ai.example.com", "ai.analysis.base-url=http:/ai", "ai.analysis.connect-timeout=0ms",
-            "ai.analysis.read-timeout=-1s", "ai.analysis.read-timeout=1ns", "ai.analysis.base-url=http://user@ai.example.com",
-            "ai.analysis.base-url=http://ai.example.com?key=value", "ai.analysis.base-url=http://ai.example.com#fragment"})
+    @ValueSource(strings = {"ai.api-key=", "ai.base-url=ftp://ai.example.com", "ai.base-url=http:/ai", "ai.connect-timeout=0ms",
+            "ai.read-timeout=-1s", "ai.read-timeout=1ns", "ai.base-url=http://user@ai.example.com",
+            "ai.base-url=http://ai.example.com?key=value", "ai.base-url=http://ai.example.com#fragment"})
     void rejectsInvalidConfiguration(String property) {
         contextRunner.withPropertyValues(property).run(context -> assertThat(context.getStartupFailure()).hasRootCauseInstanceOf(BindValidationException.class));
     }
@@ -26,16 +26,16 @@ class AiAnalysisConfigTest {
     @ParameterizedTest
     @ValueSource(strings = {"base-url", "api-key", "connect-timeout", "read-timeout"})
     void rejectsEachMissingProperty(String name) {
-        new ApplicationContextRunner().withUserConfiguration(AiAnalysisConfig.class)
-                .withPropertyValues(Arrays.stream(VALID_PROPERTIES).filter(property -> !property.startsWith("ai.analysis." + name + "=")).toArray(String[]::new))
+        new ApplicationContextRunner().withUserConfiguration(AiClientConfig.class)
+                .withPropertyValues(Arrays.stream(VALID_PROPERTIES).filter(property -> !property.startsWith("ai." + name + "=")).toArray(String[]::new))
                 .run(context -> assertThat(context.getStartupFailure()).hasRootCauseInstanceOf(BindValidationException.class));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"http://ai.example.com", "https://ai.example.com"})
     void acceptsSupportedAddressWithMinimumTimeouts(String baseUrl) {
-        contextRunner.withPropertyValues("ai.analysis.base-url=" + baseUrl,
-                "ai.analysis.connect-timeout=1ms", "ai.analysis.read-timeout=1ms")
+        contextRunner.withPropertyValues("ai.base-url=" + baseUrl,
+                "ai.connect-timeout=1ms", "ai.read-timeout=1ms")
                 .run(context -> assertThat(context).hasNotFailed());
     }
 }

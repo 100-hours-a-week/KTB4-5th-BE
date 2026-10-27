@@ -1,8 +1,8 @@
 package com.dameokja.backend.analysis.infrastructure.ai;
 
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisConfig;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisProperties;
+import com.dameokja.backend.global.config.ai.AiClientConfig;
+import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -36,9 +36,9 @@ class AiAnalysisHttpTransportTest {
         httpServer.createContext("/ai/v1/analyses", this::acceptAnalysis);
         httpServer.start();
         URI baseUrl = URI.create("http://127.0.0.1:" + httpServer.getAddress().getPort());
-        AiAnalysisProperties aiAnalysisProperties = new AiAnalysisProperties(baseUrl, "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
-        AiAnalysisConfig aiAnalysisConfig = new AiAnalysisConfig();
-        httpClient = aiAnalysisConfig.aiAnalysisHttpClient(aiAnalysisProperties);
+        AiClientProperties aiAnalysisProperties = new AiClientProperties(baseUrl, "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
+        AiClientConfig aiAnalysisConfig = new AiClientConfig();
+        httpClient = aiAnalysisConfig.aiHttpClient(aiAnalysisProperties);
         aiAnalysisClient = aiAnalysisConfig.aiAnalysisClient(aiAnalysisProperties, httpClient);
     }
 

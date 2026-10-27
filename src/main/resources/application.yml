@@ -126,11 +126,10 @@ image:
     allowed-content-types: ${S3_ALLOWED_CONTENT_TYPES}
 
 ai:
-  analysis:
-    base-url: ${AI_BASE_URL}
-    api-key: ${AI_INTERNAL_API_KEY}
-    connect-timeout: ${AI_CONNECT_TIMEOUT}
-    read-timeout: ${AI_READ_TIMEOUT}
+  base-url: ${AI_BASE_URL}
+  api-key: ${AI_INTERNAL_API_KEY}
+  connect-timeout: ${AI_CONNECT_TIMEOUT}
+  read-timeout: ${AI_READ_TIMEOUT}
 
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
