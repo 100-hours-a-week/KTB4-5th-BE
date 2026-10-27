@@ -28,6 +28,11 @@ public class RefrigeratorAccessService {
         return refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(userId);
     }
 
+    // 권한 확인을 마친 저장 흐름에서 연관관계 참조만 만든다.
+    public Refrigerator getReferenceById(Long refrigeratorId) {
+        return refrigeratorRepository.getReferenceById(refrigeratorId);
+    }
+
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
         Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)

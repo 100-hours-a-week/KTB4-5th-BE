@@ -363,3 +363,20 @@ CREATE TABLE analysis_feedbacks (
     CONSTRAINT ck_analysis_feedback_lease CHECK (status <> 'SENDING' OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
     CONSTRAINT ck_analysis_feedback_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE recommendation_outbox (
+    recommendation_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
+    event_id VARCHAR(36) NOT NULL COMMENT '접수마다 발급하는 ID. 향후 FE jobId로 사용',
+    refrigerator_id BIGINT NOT NULL,
+    request_id VARCHAR(36) NOT NULL COMMENT '동일 요청의 재전송 식별자. 중복 접수는 허용',
+    event_type VARCHAR(64) NOT NULL,
+    payload JSON NOT NULL COMMENT '접수 당시 AI 요청 스냅샷',
+    status VARCHAR(16) NOT NULL COMMENT '메시지 전달 상태. 추천 생성 상태와 분리',
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (recommendation_outbox_id),
+    UNIQUE KEY uk_recommendation_outbox_event (event_id),
+    KEY ix_recommendation_outbox_refrigerator (refrigerator_id),
+    CONSTRAINT fk_recommendation_outbox_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
+    CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','SENT','FAILED'))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
