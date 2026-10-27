@@ -161,6 +161,15 @@ AI 추천이 분석 접수보다 오래 걸릴 수 있어 분석 클라이언트
 HTTP·통신 실패와 요청 냉장고·재고 지문·모드가 다른 응답은 `RestClientException` 계열로 전달한다.
 외부 추천 API, 작업 큐, 결과 캐시, 레시피 저장·재고 차감은 이 클라이언트가 수행하지 않는다.
 
+## 추천 outbox 접수
+
+`RecommendationSubmissionService.submit`은 권한 확인과 전체 재고 조회·요청 준비를 마친 뒤 짧은 트랜잭션에서 outbox만 저장한다.
+`recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 별도 job 테이블은 두지 않으며 생성 상태·결과는 후속 Redis 구현에서 관리한다.
+동일 요청 ID도 새 eventId로 접수하며 중복 접수를 차단하지 않는다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
+SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는다.
+빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블 추가가 필요하며, 스키마 파일은 자동 실행되지 않는다.
+이 단계에서는 접수만 제공한다. 외부 API·AI 전달·Redis 결과 저장·재시도·재시작 복구·완료 행 정리는 포함하지 않는다.
+
 ## 이미지 업로드 발급 내역
 
 업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
