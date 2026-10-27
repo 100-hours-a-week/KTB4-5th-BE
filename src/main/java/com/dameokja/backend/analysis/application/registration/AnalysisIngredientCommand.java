@@ -14,7 +14,7 @@ import java.util.List;
 public record AnalysisIngredientCommand(@NotBlank String analysisId, @NotEmpty @Size(max = 20) List<@NotNull @Valid Image> images) {
     public record Image(@NotBlank String imageObjectKey, @NotEmpty @Size(max = 20) List<@NotNull @Valid Item> items) {}
 
-    public record Item(@NotBlank @Size(max = AiAnalysisIdentifiers.MAX_LENGTH) String itemId, @NotBlank String name, @NotNull IngredientCategory category,
+    public record Item(@Pattern(regexp = "(?s).*\\S.*") @Size(max = AiAnalysisIdentifiers.MAX_LENGTH) String itemId, @NotBlank String name, @NotNull IngredientCategory category,
             @NotNull StorageType storageType, @NotNull MeasureType measureType, BigDecimal quantity, @Valid Weight weight, @NotNull LocalDate expiration) {
         public IngredientCreateCommand toCommand(RegistrationSource source) {
             if (measureType == MeasureType.COUNT && weight != null) {
