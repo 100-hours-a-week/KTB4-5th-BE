@@ -29,8 +29,8 @@ import org.springframework.web.context.WebApplicationContext;
 @ExtendWith(RedisTestSupport.class)
 @SpringJUnitConfig(AnalysisCallbackWebTest.Config.class)
 @WebAppConfiguration
-@TestPropertySource(properties = {"ai.analysis.api-key=local-ai-test", "ai.analysis.base-url=http://127.0.0.1:18081",
-        "ai.analysis.connect-timeout=1s", "ai.analysis.read-timeout=3s"})
+@TestPropertySource(properties = {"ai.api-key=local-ai-test", "ai.base-url=http://127.0.0.1:18081",
+        "ai.connect-timeout=1s", "ai.read-timeout=3s"})
 class AnalysisCallbackIdentifierWebTest {
     private static final String BODY = """
             {"analysisId":"ai-first","status":"COMPLETED","completedAt":"2026-10-14T01:00:00Z",

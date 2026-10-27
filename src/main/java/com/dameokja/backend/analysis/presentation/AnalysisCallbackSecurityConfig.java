@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisProperties;
+import com.dameokja.backend.global.config.ai.AiClientProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,7 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class AnalysisCallbackSecurityConfig {
     @Bean
     @Order(1)
-    SecurityFilterChain analysisCallbackChain(HttpSecurity http, AiAnalysisProperties properties) throws Exception {
+    SecurityFilterChain analysisCallbackChain(HttpSecurity http, AiClientProperties properties) throws Exception {
         return http.securityMatcher("/api/v1/internal/image-analyses/callback")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

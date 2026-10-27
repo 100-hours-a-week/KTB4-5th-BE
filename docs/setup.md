@@ -142,6 +142,7 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 | `AI_READ_TIMEOUT` | 응답 읽기 타임아웃. Duration 형식, 1ms 이상 |
 
 기본값 없이 외부 환경에서 주입하며, 누락·잘못된 설정은 기동 시 거절한다.
+공통 접속 속성은 `ai`의 `AiClientProperties`에서 검증하고, `AiClientConfig`가 HTTP 연결·인증 헤더를 구성한다.
 `AiAnalysisClient.submit`은 단건 분석을 접수하고, `get`은 `analysisId`로 상태·결과를 조회한다.
 `requestId`는 요청별로 구분하며 같은 요청의 재전송에는 같은 값을 사용한다.
 접수 응답은 분석 완료를 뜻하지 않는다. HTTP 오류·통신 실패는 Spring `RestClientException` 계열로 전달한다.
