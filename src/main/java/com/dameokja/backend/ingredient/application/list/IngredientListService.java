@@ -46,6 +46,11 @@ public class IngredientListService {
 
     public long countStored(Long refrigeratorId) { return ingredientRepository.countByRefrigeratorId(refrigeratorId); }
 
+    public List<Ingredient> getAll(Long userId, Long refrigeratorId) {
+        refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+        return ingredientRepository.findAllByRefrigerator_IdOrderByIdAsc(refrigeratorId);
+    }
+
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
     private long countFiltered(IngredientListCursor cursor) {
         IngredientFilter filter = cursor.filter();

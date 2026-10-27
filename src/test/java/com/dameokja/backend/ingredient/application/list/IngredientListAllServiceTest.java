@@ -1,4 +1,4 @@
-package com.dameokja.backend.ingredient.application.snapshot;
+package com.dameokja.backend.ingredient.application.list;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,9 +18,11 @@ import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
+import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeInventoryItem;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,16 +30,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.transaction.TestTransaction;
 
-class IngredientSnapshotServiceTest extends MySqlJpaTest {
+class IngredientListAllServiceTest extends MySqlJpaTest {
     @Autowired private IngredientRepository ingredientRepository;
     private final RefrigeratorAccessService access = mock(RefrigeratorAccessService.class);
-    private IngredientSnapshotService snapshots;
+    private IngredientListService ingredients;
     private Refrigerator refrigerator;
     private User owner;
 
     @BeforeEach
     void setUp() {
-        snapshots = new IngredientSnapshotService(access, ingredientRepository);
+        ingredients = new IngredientListService(access, ingredientRepository,
+                mock(IngredientPageReader.class), mock(IngredientListCursorCodec.class), Clock.systemUTC());
         refrigerator = new Refrigerator("냉장고", "2026-10");
         owner = new User("등록자", "test");
         entityManager.persist(refrigerator);
@@ -56,14 +59,15 @@ class IngredientSnapshotServiceTest extends MySqlJpaTest {
         when(access.validateReadAccess(owner.getId(), refrigeratorId)).thenReturn(refrigerator);
         flushAndClear();
 
-        List<IngredientSnapshotItem> inventory = snapshots.getAll(owner.getId(), refrigeratorId);
+        List<Ingredient> rows = ingredients.getAll(owner.getId(), refrigeratorId);
         TestTransaction.end();
+        List<AiRecipeInventoryItem> inventory = rows.stream().map(AiRecipeInventoryItem::from).toList();
 
-        assertThat(inventory).hasSize(102).extracting(IngredientSnapshotItem::ingredientId).contains(count.getId(), weight.getId());
-        assertThat(inventory.getFirst()).isEqualTo(new IngredientSnapshotItem(count.getId(), "국산 두부", IngredientCategory.OTHER,
+        assertThat(inventory).hasSize(102).extracting(AiRecipeInventoryItem::ingredientId).contains(count.getId(), weight.getId());
+        assertThat(inventory.getFirst()).isEqualTo(new AiRecipeInventoryItem(count.getId(), "국산 두부", IngredientCategory.OTHER,
                 StorageType.FROZEN, MeasureType.COUNT, 2, null, WeightUnit.NONE, expiredOn));
         assertThat(inventory.get(1).weightValue()).isEqualByComparingTo("300");
-        assertThat(inventory).extracting(IngredientSnapshotItem::name).doesNotContain("다른 재고");
+        assertThat(inventory).extracting(AiRecipeInventoryItem::name).doesNotContain("다른 재고");
     }
 
     @Test
@@ -71,16 +75,16 @@ class IngredientSnapshotServiceTest extends MySqlJpaTest {
         when(access.validateReadAccess(owner.getId(), refrigerator.getId()))
                 .thenThrow(new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
 
-        assertThatThrownBy(() -> snapshots.getAll(owner.getId(), refrigerator.getId()))
+        assertThatThrownBy(() -> ingredients.getAll(owner.getId(), refrigerator.getId()))
                 .isInstanceOfSatisfying(CustomException.class,
                         exception -> assertThat(exception.getExceptionCode()).isEqualTo(RefrigeratorExceptionCode.ACCESS_DENIED));
     }
 
     @Test
-    void returnsAnEmptySnapshotForAnAccessibleEmptyRefrigerator() {
+    void returnsNoStockForAnAccessibleEmptyRefrigerator() {
         when(access.validateReadAccess(owner.getId(), refrigerator.getId())).thenReturn(refrigerator);
 
-        assertThat(snapshots.getAll(owner.getId(), refrigerator.getId())).isEmpty();
+        assertThat(ingredients.getAll(owner.getId(), refrigerator.getId())).isEmpty();
     }
 
     private void populateOtherStock(LocalDate expirationDate) {
