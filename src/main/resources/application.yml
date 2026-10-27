@@ -131,6 +131,9 @@ ai:
   connect-timeout: ${AI_CONNECT_TIMEOUT}
   read-timeout: ${AI_READ_TIMEOUT}
 
+  recipe:
+    read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
+
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}

@@ -1,9 +1,11 @@
 package com.dameokja.backend.global.config.ai;
 
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
+import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeClient;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,12 @@ public class AiClientConfig {
     @Bean
     public AiAnalysisClient aiAnalysisClient(AiClientProperties properties, @Qualifier("aiHttpClient") HttpClient httpClient) {
         return new AiAnalysisClient(restClientBuilder(properties, httpClient, properties.readTimeout()).build());
+    }
+
+    @Bean
+    public AiRecipeClient aiRecipeClient(AiClientProperties properties, @Qualifier("aiHttpClient") HttpClient httpClient,
+            @Value("${ai.recipe.read-timeout}") Duration readTimeout) {
+        return new AiRecipeClient(restClientBuilder(properties, httpClient, readTimeout).build());
     }
 
     public RestClient.Builder restClientBuilder(AiClientProperties properties, HttpClient httpClient, Duration readTimeout) {

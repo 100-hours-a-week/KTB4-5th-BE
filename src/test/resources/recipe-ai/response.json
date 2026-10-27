@@ -1,0 +1,188 @@
+{
+  "recommendationId": "rec-1",
+  "refrigeratorId": 17,
+  "inventoryFingerprint": "43193fcc5023364582ce0941f098a5c5fd76d7adf1ffa75ab4c108c753d7248c",
+  "recommendationMode": "EXCLUDE_EXPIRED",
+  "recommendations": [
+    {
+      "source": "FOOD_SAFETY_KOREA",
+      "sourceRecipeId": "1024",
+      "sourceRevision": "revision-1",
+      "name": "두부 조림",
+      "imageUrl": null,
+      "sourceUrl": "https://example.com/recipes/1024",
+      "baseServings": 2.0,
+      "ingredients": [
+        {
+          "ingredientNo": 1,
+          "name": "두부",
+          "amountText": "300g",
+          "measureType": "WEIGHT",
+          "amountValue": 300.0,
+          "unit": "G"
+        }
+      ],
+      "steps": [
+        {
+          "stepNo": 1,
+          "instruction": "두부를 조립니다.",
+          "imageUrl": null
+        }
+      ],
+      "score": 0.89,
+      "scoreBreakdown": {
+        "expiringIngredient": 0.35,
+        "inventoryCoverage": 0.31,
+        "missingIngredientPenalty": 0.18,
+        "variety": 1.0
+      },
+      "usesInventory": [
+        "두부"
+      ],
+      "usesExpiringIngredients": [
+        "두부"
+      ],
+      "missingIngredients": [],
+      "excludedIngredientCheck": "PASSED",
+      "reason": "임박 재료 활용",
+      "strategy": "USE_EXPIRING",
+      "targetServings": 2,
+      "quantityStatus": "SUFFICIENT",
+      "ingredientRequirements": [
+        {
+          "ingredientNo": 1,
+          "name": "두부",
+          "amountText": "300g",
+          "requiredAmount": 300.0,
+          "unit": "G",
+          "allocatedAmount": 300.0,
+          "shortageAmount": 0.0,
+          "status": "SUFFICIENT"
+        }
+      ],
+      "inventoryUsage": [
+        {
+          "ingredientId": 101,
+          "name": "두부",
+          "unit": "G",
+          "availableAmount": 300.0,
+          "usedAmount": 300.0,
+          "remainingAmount": 0.0
+        }
+      ],
+      "essentialIngredientNos": [
+        1
+      ],
+      "missingEssentialIngredientNos": [],
+      "feasibility": "QUANTITY_VERIFIED",
+      "confirmationReasons": [],
+      "usesExpiringMainIngredients": [
+        "두부"
+      ],
+      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다."
+    }
+  ],
+  "confirmationCandidates": [
+    {
+      "source": "FOOD_SAFETY_KOREA",
+      "sourceRecipeId": "1025",
+      "sourceRevision": "revision-1",
+      "name": "두부 조림",
+      "imageUrl": null,
+      "sourceUrl": "https://example.com/recipes/1024",
+      "baseServings": 2.0,
+      "ingredients": [
+        {
+          "ingredientNo": 1,
+          "name": "두부",
+          "amountText": "300g",
+          "measureType": "WEIGHT",
+          "amountValue": 300.0,
+          "unit": "G"
+        }
+      ],
+      "steps": [
+        {
+          "stepNo": 1,
+          "instruction": "두부를 조립니다.",
+          "imageUrl": null
+        }
+      ],
+      "score": 0.89,
+      "scoreBreakdown": {
+        "expiringIngredient": 0.35,
+        "inventoryCoverage": 0.31,
+        "missingIngredientPenalty": 0.18,
+        "variety": 1.0
+      },
+      "usesInventory": [
+        "두부"
+      ],
+      "usesExpiringIngredients": [
+        "두부"
+      ],
+      "missingIngredients": [],
+      "excludedIngredientCheck": "PASSED",
+      "reason": "임박 재료 활용",
+      "strategy": "USE_EXPIRING",
+      "targetServings": 2,
+      "quantityStatus": "SUFFICIENT",
+      "ingredientRequirements": [
+        {
+          "ingredientNo": 1,
+          "name": "두부",
+          "amountText": "300g",
+          "requiredAmount": 300.0,
+          "unit": "G",
+          "allocatedAmount": 300.0,
+          "shortageAmount": 0.0,
+          "status": "SUFFICIENT"
+        }
+      ],
+      "inventoryUsage": [
+        {
+          "ingredientId": 101,
+          "name": "두부",
+          "unit": "G",
+          "availableAmount": 300.0,
+          "usedAmount": 300.0,
+          "remainingAmount": 0.0
+        }
+      ],
+      "essentialIngredientNos": [
+        1
+      ],
+      "missingEssentialIngredientNos": [],
+      "feasibility": "NEEDS_CHECK",
+      "confirmationReasons": [
+        "재료 종류 확인"
+      ],
+      "usesExpiringMainIngredients": [
+        "두부"
+      ],
+      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다."
+    }
+  ],
+  "uncoveredExpiringIngredients": [
+    "대파"
+  ],
+  "generatedAt": "2026-10-27T03:00:00Z",
+  "recommendationEngine": "AI",
+  "mealPlan": {
+    "focusIngredientIds": [],
+    "ideas": []
+  },
+  "warnings": [
+    "CONFIRMATION_CANDIDATES_SEPARATED"
+  ],
+  "trace": {
+    "policyVersion": "recipe-rerank-v8",
+    "model": "gemma",
+    "promptVersion": "recipe-grounded-v3",
+    "aiCalls": 1,
+    "searchCount": 1,
+    "candidateCount": 3,
+    "externalSearchCount": 0,
+    "webSearchCount": 0
+  }
+}
