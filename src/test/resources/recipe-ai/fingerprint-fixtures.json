@@ -1,0 +1,171 @@
+[
+  {
+    "case": "empty",
+    "inventory": [],
+    "fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "case": "count",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "8a8fa0c7929dc4e0c0b6a29653d3d642e573be9d2f0dcb76a5331455ebfa4972"
+  },
+  {
+    "case": "weight",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "WEIGHT",
+        "quantity": null,
+        "weightValue": 300,
+        "weightUnit": "G",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "43193fcc5023364582ce0941f098a5c5fd76d7adf1ffa75ab4c108c753d7248c"
+  },
+  {
+    "case": "large-weight",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "WEIGHT",
+        "quantity": null,
+        "weightValue": 50000,
+        "weightUnit": "ML",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "5bc457baabe0cb8be71a99e67cbd349c025c52876758022081d12ec253ab0547"
+  },
+  {
+    "case": "unicode-casefold",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "ＡＢＣ Straße İ ς Ꭰ ꭰ \u001c",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "85cb40bc88827d16ce8bff7bca65071a0673ea430f049b304c31e8e9c7a30367"
+  },
+  {
+    "case": "escaped-name",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부 \"국산\" \\\\ \\n\\t",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "39c2d1a1ac9a44157c2c47ed4e11dbe4003df0b94212febb1d234120d5fcdec5"
+  },
+  {
+    "case": "whitespace",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부\u001c ",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "8a8fa0c7929dc4e0c0b6a29653d3d642e573be9d2f0dcb76a5331455ebfa4972"
+  },
+  {
+    "case": "control",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부\u001b",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "b5d12f094bd470f065b5a31a724f51dc1ac4c4241d250bdc3f2987f6edf28ae0"
+  },
+  {
+    "case": "newer-unicode",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부𞀰Ᲊ",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "b5a05b30c4d1f2d781f449a8a03a94986860e4948a86d40ff142027236b0439f"
+  },
+  {
+    "case": "sorted",
+    "inventory": [
+      {
+        "ingredientId": 102,
+        "name": "대파",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      },
+      {
+        "ingredientId": 101,
+        "name": "두부",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "COUNT",
+        "quantity": 2,
+        "weightValue": null,
+        "weightUnit": "NONE",
+        "expirationDate": "2026-11-01"
+      }
+    ],
+    "fingerprint": "1b2e504f8ad88f97cfda9bc8e782753f8d4b4ee87a6b4eacded5b92f86e179c5"
+  }
+]
