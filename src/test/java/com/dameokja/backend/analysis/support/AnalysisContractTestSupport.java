@@ -2,13 +2,13 @@ package com.dameokja.backend.analysis.support;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackSender;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
@@ -44,7 +44,6 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     @MockitoBean protected AiAnalysisClient ai;
     @Autowired private JwtProvider jwt;
     @Autowired private ImageUploadMetadataStore uploads;
-    @Autowired private AnalysisFeedbackSender feedbacks;
 
     @BeforeEach
     void acceptAiRequests() {
@@ -85,8 +84,19 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
         return mvc.perform(get("/api/v1/refrigerators/{refrigeratorId}/ingredients", refrigeratorId).cookie(access(userId)));
     }
 
-    // 전역 스케줄러를 켜지 않고 테스트가 소유한 실행기에서만 전달한다.
-    protected void deliverFeedbacks() { feedbacks.sendDue(); }
+    protected void assertAnalysisQueued(String analysisId) {
+        assertThat(jdbcTemplate.queryForList("SELECT object_key FROM analysis_dispatches WHERE analysis_job_id = ?", String.class, analysisId))
+                .contains(OBJECT_KEY);
+    }
+
+    protected void assertFeedbackQueued(Long refrigeratorId) {
+        assertThat(jdbcTemplate.queryForList("SELECT feedback_body FROM analysis_feedbacks WHERE ai_analysis_id = ?", String.class, AI_ANALYSIS_ID))
+                .anySatisfy(body -> {
+                    assertThat(mapper.readTree(body).path("refrigeratorId").asLong()).isEqualTo(refrigeratorId);
+                    assertThat(mapper.readTree(body).at("/items/0/confirmed/name").asString()).isEqualTo("우유");
+                    assertThat(mapper.readTree(body).at("/items/0/confirmed/quantity").asInt()).isEqualTo(2);
+                });
+    }
 
     private ResultActions postAsUser(Long userId, String path, String body) throws Exception {
         Cookie csrf = mvc.perform(get("/api/v1/auth/csrf")).andExpect(status().isNoContent())
