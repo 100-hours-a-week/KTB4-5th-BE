@@ -9,6 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchLeaseService;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchSender;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
@@ -44,6 +47,9 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     @MockitoBean protected AiAnalysisClient ai;
     @Autowired private JwtProvider jwt;
     @Autowired private ImageUploadMetadataStore uploads;
+    @Autowired private AnalysisDispatchLeaseService analysisLeases;
+    @Autowired private AnalysisDispatchSender analysisSender;
+    @Autowired private AnalysisDispatchProperties analysisPolicy;
 
     @BeforeEach
     void acceptAiRequests() {
@@ -97,6 +103,14 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
                     assertThat(mapper.readTree(body).at("/items/0/confirmed/quantity").asInt()).isEqualTo(2);
                 });
     }
+
+    // 재예약 시각까지 실제로 기다리지 않으며, 전송·DB 갱신이 끝난 뒤 테스트로 돌아온다.
+    protected void retryDueAnalyses() {
+        clock.set(clock.instant().plus(analysisPolicy.retryDelay()).toString());
+        analysisLeases.leaseDue().forEach(analysisSender::send);
+    }
+
+    protected int analysisAttemptLimit() { return analysisPolicy.maxAttempts(); }
 
     private ResultActions postAsUser(Long userId, String path, String body) throws Exception {
         Cookie csrf = mvc.perform(get("/api/v1/auth/csrf")).andExpect(status().isNoContent())
