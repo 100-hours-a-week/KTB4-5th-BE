@@ -23,6 +23,7 @@ import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,6 +103,19 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
                     assertThat(mapper.readTree(body).at("/items/0/confirmed/name").asString()).isEqualTo("우유");
                     assertThat(mapper.readTree(body).at("/items/0/confirmed/quantity").asInt()).isEqualTo(2);
                 });
+    }
+
+    protected void assertNoFeedbackQueued() {
+        assertThat(jdbcTemplate.queryForList("SELECT ai_analysis_id FROM analysis_feedbacks WHERE ai_analysis_id = ?", String.class, AI_ANALYSIS_ID)).isEmpty();
+    }
+
+    protected AutoCloseable rejectRegistrationStorage(String table) {
+        if (!Set.of("ingredients", "analysis_feedbacks").contains(table)) {
+            throw new IllegalArgumentException("등록 원자성 테스트 대상 테이블이 아닙니다.");
+        }
+        jdbcTemplate.execute("CREATE TRIGGER reject_atomic_registration BEFORE INSERT ON " + table
+                + " FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'contract registration storage failure'");
+        return () -> jdbcTemplate.execute("DROP TRIGGER IF EXISTS reject_atomic_registration");
     }
 
     // 재예약 시각까지 실제로 기다리지 않으며, 전송·DB 갱신이 끝난 뒤 테스트로 돌아온다.
