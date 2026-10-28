@@ -69,6 +69,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform { excludeTags 'push-experiment' }
+	// 서로 다른 테스트 컨텍스트의 DB 풀이 누적되지 않도록 캐시를 제한한다.
+	systemProperty 'spring.test.context.cache.maxSize', '8'
 	// Docker 실행 JVM과 같은 서울 시간대로 CI·로컬 테스트를 실행한다.
 	systemProperty 'user.timezone', 'Asia/Seoul'
 }
