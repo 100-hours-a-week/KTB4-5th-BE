@@ -2,6 +2,10 @@ package com.dameokja.backend.analysis.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
+import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackProperties;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackSender;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.zaxxer.hikari.HikariDataSource;
 import java.time.Instant;
@@ -13,6 +17,10 @@ import org.springframework.test.context.TestContextManager;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class RestartableAnalysisContractTestSupport extends AnalysisContractTestSupport {
     @Autowired private ConfigurableApplicationContext application;
+    @Autowired private AnalysisDispatchProperties dispatchPolicy;
+    @Autowired private AnalysisDispatchWorker dispatchWorker;
+    @Autowired private AnalysisFeedbackProperties feedbackPolicy;
+    @Autowired private AnalysisFeedbackSender feedbackSender;
 
     protected void restartApplication() throws Exception {
         Instant resumedAt = clock.instant();
@@ -30,5 +38,20 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
         assertThat(application).isNotSameAs(stopped);
         assertThat(application.isActive()).isTrue();
         assertThat(ai).isNotSameAs(stoppedAi);
+    }
+
+    // 중단된 전송과 콜백 대기 모두 복구 대상이 되도록 시계만 진행하고 실제 워커를 실행한다.
+    protected void recoverInterruptedAnalyses() {
+        clock.set(clock.instant().plus(dispatchPolicy.leaseDuration()).plus(dispatchPolicy.callbackTimeout()).toString());
+        dispatchWorker.poll();
+    }
+
+    protected void pollAnalyses() { dispatchWorker.poll(); }
+
+    protected void sendFeedback() { feedbackSender.sendDue(); }
+
+    protected void recoverInterruptedFeedback() {
+        clock.set(clock.instant().plus(feedbackPolicy.leaseDuration()).toString());
+        feedbackSender.sendDue();
     }
 }
