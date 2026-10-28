@@ -124,7 +124,7 @@ public class AnalysisDispatchSender {
     }
 
     private AiImageAnalysisSubmitRequest request(AnalysisDispatch analysisDispatch) {
-        return new AiImageAnalysisSubmitRequest(analysisDispatch.getRequestId(), new AiImageAnalysisSubmitRequest.Image(analysisDispatch.getObjectKey(), analysisDispatch.getSha256()),
-                analysisDispatch.getInputHint(), "ko-KR", "Asia/Seoul");
+        return new AiImageAnalysisSubmitRequest(analysisDispatch.getRequestId(), analysisDispatch.getUserId(),
+                new AiImageAnalysisSubmitRequest.Image(analysisDispatch.getObjectKey(), analysisDispatch.getSha256()), analysisDispatch.getInputHint(), "ko-KR", "Asia/Seoul");
     }
 }

@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
-public record AiAnalysisFeedbackRequest(Long refrigeratorId, boolean consentForModelImprovement, List<Item> items) {
+public record AiAnalysisFeedbackRequest(Long userId, boolean consentForModelImprovement, List<Item> items) {
     public AiAnalysisFeedbackRequest {
         items = List.copyOf(items);
     }

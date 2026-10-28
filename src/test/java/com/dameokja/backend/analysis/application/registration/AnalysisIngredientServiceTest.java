@@ -45,7 +45,7 @@ class AnalysisIngredientServiceTest {
         org.mockito.InOrder order = inOrder(creator, queue, store);
         order.verify(creator).create(eq(7L), eq(1L), argThat(commands -> commands.getFirst().registrationSource() == RegistrationSource.RECEIPT
                 && commands.getLast().registrationSource() == RegistrationSource.FOOD_IMAGE));
-        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.refrigeratorId().equals(1L) && f.items().size() == 1
+        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.userId().equals(7L) && f.items().size() == 1
                 && f.items().getFirst().itemId().equals("item") && f.items().getFirst().action().equals("CORRECTED")
                 && f.consentForModelImprovement() && f.items().getFirst().confirmed().quantity() == 2 && f.items().getFirst().confirmed().weightUnit() == WeightUnit.NONE
                 && f.items().getFirst().confirmed().expirationSource().equals("USER_CONFIRMED")));
@@ -111,7 +111,7 @@ class AnalysisIngredientServiceTest {
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(items))).isSameAs(result);
         verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
-            assertThat(feedback.refrigeratorId()).isEqualTo(1L);
+            assertThat(feedback.userId()).isEqualTo(7L);
             assertThat(feedback.items()).extracting(com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest.Item::itemId)
                     .containsExactlyElementsOf(items.stream().map(AnalysisIngredientCommand.Item::itemId).toList());
             return true;

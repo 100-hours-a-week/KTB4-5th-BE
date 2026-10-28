@@ -21,6 +21,7 @@ public interface AnalysisApi {
     @Operation(summary = "이미지 분석 접수", description = "업로드 URL 발급 후 S3 업로드를 완료한 이미지 키들을 요청합니다. "
             + "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. "
             + "로그인 사용자의 분석용 발급 내역을 확인하고 모든 이미지의 순차 접수가 끝나면 하나의 작업 ID를 반환합니다. "
+            + "AI 분석 요청에는 인증된 회원의 userId를 전달하며 클라이언트가 회원 ID를 지정하지 않습니다. "
             + "접수 시 expiresAt은 null이며 묶음 종료 결과 저장 후 보관 만료 시각을 정합니다. "
             + "202 응답은 분석 접수이며 분석 완료를 의미하지 않습니다. 이후 접수가 실패해도 앞서 접수한 이미지는 자동 취소되지 않습니다.")
     @ApiResponses({

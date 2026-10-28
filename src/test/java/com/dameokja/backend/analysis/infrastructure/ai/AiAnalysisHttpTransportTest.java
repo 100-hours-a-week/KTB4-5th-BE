@@ -55,10 +55,12 @@ class AiAnalysisHttpTransportTest {
 
     @Test
     void sendsJsonBodyWithoutHttp2Upgrade() {
-        aiAnalysisClient.submit(new AiImageAnalysisSubmitRequest("request-1", OBJECT_KEY, SHA256));
+        aiAnalysisClient.submit(new AiImageAnalysisSubmitRequest("request-1", 7L, OBJECT_KEY, SHA256));
 
         assertThat(upgradeHeader.get()).isNull();
         JsonNode jsonNode = JsonMapper.builder().build().readTree(requestBody.get());
+        assertThat(jsonNode.path("userId").asLong()).isEqualTo(7L);
+        assertThat(jsonNode.has("refrigeratorId")).isFalse();
         assertThat(jsonNode.path("requestId").asText()).isEqualTo("request-1");
         assertThat(jsonNode.path("image").path("objectKey").asText()).isEqualTo(OBJECT_KEY);
         assertThat(jsonNode.path("image").path("sha256").asText()).isEqualTo(SHA256);
@@ -73,7 +75,8 @@ class AiAnalysisHttpTransportTest {
         assertThat(aiAnalysisClient.feedback("ai-123", request).status()).isEqualTo("RECORDED");
         assertThat(requests.get()).isEqualTo(1);
         JsonNode body = JsonMapper.builder().build().readTree(requestBody.get());
-        assertThat(body.path("refrigeratorId").asLong()).isEqualTo(17L);
+        assertThat(body.path("userId").asLong()).isEqualTo(17L);
+        assertThat(body.has("refrigeratorId")).isFalse();
         assertThat(body.path("items").size()).isEqualTo(2);
         assertThat(body.path("items").get(0).path("itemId").asText()).isEqualTo("item-1");
         assertThat(body.path("items").get(1).path("itemId").asText()).isEqualTo("item-2");

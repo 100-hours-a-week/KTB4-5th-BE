@@ -26,10 +26,12 @@ import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.support.RedisTestSupport;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,6 +83,19 @@ class AnalysisJobSubmitServiceTest {
         assertThat(again.id()).isNotEqualTo(first.id());
         assertThat(again.analysisImages().getFirst().requestId()).isEqualTo(first.analysisImages().getFirst().requestId());
         assertThat(otherHint.analysisImages().getFirst().requestId()).isNotEqualTo(first.analysisImages().getFirst().requestId());
+    }
+
+    @Test
+    void separatesUsersAndThePreviousContractWhenGeneratingRequestIds() {
+        issue("first", "ab");
+        AnalysisJob first = analysisJobSubmitService.submit(7L, List.of("first"), "RECEIPT");
+        String previousRequestId = UUID.nameUUIDFromBytes(String.join("\n", "7", "first", "ab".repeat(32), "RECEIPT")
+                .getBytes(StandardCharsets.UTF_8)).toString();
+        imageUploadMetadataStore.save(8L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
+        AnalysisJob otherUser = analysisJobSubmitService.submit(8L, List.of("first"), "RECEIPT");
+
+        assertThat(first.analysisImages().getFirst().requestId()).isNotEqualTo(previousRequestId);
+        assertThat(otherUser.analysisImages().getFirst().requestId()).isNotEqualTo(first.analysisImages().getFirst().requestId());
     }
 
     @ParameterizedTest

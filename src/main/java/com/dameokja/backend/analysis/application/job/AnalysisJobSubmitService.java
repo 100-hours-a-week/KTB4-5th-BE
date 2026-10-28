@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class AnalysisJobSubmitService {
+    private static final String REQUEST_CONTRACT_VERSION = "analysis-user-v1";
     private final ImageAnalysisInputService imageAnalysisInputService;
     private final AnalysisJobStore analysisJobStore;
     private final AnalysisDispatchQueue analysisDispatchQueue;
@@ -39,10 +40,10 @@ public class AnalysisJobSubmitService {
         return analysisJob;
     }
 
-    // AI는 같은 requestId·같은 요청 내용이면 기존 분석을 돌려주므로, 같은 사진을 다시 요청해도 분석을 새로 만들지 않도록 requestId를 요청 내용에서 만든다.
+    // userId를 보내기 전의 요청 ID와 충돌하지 않도록 계약 버전을 포함하고, 같은 사용자·사진·힌트의 재시도는 같은 ID를 사용한다.
     private AnalysisImage image(Long userId, String objectKey, String inputHint) {
         String sha256 = imageAnalysisInputService.findAnalysisSha256(userId, objectKey);
-        String requestId = UUID.nameUUIDFromBytes(String.join("\n", userId.toString(), objectKey, String.valueOf(sha256), inputHint)
+        String requestId = UUID.nameUUIDFromBytes(String.join("\n", REQUEST_CONTRACT_VERSION, userId.toString(), objectKey, String.valueOf(sha256), inputHint)
                 .getBytes(StandardCharsets.UTF_8)).toString();
         return AnalysisImage.pending(objectKey, sha256, requestId);
     }

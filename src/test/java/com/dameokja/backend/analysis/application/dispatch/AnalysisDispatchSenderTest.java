@@ -65,6 +65,7 @@ class AnalysisDispatchSenderTest {
         order.verify(aiAnalysisClient).submit(request.capture());
         order.verify(analysisJobStore).register("job-1", 7L, analysisDispatch.getRequestId(), "ai-1");
         order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1", false);
+        assertThat(request.getValue().userId()).isEqualTo(7L);
         assertThat(request.getValue().requestId()).isEqualTo(analysisDispatch.getRequestId());
         assertThat(request.getValue().image().sha256()).isEqualTo("ab".repeat(32));
     }

@@ -60,12 +60,12 @@ class AiAnalysisClientTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
                         {"requestId":"request-1","image":{"objectKey":"uploads/analysis/7/image.png","sha256":"%s"},
-                         "inputHint":"AUTO","locale":"ko-KR","timezone":"Asia/Seoul"}
-                        """.formatted(SHA256)))
+                         "userId":7,"inputHint":"AUTO","locale":"ko-KR","timezone":"Asia/Seoul"}
+                        """.formatted(SHA256), true))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"analysisId":"analysis-1","status":"QUEUED","submittedAt":"2026-10-07T01:00:00Z","pollAfterMs":1000}
                         """));
-        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256));
+        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1", 7L, "uploads/analysis/7/image.png", SHA256));
         assertThat(aiImageAnalysisSubmitResponse).extracting(AiImageAnalysisSubmitResponse::analysisId).isEqualTo("analysis-1");
         server.verify();
     }
@@ -84,7 +84,7 @@ class AiAnalysisClientTest {
     @Test
     void rejectsEmptySubmissionResponse() {
         server.expect(requestTo(URL + "/ai/v1/analyses")).andRespond(withSuccess());
-        assertThatThrownBy(() -> client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256)))
+        assertThatThrownBy(() -> client.submit(new AiImageAnalysisSubmitRequest("request-1", 7L, "uploads/analysis/7/image.png", SHA256)))
                 .isInstanceOf(RestClientException.class);
         server.verify();
     }
@@ -102,7 +102,7 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item_001","action":"CORRECTED",
+                        {"userId":17,"consentForModelImprovement":true,"items":[{"itemId":"item_001","action":"CORRECTED",
                          "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED","measureType":"WEIGHT","quantity":null,
                           "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}
                         """, true))

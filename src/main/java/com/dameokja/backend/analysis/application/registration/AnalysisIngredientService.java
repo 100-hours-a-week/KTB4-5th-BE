@@ -123,7 +123,7 @@ public class AnalysisIngredientService {
             }
             itemsByAnalysis.computeIfAbsent(feedback.aiId(), ignored -> new ArrayList<>()).add(feedback.request(storedName));
         }
-        itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
+        itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(userId, true, items)));
         return result;
     }
 

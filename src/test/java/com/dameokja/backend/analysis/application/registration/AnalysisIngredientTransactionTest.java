@@ -138,6 +138,8 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         assertThat(feedbacks.get(2).has("itemId")).isFalse();
         assertThat(feedbacks.get(2).path("confirmed").path("quantity").asInt()).isEqualTo(4);
         assertThat(feedbacks.getLast().has("confirmed")).isFalse();
+        assertThat(body.path("userId").asLong()).isEqualTo(owner.userId());
+        assertThat(body.has("refrigeratorId")).isFalse();
         assertThat(body.path("consentForModelImprovement").asBoolean()).isTrue();
         assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients", Integer.class)).isEqualTo(9);
         verifyNoInteractions(ai);

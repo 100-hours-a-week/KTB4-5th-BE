@@ -30,7 +30,7 @@ class AnalysisFeedbackSenderTest {
         when(ai.feedback(eq("ai-1"), any())).thenReturn(new AiAnalysisFeedbackResponse("feedback-1", "RECORDED"));
         sender.sendDue();
         org.mockito.InOrder order = inOrder(ai, queue);
-        order.verify(ai).feedback(eq("ai-1"), argThat(request -> request.refrigeratorId().equals(17L) && request.items().size() == 2
+        order.verify(ai).feedback(eq("ai-1"), argThat(request -> request.userId().equals(17L) && request.items().size() == 2
                 && request.items().getFirst().itemId().equals("item-1") && request.items().getFirst().confirmed().name().equals("우유")
                 && request.items().getFirst().confirmed().quantity() == 2 && request.items().getLast().itemId().equals("item-2")));
         order.verify(queue).finish(leased);
@@ -74,7 +74,7 @@ class AnalysisFeedbackSenderTest {
         AnalysisFeedback feedback = mock(AnalysisFeedback.class);
         when(feedback.getAiAnalysisId()).thenReturn("ai-1");
         when(feedback.getFeedbackBody()).thenReturn("""
-                {"refrigeratorId":17,"consentForModelImprovement":true,"items":[
+                {"userId":17,"consentForModelImprovement":true,"items":[
                  {"itemId":"item-1","action":"CORRECTED","confirmed":{"name":"우유","quantity":2}},
                  {"itemId":"item-2","action":"CORRECTED","confirmed":{"name":"계란","quantity":1}}]}
                 """);
