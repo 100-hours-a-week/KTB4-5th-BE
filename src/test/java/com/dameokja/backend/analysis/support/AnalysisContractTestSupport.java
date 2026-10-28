@@ -19,6 +19,7 @@ import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,7 +62,8 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
         try (RedisConnection connection = RedisTestSupport.redisTemplate().getConnectionFactory().getConnection()) {
             connection.serverCommands().flushDb();
         }
-        clock.set(Instant.now().toString());
+        // DB의 DATETIME(6) 반올림으로 고정 시각보다 미래에 작업이 예약되지 않도록 정밀도를 맞춘다.
+        clock.set(Instant.now().truncatedTo(ChronoUnit.MICROS).toString());
     }
 
     protected ResultActions submitImage(Long userId, String inputHint) throws Exception {
