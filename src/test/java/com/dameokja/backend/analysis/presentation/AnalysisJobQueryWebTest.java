@@ -22,7 +22,6 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
@@ -39,7 +38,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,12 +53,10 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
-import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.JsonNode;
@@ -87,7 +83,6 @@ class AnalysisJobQueryWebTest {
     @Autowired JwtProvider jwtProvider;
     @Autowired Clock clock;
     @Autowired AnalysisJobStore analysisJobStore;
-    @Autowired MockRestServiceServer mockRestServiceServer;
     @Autowired ObjectMapper objectMapper;
     private MockMvc mockMvc;
     private AnalysisJob analysisJob;
@@ -96,15 +91,11 @@ class AnalysisJobQueryWebTest {
     void setup() {
         when(clock.instant()).thenReturn(INSTANT);
         when(clock.withZone(any())).thenReturn(Clock.fixed(INSTANT, BusinessTime.ZONE));
-        mockRestServiceServer.reset();
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
         analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
     }
-
-    @AfterEach
-    void verifyAiRequests() { mockRestServiceServer.verify(); }
 
     @ParameterizedTest
     @CsvSource({"PROCESSING,PROCESSING,PROCESSING,", "COMPLETED,PROCESSING,PROCESSING,UNRECOGNIZED", "FAILED,PROCESSING,PROCESSING,",
@@ -137,7 +128,7 @@ class AnalysisJobQueryWebTest {
 
     @ParameterizedTest
     @CsvSource({"LOGIN,401,GLOBAL-401-001", "OWNER,403,GLOBAL-403-001", "MISSING,404,IMAGE-404-001", "EXPIRED,404,IMAGE-404-001"})
-    void rejectsUnavailableJobsBeforeCallingAi(String scenario, int status, String code) throws Exception {
+    void rejectsUnavailableJobs(String scenario, int status, String code) throws Exception {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                     new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of()), null);
@@ -201,7 +192,7 @@ class AnalysisJobQueryWebTest {
     }
 
     @Test
-    void readsNewCallbacksOnLaterPollWithoutCallingAi() throws Exception {
+    void readsNewCallbacksOnLaterPoll() throws Exception {
         expectView("ai-first", "QUEUED");
         expectView("ai-second", "QUEUED");
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
@@ -305,11 +296,5 @@ class AnalysisJobQueryWebTest {
         AnalysisJobSubmitService analysisJobSubmitService() { return mock(AnalysisJobSubmitService.class); }
         @Bean
         AnalysisJobDeleteService analysisJobDeleteService() { return mock(AnalysisJobDeleteService.class); }
-        @Bean
-        RestClient.Builder restClientBuilder() { return RestClient.builder().baseUrl("http://ai.example.com").defaultHeader("X-Internal-API-Key", "test-key"); }
-        @Bean
-        MockRestServiceServer mockRestServiceServer(RestClient.Builder restClientBuilder) { return MockRestServiceServer.bindTo(restClientBuilder).build(); }
-        @Bean
-        AiAnalysisClient aiAnalysisClient(RestClient.Builder restClientBuilder, MockRestServiceServer mockRestServiceServer) { return new AiAnalysisClient(restClientBuilder.build()); }
     }
 }
