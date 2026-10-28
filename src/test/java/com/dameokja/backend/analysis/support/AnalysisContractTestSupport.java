@@ -8,7 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackSender;
 import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.support.ServiceIntegrationTest;
@@ -41,6 +43,7 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     @MockitoBean protected AiAnalysisClient ai;
     @Autowired private JwtProvider jwt;
     @Autowired private ImageUploadMetadataStore uploads;
+    @Autowired private AnalysisFeedbackSender feedbacks;
 
     @BeforeEach
     void acceptAiRequests() {
@@ -63,11 +66,31 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
 
     protected ResultActions submitImage(Long userId, String inputHint) throws Exception {
         uploads.save(userId, ImageUploadPurpose.ANALYSIS, OBJECT_KEY, "ab".repeat(32));
+        return postAsUser(userId, "/api/v1/image-analyses",
+                "{\"imageObjectKeys\":[\"" + OBJECT_KEY + "\"],\"inputHint\":\"" + inputHint + "\"}");
+    }
+
+    protected ResultActions registerInventory(Long userId, Long refrigeratorId, String analysisId) throws Exception {
+        String registration = """
+                {"analysisId":"%s","images":[{"imageObjectKey":"%s","items":[
+                  {"itemId":"milk","name":"우유","category":"DAIRY","storageType":"REFRIGERATED",
+                   "measureType":"COUNT","quantity":2,"expiration":"%s"}]}]}
+                """.formatted(analysisId, OBJECT_KEY, BusinessTime.today(clock).plusDays(3));
+        return postAsUser(userId, "/api/v1/refrigerators/" + refrigeratorId + "/ingredients/from-analysis", registration);
+    }
+
+    protected ResultActions queryInventory(Long userId, Long refrigeratorId) throws Exception {
+        return mvc.perform(get("/api/v1/refrigerators/{refrigeratorId}/ingredients", refrigeratorId).cookie(access(userId)));
+    }
+
+    // 전역 스케줄러를 켜지 않고 테스트가 소유한 실행기에서만 전달한다.
+    protected void deliverFeedbacks() { feedbacks.sendDue(); }
+
+    private ResultActions postAsUser(Long userId, String path, String body) throws Exception {
         Cookie csrf = mvc.perform(get("/api/v1/auth/csrf")).andExpect(status().isNoContent())
                 .andReturn().getResponse().getCookie("XSRF-TOKEN");
-        return mvc.perform(post("/api/v1/image-analyses").cookie(access(userId), csrf)
-                .header("X-XSRF-TOKEN", csrf.getValue()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"imageObjectKeys\":[\"" + OBJECT_KEY + "\"],\"inputHint\":\"" + inputHint + "\"}"));
+        return mvc.perform(post(path).cookie(access(userId), csrf)
+                .header("X-XSRF-TOKEN", csrf.getValue()).contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     protected ResultActions queryAnalysis(Long userId, String analysisId) throws Exception {
