@@ -1,0 +1,8 @@
+# prod와 replica 프로필을 함께 명시한 환경에서만 사용한다. DB 복제 구성은 인프라에서 먼저 완료해야 한다.
+# 읽기 전용 트랜잭션의 권한 검사도 replica로 가므로 복제 지연 영향을 검증한 뒤 적용한다.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:mysql:replication://10.20.33.212:3306,10.20.41.59:3306/app?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&readFromSourceWhenNoReplicas=true
