@@ -32,14 +32,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -53,7 +50,6 @@ class AnalysisJobQueryServiceTest {
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final Clock clock = mock(Clock.class);
     private final AnalysisJobStore analysisJobStore = new AnalysisJobStore(clock, Duration.ofHours(1), redisTemplate(), JsonMapper.builder().build());
-    private MockRestServiceServer mockRestServiceServer;
     private AnalysisJobQueryService analysisJobQueryService;
     private AnalysisJob analysisJob;
 
@@ -61,16 +57,11 @@ class AnalysisJobQueryServiceTest {
     void setup() {
         when(clock.instant()).thenReturn(INSTANT);
         when(clock.withZone(any())).thenReturn(Clock.fixed(INSTANT, BusinessTime.ZONE));
-        RestClient.Builder restClientBuilder = RestClient.builder().baseUrl("http://ai.example.com").defaultHeader("X-Internal-API-Key", "test-key");
-        mockRestServiceServer = MockRestServiceServer.bindTo(restClientBuilder).build();
         analysisJobQueryService = new AnalysisJobQueryService(analysisJobStore, new AnalysisOverdueJobExpirer(analysisJobStore, AnalysisDispatchFixture.PROPERTIES, clock));
         analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
         analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
     }
-
-    @AfterEach
-    void verifyAiRequests() { mockRestServiceServer.verify(); }
 
     @ParameterizedTest
     @CsvSource({"PROCESSING,PROCESSING,PROCESSING", "COMPLETED,PROCESSING,PROCESSING", "FAILED,PROCESSING,PROCESSING",
@@ -100,7 +91,7 @@ class AnalysisJobQueryServiceTest {
 
     @ParameterizedTest
     @CsvSource({"OWNER,GLOBAL-403-001", "MISSING,IMAGE-404-001", "EXPIRED,IMAGE-404-001"})
-    void rejectsUnavailableJobsBeforeCallingAi(String scenario, String code) {
+    void rejectsUnavailableJobs(String scenario, String code) {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                     new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of()), null);
@@ -168,7 +159,7 @@ class AnalysisJobQueryServiceTest {
     }
 
     @Test
-    void readsNewCallbacksOnLaterPollWithoutCallingAi() {
+    void readsNewCallbacksOnLaterPoll() {
         expectView("ai-first", "QUEUED");
         expectView("ai-second", "QUEUED");
         assertThat(analysisJobQueryService.get(7L, analysisJob.id()).status()).isEqualTo(AnalysisStatus.PROCESSING);
