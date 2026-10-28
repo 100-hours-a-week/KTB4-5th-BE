@@ -23,6 +23,8 @@ import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,9 +75,13 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     }
 
     protected ResultActions submitImage(Long userId, String inputHint) throws Exception {
-        uploads.save(userId, ImageUploadPurpose.ANALYSIS, OBJECT_KEY, "ab".repeat(32));
-        return postAsUser(userId, "/api/v1/image-analyses",
-                "{\"imageObjectKeys\":[\"" + OBJECT_KEY + "\"],\"inputHint\":\"" + inputHint + "\"}");
+        return submitImages(userId, List.of(OBJECT_KEY), inputHint);
+    }
+
+    protected ResultActions submitImages(Long userId, List<String> objectKeys, String inputHint) throws Exception {
+        objectKeys.forEach(key -> uploads.save(userId, ImageUploadPurpose.ANALYSIS, key, "ab".repeat(32)));
+        return postAsUser(userId, "/api/v1/image-analyses", mapper.writeValueAsString(
+                Map.of("imageObjectKeys", objectKeys, "inputHint", inputHint)));
     }
 
     protected ResultActions registerInventory(Long userId, Long refrigeratorId, String analysisId) throws Exception {
@@ -126,6 +132,11 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
 
     protected int analysisAttemptLimit() { return analysisPolicy.maxAttempts(); }
 
+    protected int analysisSlotLimit() { return analysisPolicy.slots(); }
+
+    // 병렬 구동의 Future가 끝나면 AI 전송과 접수 결과 저장도 끝나도록 동기로 실행한다.
+    protected void dispatchDueAnalyses() { analysisLeases.leaseDue().forEach(analysisSender::send); }
+
     private ResultActions postAsUser(Long userId, String path, String body) throws Exception {
         Cookie csrf = mvc.perform(get("/api/v1/auth/csrf")).andExpect(status().isNoContent())
                 .andReturn().getResponse().getCookie("XSRF-TOKEN");
@@ -135,6 +146,10 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
 
     protected ResultActions queryAnalysis(Long userId, String analysisId) throws Exception {
         return mvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisId).cookie(access(userId)));
+    }
+
+    protected ResultActions listAnalyses(Long userId) throws Exception {
+        return mvc.perform(get("/api/v1/image-analyses").cookie(access(userId)));
     }
 
     protected ResultActions completeAnalysis(String aiAnalysisId, String documentType) throws Exception {
