@@ -120,6 +120,34 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients WHERE name='우유'", Integer.class)).isEqualTo(6);
     }
 
+    @Test
+    void storesAllActionsBeforeRemovingTheOriginalResult() {
+        Fixture owner = ownerFixture("등록자");
+        List<AnalysisCompletionItem> originals = List.of(feedbackOriginal("same", 2), feedbackOriginal("changed", 1), feedbackOriginal("deleted", 1));
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, clock.instant().atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, originals), null);
+        AnalysisJob job = store.create(owner.userId(), "RECEIPT", List.of(new AnalysisImage("image", "hash", "request", "ai-actions", completion)));
+        service.create(owner.userId(), owner.refrigeratorId(), new AnalysisIngredientCommand(job.id(), List.of(new AnalysisIngredientCommand.Image("image",
+                List.of(item("same", "우유", 2), item("changed", "우유", 3), item(null, "우유", 4))))));
+        assertThat(store.find(job.id())).isEmpty();
+        JsonNode body = JsonMapper.builder().build().readTree(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class));
+        List<JsonNode> feedbacks = StreamSupport.stream(body.path("items").spliterator(), false).toList();
+        assertThat(feedbacks).extracting(feedback -> feedback.path("action").asText()).containsExactly("CONFIRMED", "CORRECTED", "ADDED", "DELETED");
+        assertThat(feedbacks.getFirst().has("confirmed")).isFalse();
+        assertThat(feedbacks.get(1).path("confirmed").path("quantity").asInt()).isEqualTo(3);
+        assertThat(feedbacks.get(2).has("itemId")).isFalse();
+        assertThat(feedbacks.get(2).path("confirmed").path("quantity").asInt()).isEqualTo(4);
+        assertThat(feedbacks.getLast().has("confirmed")).isFalse();
+        assertThat(body.path("consentForModelImprovement").asBoolean()).isTrue();
+        assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients", Integer.class)).isEqualTo(9);
+        verifyNoInteractions(ai);
+    }
+
+    private AnalysisCompletionItem feedbackOriginal(String id, int quantity) {
+        return new AnalysisCompletionItem(id, RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED,
+                MeasureType.COUNT, quantity, null, new AnalysisCompletionItem.Expiration(LocalDate.parse("2026-10-20"), AnalysisExpirationDateType.USE_BY, null), List.of());
+    }
+
     private IngredientWriteResult register(Fixture owner, List<AnalysisIngredientCommand.Item> items) {
         List<AnalysisCompletionItem> originals = items.stream().map(item -> new AnalysisCompletionItem(item.itemId(), RecognitionStatus.RECOGNIZED,
                 "원본명", item.category(), item.storageType(), item.measureType(), 1, null, null, List.of())).toList();

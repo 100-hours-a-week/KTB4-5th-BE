@@ -106,7 +106,8 @@ class AnalysisIngredientServiceTest {
         IngredientWriteResult result = writeResult(20);
         List<AnalysisIngredientCommand.Item> items = java.util.stream.IntStream.range(0, 20).mapToObj(i -> new AnalysisIngredientCommand.Item(
                 "item" + i, count.name(), count.category(), count.storageType(), count.measureType(), count.quantity(), null, count.expiration())).toList();
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
+        when(store.findOwned("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT),
+                items.stream().map(item -> original(item.itemId())).toList())));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(items))).isSameAs(result);
         verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
@@ -158,6 +159,99 @@ class AnalysisIngredientServiceTest {
         }
     }
 
+    @Test
+    void sendsDeletedItemsForAnEntireUnselectedCompletedImage() {
+        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
+        when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+        service.create(7L, 1L, request(List.of(count)));
+        verify(queue).enqueue(eq("ai-product"), argThat(feedback -> feedback.consentForModelImprovement()
+                && feedback.items().stream().allMatch(item -> item.action().equals("DELETED") && item.confirmed() == null)));
+    }
+
+    @Test
+    void combinesAddedConfirmedCorrectedAndDeletedWithoutLosingQuantities() {
+        AnalysisImage receipt = withItems(image("receipt", AnalysisDocumentType.RECEIPT), List.of(original("same"), original("changed"), original("deleted")));
+        when(store.findOwned("job", 7L)).thenReturn(job(receipt));
+        IngredientWriteResult result = writeResult(3);
+        when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+        List<AnalysisIngredientCommand.Item> items = java.util.Arrays.asList("same", "changed", null).stream()
+                .map(id -> new AnalysisIngredientCommand.Item(id, count.name(), count.category(), count.storageType(), count.measureType(),
+                        "changed".equals(id) ? BigDecimal.TEN : count.quantity(), null, count.expiration())).toList();
+        service.create(7L, 1L, request(items));
+        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
+            assertThat(feedback.items()).extracting(com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest.Item::action)
+                    .containsExactly("CONFIRMED", "CORRECTED", "ADDED", "DELETED");
+            assertThat(feedback.items().get(1).confirmed().quantity()).isEqualTo(10);
+            assertThat(feedback.items().get(2).itemId()).isNull();
+            assertThat(feedback.items().getFirst().confirmed()).isNull();
+            return true;
+        }));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"INVALID_ID", "DUPLICATE_ID", "INVALID_AI_ID", "OVER_LIMIT", "AT_LIMIT"})
+    void validatesAllCachedItemsBeforeAnyInventoryWrite(String scenario) {
+        List<AnalysisCompletionItem> originals = switch (scenario) {
+            case "INVALID_ID" -> List.of(original(" "));
+            case "DUPLICATE_ID" -> List.of(original("item"), original("item"));
+            default -> java.util.stream.IntStream.range(0, scenario.equals("AT_LIMIT") ? 100 : 101).mapToObj(i -> original("item" + i)).toList();
+        };
+        AnalysisImage omitted = withItems(image("product", AnalysisDocumentType.PRODUCT), originals);
+        if (scenario.equals("INVALID_AI_ID")) { omitted = new AnalysisImage("product", "hash", "request", " ", omitted.completion()); }
+        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), omitted));
+        if (scenario.equals("AT_LIMIT")) {
+            when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+            service.create(7L, 1L, request(List.of(count)));
+            verify(queue).enqueue(eq("ai-product"), argThat(feedback -> feedback.items().size() == 100));
+        } else {
+            assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class);
+            verifyNoInteractions(creator, queue);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {99, 100})
+    void countsAddedItemsTogetherWithAllOriginalItemsForTheAiLimit(int originalCount) {
+        List<AnalysisCompletionItem> originals = java.util.stream.IntStream.range(0, originalCount)
+                .mapToObj(index -> original(index == 0 ? "item" : "item" + index)).toList();
+        when(store.findOwned("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT), originals)));
+        AnalysisIngredientCommand.Item added = new AnalysisIngredientCommand.Item(null, count.name(), count.category(), count.storageType(),
+                count.measureType(), count.quantity(), null, count.expiration());
+        if (originalCount == 99) {
+            IngredientWriteResult result = writeResult(2);
+            when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+            service.create(7L, 1L, request(List.of(count, added)));
+            verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> feedback.items().size() == 100));
+        } else {
+            assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count, added)))).isInstanceOf(CustomException.class);
+            verifyNoInteractions(creator, queue);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "FAILED", "OTHER"})
+    void excludesImagesWithoutRegistrableCompletedItemsFromDeletion(String status) {
+        AnalysisImage ignored = image("product", AnalysisDocumentType.OTHER);
+        if (status.equals("PENDING")) { ignored = new AnalysisImage("product", "hash", "request", null, null); }
+        if (status.equals("FAILED")) { ignored = new AnalysisImage("product", "hash", "request", "ai-product",
+                new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.now(), null, new AnalysisCompletionFailure("FAIL", "실패", true, 1000))); }
+        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), ignored));
+        when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+        service.create(7L, 1L, request(List.of(count)));
+        verify(queue).enqueue(eq("ai-receipt"), any());
+        verifyNoMoreInteractions(queue);
+    }
+
+    private AnalysisCompletionItem original(String id) {
+        return new AnalysisCompletionItem(id, RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 2,
+                null, new AnalysisCompletionItem.Expiration(count.expiration(), AnalysisExpirationDateType.USE_BY, null), List.of());
+    }
+
+    private AnalysisImage withItems(AnalysisImage image, List<AnalysisCompletionItem> items) {
+        return new AnalysisImage(image.objectKey(), image.sha256(), image.requestId(), image.aiAnalysisId(),
+                new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.now(), new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, items), null));
+    }
+
     private IngredientWriteResult writeResult(int size) {
         Ingredient ingredient = mock(Ingredient.class);
         when(ingredient.getName()).thenReturn("우유");
@@ -173,8 +267,8 @@ class AnalysisIngredientServiceTest {
     }
 
     private AnalysisImage image(String key, AnalysisDocumentType type) {
-        List<AnalysisCompletionItem> items = java.util.stream.IntStream.range(-1, 21).mapToObj(i -> new AnalysisCompletionItem(i == -1 ? "item" : "item" + i,
-                RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 2, null, null, List.of())).toList();
+        List<AnalysisCompletionItem> items = List.of(new AnalysisCompletionItem("item", RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.COUNT, 2, null, null, List.of()));
         return new AnalysisImage(key, "hash", "request-" + key, "ai-" + key,
                 new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.now(), new AnalysisCompletionSuccess(type, items), null));
     }

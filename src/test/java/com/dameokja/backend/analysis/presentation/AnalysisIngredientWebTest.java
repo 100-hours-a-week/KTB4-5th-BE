@@ -76,6 +76,20 @@ class AnalysisIngredientWebTest {
         verify(service, times(1)).create(eq(7L), eq(1L), any());
     }
 
+    @Test
+    void acceptsAddedItemsWithoutNewFieldsButRejectsBlankIds() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        when(context.getBean(java.time.Clock.class).instant()).thenReturn(java.time.Instant.now());
+        Cookie token = new Cookie("accessToken", jwt.createAccessToken(7L, UserRole.USER));
+        when(service.create(eq(7L), eq(1L), any())).thenReturn(new IngredientWriteResult(List.of(), 1, 0, 30, 100));
+        for (String id : List.of("null", "\" \"")) {
+            String body = AnalysisIngredientApiExamples.REQUEST.replace("\"item_001\"", id);
+            mvc.perform(post(PATH).with(csrf()).cookie(token).contentType("application/json").content(body))
+                    .andExpect(status().is(id.equals("null") ? 201 : 400));
+        }
+        verify(service).create(eq(7L), eq(1L), argThat(command -> command.images().getFirst().items().getFirst().itemId() == null));
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     @Import(AnalysisIngredientController.class)
     static class Configuration {
