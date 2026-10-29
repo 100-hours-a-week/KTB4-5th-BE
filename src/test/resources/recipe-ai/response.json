@@ -67,7 +67,14 @@
           "unit": "G",
           "availableAmount": 300.0,
           "usedAmount": 300.0,
-          "remainingAmount": 0.0
+          "remainingAmount": 0.0,
+          "allocationStatus": "CALCULATED",
+          "allocations": [
+            {
+              "ingredientNo": 1,
+              "usedAmount": 300.0
+            }
+          ]
         }
       ],
       "essentialIngredientNos": [
@@ -79,7 +86,17 @@
       "usesExpiringMainIngredients": [
         "두부"
       ],
-      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다."
+      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다.",
+      "quantityScope": "FOOD_INGREDIENTS",
+      "preferenceMatch": "MATCHED",
+      "preferenceEvidence": "두부를 조립니다.",
+      "preferenceAssessments": [
+        {
+          "tag": "조림",
+          "status": "MATCHED",
+          "evidence": "두부를 조립니다."
+        }
+      ]
     }
   ],
   "confirmationCandidates": [
@@ -146,7 +163,14 @@
           "unit": "G",
           "availableAmount": 300.0,
           "usedAmount": 300.0,
-          "remainingAmount": 0.0
+          "remainingAmount": 0.0,
+          "allocationStatus": "CALCULATED",
+          "allocations": [
+            {
+              "ingredientNo": 1,
+              "usedAmount": 300.0
+            }
+          ]
         }
       ],
       "essentialIngredientNos": [
@@ -160,7 +184,17 @@
       "usesExpiringMainIngredients": [
         "두부"
       ],
-      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다."
+      "preparationNote": "원본 조리법을 확인하세요. 냉동 재료의 해동 조건은 원문·포장 기준을 확인하며 조리·해동시간을 별도 추정하지 않습니다.",
+      "quantityScope": "FOOD_INGREDIENTS",
+      "preferenceMatch": "MATCHED",
+      "preferenceEvidence": "두부를 조립니다.",
+      "preferenceAssessments": [
+        {
+          "tag": "조림",
+          "status": "MATCHED",
+          "evidence": "두부를 조립니다."
+        }
+      ]
     }
   ],
   "uncoveredExpiringIngredients": [
@@ -176,13 +210,35 @@
     "CONFIRMATION_CANDIDATES_SEPARATED"
   ],
   "trace": {
-    "policyVersion": "recipe-rerank-v8",
+    "policyVersion": "recipe-rerank-v17",
     "model": "gemma",
-    "promptVersion": "recipe-grounded-v3",
+    "promptVersion": "recipe-grounded-v7",
     "aiCalls": 1,
     "searchCount": 1,
     "candidateCount": 3,
     "externalSearchCount": 0,
-    "webSearchCount": 0
+    "webSearchCount": 0,
+    "preferenceDecisionCacheHits": 0,
+    "webDiscoveredCount": 0,
+    "webExtractionCalls": 0,
+    "webSearchCacheHits": 0,
+    "webExtractionCacheHits": 0,
+    "webParseFailureCounts": {},
+    "aiCandidateCount": 3,
+    "aiInputBytes": 1000,
+    "timingsMs": {
+      "recommendationMs": 24.5
+    }
+  },
+  "preferenceTags": [
+    "조림"
+  ],
+  "context": {
+    "localDate": "2026-10-29",
+    "timezone": "Asia/Seoul",
+    "season": "AUTUMN",
+    "mealTime": "LUNCH",
+    "variationSeed": "seed",
+    "personalizationMode": "PREFERENCE_TAGS"
   }
 }

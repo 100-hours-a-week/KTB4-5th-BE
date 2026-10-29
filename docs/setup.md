@@ -155,10 +155,12 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 
 분석·추천 클라이언트는 공통 `AiClientConfig`·`AiClientProperties`와 HTTP 연결을 사용한다.
 읽기 타임아웃은 `AI_RECIPE_READ_TIMEOUT`으로 분리하며 기본값은 60초다.
-AI 추천이 분석 접수보다 오래 걸릴 수 있어 분석 클라이언트의 읽기 제한을 바꾸지 않는다.
-`AiRecipeClient.recommend`는 위키 요청 필드만 전송하고, 위키에 없는 선택 입력은 AI 기본값을 사용한다.
+추천 클라이언트의 읽기 제한은 분석 클라이언트와 독립적으로 적용한다.
+`AiRecipeClient.submit`은 POST 202의 jobId·requestId·상태·접수 시각을 받고, `get(jobId, request)`은 GET 200의 작업 상태·결과·오류를 받는다.
+추천 상한은 10개이며, 전달하지 않는 취향·인분 등 선택 입력은 AI 기본값을 사용한다.
 응답은 확인 후보·필요량·재고별 사용량·경고·추적 정보까지 포함한 `AiRecipeRecommendationResponse` record로 수신한다.
-HTTP·통신 실패와 요청 냉장고·재고 지문·모드가 다른 응답은 `RestClientException` 계열로 전달한다.
+HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·냉장고 불일치는 `RestClientException` 계열로 전달한다.
+완료 결과는 요청 재고 지문·모드도 대조하며 분량·배분 상태, 취향 판정과 컨텍스트를 보존한다. 접수 응답을 추천 생성 완료로 처리하지 않는다.
 외부 추천 API, 작업 큐, 결과 캐시, 레시피 저장·재고 차감은 이 클라이언트가 수행하지 않는다.
 
 ## 추천 outbox 접수

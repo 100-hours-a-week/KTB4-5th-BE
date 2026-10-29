@@ -9,7 +9,7 @@ public record AiRecipeRecommendationRequest(String requestId, Long refrigeratorI
         List<AiRecipeInventoryItem> inventory, List<String> excludedIngredientNames, int limit) {
     private static final int MAX_INVENTORY = 300;
     private static final int MAX_EXCLUSIONS = 100;
-    private static final int MAX_LIMIT = 20;
+    private static final int MAX_LIMIT = 10;
 
     public enum Mode { INCLUDE_EXPIRED, EXCLUDE_EXPIRED }
 
