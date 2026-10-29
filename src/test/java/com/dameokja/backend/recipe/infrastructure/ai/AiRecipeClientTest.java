@@ -36,16 +36,21 @@ class AiRecipeClientTest {
     private final AtomicReference<String> body = new AtomicReference<>();
     private final AtomicReference<String> receivedBody = new AtomicReference<>();
     private final AtomicReference<String> receivedKey = new AtomicReference<>();
-    private final AtomicInteger status = new AtomicInteger(200);
+    private final AtomicReference<String> receivedPath = new AtomicReference<>();
+    private final AtomicInteger status = new AtomicInteger(202);
     private final AtomicInteger delay = new AtomicInteger(0);
     private HttpServer server;
     private HttpClient http;
     private URI baseUrl;
     private AiRecipeRecommendationRequest request;
+    private String result;
 
     @BeforeEach
     void setUp() throws IOException {
-        body.set(new String(getClass().getResourceAsStream("/recipe-ai/response.json").readAllBytes(), StandardCharsets.UTF_8));
+        result = new String(getClass().getResourceAsStream("/recipe-ai/response.json").readAllBytes(), StandardCharsets.UTF_8);
+        body.set("""
+                {"jobId":"rjob-1","requestId":"req-1","status":"QUEUED","submittedAt":"2026-10-29T03:00:00Z"}
+                """);
         JsonNode fixture = mapper.readTree(getClass().getResourceAsStream("/recipe-ai/fingerprint-fixtures.json")).get(2);
         List<AiRecipeInventoryItem> inventory = mapper.readerForListOf(AiRecipeInventoryItem.class).readValue(fixture.path("inventory"));
         request = AiRecipeRecommendationRequest.create("req-1", 17L, AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, inventory, List.of(), 10);
@@ -64,44 +69,92 @@ class AiRecipeClientTest {
 
     @Test
     void sendsWikiRequestAndPreservesWholeResponseOverRealHttp() {
-        String simulationUrl = System.getenv("RECIPE_AI_SIMULATION_URL");
-        URI target = simulationUrl == null ? baseUrl : URI.create(simulationUrl);
-        AiRecipeClient client = new AiClientConfig().aiRecipeClient(properties(target, Duration.ofSeconds(2)), http, Duration.ofSeconds(2));
-        AiRecipeRecommendationResponse response = client.recommend(request);
+        AiRecipeSubmitResponse response = client(Duration.ofSeconds(2)).submit(request);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
-        if (simulationUrl == null) {
-            assertThat(receivedKey.get()).isEqualTo("test-key");
-            JsonNode sent = mapper.readTree(receivedBody.get());
-            assertThat(sent.path("requestId").asText()).isEqualTo("req-1");
-            assertThat(sent.path("refrigeratorId").asLong()).isEqualTo(17L);
-            JsonNode ingredient = sent.path("inventory").get(0);
-            assertThat(ingredient.path("name").asText()).isEqualTo("두부");
-            assertThat(ingredient.path("quantity").isNull()).isTrue();
-            assertThat(ingredient.path("weightValue").decimalValue()).isEqualByComparingTo("300");
-            assertThat(ingredient.has("ingredientKey")).isFalse();
-            for (String omitted : List.of("targetServings", "strategies", "pantryIngredientNames", "recentRecipeIds")) {
-                assertThat(sent.has(omitted)).as(omitted).isFalse();
-            }
+        assertThat(receivedKey.get()).isEqualTo("test-key");
+        assertThat(receivedPath.get()).isEqualTo("POST /ai/v1/recipe-recommendations");
+        JsonNode sent = mapper.readTree(receivedBody.get());
+        assertThat(sent.path("requestId").asText()).isEqualTo("req-1");
+        assertThat(sent.path("refrigeratorId").asLong()).isEqualTo(17L);
+        JsonNode ingredient = sent.path("inventory").get(0);
+        assertThat(ingredient.path("name").asText()).isEqualTo("두부");
+        assertThat(ingredient.path("quantity").isNull()).isTrue();
+        assertThat(ingredient.path("weightValue").decimalValue()).isEqualByComparingTo("300");
+        assertThat(ingredient.has("ingredientKey")).isFalse();
+        for (String omitted : List.of("targetServings", "strategies", "pantryIngredientNames", "recentRecipeIds")) {
+            assertThat(sent.has(omitted)).as(omitted).isFalse();
         }
     }
 
     @Test
+    void getsCompletedJobAndPreservesWholeResult() {
+        completedJob();
+        AiRecipeJobResponse response = client(Duration.ofSeconds(2)).get("rjob-1", request);
+        assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
+        assertThat(receivedKey.get()).isEqualTo("test-key");
+        assertThat(receivedPath.get()).isEqualTo("GET /ai/v1/recipe-recommendations/rjob-1");
+    }
+
+    @Test
+    void preservesUnresolvedQuantitiesFromWikiExample() throws IOException {
+        JsonNode sample = mapper.readTree(getClass().getResourceAsStream("/recipe-ai/wiki-completed-response.json"));
+        AiRecipeJobResponse response = mapper.treeToValue(sample, AiRecipeJobResponse.class);
+        assertThat(mapper.readTree(mapper.writeValueAsString(response.result()))).isEqualTo(sample.path("result"));
+        assertThat(response.startedAt()).isEqualTo(java.time.OffsetDateTime.parse(sample.path("startedAt").asText()));
+        AiRecipeRecommendationResponse.Recipe recipe = response.result().recommendations().getFirst();
+        assertThat(recipe.baseServings()).isNull();
+        assertThat(recipe.ingredientRequirements().getFirst().requiredAmount()).isNull();
+        assertThat(recipe.inventoryUsage().getFirst().allocationStatus()).isEqualTo("UNRESOLVED");
+        assertThat(recipe.inventoryUsage().getFirst().usedAmount()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"QUEUED", "PROCESSING", "FAILED"})
+    void readsPendingAndFailedJobsWithoutTreatingThemAsRecommendations(String state) {
+        completedJob();
+        ObjectNode response = (ObjectNode) mapper.readTree(body.get());
+        response.put("status", state).putNull("result");
+        if (state.equals("FAILED")) {
+            response.putObject("error").put("code", "DEPENDENCY_UNAVAILABLE").put("message", "재시도 가능").put("retryable", true);
+        } else {
+            response.putNull("completedAt");
+        }
+        body.set(response.toString());
+        AiRecipeJobResponse job = client(Duration.ofSeconds(2)).get("rjob-1", request);
+        assertThat(mapper.readTree(mapper.writeValueAsString(job))).isEqualTo(response);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"QUEUED", "PROCESSING", "FAILED", "INVALID", "COMPLETED"})
+    void rejectsInconsistentJobStates(String state) {
+        completedJob();
+        body.set(body.get().replace("COMPLETED", state));
+        if (state.equals("COMPLETED")) {
+            body.set(body.get().replace("\"result\":", "\"ignoredResult\":"));
+        }
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).get("rjob-1", request)).isInstanceOf(RestClientException.class);
+    }
+
+    @Test
     void preservesConfirmationCandidatesWhenGeneralRecommendationsAreEmpty() {
-        ObjectNode payload = (ObjectNode) mapper.readTree(body.get());
+        ObjectNode payload = (ObjectNode) mapper.readTree(result);
         payload.putArray("recommendations");
         payload.put("recommendationEngine", "EMPTY");
-        body.set(payload.toString());
-        AiRecipeRecommendationResponse response = client(Duration.ofSeconds(2)).recommend(request);
+        result = payload.toString();
+        completedJob();
+        AiRecipeRecommendationResponse response = client(Duration.ofSeconds(2)).get("rjob-1", request).result();
         assertThat(response.recommendations()).isEmpty();
         assertThat(response.recommendationEngine()).isEqualTo("EMPTY");
         assertThat(response.confirmationCandidates().getFirst().confirmationReasons()).containsExactly("재료 종류 확인");
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {400, 401, 429, 503})
+    @ValueSource(ints = {400, 401, 404, 409, 429, 503})
     void propagatesHttpErrors(int code) {
         status.set(code);
-        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).recommend(request)).isInstanceOfSatisfying(
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).submit(request)).isInstanceOfSatisfying(
+                RestClientResponseException.class, exception -> assertThat(exception.getStatusCode().value()).isEqualTo(code));
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).get("rjob-1", request)).isInstanceOfSatisfying(
                 RestClientResponseException.class, exception -> assertThat(exception.getStatusCode().value()).isEqualTo(code));
     }
 
@@ -109,32 +162,47 @@ class AiRecipeClientTest {
     @ValueSource(strings = {"", "null", "[]", "{}", "{invalid"})
     void rejectsEmptyOrMalformedResponses(String response) {
         body.set(response);
-        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).recommend(request)).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).submit(request)).isInstanceOf(RestClientException.class);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"refrigeratorId", "inventoryFingerprint", "recommendationMode"})
+    @ValueSource(strings = {"jobId", "requestId", "refrigeratorId", "inventoryFingerprint", "recommendationMode"})
     void rejectsResponsesForOtherRequests(String field) {
+        completedJob();
         ObjectNode response = (ObjectNode) mapper.readTree(body.get());
+        ObjectNode target = field.equals("inventoryFingerprint") || field.equals("recommendationMode") ? (ObjectNode) response.get("result") : response;
         if (field.equals("refrigeratorId")) {
-            response.put(field, 18L);
+            target.put(field, 18L);
         } else {
-            response.put(field, "unrelated");
+            target.put(field, "unrelated");
         }
         body.set(response.toString());
-        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).recommend(request)).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).get("rjob-1", request)).isInstanceOf(RestClientException.class);
+    }
+
+    @Test
+    void rejectsAcceptedJobForAnotherRequest() {
+        body.set(body.get().replace("req-1", "another-request"));
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).submit(request)).isInstanceOf(RestClientException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {200, 204})
+    void requiresAcceptedStatusForSubmission(int code) {
+        status.set(code);
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).submit(request)).isInstanceOf(RestClientException.class);
     }
 
     @Test
     void enforcesReadTimeoutOverRealHttp() {
         delay.set(300);
-        assertThatThrownBy(() -> client(Duration.ofMillis(50)).recommend(request)).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(() -> client(Duration.ofMillis(50)).submit(request)).isInstanceOf(RestClientException.class);
     }
 
     @Test
     void propagatesUnreachableServer() {
         server.stop(0);
-        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).recommend(request)).isInstanceOf(RestClientException.class);
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).submit(request)).isInstanceOf(RestClientException.class);
     }
 
     @ParameterizedTest
@@ -150,7 +218,7 @@ class AiRecipeClientTest {
                 .withInitializer(new ConfigDataApplicationContextInitializer()).withUserConfiguration(AiClientConfig.class)
                 .withPropertyValues("ai.base-url=" + baseUrl, "ai.api-key=shared-key", "ai.connect-timeout=1s", "ai.read-timeout=2s")
                 .run(context -> {
-                    context.getBean(AiRecipeClient.class).recommend(request);
+                    context.getBean(AiRecipeClient.class).submit(request);
                     assertThat(receivedKey.get()).isEqualTo("shared-key");
                 });
     }
@@ -161,8 +229,17 @@ class AiRecipeClientTest {
         delay.set(300);
         context().withPropertyValues("ai.read-timeout=50ms", "ai.recipe.read-timeout=2s").run(context -> {
             assertThatThrownBy(() -> context.getBean(AiAnalysisClient.class).get("analysis-1")).isInstanceOf(RestClientException.class);
-            assertThat(context.getBean(AiRecipeClient.class).recommend(request).recommendationId()).isEqualTo("rec-1");
+            assertThat(context.getBean(AiRecipeClient.class).submit(request).jobId()).isEqualTo("rjob-1");
         });
+    }
+
+    private void completedJob() {
+        status.set(200);
+        body.set("""
+                {"jobId":"rjob-1","requestId":"req-1","refrigeratorId":17,"status":"COMPLETED",
+                 "submittedAt":"2026-10-29T03:00:00Z","startedAt":"2026-10-29T03:00:01Z",
+                 "completedAt":"2026-10-29T03:00:02Z","error":null,"result":%s}
+                """.formatted(result));
     }
 
     private ApplicationContextRunner context() {
@@ -183,6 +260,7 @@ class AiRecipeClientTest {
     private void respond(HttpExchange exchange) throws IOException {
         try (exchange) {
             receivedKey.set(exchange.getRequestHeaders().getFirst("X-Internal-API-Key"));
+            receivedPath.set(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath());
             receivedBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             try {
                 Thread.sleep(delay.get());

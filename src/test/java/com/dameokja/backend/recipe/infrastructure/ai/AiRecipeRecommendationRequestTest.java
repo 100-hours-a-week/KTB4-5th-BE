@@ -14,6 +14,8 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -34,6 +36,13 @@ class AiRecipeRecommendationRequestTest {
                 assertThat(request.inventoryFingerprint()).as(fixture.path("case").asText()).isEqualTo(fixture.path("fingerprint").asText());
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 11, 20})
+    void rejectsLimitsOutsideLatestContract(int limit) {
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), limit));
     }
 
     @Test
