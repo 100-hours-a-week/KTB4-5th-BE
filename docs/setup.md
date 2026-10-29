@@ -170,7 +170,13 @@ HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·
 동일 요청 ID도 새 eventId로 접수하며 중복 접수를 차단하지 않는다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
 SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는다.
 빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블 추가가 필요하며, 스키마 파일은 자동 실행되지 않는다.
-이 단계에서는 접수만 제공한다. 외부 API·AI 전달·Redis 결과 저장·재시도·재시작 복구·완료 행 정리는 포함하지 않는다.
+`RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, Redis에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.
+Redis 저장이나 AI 통신이 실패하면 outbox를 SENT로 바꾸지 않으며, 명시적인 재실행은 동일 requestId·본문을 사용한다.
+`refresh(eventId)`는 보관된 AI jobId로 한 번 조회해 결과·오류를 저장한다. 통신 오류는 AI 생성 실패로 바꾸지 않는다.
+AI 통신은 DB 트랜잭션 밖에서만 허용한다. `submit`·`refresh` 호출 시 활성 트랜잭션이 있으면 거절한다.
+Redis `recipe:job:<eventId>`에는 접수 응답과 마지막 조회 결과를 보관한다. 진행 중에는 TTL이 없고, 최초 종료 저장부터 `recipe.result-ttl`(기본 24h)을 적용한다.
+종료 결과는 뒤늦은 진행 응답으로 덮어쓰지 않으며 중복 저장·조회는 보관기간을 연장하지 않는다.
+이 실행 서비스는 후속 전달 워커·조회 흐름에서 호출할 내부 진입점이다. 현재 접수 서비스는 outbox 저장까지 수행하며 자동 호출·콜백 HTTP·재시작 복구·완료 행 정리는 후속 범위다.
 
 ## 이미지 업로드 발급 내역
 
