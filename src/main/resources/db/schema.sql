@@ -297,6 +297,49 @@ CREATE TABLE push_notifications (
     CONSTRAINT fk_push_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
+CREATE TABLE analysis_job_states (
+    analysis_job_id CHAR(36) NOT NULL COMMENT '백엔드 이미지 묶음 작업 ID',
+    user_id BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'QUEUED',
+    job_body JSON NOT NULL COMMENT '분석 작업·이미지·결과 상태 스냅샷',
+    expires_at DATETIME(6) NULL COMMENT '진행 중에는 NULL, 종료 후 결과 조회 만료 시각',
+    version BIGINT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_job_id),
+    KEY ix_analysis_job_states_user (user_id, created_at),
+    CONSTRAINT fk_analysis_job_states_user FOREIGN KEY (user_id) REFERENCES users (user_id),
+    CONSTRAINT ck_analysis_job_states_status CHECK (status IN ('QUEUED','PROCESSING','COMPLETED','PARTIALLY_COMPLETED','FAILED'))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_outbox (
+    analysis_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
+    message_id CHAR(36) NOT NULL COMMENT '재발행에도 유지하는 이벤트 ID',
+    analysis_job_id CHAR(36) NOT NULL,
+    topic VARCHAR(249) NOT NULL,
+    message_key VARCHAR(32) NOT NULL COMMENT 'UTF-8 문자열 userId',
+    message_body JSON NOT NULL COMMENT 'messageId와 payload를 포함한 고정 발행 본문',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token CHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
+    published_at DATETIME(6) NULL,
+    last_error_code VARCHAR(64) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_outbox_id),
+    UNIQUE KEY uk_analysis_outbox_message (message_id),
+    KEY ix_analysis_outbox_due (status, next_attempt_at),
+    KEY ix_analysis_outbox_lease (status, lease_until),
+    KEY ix_analysis_outbox_job (analysis_job_id),
+    CONSTRAINT fk_analysis_outbox_job FOREIGN KEY (analysis_job_id) REFERENCES analysis_job_states (analysis_job_id),
+    CONSTRAINT ck_analysis_outbox_status CHECK (status IN ('PENDING','PUBLISHING','PUBLISHED')),
+    CONSTRAINT ck_analysis_outbox_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_outbox_lease CHECK ((status = 'PUBLISHING') = (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_outbox_published CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
 CREATE TABLE analysis_dispatch_gates (
     gate_id TINYINT NOT NULL COMMENT '항상 1. 이 행 잠금으로 여러 BE의 진행 중 개수 판단과 선점을 직렬화',
     PRIMARY KEY (gate_id),
