@@ -2,6 +2,43 @@ spring:
   application:
     name: backend
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    security:
+      protocol: PLAINTEXT
+    admin:
+      auto-create: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        "[enable.idempotence]": true
+        "[spring.json.add.type.headers]": false
+        "[delivery.timeout.ms]": 30000
+        "[request.timeout.ms]": 10000
+        "[max.block.ms]": 10000
+    consumer:
+      group-id: ${KAFKA_ENV:local}.dameokja.be.analysis-result.v1
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      max-poll-records: 10
+      properties:
+        "[spring.deserializer.value.delegate.class]": org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        "[spring.json.use.type.headers]": false
+        "[spring.json.value.default.type]": com.dameokja.backend.analysis.infrastructure.kafka.AnalysisCompletedEvent
+        "[spring.json.trusted.packages]": com.dameokja.backend.analysis.infrastructure.kafka
+        "[allow.auto.create.topics]": false
+        "[fetch.min.bytes]": 1
+        "[fetch.max.wait.ms]": 500
+    listener:
+      type: single
+      ack-mode: record
+      concurrency: 1
+      poll-timeout: 1s
+
   security:
     oauth2:
       client:
@@ -135,6 +172,12 @@ ai:
     read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
 
 analysis:
+  kafka:
+    request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
+    completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
+    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
+  outbox:
+    poll-interval: ${ANALYSIS_OUTBOX_POLL_INTERVAL:5s}
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
   # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
