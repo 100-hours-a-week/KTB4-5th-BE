@@ -54,4 +54,6 @@ public class RecommendationOutbox extends BaseEntity {
         this.payload = payload;
         this.status = Status.PENDING;
     }
+
+    public void markSent() { this.status = Status.SENT; }
 }

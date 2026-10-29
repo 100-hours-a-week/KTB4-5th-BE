@@ -26,4 +26,15 @@ public class RecommendationOutboxService {
         return new RecommendationSubmissionResult(recommendationOutbox.getId(), recommendationOutbox.getEventId(), recommendationOutbox.getRequestId(),
                 recommendationRequest.refrigeratorId(), recommendationOutbox.getCreatedAt());
     }
+
+    @Transactional(readOnly = true)
+    public AiRecipeRecommendationRequest request(String eventId) {
+        String payload = recommendationOutboxRepository.findByEventId(eventId).orElseThrow().getPayload();
+        return jsonMapper.readValue(payload, AiRecipeRecommendationRequest.class);
+    }
+
+    @Transactional
+    public void markSent(String eventId) {
+        recommendationOutboxRepository.findByEventId(eventId).orElseThrow().markSent();
+    }
 }
