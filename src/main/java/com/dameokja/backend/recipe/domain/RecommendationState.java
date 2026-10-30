@@ -1,6 +1,8 @@
 package com.dameokja.backend.recipe.domain;
 
 import com.dameokja.backend.global.common.BaseEntity;
+import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
 import jakarta.persistence.Column;
@@ -56,5 +58,17 @@ public class RecommendationState extends BaseEntity {
     public RecommendationState(User user, Refrigerator refrigerator) {
         this.user = user;
         this.refrigerator = refrigerator;
+    }
+
+    public void queueUserRequest(String requestId) {
+        if (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING) {
+            throw new CustomException(RecommendationExceptionCode.GENERATION_IN_PROGRESS);
+        }
+        if (latestList != null && (currentList == null || !latestList.getId().equals(currentList.getId()))) {
+            throw new CustomException(RecommendationExceptionCode.UNSELECTED_RESULT);
+        }
+        activeRequestId = requestId;
+        generationStatus = GenerationStatus.QUEUED;
+        generationTrigger = GenerationTrigger.USER;
     }
 }
