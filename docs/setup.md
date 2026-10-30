@@ -194,7 +194,11 @@ SENT의 Redis 정보 부재는 보관기간 만료와 진행 중 유실을 구�
 
 `recommendation_lists`에 완료 결과 전체를 JSON으로 한 번 저장하고, `recommendation_states`의 현재·최신 목록 참조로 구분한다.
 상태는 `(user_id, refrigerator_id)`별로 보관하며, 참여가 끝난 냉장고의 이력·상태도 유지한다. 다른 냉장고 상태를 일괄 갱신하지 않는다.
-빈 DB는 최신 `schema.sql`, 기존 DB는 `db/migrations/20261030-recommendation-participant-state.sql`을 수동 적용한다. 이번 단계는 저장 모델만 추가하며 기존 추천 처리 경로는 아직 연결하지 않는다.
+빈 DB는 최신 `schema.sql`, 기존 DB는 `db/migrations/20261030-recommendation-participant-state.sql`을 수동 적용한다.
+추천 접수는 사용자 잠금 아래 권한을 재검증하고, 동일 트랜잭션에서 참여자 상태를 `QUEUED`로 변경하고 outbox를 저장한다.
+같은 `(user_id, refrigerator_id)`에서 생성 중이거나 최신 완료 목록이 현재 선택 목록과 다르면 새 요청을 거절한다.
+공유 종료 후 다른 냉장고에서 요청할 때 이전 냉장고의 생성·미전환 상태는 차단 조건에 포함하지 않는다. 기존 목록 참조는 유지하며, 저장 실패 시 상태 변경도 롤백한다.
+FE 생성 API·일일 한도·완료 결과의 상태 반영은 후속 구현 범위다.
 
 ## 이미지 업로드 발급 내역
 
