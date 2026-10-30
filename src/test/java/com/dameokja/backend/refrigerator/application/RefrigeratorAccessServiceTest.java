@@ -94,6 +94,30 @@ class RefrigeratorAccessServiceTest {
         assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"SELECTED", "NONE", "ENDED", "DELETED"})
+    void resolvesOnlyAnAvailableCurrentSelection(String state) {
+        User user = activeUser();
+        Refrigerator refrigerator = new Refrigerator("selected", "2026-09");
+        ReflectionTestUtils.setField(refrigerator, "id", 10L);
+        if (!state.equals("NONE")) {
+            RefrigeratorMember member = RefrigeratorMember.owner(user, refrigerator);
+            if (state.equals("ENDED")) { member.end(LocalDateTime.of(2026, 9, 17, 12, 0)); }
+            when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L)).thenReturn(Optional.of(member));
+        }
+        if (state.equals("DELETED")) { refrigerator.delete(LocalDateTime.of(2026, 9, 17, 12, 0)); }
+        if (state.equals("SELECTED")) {
+            assertThat(refrigeratorAccessService.findCurrentForRead(1L)).isSameAs(refrigerator);
+        } else {
+            ExceptionCode expected = RefrigeratorExceptionCode.ACCESS_DENIED;
+            if (state.equals("DELETED")) {
+                expected = RefrigeratorExceptionCode.REFRIGERATOR_DELETED;
+            }
+            assertThatThrownBy(() -> refrigeratorAccessService.findCurrentForRead(1L))
+                    .isInstanceOf(CustomException.class).extracting("exceptionCode").isEqualTo(expected);
+        }
+    }
+
     private User activeUser() {
         User user = new User("User1", "default.png");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));

@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 public interface AnalysisIngredientApi {
     @Operation(summary = "사진 인식 결과 일괄 등록", description = "accessToken·XSRF-TOKEN 쿠키와 X-XSRF-TOKEN 헤더가 필요합니다. "
             + "본인의 보관 중인 작업에서 COMPLETED이고 OTHER가 아닌 이미지의 항목을 1~20개 등록합니다. itemId가 null이면 사용자 추가 항목입니다. "
+            + "접수 당시 선택한 냉장고에만 등록할 수 있습니다. 냉장고 ID가 없는 기존 결과는 예외로 허용합니다. "
             + "기존 itemId는 공백이 아닌 최대 64자이며 보관된 AI analysisId도 최대 64자여야 합니다. 길이가 잘못된 기존 결과는 등록하지 않습니다. "
             + "COUNT는 quantity 정수 1~100·weight null, WEIGHT는 quantity null 또는 0·weight.value 정수 1~50000·unit G/ML입니다. "
             + "expiration은 서울 기준 등록일~4년 후입니다. RECEIPT는 RECEIPT, PRODUCT는 FOOD_IMAGE로 기록합니다. 인증된 회원을 등록자로 저장하고 같은 등록자의 재고끼리 자동 합산합니다. "
@@ -26,7 +27,7 @@ public interface AnalysisIngredientApi {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "재고 일괄등록 성공 (INGREDIENT-201-001)", content = @Content(mediaType = "application/json",
                     examples = @ExampleObject(value = AnalysisIngredientApiExamples.RESPONSE))),
-            @ApiResponse(responseCode = "400", description = "형식 오류 (GLOBAL-400-001), 분석 연결 오류 (IMAGE-400-002), 항목 오류 (INGREDIENT-400-001~003)"),
+            @ApiResponse(responseCode = "400", description = "형식 오류 (GLOBAL-400-001), 분석 연결·냉장고 불일치 (IMAGE-400-002), 항목 오류 (INGREDIENT-400-001~003)"),
             @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
             @ApiResponse(responseCode = "403", description = "다른 사용자 작업 (GLOBAL-403-001), 냉장고 권한 (REFRIGERATOR-403-001), CSRF (COMMON-403-CSRF-001)"),
             @ApiResponse(responseCode = "404", description = "작업 없음·만료 (IMAGE-404-001), 냉장고 없음 (REFRIGERATOR-404-001)"),

@@ -34,6 +34,9 @@ public class AnalysisIngredientService {
     // 피드백은 재고와 같은 트랜잭션으로 큐에 넣어 등록이 커밋되면 함께 남게 한다. Redis 결과 삭제는 되돌릴 수 없어 커밋 뒤에 한다.
     public IngredientWriteResult create(Long userId, Long refrigeratorId, AnalysisIngredientCommand request) {
         AnalysisJob job = analysisJobStore.findOwned(request.analysisId(), userId);
+        if (job.refrigeratorId() != null && !job.refrigeratorId().equals(refrigeratorId)) {
+            throw new CustomException(AnalysisExceptionCode.INVALID_REGISTRATION);
+        }
         List<Feedback> feedbacks = prepareRegistration(job, request);
         IngredientWriteResult result = transactionTemplate.execute(status -> registerWithFeedbacks(userId, refrigeratorId, feedbacks));
         deleteResult(job.id());

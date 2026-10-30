@@ -59,13 +59,14 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"requestId":"request-1","image":{"objectKey":"uploads/analysis/7/image.png","sha256":"%s"},
+                        {"requestId":"request-1","refrigeratorId":17,"image":{"objectKey":"uploads/analysis/7/image.png","sha256":"%s"},
                          "inputHint":"AUTO","locale":"ko-KR","timezone":"Asia/Seoul"}
-                        """.formatted(SHA256)))
+                        """.formatted(SHA256), true))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"analysisId":"analysis-1","status":"QUEUED","submittedAt":"2026-10-07T01:00:00Z","pollAfterMs":1000}
                         """));
-        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256));
+        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1",
+                new AiImageAnalysisSubmitRequest.Image("uploads/analysis/7/image.png", SHA256), "AUTO", "ko-KR", "Asia/Seoul", 17L));
         assertThat(aiImageAnalysisSubmitResponse).extracting(AiImageAnalysisSubmitResponse::analysisId).isEqualTo("analysis-1");
         server.verify();
     }
