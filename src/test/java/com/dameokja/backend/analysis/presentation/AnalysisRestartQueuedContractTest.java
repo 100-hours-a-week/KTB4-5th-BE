@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.support.RestartableAnalysisContractTestSupport;
-import com.dameokja.backend.user.domain.User;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
@@ -18,38 +17,38 @@ class AnalysisRestartQueuedContractTest extends RestartableAnalysisContractTestS
     @Test
     void recoversAnAcceptedButUnsentAnalysisAfterTheApplicationRestarts() throws Exception {
         when(ai.ready()).thenReturn(false);
-        User user = user("대기복구계약");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("대기복구계약").userId();
+        String analysisId = accept(userId);
         assertAnalysisQueued(analysisId);
         verify(ai, never()).submit(any());
 
         restartApplication();
 
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("QUEUED"));
         dispatchDueAnalyses();
         verify(ai).submit(any());
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PROCESSING"));
         completeAnalysis(AI_ANALYSIS_ID, "PRODUCT").andExpect(status().isOk());
-        assertCompleted(user.getId(), analysisId);
+        assertCompleted(userId, analysisId);
     }
 
     @Test
     void returnsTheStoredResultAndSummaryAfterRestartWithoutCallingAiAgain() throws Exception {
         when(ai.ready()).thenReturn(false);
-        User user = user("결과복구계약");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("결과복구계약").userId();
+        String analysisId = accept(userId);
         dispatchDueAnalyses();
         completeAnalysis(AI_ANALYSIS_ID, "PRODUCT").andExpect(status().isOk());
-        JsonNode resultBeforeRestart = assertCompleted(user.getId(), analysisId);
-        JsonNode summaryBeforeRestart = summary(user.getId(), analysisId);
+        JsonNode resultBeforeRestart = assertCompleted(userId, analysisId);
+        JsonNode summaryBeforeRestart = summary(userId, analysisId);
 
         restartApplication();
         when(ai.ready()).thenReturn(false);
 
-        assertThat(assertCompleted(user.getId(), analysisId)).isEqualTo(resultBeforeRestart);
-        assertThat(summary(user.getId(), analysisId)).isEqualTo(summaryBeforeRestart);
+        assertThat(assertCompleted(userId, analysisId)).isEqualTo(resultBeforeRestart);
+        assertThat(summary(userId, analysisId)).isEqualTo(summaryBeforeRestart);
         verify(ai, never()).submit(any());
         verify(ai, never()).get(any());
     }

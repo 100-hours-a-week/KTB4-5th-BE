@@ -26,10 +26,17 @@ import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.support.RedisTestSupport;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,8 +55,12 @@ class AnalysisJobSubmitServiceTest {
     private final AnalysisJobStore analysisJobStore = spy(new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build()));
     private final AnalysisDispatchQueue analysisDispatchQueue = mock(AnalysisDispatchQueue.class);
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
+    private final RefrigeratorAccessService access = mock(RefrigeratorAccessService.class);
     private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(
-            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, analysisDispatchQueue, analysisDispatchWorker);
+            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, analysisDispatchQueue, analysisDispatchWorker, access);
+
+    @BeforeEach
+    void selectRefrigerator() { when(access.findCurrentForRead(7L)).thenReturn(refrigerator(17L)); }
 
     @Test
     void queuesEveryImageInOrderAndReturnsTheQueuedGroupWithoutWaitingForAi() {
@@ -59,7 +70,7 @@ class AnalysisJobSubmitServiceTest {
         ArgumentCaptor<List<AnalysisImage>> analysisImages = imagesCaptor();
         InOrder order = inOrder(analysisDispatchQueue, analysisJobStore, analysisDispatchWorker);
         order.verify(analysisDispatchQueue).enqueue(eq(analysisJob.id()), eq(7L), eq("RECEIPT"), analysisImages.capture());
-        order.verify(analysisJobStore).create(analysisJob.id(), 7L, "RECEIPT", analysisImages.getValue());
+        order.verify(analysisJobStore).create(analysisJob.id(), 7L, 17L, "RECEIPT", analysisImages.getValue());
         order.verify(analysisDispatchWorker).wakeUp();
         assertThat(analysisImages.getValue()).extracting(AnalysisImage::objectKey).containsExactly("first", "second");
         assertThat(analysisImages.getValue()).extracting(AnalysisImage::sha256).containsExactly("ab".repeat(32), "cd".repeat(32));
@@ -67,6 +78,8 @@ class AnalysisJobSubmitServiceTest {
         assertThat(analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
         assertThat(analysisJob.submittedAt()).isEqualTo(instant.atZone(BusinessTime.ZONE).toOffsetDateTime());
         assertThat(analysisJob.expiresAt()).isNull();
+        JsonMapper mapper = JsonMapper.builder().build();
+        assertThat(mapper.readTree(mapper.writeValueAsString(analysisJob)).path("refrigeratorId").asLong()).isEqualTo(17L);
     }
 
     // AI는 같은 requestId·같은 요청 내용이면 기존 분석을 돌려주므로, 같은 사진·같은 힌트의 재요청은 같은 requestId를 쓴다.
@@ -81,6 +94,33 @@ class AnalysisJobSubmitServiceTest {
         assertThat(again.id()).isNotEqualTo(first.id());
         assertThat(again.analysisImages().getFirst().requestId()).isEqualTo(first.analysisImages().getFirst().requestId());
         assertThat(otherHint.analysisImages().getFirst().requestId()).isNotEqualTo(first.analysisImages().getFirst().requestId());
+    }
+
+    @Test
+    void separatesThePreviousContractAndRefrigeratorContextInRequestIds() {
+        issue("first", "ab");
+        AnalysisJob first = analysisJobSubmitService.submit(7L, List.of("first"), "RECEIPT");
+        when(access.findCurrentForRead(7L)).thenReturn(refrigerator(18L));
+        AnalysisJob otherFridge = analysisJobSubmitService.submit(7L, List.of("first"), "RECEIPT");
+        imageUploadMetadataStore.save(8L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
+        when(access.findCurrentForRead(8L)).thenReturn(refrigerator(17L));
+        AnalysisJob otherUser = analysisJobSubmitService.submit(8L, List.of("first"), "RECEIPT");
+        String previous = UUID.nameUUIDFromBytes(String.join("\n", "7", "first", "ab".repeat(32), "RECEIPT")
+                .getBytes(StandardCharsets.UTF_8)).toString();
+        assertThat(List.of(first, otherFridge, otherUser)).extracting(job -> job.analysisImages().getFirst().requestId()).doesNotHaveDuplicates();
+        assertThat(first.analysisImages().getFirst().requestId()).isNotEqualTo(previous);
+        assertThat(analysisJobStore.findOwned(first.id(), 7L).refrigeratorId()).isEqualTo(17L);
+    }
+
+    @Test
+    void refusesAnUnavailableSelectionBeforeWritingTheQueueOrJob() {
+        issue("first", "ab");
+        when(access.findCurrentForRead(7L)).thenThrow(new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
+        assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null))
+                .isInstanceOfSatisfying(CustomException.class, exception ->
+                        assertThat(exception.getExceptionCode()).isEqualTo(RefrigeratorExceptionCode.ACCESS_DENIED));
+        assertThat(redisTemplate().keys("analysis:job:*")).isEmpty();
+        verifyNoInteractions(analysisDispatchQueue, analysisDispatchWorker);
     }
 
     @ParameterizedTest
@@ -111,7 +151,7 @@ class AnalysisJobSubmitServiceTest {
     @Test
     void leavesQueuedImagesForTheWorkerWhenTheJobCannotBeCreated() {
         issue("first", "ab");
-        doThrow(new DataAccessResourceFailureException("redis")).when(analysisJobStore).create(anyString(), any(), anyString(), anyList());
+        doThrow(new DataAccessResourceFailureException("redis")).when(analysisJobStore).create(anyString(), any(), any(), anyString(), anyList());
         assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(DataAccessResourceFailureException.class);
         verify(analysisDispatchQueue).enqueue(anyString(), eq(7L), eq("AUTO"), anyList());
         verifyNoInteractions(analysisDispatchWorker);
@@ -120,6 +160,12 @@ class AnalysisJobSubmitServiceTest {
     @SuppressWarnings("unchecked")
     private ArgumentCaptor<List<AnalysisImage>> imagesCaptor() {
         return ArgumentCaptor.forClass(List.class);
+    }
+
+    private Refrigerator refrigerator(Long id) {
+        Refrigerator refrigerator = new Refrigerator("선택", "2026-10");
+        ReflectionTestUtils.setField(refrigerator, "id", id);
+        return refrigerator;
     }
 
     private void issue(String objectKey, String sha256Prefix) {

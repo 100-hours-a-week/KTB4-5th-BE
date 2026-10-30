@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackResponse;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.support.AnalysisContractTestSupport;
-import com.dameokja.backend.user.domain.User;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -23,20 +22,20 @@ import org.springframework.test.web.servlet.ResultActions;
 class AnalysisResponseIsolationTest extends AnalysisContractTestSupport {
     @Test
     void queuesTheAnalysisAndReturnsAcceptedWithoutWaitingForAi() throws Exception {
-        User user = user("접수격리");
+        Long userId = ownerFixture("접수격리").userId();
         when(ai.ready()).thenReturn(false);
         try (PendingAiResponse delay = new PendingAiResponse()) {
             doAnswer(invocation -> {
                 delay.awaitRelease();
                 return new AiImageAnalysisSubmitResponse(AI_ANALYSIS_ID, "QUEUED", null, 1000);
             }).when(ai).submit(any());
-            Future<ResultActions> response = delay.execute(() -> submitImage(user.getId(), "PRODUCT"));
+            Future<ResultActions> response = delay.execute(() -> submitImage(userId, "PRODUCT"));
             String accepted = response.get(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS)
                     .andExpect(status().isAccepted()).andExpect(jsonPath("$.data.status").value("QUEUED"))
                     .andReturn().getResponse().getContentAsString();
             String analysisId = mapper.readTree(accepted).path("data").path("analysisId").asString();
             assertAnalysisQueued(analysisId);
-            queryAnalysis(user.getId(), analysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
+            queryAnalysis(userId, analysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
         }
     }
 

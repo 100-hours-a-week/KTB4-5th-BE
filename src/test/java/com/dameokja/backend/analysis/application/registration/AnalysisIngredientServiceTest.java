@@ -54,6 +54,25 @@ class AnalysisIngredientServiceTest {
         order.verify(store).delete("job");
     }
 
+    @ParameterizedTest
+    @CsvSource({"1,true", "2,false", ",true"})
+    void allowsOnlyTheOriginalRefrigeratorWhileKeepingLegacyResults(Long analysisRefrigeratorId, boolean allowed) {
+        AnalysisJob job = new AnalysisJob("job", 7L, "AUTO", List.of(image("receipt", AnalysisDocumentType.RECEIPT)),
+                OffsetDateTime.now(), null, false, null, List.of(), analysisRefrigeratorId);
+        when(store.findOwned("job", 7L)).thenReturn(job);
+        if (!allowed) {
+            assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class)
+                    .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
+            verifyNoInteractions(creator, queue);
+            verify(store, never()).delete(any());
+            return;
+        }
+        when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
+        assertThat(service.create(7L, 1L, request(List.of(count)))).isSameAs(result);
+        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> feedback.refrigeratorId().equals(1L)));
+        verify(store).delete("job");
+    }
+
     @Test
     void keepsResultWhenFeedbackCannotBeQueuedBecauseRegistrationRollsBack() {
         when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));

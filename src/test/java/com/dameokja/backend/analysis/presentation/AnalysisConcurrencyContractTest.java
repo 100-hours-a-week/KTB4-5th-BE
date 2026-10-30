@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.support.AnalysisContractTestSupport;
-import com.dameokja.backend.user.domain.User;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CyclicBarrier;
@@ -44,16 +43,16 @@ class AnalysisConcurrencyContractTest extends AnalysisContractTestSupport {
 
     @Test
     void competingDispatchersRespectAiCapacityAndCompleteTheWaitingImageAfterCapacityIsReleased() throws Exception {
-        User user = user("동시접수계약");
+        Long userId = ownerFixture("동시접수계약").userId();
         int capacity = analysisSlotLimit();
         List<String> keys = imageKeys(capacity + 1);
-        String analysisId = accept(user.getId(), keys);
+        String analysisId = accept(userId, keys);
 
         dispatchConcurrently();
         assertThat(requests).hasSize(capacity);
         assertThat(unfinished.get()).isEqualTo(capacity);
         assertThat(peak.get()).isLessThanOrEqualTo(capacity);
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PROCESSING"))
                 .andExpect(jsonPath("$.data.results[?(@.status == 'QUEUED')]").value(hasSize(1)));
 
@@ -65,28 +64,28 @@ class AnalysisConcurrencyContractTest extends AnalysisContractTestSupport {
         for (AiImageAnalysisSubmitRequest request : requests.subList(1, requests.size())) {
             finish(request);
         }
-        assertCompleted(user.getId(), analysisId, keys.size());
+        assertCompleted(userId, analysisId, keys.size());
     }
 
     @Test
     void concurrentAndRepeatedCallbacksDoNotDuplicateResultsOrFinishTheBatchBeforeEveryImageCompletes() throws Exception {
-        User user = user("중복콜백계약");
-        String analysisId = accept(user.getId(), imageKeys(2));
+        Long userId = ownerFixture("중복콜백계약").userId();
+        String analysisId = accept(userId, imageKeys(2));
         dispatchConcurrently();
         assertThat(requests).hasSize(2);
         String firstAiId = aiId(requests.getFirst());
 
         callbackConcurrently(firstAiId);
         completeAnalysis(firstAiId, "PRODUCT").andExpect(status().isOk());
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PROCESSING"))
                 .andExpect(jsonPath("$.data.results.length()").value(2))
                 .andExpect(jsonPath("$.data.results[?(@.status == 'COMPLETED')]").value(hasSize(1)));
-        assertSummary(user.getId(), 2, 1);
+        assertSummary(userId, 2, 1);
 
         completeAnalysis(aiId(requests.getLast()), "PRODUCT").andExpect(status().isOk());
         completeAnalysis(firstAiId, "PRODUCT").andExpect(status().isOk());
-        assertCompleted(user.getId(), analysisId, 2);
+        assertCompleted(userId, analysisId, 2);
     }
 
     private String accept(Long userId, List<String> keys) throws Exception {

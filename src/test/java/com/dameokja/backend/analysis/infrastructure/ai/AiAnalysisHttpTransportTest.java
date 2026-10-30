@@ -20,6 +20,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -53,12 +56,20 @@ class AiAnalysisHttpTransportTest {
         httpServer.stop(0);
     }
 
-    @Test
-    void sendsJsonBodyWithoutHttp2Upgrade() {
-        aiAnalysisClient.submit(new AiImageAnalysisSubmitRequest("request-1", OBJECT_KEY, SHA256));
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = 17L)
+    void sendsJsonBodyWithoutHttp2Upgrade(Long refrigeratorId) {
+        aiAnalysisClient.submit(new AiImageAnalysisSubmitRequest("request-1", new AiImageAnalysisSubmitRequest.Image(OBJECT_KEY, SHA256),
+                "AUTO", "ko-KR", "Asia/Seoul", refrigeratorId));
 
         assertThat(upgradeHeader.get()).isNull();
         JsonNode jsonNode = JsonMapper.builder().build().readTree(requestBody.get());
+        assertThat(jsonNode.has("refrigeratorId")).isEqualTo(refrigeratorId != null);
+        if (refrigeratorId != null) {
+            assertThat(jsonNode.path("refrigeratorId").asLong()).isEqualTo(refrigeratorId);
+        }
+        assertThat(jsonNode.has("userId")).isFalse();
         assertThat(jsonNode.path("requestId").asText()).isEqualTo("request-1");
         assertThat(jsonNode.path("image").path("objectKey").asText()).isEqualTo(OBJECT_KEY);
         assertThat(jsonNode.path("image").path("sha256").asText()).isEqualTo(SHA256);

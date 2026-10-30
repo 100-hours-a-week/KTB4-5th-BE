@@ -9,7 +9,8 @@ import java.util.stream.Stream;
 public record AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
         OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending,
         @JsonInclude(JsonInclude.Include.NON_NULL) AnalysisNotificationChannel notificationChannel,
-        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> publishedImageEvents) {
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> publishedImageEvents,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Long refrigeratorId) {
     public AnalysisJob {
         analysisImages = List.copyOf(analysisImages);
         // 배포 전에 저장된 작업에는 알림 대기 필드가 없다.
@@ -19,23 +20,29 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
 
     public AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
             OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending) {
-        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, null, List.of());
+        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, null, List.of(), null);
     }
 
     public AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
             OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending, AnalysisNotificationChannel notificationChannel) {
-        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, List.of());
+        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, List.of(), null);
+    }
+
+    public AnalysisJob(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages,
+            OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending,
+            AnalysisNotificationChannel notificationChannel, List<String> publishedImageEvents) {
+        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, publishedImageEvents, null);
     }
 
     public AnalysisJob selectNotificationChannel(AnalysisNotificationChannel channel) {
         if (!notificationPending || notificationChannel != null) { return this; }
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, Objects.requireNonNull(channel), publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, Objects.requireNonNull(channel), publishedImageEvents, refrigeratorId);
     }
 
     // SSE로 끝내 알리지 못하면 푸시로 바꾼다. 이미 푸시면 그대로 둔다.
     public AnalysisJob fallBackToPush() {
         if (!notificationPending || notificationChannel == AnalysisNotificationChannel.PUSH) { return this; }
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, AnalysisNotificationChannel.PUSH, publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, AnalysisNotificationChannel.PUSH, publishedImageEvents, refrigeratorId);
     }
 
     public AnalysisJob register(String requestId, String analysisId) {
@@ -47,7 +54,7 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         }
         List<AnalysisImage> analysisImages = this.analysisImages.stream()
                 .map(analysisImage -> analysisImage.requestId().equals(requestId) ? analysisImage.register(analysisId) : analysisImage).toList();
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, publishedImageEvents, refrigeratorId);
     }
 
     public AnalysisJob complete(String analysisId, AnalysisCompletion completion, OffsetDateTime resultExpiresAt) {
@@ -74,17 +81,17 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         boolean newlyCompleted = images.stream().allMatch(image -> image.completion() != null)
                 && analysisImages.stream().anyMatch(image -> image.completion() == null);
         OffsetDateTime deadline = newlyCompleted ? Objects.requireNonNull(resultExpiresAt) : expiresAt;
-        return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted, notificationChannel, publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, images, submittedAt, deadline, notificationPending || newlyCompleted, notificationChannel, publishedImageEvents, refrigeratorId);
     }
 
     public boolean finished() { return analysisImages.stream().allMatch(image -> image.completion() != null); }
 
     public AnalysisJob acknowledgeNotification() {
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel, publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel, publishedImageEvents, refrigeratorId);
     }
 
     public AnalysisJob reopenNotification() {
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, notificationChannel, publishedImageEvents);
+        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, notificationChannel, publishedImageEvents, refrigeratorId);
     }
 
     // 같은 결과가 콜백·조회로 여러 번 적용돼도 이미지 완료 이벤트는 한 번만 보내려고, 보낸 이력을 작업과 함께 보관한다.
@@ -96,11 +103,11 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         }
         if (imageEventPublished(requestId)) { return this; }
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel,
-                Stream.concat(publishedImageEvents.stream(), Stream.of(requestId)).toList());
+                Stream.concat(publishedImageEvents.stream(), Stream.of(requestId)).toList(), refrigeratorId);
     }
 
     public AnalysisJob withdrawImageEvent(String requestId) {
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel,
-                publishedImageEvents.stream().filter(published -> !published.equals(requestId)).toList());
+                publishedImageEvents.stream().filter(published -> !published.equals(requestId)).toList(), refrigeratorId);
     }
 }

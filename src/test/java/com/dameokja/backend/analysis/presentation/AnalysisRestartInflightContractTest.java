@@ -20,7 +20,6 @@ import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisResult;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.support.RestartableAnalysisContractTestSupport;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.user.domain.User;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -31,8 +30,8 @@ class AnalysisRestartInflightContractTest extends RestartableAnalysisContractTes
     @Test
     void resendsTheSameAnalysisWhenTheBackendStopsBeforeSavingTheAiAcceptance() throws Exception {
         when(ai.ready()).thenReturn(false);
-        User user = user("접수중단복구");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("접수중단복구").userId();
+        String analysisId = accept(userId);
         doAnswer(invocation -> { throw new BackendInterrupted(); }).when(ai).submit(any());
         assertThatThrownBy(this::dispatchDueAnalyses).isInstanceOf(BackendInterrupted.class);
         ArgumentCaptor<AiImageAnalysisSubmitRequest> sent = ArgumentCaptor.forClass(AiImageAnalysisSubmitRequest.class);
@@ -42,10 +41,10 @@ class AnalysisRestartInflightContractTest extends RestartableAnalysisContractTes
         restartApplication();
         recoverInterruptedAnalyses();
 
-        expectState(user.getId(), analysisId, "PROCESSING");
+        expectState(userId, analysisId, "PROCESSING");
         verify(ai).submit(argThat(request -> request.requestId().equals(interruptedRequest.requestId())));
         completeAnalysis(AI_ANALYSIS_ID, "PRODUCT").andExpect(status().isOk());
-        expectState(user.getId(), analysisId, "COMPLETED");
+        expectState(userId, analysisId, "COMPLETED");
         pollAnalyses();
         verify(ai).submit(any());
         verify(ai, never()).get(any());
@@ -54,16 +53,16 @@ class AnalysisRestartInflightContractTest extends RestartableAnalysisContractTes
     @Test
     void recoversAnAcceptedAnalysisWithoutItsCallbackAfterTheBackendRestarts() throws Exception {
         when(ai.ready()).thenReturn(false);
-        User user = user("진행중복구");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("진행중복구").userId();
+        String analysisId = accept(userId);
         dispatchDueAnalyses();
-        expectState(user.getId(), analysisId, "PROCESSING");
+        expectState(userId, analysisId, "PROCESSING");
 
         restartApplication();
         when(ai.get(AI_ANALYSIS_ID)).thenReturn(finishedAnalysis());
         recoverInterruptedAnalyses();
 
-        expectState(user.getId(), analysisId, "COMPLETED");
+        expectState(userId, analysisId, "COMPLETED");
         pollAnalyses();
         verify(ai).get(AI_ANALYSIS_ID);
         verify(ai, never()).submit(any());

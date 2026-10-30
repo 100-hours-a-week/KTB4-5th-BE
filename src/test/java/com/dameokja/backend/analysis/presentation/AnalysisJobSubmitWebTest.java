@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
 import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
@@ -63,7 +66,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(RedisTestSupport.class)
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
+@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class, RefrigeratorAccessService.class})
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
@@ -78,11 +81,15 @@ class AnalysisJobSubmitWebTest {
     @Autowired ImageUploadMetadataStore imageUploadMetadataStore;
     @Autowired AnalysisJobStore analysisJobStore;
     @Autowired ObjectMapper objectMapper;
+    @Autowired RefrigeratorAccessService access;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setup() {
         reset(analysisDispatchQueue, analysisDispatchWorker);
+        Refrigerator refrigerator = mock(Refrigerator.class);
+        when(refrigerator.getId()).thenReturn(17L);
+        when(access.findCurrentForRead(7L)).thenReturn(refrigerator);
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "second", "cd".repeat(32));
@@ -106,6 +113,7 @@ class AnalysisJobSubmitWebTest {
         JsonNode jsonNode = objectMapper.readTree(response).path("data");
         assertThat(jsonNode.size()).isEqualTo(5);
         AnalysisJob analysisJob = analysisJobStore.findOwned(jsonNode.path("analysisId").asString(), 7L);
+        assertThat(analysisJob.refrigeratorId()).isEqualTo(17L);
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
         verify(analysisDispatchQueue).enqueue(eq(analysisJob.id()), eq(7L), eq(inputHint == null ? "AUTO" : inputHint), eq(analysisJob.analysisImages()));
         verify(analysisDispatchWorker).wakeUp();
