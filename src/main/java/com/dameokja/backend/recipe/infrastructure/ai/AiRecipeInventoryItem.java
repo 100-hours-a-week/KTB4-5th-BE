@@ -12,7 +12,13 @@ import java.time.LocalDate;
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record AiRecipeInventoryItem(Long ingredientId, String name, IngredientCategory category, StorageType storageType,
-        MeasureType measureType, Integer quantity, BigDecimal weightValue, WeightUnit weightUnit, LocalDate expirationDate) {
+        MeasureType measureType, Integer quantity, BigDecimal weightValue, WeightUnit weightUnit, LocalDate expirationDate,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String ingredientKey) {
+    public AiRecipeInventoryItem(Long ingredientId, String name, IngredientCategory category, StorageType storageType,
+            MeasureType measureType, Integer quantity, BigDecimal weightValue, WeightUnit weightUnit, LocalDate expirationDate) {
+        this(ingredientId, name, category, storageType, measureType, quantity, weightValue, weightUnit, expirationDate, null);
+    }
+
     public static AiRecipeInventoryItem from(Ingredient ingredient) {
         Measurement measurement = ingredient.getMeasurement();
         return new AiRecipeInventoryItem(ingredient.getId(), ingredient.getName(), ingredient.getCategory(), ingredient.getStorageType(),

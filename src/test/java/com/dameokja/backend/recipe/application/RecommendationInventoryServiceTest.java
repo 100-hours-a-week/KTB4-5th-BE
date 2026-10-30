@@ -38,41 +38,29 @@ class RecommendationInventoryServiceTest {
     }
 
     @Test
-    void reusesRequestIdAcrossUsersAndInventoryOrderForTheSameRefrigeratorAndMode() {
+    void createsNewRequestIdEvenWhenRefrigeratorInventoryAndModeAreUnchanged() {
         Ingredient first = item(101L, 2);
         Ingredient second = item(102L, 3);
         when(ingredients.getAll(1L, 17L)).thenReturn(List.of(first, second));
         when(ingredients.getAll(2L, 17L)).thenReturn(List.of(second, first));
 
-        AiRecipeRecommendationRequest request = service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED);
-        AiRecipeRecommendationRequest repeated = service.prepare(2L, 17L, Mode.INCLUDE_EXPIRED);
+        AiRecipeRecommendationRequest request = service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED));
+        AiRecipeRecommendationRequest repeated = service.prepare(2L, 17L, options(Mode.INCLUDE_EXPIRED));
 
         assertThat(repeated.inventoryFingerprint()).isEqualTo(request.inventoryFingerprint());
-        assertThat(repeated.requestId()).isEqualTo(request.requestId());
+        assertThat(repeated.requestId()).isNotEqualTo(request.requestId());
     }
 
     @Test
-    void separatesRequestIdsWhenRefrigeratorModeOrInventoryChanges() {
-        when(ingredients.getAll(1L, 17L)).thenReturn(List.of(item(101L, 2)), List.of(item(101L, 2)), List.of(item(101L, 3)));
-        when(ingredients.getAll(1L, 18L)).thenReturn(List.of(item(101L, 2)));
-
-        String original = service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED).requestId();
-
-        assertThat(service.prepare(1L, 17L, Mode.EXCLUDE_EXPIRED).requestId()).isNotEqualTo(original);
-        assertThat(service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED).requestId()).isNotEqualTo(original);
-        assertThat(service.prepare(1L, 18L, Mode.INCLUDE_EXPIRED).requestId()).isNotEqualTo(original);
-    }
-
-    @Test
-    void includesExpiredInventoryAndFillsBackendDefaultsWithoutChangingOriginalValues() {
+    void keepsOriginalInventoryAndOmitsUnsetOptionalInputs() {
         Ingredient expired = item(101L, 2);
         when(ingredients.getAll(1L, 17L)).thenReturn(List.of(expired));
 
         AiRecipeRecommendationRequest request = service.prepare(1L, 17L, null);
 
-        assertThat(request.recommendationMode()).isEqualTo(Mode.INCLUDE_EXPIRED);
-        assertThat(request.limit()).isEqualTo(10);
-        assertThat(request.excludedIngredientNames()).isEmpty();
+        assertThat(request.recommendationMode()).isNull();
+        assertThat(request.limit()).isNull();
+        assertThat(request.excludedIngredientNames()).isNull();
         assertThat(request.inventory()).singleElement().satisfies(item -> {
             assertThat(item.ingredientId()).isEqualTo(101L);
             assertThat(item.name()).isEqualTo("국산 두부");
@@ -86,15 +74,19 @@ class RecommendationInventoryServiceTest {
         List<Ingredient> inventory = LongStream.rangeClosed(1, 301).mapToObj(id -> item(id, 1)).toList();
         when(ingredients.getAll(1L, 17L)).thenReturn(inventory.subList(0, 300), inventory);
 
-        assertThat(service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED).inventory()).hasSize(300);
-        assertThatIllegalArgumentException().isThrownBy(() -> service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED));
+        assertThat(service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)).inventory()).hasSize(300);
+        assertThatIllegalArgumentException().isThrownBy(() -> service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)));
     }
 
     @Test
     void preparesAnEmptyRefrigeratorWithoutInventingInventory() {
         when(ingredients.getAll(1L, 17L)).thenReturn(List.of());
 
-        assertThat(service.prepare(1L, 17L, Mode.INCLUDE_EXPIRED).inventory()).isEmpty();
+        assertThat(service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)).inventory()).isEmpty();
+    }
+
+    private RecommendationOptions options(Mode recommendationMode) {
+        return new RecommendationOptions(recommendationMode, null, null, null, null, null, null, null);
     }
 
     private Ingredient item(Long id, int quantity) {

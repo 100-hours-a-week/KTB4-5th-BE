@@ -157,7 +157,9 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 읽기 타임아웃은 `AI_RECIPE_READ_TIMEOUT`으로 분리하며 기본값은 60초다.
 추천 클라이언트의 읽기 제한은 분석 클라이언트와 독립적으로 적용한다.
 `AiRecipeClient.submit`은 POST 202의 jobId·requestId·상태·접수 시각을 받고, `get(jobId, request)`은 GET 200의 작업 상태·결과·오류를 받는다.
-추천 상한은 10개이며, 전달하지 않는 취향·인분 등 선택 입력은 AI 기본값을 사용한다.
+`RecommendationOptions`로 recommendationMode·preferenceTags·limit·targetServings·strategies·excludedIngredientNames·pantryIngredientNames·recentRecipeIds를 입력받는다.
+입력하지 않은 선택 필드는 요청 JSON에서 생략하고 AI 기본값(모드 EXCLUDE_EXPIRED·추천 10개·2인분)을 사용한다. 명시한 값과 빈 목록은 그대로 전달한다.
+strategies는 명세에 따라 빈 목록·중복을 거절한다. 재고의 선택 ingredientKey는 제공할 때만 직렬화하고 재고 지문에도 반영한다.
 응답은 확인 후보·필요량·재고별 사용량·경고·추적 정보까지 포함한 `AiRecipeRecommendationResponse` record로 수신한다.
 HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·냉장고 불일치는 `RestClientException` 계열로 전달한다.
 완료 결과는 요청 재고 지문·모드도 대조하며 분량·배분 상태, 취향 판정과 컨텍스트를 보존한다. 접수 응답을 추천 생성 완료로 처리하지 않는다.
@@ -167,7 +169,7 @@ HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·
 
 `RecommendationSubmissionService.submit`은 권한 확인과 전체 재고 조회·요청 준비를 마친 뒤 짧은 트랜잭션에서 outbox만 저장한다.
 `recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 별도 job 테이블은 두지 않으며 생성 상태·결과는 후속 Redis 구현에서 관리한다.
-동일 요청 ID도 새 eventId로 접수하며 중복 접수를 차단하지 않는다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
+새 추천은 같은 재고·옵션이라도 새로운 UUID requestId와 eventId로 접수한다. 재전송에는 outbox에 저장한 requestId·본문을 재사용한다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
 SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는다.
 빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블 추가가 필요하며, 스키마 파일은 자동 실행되지 않는다.
 `RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, Redis에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.

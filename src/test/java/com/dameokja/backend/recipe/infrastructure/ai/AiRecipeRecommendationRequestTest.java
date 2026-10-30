@@ -13,15 +13,20 @@ import com.dameokja.backend.user.domain.User;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Collections;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AiRecipeRecommendationRequestTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -43,6 +48,26 @@ class AiRecipeRecommendationRequestTest {
     void rejectsLimitsOutsideLatestContract(int limit) {
         assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 17L,
                 AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), limit));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidOptions")
+    void rejectsOptionsOutsideTheAiContract(String field, Object value) {
+        tools.jackson.databind.node.ObjectNode payload = mapper.valueToTree(AiRecipeRecommendationRequest.create("req-1", 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), 10));
+        payload.set(field, mapper.valueToTree(value));
+        assertThatThrownBy(() -> mapper.treeToValue(payload, AiRecipeRecommendationRequest.class)).hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static Stream<Arguments> invalidOptions() {
+        return Stream.of(Arguments.of("targetServings", 0), Arguments.of("targetServings", 13),
+                Arguments.of("preferenceTags", Collections.nCopies(13, "한식")), Arguments.of("preferenceTags", List.of("가".repeat(41))),
+                Arguments.of("preferenceTags", List.of(" ")), Arguments.of("strategies", List.of()),
+                Arguments.of("strategies", List.of("SIMPLE_COOKING", "SIMPLE_COOKING")),
+                Arguments.of("pantryIngredientNames", Collections.nCopies(31, "소금")),
+                Arguments.of("pantryIngredientNames", List.of("가".repeat(501))),
+                Arguments.of("recentRecipeIds", Collections.nCopies(101, "MANUAL:123")),
+                Arguments.of("excludedIngredientNames", Collections.nCopies(101, "우유")));
     }
 
     @Test
