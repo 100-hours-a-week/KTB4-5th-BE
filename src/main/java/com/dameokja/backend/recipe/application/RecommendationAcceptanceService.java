@@ -17,6 +17,7 @@ public class RecommendationAcceptanceService {
     private final UserAccessService userAccessService;
     private final RecommendationStateRepository recommendationStateRepository;
     private final RecommendationOutboxService recommendationOutboxService;
+    private final RecommendationDailyQuotaService recommendationDailyQuotaService;
 
     @Transactional
     public RecommendationSubmissionResult accept(Long userId, AiRecipeRecommendationRequest recommendationRequest) {
@@ -25,6 +26,7 @@ public class RecommendationAcceptanceService {
         RecommendationState recommendationState = recommendationStateRepository.findByParticipantForUpdate(userId, refrigerator.getId())
                 .orElseGet(() -> recommendationStateRepository.save(new RecommendationState(userAccessService.getActive(userId), refrigerator)));
         recommendationState.queueUserRequest(recommendationRequest.requestId());
-        return recommendationOutboxService.enqueue(recommendationRequest);
+        RecommendationDailyGeneration dailyGeneration = recommendationDailyQuotaService.reserve(userId, recommendationRequest.requestId());
+        return recommendationOutboxService.enqueue(recommendationRequest).withDailyGeneration(dailyGeneration);
     }
 }
