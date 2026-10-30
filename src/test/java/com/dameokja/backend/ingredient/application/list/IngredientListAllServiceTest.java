@@ -87,6 +87,33 @@ class IngredientListAllServiceTest extends MySqlJpaTest {
         assertThat(ingredients.getAll(owner.getId(), refrigerator.getId())).isEmpty();
     }
 
+    @Test
+    void readsOnlyRequestedStockBelongingToTheRefrigerator() {
+        LocalDate expirationDate = LocalDate.of(2026, 11, 1);
+        Measurement measurement = Measurement.of(MeasureType.COUNT, 1, null, WeightUnit.NONE);
+        Ingredient mappedStock = persist(refrigerator, "매핑 재고", StorageType.REFRIGERATED, measurement, expirationDate);
+        persist(refrigerator, "미요청 재고", StorageType.REFRIGERATED, measurement, expirationDate);
+        Refrigerator otherRefrigerator = new Refrigerator("다른 냉장고", "2026-10");
+        entityManager.persist(otherRefrigerator);
+        Ingredient otherStock = persist(otherRefrigerator, "다른 재고", StorageType.REFRIGERATED, measurement, expirationDate);
+        Long refrigeratorId = refrigerator.getId();
+        when(access.validateReadAccess(owner.getId(), refrigeratorId)).thenReturn(refrigerator);
+        flushAndClear();
+
+        assertThat(ingredients.getByIds(owner.getId(), refrigeratorId, List.of(mappedStock.getId(), otherStock.getId())))
+                .extracting(Ingredient::getId).containsExactly(mappedStock.getId());
+    }
+
+    @Test
+    void stillRejectsUnauthorizedAccessWhenNoStockIdsAreRequested() {
+        when(access.validateReadAccess(owner.getId(), refrigerator.getId()))
+                .thenThrow(new CustomException(RefrigeratorExceptionCode.ACCESS_DENIED));
+
+        assertThatThrownBy(() -> ingredients.getByIds(owner.getId(), refrigerator.getId(), List.of()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getExceptionCode()).isEqualTo(RefrigeratorExceptionCode.ACCESS_DENIED));
+    }
+
     private void populateOtherStock(LocalDate expirationDate) {
         for (int index = 0; index < 100; index++) {
             persist(refrigerator, "재고" + index, StorageType.REFRIGERATED,
