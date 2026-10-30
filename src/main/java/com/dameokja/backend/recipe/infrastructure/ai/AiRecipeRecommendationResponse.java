@@ -10,20 +10,20 @@ import org.springframework.web.client.RestClientException;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AiRecipeRecommendationResponse(
-        String recommendationId, Long refrigeratorId, String inventoryFingerprint, String recommendationMode,
+        String recommendationId, Long userId, Long refrigeratorId, String inventoryFingerprint, String recommendationMode,
         List<Recipe> recommendations, List<Recipe> confirmationCandidates, List<String> uncoveredExpiringIngredients,
         OffsetDateTime generatedAt, String recommendationEngine, MealPlan mealPlan, List<String> warnings, Trace trace,
         List<String> preferenceTags, Map<String, Object> context) {
     public AiRecipeRecommendationResponse {
-        if (recommendationId == null || recommendationId.isBlank() || recommendations == null || generatedAt == null) {
+        if (recommendationId == null || recommendationId.isBlank() || (userId != null && userId <= 0) || recommendations == null || generatedAt == null) {
             throw new RestClientException("AI 추천 응답 형식이 올바르지 않습니다.");
         }
     }
 
     void validateFor(AiRecipeRecommendationRequest request) {
-        if (!Objects.equals(refrigeratorId, request.refrigeratorId()) || !request.inventoryFingerprint().equals(inventoryFingerprint)
+        if (!Objects.equals(userId, request.userId()) || !Objects.equals(refrigeratorId, request.refrigeratorId()) || !request.inventoryFingerprint().equals(inventoryFingerprint)
                 || !request.effectiveMode().name().equals(recommendationMode)) {
-            throw new RestClientException("AI 추천 응답이 요청 냉장고·재고 지문·모드와 일치하지 않습니다.");
+            throw new RestClientException("AI 추천 응답이 요청 사용자·냉장고·재고 지문·모드와 일치하지 않습니다.");
         }
     }
 

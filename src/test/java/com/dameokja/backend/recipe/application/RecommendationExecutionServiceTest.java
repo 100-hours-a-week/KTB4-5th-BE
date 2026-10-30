@@ -178,7 +178,7 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
     void rejectsAViewFromAnotherJobWithoutChangingStoredState() throws Exception {
         RecommendationSubmissionResult event = accepted();
         AiRecipeJobResponse original = view(event, Status.PROCESSING);
-        AiRecipeJobResponse unrelated = new AiRecipeJobResponse("other-job", original.requestId(), original.refrigeratorId(), original.status(),
+        AiRecipeJobResponse unrelated = new AiRecipeJobResponse("other-job", original.requestId(), original.userId(), original.refrigeratorId(), original.status(),
                 original.submittedAt(), original.startedAt(), null, null, null);
         assertThatThrownBy(() -> jobs.update(event.eventId(), unrelated))
                 .hasMessageContaining("추천 조회 결과가 접수한 작업과 일치하지 않습니다.").hasRootCauseInstanceOf(IllegalArgumentException.class);
@@ -187,7 +187,7 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
 
     private RecommendationSubmissionResult event() {
         Fixture owner = ownerFixture("추천실행회원");
-        AiRecipeRecommendationRequest request = AiRecipeRecommendationRequest.create("request-" + owner.refrigeratorId(), owner.refrigeratorId(),
+        AiRecipeRecommendationRequest request = AiRecipeRecommendationRequest.create("request-" + owner.refrigeratorId(), owner.userId(), owner.refrigeratorId(),
                 AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), 10);
         return outbox.enqueue(request);
     }
@@ -208,12 +208,13 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
         AiRecipeRecommendationResponse result = null;
         if (status == Status.COMPLETED) {
             ObjectNode payload = (ObjectNode) mapper.readTree(getClass().getResourceAsStream("/recipe-ai/response.json"));
+            payload.put("userId", request.userId());
             payload.put("refrigeratorId", event.refrigeratorId()).put("inventoryFingerprint", request.inventoryFingerprint());
             result = mapper.treeToValue(payload, AiRecipeRecommendationResponse.class);
         }
         boolean terminal = status == Status.COMPLETED || status == Status.FAILED;
         AiRecipeJobResponse.Error error = status == Status.FAILED ? new AiRecipeJobResponse.Error("DEPENDENCY_UNAVAILABLE", "재시도 가능", true) : null;
-        return new AiRecipeJobResponse(receipt(event).jobId(), event.requestId(), event.refrigeratorId(), status,
+        return new AiRecipeJobResponse(receipt(event).jobId(), event.requestId(), request.userId(), event.refrigeratorId(), status,
                 SUBMITTED, SUBMITTED, terminal ? SUBMITTED.plusSeconds(2) : null, result, error);
     }
 }

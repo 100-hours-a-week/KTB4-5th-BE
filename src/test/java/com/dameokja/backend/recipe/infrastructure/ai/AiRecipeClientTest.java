@@ -54,7 +54,7 @@ class AiRecipeClientTest {
                 """);
         JsonNode fixture = mapper.readTree(getClass().getResourceAsStream("/recipe-ai/fingerprint-fixtures.json")).get(2);
         List<AiRecipeInventoryItem> inventory = mapper.readerForListOf(AiRecipeInventoryItem.class).readValue(fixture.path("inventory"));
-        request = AiRecipeRecommendationRequest.create("req-1", 17L, AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, inventory, List.of(), 10);
+        request = AiRecipeRecommendationRequest.create("req-1", 101L, 17L, AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, inventory, List.of(), 10);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/ai/v1/recipe-recommendations", this::respond);
         server.start();
@@ -70,13 +70,15 @@ class AiRecipeClientTest {
 
     @Test
     void sendsWikiRequestAndPreservesWholeResponseOverRealHttp() {
-        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 17L, request.inventory());
+        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 101L, 17L, request.inventory());
         AiRecipeSubmitResponse response = client(Duration.ofSeconds(2)).submit(defaultRequest);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
         assertThat(receivedKey.get()).isEqualTo("test-key");
         assertThat(receivedPath.get()).isEqualTo("POST /ai/v1/recipe-recommendations");
         JsonNode sent = mapper.readTree(receivedBody.get());
         assertThat(sent.path("requestId").asText()).isEqualTo("req-1");
+        assertThat(sent.path("userId").isIntegralNumber()).isTrue();
+        assertThat(sent.path("userId").asLong()).isEqualTo(101L);
         assertThat(sent.path("refrigeratorId").asLong()).isEqualTo(17L);
         JsonNode ingredient = sent.path("inventory").get(0);
         assertThat(ingredient.path("name").asText()).isEqualTo("두부");
@@ -97,7 +99,7 @@ class AiRecipeClientTest {
                  "pantryIngredientNames":["소금"],"recentRecipeIds":["MANUAL:123"]}
                 """);
         RecommendationOptions options = mapper.treeToValue(optionsJson, RecommendationOptions.class);
-        client(Duration.ofSeconds(2)).submit(options.toRequest("req-1", 17L, request.inventory()));
+        client(Duration.ofSeconds(2)).submit(options.toRequest("req-1", 101L, 17L, request.inventory()));
         JsonNode sent = mapper.readTree(receivedBody.get());
         optionsJson.properties().forEach(option -> assertThat(sent.path(option.getKey())).as(option.getKey()).isEqualTo(option.getValue()));
     }
@@ -105,7 +107,7 @@ class AiRecipeClientTest {
     @Test
     void getsCompletedJobAndPreservesWholeResult() {
         completedJob();
-        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 17L, request.inventory());
+        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 101L, 17L, request.inventory());
         AiRecipeJobResponse response = client(Duration.ofSeconds(2)).get("rjob-1", defaultRequest);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
         assertThat(receivedKey.get()).isEqualTo("test-key");
@@ -183,13 +185,14 @@ class AiRecipeClientTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"jobId", "requestId", "refrigeratorId", "inventoryFingerprint", "recommendationMode"})
+    @ValueSource(strings = {"jobId", "requestId", "userId", "result.userId", "refrigeratorId", "inventoryFingerprint", "recommendationMode"})
     void rejectsResponsesForOtherRequests(String field) {
         completedJob();
         ObjectNode response = (ObjectNode) mapper.readTree(body.get());
-        ObjectNode target = field.equals("inventoryFingerprint") || field.equals("recommendationMode") ? (ObjectNode) response.get("result") : response;
-        if (field.equals("refrigeratorId")) {
-            target.put(field, 18L);
+        ObjectNode target = field.startsWith("result.") || field.equals("inventoryFingerprint") || field.equals("recommendationMode") ? (ObjectNode) response.get("result") : response;
+        String responseFieldName = field.replace("result.", "");
+        if (responseFieldName.equals("refrigeratorId") || responseFieldName.equals("userId")) {
+            target.put(responseFieldName, 102L);
         } else {
             target.put(field, "unrelated");
         }
@@ -253,7 +256,7 @@ class AiRecipeClientTest {
     private void completedJob() {
         status.set(200);
         body.set("""
-                {"jobId":"rjob-1","requestId":"req-1","refrigeratorId":17,"status":"COMPLETED",
+                {"jobId":"rjob-1","requestId":"req-1","userId":101,"refrigeratorId":17,"status":"COMPLETED",
                  "submittedAt":"2026-10-29T03:00:00Z","startedAt":"2026-10-29T03:00:01Z",
                  "completedAt":"2026-10-29T03:00:02Z","error":null,"result":%s}
                 """.formatted(result));

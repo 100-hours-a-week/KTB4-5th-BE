@@ -11,8 +11,8 @@ public record RecommendationOptions(Mode recommendationMode, List<String> prefer
         List<Strategy> strategies, List<String> excludedIngredientNames, List<String> pantryIngredientNames, List<String> recentRecipeIds) {
     public static RecommendationOptions empty() { return new RecommendationOptions(null, null, null, null, null, null, null, null); }
 
-    public AiRecipeRecommendationRequest toRequest(String requestId, Long refrigeratorId, List<AiRecipeInventoryItem> inventory) {
-        return new AiRecipeRecommendationRequest(requestId, refrigeratorId, AiInventoryFingerprint.of(inventory), recommendationMode,
+    public AiRecipeRecommendationRequest toRequest(String requestId, Long userId, Long refrigeratorId, List<AiRecipeInventoryItem> inventory) {
+        return new AiRecipeRecommendationRequest(requestId, userId, refrigeratorId, AiInventoryFingerprint.of(inventory), recommendationMode,
                 inventory, excludedIngredientNames, limit, preferenceTags, targetServings, strategies, pantryIngredientNames, recentRecipeIds);
     }
 }

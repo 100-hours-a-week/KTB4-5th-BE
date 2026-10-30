@@ -81,7 +81,7 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
         RecommendationSubmissionResult submission = recommendationSubmissionService.submit(refrigeratorOwner.userId(), refrigeratorOwner.refrigeratorId(), options);
         AiRecipeRecommendationRequest stored = jsonMapper.readValue(
                 recommendationOutboxRepository.findByEventId(submission.eventId()).orElseThrow().getPayload(), AiRecipeRecommendationRequest.class);
-        assertThat(stored).isEqualTo(options.toRequest(submission.requestId(), refrigeratorOwner.refrigeratorId(), List.of()));
+        assertThat(stored).isEqualTo(options.toRequest(submission.requestId(), refrigeratorOwner.userId(), refrigeratorOwner.refrigeratorId(), List.of()));
     }
 
     @Test

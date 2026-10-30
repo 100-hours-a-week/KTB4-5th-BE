@@ -49,6 +49,8 @@ class RecommendationInventoryServiceTest {
 
         assertThat(repeated.inventoryFingerprint()).isEqualTo(request.inventoryFingerprint());
         assertThat(repeated.requestId()).isNotEqualTo(request.requestId());
+        assertThat(request.userId()).isEqualTo(1L);
+        assertThat(repeated.userId()).isEqualTo(2L);
     }
 
     @Test

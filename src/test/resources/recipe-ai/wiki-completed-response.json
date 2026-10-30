@@ -3,11 +3,13 @@
   "requestId": "v15-deployed-ad3f6dfd2d9c45019cc5e96f313b372a",
   "status": "COMPLETED",
   "submittedAt": "2026-10-29T05:14:11.313913Z",
+  "userId": 101,
   "refrigeratorId": 928401,
   "startedAt": "2026-10-29T05:14:11.315450Z",
   "completedAt": "2026-10-29T05:14:15.443814Z",
   "result": {
     "recommendationId": "rec_52b5019669684aab8f04a2197192bdff",
+    "userId": 101,
     "refrigeratorId": 928401,
     "inventoryFingerprint": "0533f5477dac0fba20408a9c0607e69dd69d623b952ed8ae8b86df41a580603c",
     "recommendationMode": "EXCLUDE_EXPIRED",

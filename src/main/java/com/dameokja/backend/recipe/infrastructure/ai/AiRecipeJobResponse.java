@@ -6,13 +6,13 @@ import java.util.Objects;
 import org.springframework.web.client.RestClientException;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record AiRecipeJobResponse(String jobId, String requestId, Long refrigeratorId, Status status,
+public record AiRecipeJobResponse(String jobId, String requestId, Long userId, Long refrigeratorId, Status status,
         OffsetDateTime submittedAt, OffsetDateTime startedAt, OffsetDateTime completedAt, AiRecipeRecommendationResponse result, Error error) {
     public enum Status { QUEUED, PROCESSING, COMPLETED, FAILED }
 
     public AiRecipeJobResponse {
         if (jobId == null || jobId.isBlank() || requestId == null || requestId.isBlank() || refrigeratorId == null || refrigeratorId <= 0
-                || status == null || submittedAt == null) {
+                || (userId != null && userId <= 0) || status == null || submittedAt == null) {
             throw new RestClientException("AI 추천 작업 응답 형식이 올바르지 않습니다.");
         }
         boolean valid = switch (status) {
@@ -26,8 +26,9 @@ public record AiRecipeJobResponse(String jobId, String requestId, Long refrigera
     }
 
     public void validateFor(String expectedJobId, AiRecipeRecommendationRequest request) {
-        if (!Objects.equals(jobId, expectedJobId) || !request.requestId().equals(requestId) || !Objects.equals(refrigeratorId, request.refrigeratorId())) {
-            throw new RestClientException("AI 추천 작업 응답이 요청 작업·요청 ID·냉장고와 일치하지 않습니다.");
+        if (!Objects.equals(jobId, expectedJobId) || !request.requestId().equals(requestId)
+                || !Objects.equals(userId, request.userId()) || !Objects.equals(refrigeratorId, request.refrigeratorId())) {
+            throw new RestClientException("AI 추천 작업 응답이 요청 작업·요청 ID·사용자·냉장고와 일치하지 않습니다.");
         }
         if (result != null) {
             result.validateFor(request);

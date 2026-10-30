@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
@@ -55,10 +56,12 @@ class RecommendationWorkerCallbackTest extends ServiceIntegrationTest {
     @BeforeEach
     void prepare() throws Exception {
         Fixture refrigeratorOwner = ownerFixture("추천콜백회원");
-        AiRecipeRecommendationRequest recommendationRequest = RecommendationOptions.empty().toRequest("request", refrigeratorOwner.refrigeratorId(), List.of());
+        AiRecipeRecommendationRequest recommendationRequest = RecommendationOptions.empty().toRequest("request", refrigeratorOwner.userId(), refrigeratorOwner.refrigeratorId(), List.of());
         submissionResult = recommendationOutboxService.enqueue(recommendationRequest);
         ObjectNode callbackBody = (ObjectNode) jsonMapper.readTree(getClass().getResourceAsStream("/recipe-ai/wiki-completed-response.json"));
+        callbackBody.put("userId", refrigeratorOwner.userId());
         callbackBody.put("jobId", "ai-job").put("requestId", recommendationRequest.requestId()).put("refrigeratorId", refrigeratorOwner.refrigeratorId());
+        ((ObjectNode) callbackBody.get("result")).put("userId", refrigeratorOwner.userId());
         ((ObjectNode) callbackBody.get("result")).put("refrigeratorId", refrigeratorOwner.refrigeratorId()).put("inventoryFingerprint", recommendationRequest.inventoryFingerprint());
         completedResponse = jsonMapper.treeToValue(callbackBody, AiRecipeJobResponse.class);
         submitResponse = new AiRecipeSubmitResponse("ai-job", recommendationRequest.requestId(), AiRecipeJobResponse.Status.QUEUED, completedResponse.submittedAt());
@@ -133,15 +136,20 @@ class RecommendationWorkerCallbackTest extends ServiceIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"jobId", "requestId", "refrigeratorId", "inventoryFingerprint", "status"})
-    void rejectsMismatchedAndNonterminalCallbacks(String fieldName) throws Exception {
+    @CsvSource({"jobId,unrelated", "requestId,unrelated", "refrigeratorId,0", "inventoryFingerprint,unrelated", "status,PROCESSING",
+            "userId,9223372036854775807", "result.userId,9223372036854775807", "userId,NULL", "result.userId,NULL"})
+    void rejectsMismatchedAndNonterminalCallbacks(String fieldName, String invalidValue) throws Exception {
         recommendationJobStore.accept(submissionResult.eventId(), submitResponse);
         ObjectNode invalidCallbackBody = jsonMapper.valueToTree(completedResponse);
-        if (fieldName.equals("refrigeratorId")) {
-            invalidCallbackBody.put(fieldName, completedResponse.refrigeratorId() + 1);
+        ObjectNode targetCallbackBody = fieldName.startsWith("result.") || fieldName.equals("inventoryFingerprint")
+                ? (ObjectNode) invalidCallbackBody.get("result") : invalidCallbackBody;
+        String responseFieldName = fieldName.replace("result.", "");
+        if (invalidValue.equals("NULL")) {
+            targetCallbackBody.putNull(responseFieldName);
+        } else if (responseFieldName.equals("userId") || responseFieldName.equals("refrigeratorId")) {
+            targetCallbackBody.put(responseFieldName, Long.parseLong(invalidValue));
         } else {
-            ObjectNode targetCallbackBody = fieldName.equals("inventoryFingerprint") ? (ObjectNode) invalidCallbackBody.get("result") : invalidCallbackBody;
-            targetCallbackBody.put(fieldName, fieldName.equals("status") ? "PROCESSING" : "unrelated");
+            targetCallbackBody.put(responseFieldName, invalidValue);
         }
         assertThat(send(invalidCallbackBody, "test-key")).isEqualTo(fieldName.equals("requestId") ? 404 : 400);
         assertThat(recommendationJobStore.find(submissionResult.eventId()).orElseThrow().view()).isNull();
