@@ -61,14 +61,18 @@ public class RecommendationState extends BaseEntity {
     }
 
     public void queueUserRequest(String requestId) {
+        validateRequestAllowed();
+        activeRequestId = requestId;
+        generationStatus = GenerationStatus.QUEUED;
+        generationTrigger = GenerationTrigger.USER;
+    }
+
+    public void validateRequestAllowed() {
         if (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING) {
             throw new CustomException(RecommendationExceptionCode.GENERATION_IN_PROGRESS);
         }
         if (latestList != null && (currentList == null || !latestList.getId().equals(currentList.getId()))) {
             throw new CustomException(RecommendationExceptionCode.UNSELECTED_RESULT);
         }
-        activeRequestId = requestId;
-        generationStatus = GenerationStatus.QUEUED;
-        generationTrigger = GenerationTrigger.USER;
     }
 }
