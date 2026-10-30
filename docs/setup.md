@@ -190,6 +190,12 @@ AI의 `RECIPE_CALLBACK_URL`에는 위 경로, `RECIPE_CALLBACK_API_KEY`에는 �
 SENT의 Redis 정보 부재는 보관기간 만료와 진행 중 유실을 구분하지 못하며 204를 유지한다. 유실 복구는 별도 보완 대상이고 Kafka만으로 Redis 영속성이 보장되지는 않는다.
 완료 outbox 재순회·영구 오류 재시도·다중 인스턴스 독점 선점 부재는 현행 제약이다. Kafka 전환 시 전달·재시도를 검토하고 멱등 처리·작업 및 결과 보관 정책은 별도로 유지한다.
 
+## 추천 이력·참여자 상태 저장
+
+`recommendation_lists`에 완료 결과 전체를 JSON으로 한 번 저장하고, `recommendation_states`의 현재·최신 목록 참조로 구분한다.
+상태는 `(user_id, refrigerator_id)`별로 보관하며, 참여가 끝난 냉장고의 이력·상태도 유지한다. 다른 냉장고 상태를 일괄 갱신하지 않는다.
+빈 DB는 최신 `schema.sql`, 기존 DB는 `db/migrations/20261030-recommendation-participant-state.sql`을 수동 적용한다. 이번 단계는 저장 모델만 추가하며 기존 추천 처리 경로는 아직 연결하지 않는다.
+
 ## 이미지 업로드 발급 내역
 
 업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
