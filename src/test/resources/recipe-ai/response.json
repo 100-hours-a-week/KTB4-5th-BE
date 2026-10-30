@@ -1,5 +1,6 @@
 {
   "recommendationId": "rec-1",
+  "userId": 101,
   "refrigeratorId": 17,
   "inventoryFingerprint": "43193fcc5023364582ce0941f098a5c5fd76d7adf1ffa75ab4c108c753d7248c",
   "recommendationMode": "EXCLUDE_EXPIRED",

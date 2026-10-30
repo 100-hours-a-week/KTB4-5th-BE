@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Objects;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record AiRecipeRecommendationRequest(String requestId, Long refrigeratorId, String inventoryFingerprint, Mode recommendationMode,
+public record AiRecipeRecommendationRequest(String requestId, Long userId, Long refrigeratorId, String inventoryFingerprint, Mode recommendationMode,
         List<AiRecipeInventoryItem> inventory, List<String> excludedIngredientNames, Integer limit, List<String> preferenceTags,
         Integer targetServings, List<Strategy> strategies, List<String> pantryIngredientNames, List<String> recentRecipeIds) {
     private static final int MAX_INVENTORY = 300;
@@ -34,6 +34,7 @@ public record AiRecipeRecommendationRequest(String requestId, Long refrigeratorI
         validateRange(targetServings, MAX_SERVINGS);
         validateNames(preferenceTags, MAX_TAG_LENGTH);
         validateNames(pantryIngredientNames, MAX_NAME_LENGTH);
+        if (userId == null || userId <= 0) { throw new IllegalArgumentException("AI 추천 요청의 사용자 ID는 양의 정수여야 합니다."); }
         if (strategies != null && (strategies.isEmpty() || new HashSet<>(strategies).size() != strategies.size())) {
             throw new IllegalArgumentException("추천 전략은 비어 있거나 중복될 수 없습니다.");
         }
@@ -46,9 +47,9 @@ public record AiRecipeRecommendationRequest(String requestId, Long refrigeratorI
         }
     }
 
-    public AiRecipeRecommendationRequest(String requestId, Long refrigeratorId, String inventoryFingerprint, Mode recommendationMode,
+    public AiRecipeRecommendationRequest(String requestId, Long userId, Long refrigeratorId, String inventoryFingerprint, Mode recommendationMode,
             List<AiRecipeInventoryItem> inventory, List<String> excludedIngredientNames, int limit) {
-        this(requestId, refrigeratorId, inventoryFingerprint, recommendationMode, inventory, excludedIngredientNames, limit, null, null, null, null, null);
+        this(requestId, userId, refrigeratorId, inventoryFingerprint, recommendationMode, inventory, excludedIngredientNames, limit, null, null, null, null, null);
     }
 
     public Mode effectiveMode() { return recommendationMode == null ? Mode.EXCLUDE_EXPIRED : recommendationMode; }
@@ -78,19 +79,19 @@ public record AiRecipeRecommendationRequest(String requestId, Long refrigeratorI
         }
     }
 
-    public static AiRecipeRecommendationRequest create(String requestId, Long refrigeratorId, Mode mode,
+    public static AiRecipeRecommendationRequest create(String requestId, Long userId, Long refrigeratorId, Mode mode,
             List<AiRecipeInventoryItem> inventory, List<String> excludedIngredientNames, int limit) {
-        return new AiRecipeRecommendationRequest(requestId, refrigeratorId, AiInventoryFingerprint.of(inventory),
+        return new AiRecipeRecommendationRequest(requestId, userId, refrigeratorId, AiInventoryFingerprint.of(inventory),
                 mode, inventory, excludedIngredientNames, limit);
     }
 
-    public static AiRecipeRecommendationRequest from(String requestId, Long refrigeratorId, Mode mode,
+    public static AiRecipeRecommendationRequest from(String requestId, Long userId, Long refrigeratorId, Mode mode,
             List<Ingredient> ingredients, List<String> excludedIngredientNames, int limit) {
         for (Ingredient ingredient : ingredients) {
             if (!Objects.equals(refrigeratorId, ingredient.getRefrigerator().getId())) {
                 throw new IllegalArgumentException("요청 냉장고의 재고만 추천에 전달할 수 있습니다.");
             }
         }
-        return create(requestId, refrigeratorId, mode, ingredients.stream().map(AiRecipeInventoryItem::from).toList(), excludedIngredientNames, limit);
+        return create(requestId, userId, refrigeratorId, mode, ingredients.stream().map(AiRecipeInventoryItem::from).toList(), excludedIngredientNames, limit);
     }
 }

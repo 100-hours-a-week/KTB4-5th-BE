@@ -19,6 +19,6 @@ public class RecommendationInventoryService {
         List<AiRecipeInventoryItem> inventory = ingredientListService.getAll(userId, refrigeratorId).stream()
                 .map(AiRecipeInventoryItem::from)
                 .toList();
-        return resolvedOptions.toRequest(UUID.randomUUID().toString(), refrigeratorId, inventory);
+        return resolvedOptions.toRequest(UUID.randomUUID().toString(), userId, refrigeratorId, inventory);
     }
 }
