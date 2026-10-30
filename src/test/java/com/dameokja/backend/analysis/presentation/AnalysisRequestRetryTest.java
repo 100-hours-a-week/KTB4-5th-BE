@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
 import com.dameokja.backend.analysis.support.AnalysisContractTestSupport;
-import com.dameokja.backend.user.domain.User;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -31,20 +30,20 @@ class AnalysisRequestRetryTest extends AnalysisContractTestSupport {
     @ValueSource(strings = {"UNAVAILABLE", "TIMEOUT", "BUSY"})
     void retainsTheAcceptedAnalysisAndCompletesTheSameRequestAfterAiRecovers(String failure) throws Exception {
         failUntilRecovered(failure);
-        User user = user("재시도계약");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("재시도계약").userId();
+        String analysisId = accept(userId);
         AiImageAnalysisSubmitRequest firstRequest = receivedRequest();
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.analysisId").value(analysisId)).andExpect(jsonPath("$.data.status").value("QUEUED"));
 
         aiRecovered.set(true);
         AiImageAnalysisSubmitRequest retriedRequest = retryAndReceive();
 
         assertThat(retriedRequest).isEqualTo(firstRequest);
-        await().atMost(WAIT_LIMIT).untilAsserted(() -> queryAnalysis(user.getId(), analysisId)
+        await().atMost(WAIT_LIMIT).untilAsserted(() -> queryAnalysis(userId, analysisId)
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("PROCESSING")));
         completeAnalysis(AI_ANALYSIS_ID, "PRODUCT").andExpect(status().isOk());
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.analysisId").value(analysisId)).andExpect(jsonPath("$.data.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.results[0].items[0].name").value("우유"));
     }
@@ -52,15 +51,15 @@ class AnalysisRequestRetryTest extends AnalysisContractTestSupport {
     @Test
     void exposesATerminalFailureWhenAiRemainsUnavailableThroughTheAttemptLimit() throws Exception {
         failUntilRecovered("UNAVAILABLE");
-        User user = user("실패계약");
-        String analysisId = accept(user.getId());
+        Long userId = ownerFixture("실패계약").userId();
+        String analysisId = accept(userId);
         AiImageAnalysisSubmitRequest firstRequest = receivedRequest();
         for (int attempt = 1; attempt < analysisAttemptLimit(); attempt++) {
-            queryAnalysis(user.getId(), analysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
+            queryAnalysis(userId, analysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
             assertThat(retryAndReceive()).isEqualTo(firstRequest);
         }
 
-        queryAnalysis(user.getId(), analysisId).andExpect(status().isOk())
+        queryAnalysis(userId, analysisId).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.analysisId").value(analysisId)).andExpect(jsonPath("$.data.status").value("FAILED"))
                 .andExpect(jsonPath("$.data.results[0].error.code").value("ANALYSIS_UNAVAILABLE"))
                 .andExpect(jsonPath("$.data.results[0].error.retryable").value(true))
