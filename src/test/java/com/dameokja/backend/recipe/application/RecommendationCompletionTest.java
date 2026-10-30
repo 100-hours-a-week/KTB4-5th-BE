@@ -37,6 +37,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 class RecommendationCompletionTest extends ServiceIntegrationTest {
     @Autowired private RecommendationSubmissionService recommendationSubmissionService;
+    @Autowired private RecommendationSelectionService recommendationSelectionService;
     @Autowired private RecommendationExecutionService recommendationExecutionService;
     @Autowired private RecommendationCallbackService recommendationCallbackService;
     @Autowired private RecommendationOutboxService recommendationOutboxService;
@@ -158,6 +159,27 @@ class RecommendationCompletionTest extends ServiceIntegrationTest {
                 .singleElement().satisfies(exception -> assertThat(exception.getExceptionCode())
                         .isIn(RecommendationExceptionCode.GENERATION_IN_PROGRESS, RecommendationExceptionCode.UNSELECTED_RESULT));
         assertThat(state(refrigeratorParticipant).getGenerationStatus()).isEqualTo(RecommendationState.GenerationStatus.COMPLETED);
+        assertThat(recommendationListRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void selectionAndCompletionUseTheLatestResultAtTheirSerializedProcessingTime() throws Exception {
+        Fixture refrigeratorParticipant = ownerFixture("전환경합회원");
+        RecommendationSubmissionResult submissionResult = accept(refrigeratorParticipant);
+        AiRecipeJobResponse completedResponse = response(submissionResult, Status.COMPLETED);
+        assertThat(concurrently(List.of(() -> {
+            recommendationCallbackService.receive(completedResponse);
+            return "completed";
+        }, () -> {
+            recommendationSelectionService.selectLatest(refrigeratorParticipant.userId(), refrigeratorParticipant.refrigeratorId());
+            return "selected";
+        }))).containsExactlyInAnyOrder("completed", "selected");
+        RecommendationState completedState = state(refrigeratorParticipant);
+        Long latestListId = completedState.getLatestList().getId();
+        Long selectedListId = completedState.getCurrentList() == null ? null : completedState.getCurrentList().getId();
+        assertThat(selectedListId).isIn(null, latestListId);
+        recommendationSelectionService.selectLatest(refrigeratorParticipant.userId(), refrigeratorParticipant.refrigeratorId());
+        assertThat(state(refrigeratorParticipant).getCurrentList().getId()).isEqualTo(latestListId);
         assertThat(recommendationListRepository.count()).isEqualTo(1);
     }
 
