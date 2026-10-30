@@ -92,4 +92,8 @@ public class RecommendationState extends BaseEntity {
         generationStatus = GenerationStatus.FAILED;
         activeRequestId = null;
     }
+
+    public void selectLatestList() {
+        if (latestList != null) { currentList = latestList; }
+    }
 }
