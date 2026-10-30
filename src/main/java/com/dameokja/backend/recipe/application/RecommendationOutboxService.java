@@ -6,6 +6,8 @@ import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationReque
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.util.UUID;
+import java.util.List;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,5 +38,22 @@ public class RecommendationOutboxService {
     @Transactional
     public void markSent(String eventId) {
         recommendationOutboxRepository.findByEventId(eventId).orElseThrow().markSent();
+    }
+
+    public record Event(Long sequence, String eventId, RecommendationOutbox.Status status, AiRecipeRecommendationRequest request) {}
+
+    @Transactional(readOnly = true)
+    public List<Event> batch(long lastScannedOutboxId, int batchSize) {
+        return recommendationOutboxRepository.findByIdGreaterThanOrderByIdAsc(lastScannedOutboxId, PageRequest.of(0, batchSize)).stream().map(this::event).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Event> matching(String requestId) {
+        return recommendationOutboxRepository.findByRequestIdOrderByIdAsc(requestId).stream().map(this::event).toList();
+    }
+
+    private Event event(RecommendationOutbox recommendationOutbox) {
+        return new Event(recommendationOutbox.getId(), recommendationOutbox.getEventId(), recommendationOutbox.getStatus(),
+                jsonMapper.readValue(recommendationOutbox.getPayload(), AiRecipeRecommendationRequest.class));
     }
 }

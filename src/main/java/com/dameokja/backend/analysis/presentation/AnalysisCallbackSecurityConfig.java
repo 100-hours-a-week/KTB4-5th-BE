@@ -23,7 +23,7 @@ public class AnalysisCallbackSecurityConfig {
     @Bean
     @Order(1)
     SecurityFilterChain analysisCallbackChain(HttpSecurity http, AiClientProperties properties) throws Exception {
-        return http.securityMatcher("/api/v1/internal/image-analyses/callback")
+        return http.securityMatcher("/api/v1/internal/image-analyses/callback", "/api/v1/internal/recipe-recommendations/callback")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
@@ -41,7 +41,8 @@ public class AnalysisCallbackSecurityConfig {
             if (apiKey.isBlank() || supplied == null || !MessageDigest.isEqual(apiKey.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8))) {
                 response.setStatus(401);
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\":\"IMAGE-401-001\",\"message\":\"서비스 인증에 실패했습니다.\"}");
+                String errorCode = request.getRequestURI().endsWith("/recipe-recommendations/callback") ? "RECOMMEND-401-001" : "IMAGE-401-001";
+                response.getWriter().write("{\"code\":\"" + errorCode + "\",\"message\":\"서비스 인증에 실패했습니다.\"}");
                 return;
             }
             chain.doFilter(request, response);
