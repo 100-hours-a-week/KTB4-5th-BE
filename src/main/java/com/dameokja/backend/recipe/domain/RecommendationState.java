@@ -75,4 +75,21 @@ public class RecommendationState extends BaseEntity {
             throw new CustomException(RecommendationExceptionCode.UNSELECTED_RESULT);
         }
     }
+
+    public boolean isGeneratingRequest(String requestId) {
+        return requestId.equals(activeRequestId) && (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING);
+    }
+
+    public void markProcessing() { generationStatus = GenerationStatus.PROCESSING; }
+
+    public void completeGeneration(RecommendationList completedList) {
+        latestList = completedList;
+        generationStatus = GenerationStatus.COMPLETED;
+        activeRequestId = null;
+    }
+
+    public void failGeneration() {
+        generationStatus = GenerationStatus.FAILED;
+        activeRequestId = null;
+    }
 }

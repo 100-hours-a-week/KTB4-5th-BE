@@ -2,6 +2,7 @@ package com.dameokja.backend.recipe.application;
 
 import com.dameokja.backend.recipe.infrastructure.RecommendationJobStore;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeClient;
+import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeJobResponse;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ public class RecommendationExecutionService {
     private final RecommendationOutboxService outbox;
     private final AiRecipeClient ai;
     private final RecommendationJobStore jobs;
+    private final RecommendationCompletionService recommendationCompletionService;
 
     public RecommendationJobStore.Job submit(String eventId) {
         AiRecipeRecommendationRequest request = outbox.request(eventId);
@@ -27,9 +29,11 @@ public class RecommendationExecutionService {
     public RecommendationJobStore.Job refresh(String eventId) {
         AiRecipeRecommendationRequest request = outbox.request(eventId);
         RecommendationJobStore.Job job = jobs.find(eventId).orElseThrow();
-        if (job.terminal()) {
-            return job;
+        if (!job.terminal()) {
+            AiRecipeJobResponse recommendationJobResponse = ai.get(job.acceptance().jobId(), request);
+            job = jobs.update(eventId, recommendationJobResponse);
         }
-        return jobs.update(eventId, ai.get(job.acceptance().jobId(), request));
+        recommendationCompletionService.apply(job.view());
+        return job;
     }
 }

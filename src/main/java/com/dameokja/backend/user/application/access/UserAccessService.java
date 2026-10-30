@@ -9,6 +9,7 @@ import com.dameokja.backend.user.domain.UserStatus;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,14 +22,18 @@ public class UserAccessService {
         getActive(userId);
     }
 
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    @Transactional(propagation = Propagation.MANDATORY)
     public User lockActive(Long userId) {
-        User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new CustomException(USER_NOT_FOUND));
+        User user = lockExisting(userId);
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new CustomException(USER_NOT_ACTIVE);
         }
         return user;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public User lockExisting(Long userId) {
+        return userRepository.findByIdForUpdate(userId).orElseThrow(() -> new CustomException(USER_NOT_FOUND));
     }
 
     public User getActive(Long userId) {

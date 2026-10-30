@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class RecommendationCallbackService {
     private final RecommendationOutboxService recommendationOutboxService;
     private final RecommendationJobStore recommendationJobStore;
+    private final RecommendationCompletionService recommendationCompletionService;
 
     public void receive(AiRecipeJobResponse aiRecipeJobResponse) {
         if (aiRecipeJobResponse.status() != AiRecipeJobResponse.Status.COMPLETED && aiRecipeJobResponse.status() != AiRecipeJobResponse.Status.FAILED) {
@@ -31,6 +32,9 @@ public class RecommendationCallbackService {
             if (!storedJob.orElseThrow().acceptance().jobId().equals(aiRecipeJobResponse.jobId())) { throw new IllegalArgumentException("AI 작업 ID가 일치하지 않습니다."); }
             activeEventIds.add(outboxEvent.eventId());
         }
-        activeEventIds.forEach(eventId -> recommendationJobStore.update(eventId, aiRecipeJobResponse));
+        for (String eventId : activeEventIds) {
+            RecommendationJobStore.Job updatedJob = recommendationJobStore.update(eventId, aiRecipeJobResponse);
+            recommendationCompletionService.apply(updatedJob.view());
+        }
     }
 }
