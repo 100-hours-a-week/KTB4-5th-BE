@@ -25,7 +25,7 @@ public record AiRecipeJobResponse(String jobId, String requestId, Long refrigera
         }
     }
 
-    void validateFor(String expectedJobId, AiRecipeRecommendationRequest request) {
+    public void validateFor(String expectedJobId, AiRecipeRecommendationRequest request) {
         if (!Objects.equals(jobId, expectedJobId) || !request.requestId().equals(requestId) || !Objects.equals(refrigeratorId, request.refrigeratorId())) {
             throw new RestClientException("AI 추천 작업 응답이 요청 작업·요청 ID·냉장고와 일치하지 않습니다.");
         }
