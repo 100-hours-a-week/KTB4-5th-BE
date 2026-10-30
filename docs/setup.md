@@ -214,6 +214,8 @@ Redis에 종료 응답이 저장된 뒤 DB 반영이 실패하면 중복 콜백�
 전환은 접수·완료 반영과 같은 잠금 순서를 사용한다. SENT의 Redis 정보 유실 시 자동 복구하지 않는 기존 제한은 유지한다.
 `GET /api/v1/refrigerators/{refrigeratorId}/recommendations`는 현재 선택한 JSON 결과를 반환하며 새 생성·전환·한도 차감을 하지 않는다. 상태는 미전환 결과가 있으면 STALE, 최신 선택이면 READY다.
 recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환할 레시피에 매핑된 재고만 조회하며, 조리시간·재료 매핑을 알 수 없으면 null을 반환한다. SSE 및 레시피 테이블 동기화는 후속 구현 범위다.
+`GET /api/v1/refrigerators/{refrigeratorId}/recipes/{recipeId}`는 본인의 현재 선택 결과에서 상세를 반환한다. recipeIngredientId는 해당 레시피의 AI 재료 번호 문자열이며, 재료와 조리 단계의 순서를 유지한다.
+상세의 stocks에는 현재 보유량·재배분한 예상 사용량·만료일을 함께 제공한다. ETag는 상세 응답 내용의 SHA-256으로 생성하며 응답이 같으면 유지된다. 별도 요리 적용 미리보기 API 없이 이 값을 표시하며, 조회는 실제 재고를 차감하지 않는다. 선택 결과나 레시피가 없으면 404 / RECOMMEND-404-001이다.
 
 ## 이미지 업로드 발급 내역
 

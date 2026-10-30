@@ -35,8 +35,8 @@ final class RecommendationStockAllocator {
         return allocationsByIngredient;
     }
 
-    private static IngredientRequirement requirement(Recipe recipe, Integer ingredientNo) {
-        if (recipe.ingredientRequirements() == null) { return null; }
+    static IngredientRequirement requirement(Recipe recipe, Integer ingredientNo) {
+        if (ingredientNo == null || recipe.ingredientRequirements() == null) { return null; }
         return recipe.ingredientRequirements().stream().filter(requirement -> ingredientNo.equals(requirement.ingredientNo())).findFirst().orElse(null);
     }
 
@@ -80,7 +80,7 @@ final class RecommendationStockAllocator {
         return requirement.requiredAmount().setScale(scale, RoundingMode.HALF_UP);
     }
 
-    private static String normalizedUnit(String unit) {
+    static String normalizedUnit(String unit) {
         if (unit == null) { return null; }
         return switch (unit) {
             case "EA", "COUNT" -> "EA";
