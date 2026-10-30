@@ -40,6 +40,7 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
     @Autowired private RecommendationSubmissionService recommendationSubmissionService;
     @Autowired private RecommendationInventoryService recommendationInventoryService;
     @Autowired private RecommendationAcceptanceService recommendationAcceptanceService;
+    @Autowired private RecommendationDailyQuotaService recommendationDailyQuotaService;
     @Autowired private RecommendationOutboxRepository recommendationOutboxRepository;
     @Autowired private RecommendationStateRepository recommendationStateRepository;
     @Autowired private RecommendationListRepository recommendationListRepository;
@@ -97,6 +98,7 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
 
         assertThat(recommendationOutboxRepository.count()).isZero();
         assertThat(recommendationStateRepository.count()).isZero();
+        assertThat(recommendationDailyQuotaService.current(refrigeratorOwner.userId()).remaining()).isEqualTo(10);
     }
 
     @Test
@@ -209,8 +211,10 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
     }
 
     private void assertRejected(Fixture participant, RecommendationExceptionCode expected) {
+        RecommendationDailyGeneration before = recommendationDailyQuotaService.current(participant.userId());
         assertThatThrownBy(() -> submit(participant)).isInstanceOfSatisfying(CustomException.class,
                 exception -> assertThat(exception.getExceptionCode()).isEqualTo(expected));
+        assertThat(recommendationDailyQuotaService.current(participant.userId())).isEqualTo(before);
     }
 
     private Long saveResult(Fixture participant) {
