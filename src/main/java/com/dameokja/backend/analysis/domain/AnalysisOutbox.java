@@ -57,6 +57,13 @@ public class AnalysisOutbox extends BaseEntity {
     @Column(name = "last_error_code", length = 64)
     private String lastErrorCode;
 
+    public void lease(String leaseToken, LocalDateTime leaseUntil) {
+        status = AnalysisOutboxStatus.PUBLISHING;
+        this.leaseToken = leaseToken;
+        this.leaseUntil = leaseUntil;
+        attemptCount++;
+    }
+
     public static AnalysisOutbox pending(AnalysisJobState analysisJobState, String messageId, String topic, String messageBody, LocalDateTime nextAttemptAt) {
         AnalysisOutbox analysisOutbox = new AnalysisOutbox();
         analysisOutbox.analysisJobState = analysisJobState;
