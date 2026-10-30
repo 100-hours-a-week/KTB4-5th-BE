@@ -212,7 +212,8 @@ Redis에 종료 응답이 저장된 뒤 DB 반영이 실패하면 중복 콜백�
 `POST /api/v1/refrigerators/{refrigeratorId}/recommendations/current`는 추천 ID·본문 없이 최신 완료 결과를 현재 선택 목록으로 지정한다.
 새 결과가 없거나 이미 선택한 결과여도 현재 상태를 유지하고 204·본문 없음으로 응답하며, 새 생성·한도 차감은 없다.
 전환은 접수·완료 반영과 같은 잠금 순서를 사용한다. SENT의 Redis 정보 유실 시 자동 복구하지 않는 기존 제한은 유지한다.
-FE의 목록 조회·SSE 및 레시피 테이블 동기화는 후속 구현 범위다.
+`GET /api/v1/refrigerators/{refrigeratorId}/recommendations`는 현재 선택한 JSON 결과를 반환하며 새 생성·전환·한도 차감을 하지 않는다. 상태는 미전환 결과가 있으면 STALE, 최신 선택이면 READY다.
+recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환할 레시피에 매핑된 재고만 조회하며, 조리시간·재료 매핑을 알 수 없으면 null을 반환한다. SSE 및 레시피 테이블 동기화는 후속 구현 범위다.
 
 ## 이미지 업로드 발급 내역
 
