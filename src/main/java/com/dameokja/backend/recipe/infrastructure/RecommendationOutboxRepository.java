@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecommendationOutboxRepository extends JpaRepository<RecommendationOutbox, Long> {
     Optional<RecommendationOutbox> findByEventId(String eventId);
+    Optional<RecommendationOutbox> findFirstByRequestIdOrderByIdAsc(String requestId);
     List<RecommendationOutbox> findByIdGreaterThanOrderByIdAsc(Long lastScannedOutboxId, Pageable pageable);
     List<RecommendationOutbox> findByRequestIdOrderByIdAsc(String requestId);
 }
