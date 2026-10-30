@@ -22,7 +22,7 @@ public record AiRecipeRecommendationResponse(
 
     void validateFor(AiRecipeRecommendationRequest request) {
         if (!Objects.equals(refrigeratorId, request.refrigeratorId()) || !request.inventoryFingerprint().equals(inventoryFingerprint)
-                || !request.recommendationMode().name().equals(recommendationMode)) {
+                || !request.effectiveMode().name().equals(recommendationMode)) {
             throw new RestClientException("AI 추천 응답이 요청 냉장고·재고 지문·모드와 일치하지 않습니다.");
         }
     }

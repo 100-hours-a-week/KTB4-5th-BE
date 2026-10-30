@@ -49,7 +49,7 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
                 .updateMeasurement(Measurement.of(MeasureType.COUNT, 3, null, WeightUnit.NONE)));
 
         assertThat(firstSubmissionResult.eventId()).isNotEqualTo(secondSubmissionResult.eventId());
-        assertThat(firstSubmissionResult.requestId()).isEqualTo(secondSubmissionResult.requestId());
+        assertThat(firstSubmissionResult.requestId()).isNotEqualTo(secondSubmissionResult.requestId());
         assertThat(firstSubmissionResult.refrigeratorId()).isEqualTo(refrigeratorOwner.refrigeratorId());
         assertThat(firstSubmissionResult.acceptedAt()).isNotNull();
         assertThat(recommendationOutboxRepository.count()).isEqualTo(2);
@@ -57,6 +57,17 @@ class RecommendationSubmissionServiceTest extends ServiceIntegrationTest {
                 recommendationOutboxRepository.findByEventId(firstSubmissionResult.eventId()).orElseThrow().getPayload(), AiRecipeRecommendationRequest.class);
         assertThat(storedRequest.requestId()).isEqualTo(firstSubmissionResult.requestId());
         assertThat(storedRequest.inventory()).singleElement().satisfies(inventoryItem -> assertThat(inventoryItem.quantity()).isEqualTo(2));
+    }
+
+    @Test
+    void freezesEveryUserOptionInTheOutboxPayload() {
+        Fixture refrigeratorOwner = ownerFixture("옵션회원");
+        RecommendationOptions options = new RecommendationOptions(Mode.INCLUDE_EXPIRED, List.of("한식"), 3, 4,
+                List.of(AiRecipeRecommendationRequest.Strategy.SIMPLE_COOKING), List.of("우유"), List.of("소금"), List.of("MANUAL:123"));
+        RecommendationSubmissionResult submission = recommendationSubmissionService.submit(refrigeratorOwner.userId(), refrigeratorOwner.refrigeratorId(), options);
+        AiRecipeRecommendationRequest stored = jsonMapper.readValue(
+                recommendationOutboxRepository.findByEventId(submission.eventId()).orElseThrow().getPayload(), AiRecipeRecommendationRequest.class);
+        assertThat(stored).isEqualTo(options.toRequest(submission.requestId(), refrigeratorOwner.refrigeratorId(), List.of()));
     }
 
     @Test

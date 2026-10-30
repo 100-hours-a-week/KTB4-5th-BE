@@ -167,5 +167,23 @@
       }
     ],
     "fingerprint": "1b2e504f8ad88f97cfda9bc8e782753f8d4b4ee87a6b4eacded5b92f86e179c5"
+  },
+  {
+    "case": "ingredient-key",
+    "inventory": [
+      {
+        "ingredientId": 101,
+        "name": "두부",
+        "category": "TOFU_BEAN",
+        "storageType": "REFRIGERATED",
+        "measureType": "WEIGHT",
+        "quantity": null,
+        "weightValue": 300,
+        "weightUnit": "G",
+        "expirationDate": "2026-11-01",
+        "ingredientKey": " ＴＯＦＵ "
+      }
+    ],
+    "fingerprint": "48dc5bf661399e796689d96f3cf773f48b407b066bf8e4b44a422a663554efb9"
   }
 ]

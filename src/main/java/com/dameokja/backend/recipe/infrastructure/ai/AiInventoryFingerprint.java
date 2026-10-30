@@ -31,6 +31,7 @@ public final class AiInventoryFingerprint {
         Map<String, Object> row = new TreeMap<>();
         row.put("ingredientId", item.ingredientId());
         row.put("name", AiRecipeCasefold.normalize(item.name()));
+        if (item.ingredientKey() != null) { row.put("ingredientKey", AiRecipeCasefold.normalize(item.ingredientKey())); }
         row.put("category", item.category().name());
         row.put("storageType", item.storageType().name());
         row.put("measureType", item.measureType().name());

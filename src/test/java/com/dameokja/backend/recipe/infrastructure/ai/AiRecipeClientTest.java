@@ -1,6 +1,7 @@
 package com.dameokja.backend.recipe.infrastructure.ai;
 
 import com.dameokja.backend.global.config.ai.AiClientConfig;
+import com.dameokja.backend.recipe.application.RecommendationOptions;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.sun.net.httpserver.HttpExchange;
@@ -69,7 +70,8 @@ class AiRecipeClientTest {
 
     @Test
     void sendsWikiRequestAndPreservesWholeResponseOverRealHttp() {
-        AiRecipeSubmitResponse response = client(Duration.ofSeconds(2)).submit(request);
+        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 17L, request.inventory());
+        AiRecipeSubmitResponse response = client(Duration.ofSeconds(2)).submit(defaultRequest);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
         assertThat(receivedKey.get()).isEqualTo("test-key");
         assertThat(receivedPath.get()).isEqualTo("POST /ai/v1/recipe-recommendations");
@@ -81,15 +83,30 @@ class AiRecipeClientTest {
         assertThat(ingredient.path("quantity").isNull()).isTrue();
         assertThat(ingredient.path("weightValue").decimalValue()).isEqualByComparingTo("300");
         assertThat(ingredient.has("ingredientKey")).isFalse();
-        for (String omitted : List.of("targetServings", "strategies", "pantryIngredientNames", "recentRecipeIds")) {
+        for (String omitted : List.of("recommendationMode", "preferenceTags", "limit", "targetServings", "strategies",
+                "excludedIngredientNames", "pantryIngredientNames", "recentRecipeIds")) {
             assertThat(sent.has(omitted)).as(omitted).isFalse();
         }
     }
 
     @Test
+    void sendsEveryExplicitOptionalInputOverHttp() {
+        JsonNode optionsJson = mapper.readTree("""
+                {"recommendationMode":"INCLUDE_EXPIRED","preferenceTags":["#한식"],"limit":3,"targetServings":4,
+                 "strategies":["SIMPLE_COOKING"],"excludedIngredientNames":["우유"],
+                 "pantryIngredientNames":["소금"],"recentRecipeIds":["MANUAL:123"]}
+                """);
+        RecommendationOptions options = mapper.treeToValue(optionsJson, RecommendationOptions.class);
+        client(Duration.ofSeconds(2)).submit(options.toRequest("req-1", 17L, request.inventory()));
+        JsonNode sent = mapper.readTree(receivedBody.get());
+        optionsJson.properties().forEach(option -> assertThat(sent.path(option.getKey())).as(option.getKey()).isEqualTo(option.getValue()));
+    }
+
+    @Test
     void getsCompletedJobAndPreservesWholeResult() {
         completedJob();
-        AiRecipeJobResponse response = client(Duration.ofSeconds(2)).get("rjob-1", request);
+        AiRecipeRecommendationRequest defaultRequest = RecommendationOptions.empty().toRequest("req-1", 17L, request.inventory());
+        AiRecipeJobResponse response = client(Duration.ofSeconds(2)).get("rjob-1", defaultRequest);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
         assertThat(receivedKey.get()).isEqualTo("test-key");
         assertThat(receivedPath.get()).isEqualTo("GET /ai/v1/recipe-recommendations/rjob-1");
