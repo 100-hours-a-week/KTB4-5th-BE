@@ -66,16 +66,7 @@ public class RefrigeratorAccessService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Refrigerator lockForWrite(Long userId, Long refrigeratorId) {
         userAccessService.lockActive(userId);
-        Refrigerator refrigerator = refrigeratorRepository.findByIdForUpdate(refrigeratorId)
-                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
-        refrigerator.validateAvailable();
-
-        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository.findActiveForUpdate(userId, refrigeratorId)
-                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
-        refrigeratorMember.validateSelectedAccessTo(refrigeratorId);
-
-        userAccessService.validateActive(userId);
-        return refrigerator;
+        return lockSelectedRefrigerator(userId, refrigeratorId);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -83,6 +74,18 @@ public class RefrigeratorAccessService {
         userAccessService.lockActive(userId);
         Long refrigeratorId = refrigeratorMemberRepository.findActiveRefrigeratorId(userId)
                 .orElseThrow(() -> new CustomException(ACCESS_DENIED));
-        return lockForWrite(userId, refrigeratorId);
+        return lockSelectedRefrigerator(userId, refrigeratorId);
+    }
+
+    // 두 진입점 모두 사용자 잠금을 먼저 잡아 선택 변경·탈퇴와 저장이 엇갈리지 않게 한다.
+    private Refrigerator lockSelectedRefrigerator(Long userId, Long refrigeratorId) {
+        Refrigerator refrigerator = refrigeratorRepository.findByIdForUpdate(refrigeratorId)
+                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
+        refrigerator.validateAvailable();
+
+        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository.findActiveForUpdate(userId, refrigeratorId)
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
+        refrigeratorMember.validateSelectedAccessTo(refrigeratorId);
+        return refrigerator;
     }
 }
