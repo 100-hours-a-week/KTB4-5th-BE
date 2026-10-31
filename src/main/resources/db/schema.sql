@@ -183,7 +183,9 @@ CREATE TABLE recipe_steps (
 CREATE TABLE cooking_records (
     cooking_record_id BIGINT NOT NULL AUTO_INCREMENT,
     recommendation_id VARCHAR(64) NOT NULL COMMENT '캐시 추천 결과 식별자. 레시피 FK 아님',
-    recipe_name_snapshot VARCHAR(150) NOT NULL COMMENT '적용 당시 표시된 요리명',
+    recipe_identity TEXT NULL COMMENT 'SOURCE:sourceRecipeId. 도입 전 기록은 NULL',
+    detail_etag VARCHAR(128) NULL COMMENT '확인한 상세 응답 ETag. 도입 전 기록은 NULL',
+    recipe_name_snapshot VARCHAR(255) NOT NULL COMMENT '적용 당시 표시된 요리명',
     idempotency_key VARCHAR(64) NOT NULL COMMENT '동일 적용 요청의 중복 차감 방지',
     cooked_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     user_id BIGINT NOT NULL,
