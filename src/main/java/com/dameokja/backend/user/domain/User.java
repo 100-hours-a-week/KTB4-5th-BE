@@ -67,6 +67,8 @@ public class User extends BaseEntity {
         this.profileImageKey = profileImageKey;
     }
 
+    public void recordCooking() { cookingCount = Math.incrementExact(cookingCount); }
+
     public void withdraw(String replacementNickname, LocalDateTime withdrawnAt) {
         this.nickname = replacementNickname;
         this.status = UserStatus.WITHDRAWN;

@@ -94,4 +94,6 @@ public class Ingredient extends BaseEntity {
     public boolean expire(Measurement expiredAmount) {
         return measurement.subtract(expiredAmount);
     }
+
+    public boolean consume(Measurement consumedAmount) { return measurement.subtract(consumedAmount); }
 }

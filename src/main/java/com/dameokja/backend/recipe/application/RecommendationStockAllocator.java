@@ -16,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 
 final class RecommendationStockAllocator {
-    private static final int WEIGHT_SCALE = 3;
-
     private RecommendationStockAllocator() {}
 
     static Map<Integer, List<StockAllocation>> allocate(Recipe recipe, Map<Long, AiRecipeInventoryItem> inventoryById) {
@@ -74,10 +72,8 @@ final class RecommendationStockAllocator {
 
     private static BigDecimal requiredAmount(IngredientRequirement requirement, String requiredUnit) {
         if (requirement == null || requiredUnit == null || requirement.requiredAmount() == null || requirement.requiredAmount().signum() < 0) { return null; }
-        int scale = WEIGHT_SCALE;
-        if ("EA".equals(requiredUnit)) { scale = 0; }
-        // 현재 재고가 표현할 수 있는 개수·소수 정밀도에서 필요량과 가장 가까운 값으로 맞춘다.
-        return requirement.requiredAmount().setScale(scale, RoundingMode.HALF_UP);
+        // 재고 등록·수정과 동일하게 개수·중량·용량을 모두 정수로 맞춘다.
+        return requirement.requiredAmount().setScale(0, RoundingMode.HALF_UP);
     }
 
     static String normalizedUnit(String unit) {
