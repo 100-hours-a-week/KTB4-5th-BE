@@ -23,9 +23,9 @@ import com.dameokja.backend.analysis.application.job.AnalysisImageResult;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
@@ -83,7 +83,7 @@ class AnalysisCallbackWebTest {
     @BeforeEach
     void setup() {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-        reset(pushes);
+        reset(analysisCompletionNotifier);
         job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
         store.register(job.id(), 7L, job.analysisImages().getFirst().requestId(), "ai-first");
     }
@@ -106,29 +106,8 @@ class AnalysisCallbackWebTest {
         String failed = BODY.replace("COMPLETED", "FAILED").replace("{\"documentType\":\"PRODUCT\",\"items\":[]}", "null")
                 .replace("\"error\":null", "\"error\":{\"code\":\"MODEL_UNAVAILABLE\",\"message\":\"failed\",\"retryable\":true}");
         send(failed, "local-ai-test", 200);
-        verify(pushes, times(2)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
-        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
-    }
-
-    @Test
-    void createsCompletionPushOnceWhenTheLastResultIsSaved() throws Exception {
-        send(BODY, "local-ai-test", 200);
-        send(BODY, "local-ai-test", 200);
-        verify(pushes, times(1)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
-        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
-    }
-
-    @Test
-    void acceptsTheCallbackAndRetriesPushCreationWithoutAi() throws Exception {
-        doThrow(new DataAccessResourceFailureException("db")).doNothing().when(pushes).create(any(), any(), any());
-        send(BODY, "local-ai-test", 200);
-        AnalysisJob saved = store.findOwned(job.id(), 7L);
-        assertThat(saved.analysisImages().getFirst().completion()).isNotNull();
-        assertThat(saved.notificationPending()).isTrue();
-        Thread.sleep(5);
-        analysisCompletionNotifier.deliverPending();
-        verify(pushes, times(2)).create(eq(job.id()), eq(7L), any(OffsetDateTime.class));
-        assertThat(store.findOwned(job.id(), 7L).notificationPending()).isFalse();
+        verify(analysisCompletionNotifier, times(2)).notifyFinished(any(), any(), any());
+        assertThat(store.findOwned(job.id(), 7L).analysisImages().getFirst().completion().status()).isEqualTo(AnalysisStatus.FAILED);
     }
 
     @Test
@@ -275,12 +254,8 @@ class AnalysisCallbackWebTest {
         }
 
         @Bean
-        AnalysisPendingNotificationStore pendingNotifications() { return new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate()); }
-
-        @Bean
-        AnalysisCompletionNotifier notifier(AnalysisJobStore store, AnalysisPendingNotificationStore analysisPendingNotificationStore, PushAnalysisCreationService pushes,
-                AnalysisFinishedEventService events, NotificationStreamService connections) {
-            return new AnalysisCompletionNotifier(store, analysisPendingNotificationStore, pushes, events, connections, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 0);
+        AnalysisCompletionNotifier notifier() {
+            return mock(AnalysisCompletionNotifier.class);
         }
 
         @Bean

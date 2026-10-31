@@ -6,12 +6,11 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
+import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore.Lease;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationStreamService;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
@@ -20,38 +19,34 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
-// 결과 저장 뒤 알림은 AI 콜백 재시도에 기대지 않는다. 먼저 알림 대기 목록에 올리고, 끝까지 보낸 뒤에만 내린다.
+// 완료 결과와 함께 저장된 DB 알림 대기를 선점하고, 트랜잭션 밖에서 SSE를 발행한다.
 @Slf4j
 @Component
 public class AnalysisCompletionNotifier {
     private static final int PENDING_BATCH_SIZE = 20;
-    private final AnalysisJobStore analysisJobStore;
+    private final AnalysisNotificationState analysisNotificationState;
     private final AnalysisPendingNotificationStore analysisPendingNotificationStore;
-    private final PushAnalysisCreationService pushes;
     private final AnalysisFinishedEventService analysisFinishedEventService;
     private final NotificationStreamService notificationStreamService;
     private final Clock clock;
     private final Duration retryDelay;
-    private final int sseRetries;
+    private final int sseMaxAttempts;
 
-    public AnalysisCompletionNotifier(AnalysisJobStore analysisJobStore, AnalysisPendingNotificationStore analysisPendingNotificationStore, PushAnalysisCreationService pushes,
+    public AnalysisCompletionNotifier(AnalysisNotificationState analysisNotificationState, AnalysisPendingNotificationStore analysisPendingNotificationStore,
             AnalysisFinishedEventService analysisFinishedEventService, NotificationStreamService notificationStreamService, Clock clock,
-            @Value("${analysis.notification.retry-delay:5s}") Duration retryDelay, @Value("${analysis.notification.sse-retries:3}") int sseRetries) {
-        if (retryDelay == null || retryDelay.toMillis() < 1 || sseRetries < 0) {
-            throw new IllegalArgumentException("알림 재시도 간격은 1밀리초 이상, SSE 재시도 횟수는 0 이상이어야 합니다.");
+            @Value("${analysis.notification.retry-delay:1s}") Duration retryDelay, @Value("${analysis.notification.sse-max-attempts:3}") int sseMaxAttempts) {
+        if (retryDelay == null || retryDelay.toMillis() < 1 || sseMaxAttempts < 1) {
+            throw new IllegalArgumentException("알림 재시도 간격은 1밀리초 이상, SSE 최대 시도 횟수는 1 이상이어야 합니다.");
         }
-        this.analysisJobStore = analysisJobStore;
+        this.analysisNotificationState = analysisNotificationState;
         this.analysisPendingNotificationStore = analysisPendingNotificationStore;
-        this.pushes = pushes;
         this.analysisFinishedEventService = analysisFinishedEventService;
         this.notificationStreamService = notificationStreamService;
         this.clock = clock;
         this.retryDelay = retryDelay;
-        this.sseRetries = sseRetries;
+        this.sseMaxAttempts = sseMaxAttempts;
     }
 
-    // 알림 대기 목록에 올리지 못하면 결과만 저장되고 알림을 보낼 주체가 없다. 그래서 전달 행을 닫기 전에 올리고,
-    // 실패하면 전달 행을 열어 둔 채 콜백 재시도나 기한 확인이 다시 처리하게 한다.
     public void addPending(String analysisJobId) {
         try {
             analysisPendingNotificationStore.schedule(analysisJobId, clock.instant().plus(retryDelay));
@@ -61,99 +56,97 @@ public class AnalysisCompletionNotifier {
     }
 
     public void notifyFinished(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
-        deliver(analysisJob.id(), () -> publishImageEvent(analysisJob, requestId, completion));
+        addPending(analysisJob.id());
     }
 
-    public void deliverPending() {
-        for (String id : analysisPendingNotificationStore.claimDue(clock.instant(), retryDelay, PENDING_BATCH_SIZE)) {
-            deliver(id, () -> analysisJobStore.find(id).ifPresent(this::publishUnsentImageEvents));
+    public synchronized void deliverPending() {
+        for (int notificationIndex = 0; notificationIndex < PENDING_BATCH_SIZE; notificationIndex++) {
+            Optional<Lease> notificationLease = analysisPendingNotificationStore.leaseNext();
+            if (notificationLease.isEmpty()) { return; }
+            Lease lease = notificationLease.orElseThrow();
+            deliver(lease);
+            analysisPendingNotificationStore.completeAttempt(lease);
         }
     }
 
-    private void deliver(String id, Runnable publishImageEvents) {
+    private void deliver(Lease lease) {
+        String analysisJobId = lease.analysisJobId();
         try {
-            publishImageEvents.run();
-            Optional<AnalysisJob> analysisJob = analysisJobStore.find(id);
-            if (analysisJob.isPresent() && analysisJob.get().notificationPending()) {
-                notifyCompletion(analysisJob.get());
-            }
-            if (analysisJob.isEmpty() || delivered(analysisJobStore.find(id))) {
-                analysisPendingNotificationStore.finish(id);
+            analysisNotificationState.find(analysisJobId).ifPresent(analysisJob -> publishUnsentImageEvents(analysisJob, lease));
+            Optional<AnalysisJob> analysisJob = analysisNotificationState.find(analysisJobId);
+            if (analysisJob.isPresent() && analysisJob.orElseThrow().notificationPending()) {
+                notifyCompletion(analysisJob.orElseThrow(), lease);
             }
         } catch (DataAccessException | CustomException exception) {
-            log.warn("분석 완료 알림을 보내지 못해 다시 시도합니다. analysisJobId={}", id, exception);
+            log.warn("분석 완료 알림을 보내지 못해 다시 시도합니다. analysisJobId={}", analysisJobId, exception);
         }
     }
 
-    private boolean delivered(Optional<AnalysisJob> analysisJob) {
-        return analysisJob.map(latestJob -> !latestJob.notificationPending() && latestJob.analysisImages().stream()
-                .allMatch(analysisImage -> analysisImage.completion() == null || latestJob.imageEventPublished(analysisImage.requestId()))).orElse(true);
-    }
-
-    private void publishUnsentImageEvents(AnalysisJob analysisJob) {
+    private void publishUnsentImageEvents(AnalysisJob analysisJob, Lease lease) {
+        if (analysisJob.notificationChannel() == AnalysisNotificationChannel.PUSH) { return; }
         for (AnalysisImage analysisImage : analysisJob.analysisImages()) {
             if (analysisImage.completion() != null && !analysisJob.imageEventPublished(analysisImage.requestId())) {
-                publishImageEvent(analysisJob, analysisImage.requestId(), analysisImage.completion());
+                try {
+                    publishImageEvent(analysisJob, analysisImage.requestId(), analysisImage.completion(), lease);
+                } catch (DataAccessException | CustomException exception) {
+                    log.warn("개별 이미지 SSE 발행 실패. analysisJobId={}, requestId={}", analysisJob.id(), analysisImage.requestId(), exception);
+                }
             }
         }
     }
 
-    // 먼저 발행 이력을 선점해 같은 결과가 여러 번 적용돼도 한 번만 보낸다. 보내지 못하면 이력을 되돌려 재처리가 다시 보낸다.
-    private void publishImageEvent(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
-        if (!analysisJobStore.claimImageEvent(analysisJob.id(), requestId)) { return; }
+    // 발행 뒤 기록한다. 그 사이 종료되면 재발행될 수 있으므로 클라이언트는 저장된 결과를 기준으로 갱신한다.
+    private void publishImageEvent(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion, Lease lease) {
+        if (!analysisPendingNotificationStore.claimImageEventAttempt(lease, requestId)) { return; }
         String objectKey = analysisJob.analysisImages().stream().filter(analysisImage -> requestId.equals(analysisImage.requestId()))
                 .findFirst().orElseThrow().objectKey();
-        try {
-            analysisFinishedEventService.publishImageFinished(analysisJob.userId(), analysisJob.id(), objectKey, completion.status(),
-                    analysisJob.analysisImages().size(), countImages(analysisJob, AnalysisStatus.COMPLETED), countImages(analysisJob, AnalysisStatus.FAILED));
-        } catch (DataAccessException | CustomException exception) {
-            analysisJobStore.releaseImageEvent(analysisJob.id(), requestId);
-            throw exception;
-        }
+        analysisFinishedEventService.publishImageFinished(analysisJob.userId(), analysisJob.id(), objectKey, completion.status(),
+                analysisJob.analysisImages().size(), countImages(analysisJob, AnalysisStatus.COMPLETED), countImages(analysisJob, AnalysisStatus.FAILED));
+        analysisNotificationState.recordImageEventPublished(lease, requestId);
     }
 
-    // SSE가 연결되지 않았거나 발행이 실패하면 재시도하고, 재시도를 다 쓰면 푸시로 바꾼다. 경로를 저장한 뒤 보내 SSE와 푸시를 함께 보내지 않는다.
-    private void notifyCompletion(AnalysisJob analysisJob) {
-        AnalysisJob latestJob = analysisJob;
-        if (latestJob.notificationChannel() != AnalysisNotificationChannel.PUSH) {
-            if (publishedOverSse(latestJob)) { return; }
-            if (analysisPendingNotificationStore.recordSseMiss(latestJob.id()) <= sseRetries) { return; }
-            latestJob = analysisJobStore.fallBackToPush(latestJob.id());
+    private void notifyCompletion(AnalysisJob analysisJob, Lease lease) {
+        if (analysisJob.notificationChannel() == AnalysisNotificationChannel.PUSH) {
+            analysisNotificationState.createPushNotification(lease);
+            return;
         }
-        if (latestJob.notificationChannel() == null) {
-            latestJob = analysisJobStore.selectNotificationChannel(latestJob.id(), AnalysisNotificationChannel.PUSH);
+        int attemptNumber = analysisPendingNotificationStore.claimSseAttempt(lease);
+        if (attemptNumber == 0) {
+            handOffToPush(lease);
+            return;
         }
-        if (!analysisJobStore.acknowledgeNotification(latestJob.id())) { return; }
+        boolean connected;
         try {
-            pushes.create(latestJob.id(), latestJob.userId(), latestJob.expiresAt());
+            connected = notificationStreamService.isConnected(analysisJob.userId());
         } catch (DataAccessException | CustomException exception) {
-            analysisJobStore.reopenNotification(latestJob.id());
-            throw exception;
+            handleSseFailure(lease, attemptNumber, exception);
+            return;
         }
+        if (!connected) {
+            handOffToPush(lease);
+            return;
+        }
+        publishCompletionOrRetry(analysisJob, lease, attemptNumber);
     }
 
-    private boolean publishedOverSse(AnalysisJob analysisJob) {
+    private void publishCompletionOrRetry(AnalysisJob analysisJob, Lease lease, int attemptNumber) {
         try {
-            if (!notificationStreamService.isConnected(analysisJob.userId())) { return false; }
-            AnalysisJob channelSelectedJob = analysisJob.notificationChannel() == null ? analysisJobStore.selectNotificationChannel(analysisJob.id(), AnalysisNotificationChannel.SSE) : analysisJob;
-            // 다른 서버가 먼저 알림 대기를 끝냈으면 그쪽이 보냈으므로 보내지 않는다.
-            if (!analysisJobStore.acknowledgeNotification(channelSelectedJob.id())) { return true; }
-            publishCompletionOrReopen(channelSelectedJob);
-            return true;
-        } catch (DataAccessException | CustomException exception) {
-            log.warn("SSE 분석 완료 알림을 보내지 못했습니다. analysisJobId={}", analysisJob.id(), exception);
-            return false;
-        }
-    }
-
-    // 다시 대기로 돌리지 못하면 이 알림은 유실되지만, 같은 알림을 두 번 보내지 않는 쪽을 택한다.
-    private void publishCompletionOrReopen(AnalysisJob analysisJob) {
-        try {
+            analysisNotificationState.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE);
             publishCompletion(analysisJob);
+            analysisNotificationState.acknowledgeNotification(lease);
         } catch (DataAccessException | CustomException exception) {
-            analysisJobStore.reopenNotification(analysisJob.id());
-            throw exception;
+            handleSseFailure(lease, attemptNumber, exception);
         }
+    }
+
+    private void handleSseFailure(Lease lease, int attemptNumber, RuntimeException exception) {
+        log.warn("분석 완료 SSE 처리 실패. analysisJobId={}, attempt={}", lease.analysisJobId(), attemptNumber, exception);
+        if (attemptNumber >= sseMaxAttempts) { handOffToPush(lease); }
+    }
+
+    private void handOffToPush(Lease lease) {
+        analysisNotificationState.fallBackToPush(lease);
+        analysisNotificationState.createPushNotification(lease);
     }
 
     private int countImages(AnalysisJob analysisJob, AnalysisStatus status) {

@@ -17,6 +17,13 @@ public interface AnalysisJobStateRepository extends JpaRepository<AnalysisJobSta
             """)
     List<AnalysisJobState> findAllActiveOwned(Long userId, LocalDateTime currentTime);
 
+    @Query(value = """
+            SELECT * FROM analysis_job_states
+            WHERE notification_next_attempt_at <= CAST(:currentTime AS DATETIME(6))
+            ORDER BY notification_next_attempt_at, analysis_job_id LIMIT 1 FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<AnalysisJobState> findDueNotificationForUpdate(String currentTime);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select job from AnalysisJobState job where job.id = :analysisJobId")
     Optional<AnalysisJobState> findForUpdate(String analysisJobId);

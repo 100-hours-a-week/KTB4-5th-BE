@@ -39,6 +39,9 @@ public class AnalysisJobStateAccess {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public AnalysisJob findForUpdate(String analysisJobId) { return read(lockActive(analysisJobId)); }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public AnalysisJob findOwnedForUpdate(String analysisJobId, Long userId) {
         return requireOwned(read(lockActive(analysisJobId)), userId);
     }
@@ -57,6 +60,10 @@ public class AnalysisJobStateAccess {
                     updatedAnalysisJob.analysisImages().stream().map(AnalysisImageResult::fromStored).toList());
             analysisJobState.updateResult(objectMapper.writeValueAsString(updatedAnalysisJob), analysisJobResult.status(),
                     updatedAnalysisJob.expiresAt() == null ? null : updatedAnalysisJob.expiresAt().toLocalDateTime());
+            if (!currentAnalysisJob.analysisImages().equals(updatedAnalysisJob.analysisImages())
+                    && updatedAnalysisJob.analysisImages().stream().anyMatch(analysisImage -> analysisImage.completion() != null)) {
+                analysisJobState.scheduleNotification(BusinessTime.now(clock));
+            }
         }
         return updatedAnalysisJob;
     }

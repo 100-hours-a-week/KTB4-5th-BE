@@ -79,6 +79,7 @@ public class AnalysisCompletionPersistence {
             AnalysisJobResult analysisJobResult = new AnalysisJobResult(completedAnalysisJob, completedAnalysisJob.analysisImages().stream().map(AnalysisImageResult::fromStored).toList());
             analysisJobState.updateResult(objectMapper.writeValueAsString(completedAnalysisJob), analysisJobResult.status(),
                     completedAnalysisJob.expiresAt() == null ? null : completedAnalysisJob.expiresAt().toLocalDateTime());
+            analysisJobState.scheduleNotification(BusinessTime.now(clock));
         }
         return completedAnalysisJob;
     }
