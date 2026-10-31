@@ -69,6 +69,7 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     @BeforeEach
     @AfterEach
     protected void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM cooking_records");
         jdbcTemplate.update("DELETE FROM recommendation_states");
         jdbcTemplate.update("DELETE FROM recommendation_lists");
         jdbcTemplate.update("DELETE FROM recommendation_outbox");

@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -56,17 +58,23 @@ class RecommendationStockAllocatorTest {
         assertThat(allocations.get(2).getFirst().ownedAmount()).isEqualByComparingTo("300");
     }
 
-    @Test
-    void resolvesConfirmedCountMappingToTheClosestWholeQuantity() throws Exception {
-        ObjectNode recipeSnapshot = snapshot("2.6", "EA", 101L);
+    @ParameterizedTest
+    @ValueSource(strings = {"EA", "G", "ML"})
+    void resolvesConfirmedMappingToTheClosestWholeQuantity(String unit) throws Exception {
+        ObjectNode recipeSnapshot = snapshot("2.6", unit, 101L);
         ((ObjectNode) recipeSnapshot.path("inventoryUsage").get(0)).put("allocationStatus", "UNRESOLVED");
         Recipe recipe = jsonMapper.treeToValue(recipeSnapshot, Recipe.class);
 
-        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, countStock(101L, 5))).get(1).getFirst();
+        AiRecipeInventoryItem stock = countStock(101L, 5);
+        if (!"EA".equals(unit)) {
+            stock = new AiRecipeInventoryItem(101L, "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
+                    MeasureType.WEIGHT, null, new BigDecimal("5"), WeightUnit.valueOf(unit), LocalDate.of(2026, 11, 3));
+        }
+        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, stock)).get(1).getFirst();
 
         assertThat(allocation.usedAmount()).isEqualByComparingTo("3");
         assertThat(allocation.ownedAmount()).isEqualByComparingTo("5");
-        assertThat(allocation.unit()).isEqualTo("EA");
+        assertThat(allocation.unit()).isEqualTo(unit);
         assertThat(allocation.allocationStatus()).isEqualTo("CALCULATED");
     }
 
