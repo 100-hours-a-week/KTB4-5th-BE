@@ -8,9 +8,14 @@ import static org.mockito.Mockito.*;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
+import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
+import com.dameokja.backend.recipe.domain.RecommendationState.GenerationStatus;
+import com.dameokja.backend.recipe.domain.RecommendationState.GenerationTrigger;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayDeque;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +35,37 @@ class NotificationSseConnectionsTest {
         emitters.add(second);
         emitters.add(otherUser);
         connections = new NotificationSseConnections(emitters::remove, mock(NotificationConnectionPresence.class));
+    }
+
+    @Test
+    void recommendationReusesEveryOwnStreamAndExposesOnlyTriggerAndStatus() throws Exception {
+        connections.connect(1L, 17L);
+        connections.connect(1L, 18L);
+        connections.connect(2L, 17L);
+        connections.notifyRecommendationFinished(new RecommendationGenerationFinished(1L, 17L, GenerationTrigger.SCHEDULED, GenerationStatus.COMPLETED));
+        assertThat(recommendationEvents(first)).singleElement().satisfies(event ->
+                assertThat(event.build()).anyMatch(part -> part.getData().equals(Map.of("generationTrigger", "SCHEDULED", "generationStatus", "COMPLETED"))));
+        assertThat(recommendationEvents(second)).hasSize(1);
+        assertThat(recommendationEvents(otherUser)).isEmpty();
+    }
+
+    @Test
+    void recommendationSendFailureRemovesOnlyTheFailedConnection() throws Exception {
+        connections.connect(1L, 17L);
+        connections.connect(1L, 18L);
+        doThrow(new IOException("closed")).when(first).send(any(SseEmitter.SseEventBuilder.class));
+        connections.notifyRecommendationFinished(new RecommendationGenerationFinished(1L, 17L, GenerationTrigger.USER, GenerationStatus.FAILED));
+        connections.notifyRecommendationFinished(new RecommendationGenerationFinished(1L, 17L, GenerationTrigger.USER, GenerationStatus.COMPLETED));
+        assertThat(recommendationEvents(first)).hasSize(1);
+        verify(first).completeWithError(any(IOException.class));
+        assertThat(recommendationEvents(second)).hasSize(2);
+    }
+
+    private List<SseEmitter.SseEventBuilder> recommendationEvents(SseEmitter emitter) throws IOException {
+        ArgumentCaptor<SseEmitter.SseEventBuilder> events = ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
+        verify(emitter, atLeastOnce()).send(events.capture());
+        return events.getAllValues().stream()
+                .filter(event -> event.build().stream().anyMatch(part -> part.getData().toString().contains("event:recommendation"))).toList();
     }
 
     @Test

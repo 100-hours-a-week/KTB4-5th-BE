@@ -13,7 +13,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "알림")
 public interface NotificationStreamApi {
-    @Operation(summary = "V2 알림·분석 완료 SSE 연결", description = """
+    @Operation(summary = "V2 알림·분석·추천 완료 SSE 연결", description = """
             accessToken HttpOnly 쿠키로 인증합니다. EventSource(url, {withCredentials: true})를 사용합니다.
             활성 냉장고 접근 권한을 확인합니다. notifications-changed는 본인·연결한 냉장고가 모두 일치하는 모든 연결에 보냅니다.
             최초 연결·재연결의 connected와 notifications-changed 수신 시
@@ -36,6 +36,12 @@ public interface NotificationStreamApi {
             connected 수신 시 GET /api/v1/image-analyses 목록도 재조회해 끊긴 동안의 완료를 확인합니다.
             전체 이미지가 성공·실패로 종료된 뒤 SSE 연결이 있으면 이벤트만 발행하고, 미연결이면 푸시를 생성합니다.
             전달 경로는 재시도에도 유지하며, 중복 이벤트는 analysisId로 같은 결과를 갱신합니다.
+            recommendation은 냉장고와 관계없이 추천 요청자 본인의 모든 기존 연결에 전달합니다. 추천 전용 연결을 추가하지 않습니다.
+            추천 종료 상태가 DB에 커밋된 뒤 generationTrigger(USER/SCHEDULED)·generationStatus(COMPLETED/FAILED)만 전송합니다.
+            수신 후 현재 활성 냉장고의 GET /api/v1/refrigerators/{refrigeratorId}/recommendations를 재조회합니다.
+            이전 냉장고 작업의 종료 신호일 수도 있으므로 화면은 재조회한 generationStatus·hasNewRecommendation을 기준으로 처리합니다.
+            SSE 수신만으로 선택 결과는 바뀌지 않으며 새 결과로 전환하려면 POST /api/v1/refrigerators/{refrigeratorId}/recommendations/current를 호출합니다.
+            connected 수신 시에도 추천 목록을 재조회해 미접속 중 완료된 결과를 확인합니다. 추천 신호는 푸시나 인앱 알림 이력을 생성하지 않습니다.
             heartbeat는 25초 간격의 주석, 연결 타임아웃은 5분, 재연결 대기는 3초입니다.
             이벤트 ID·Last-Event-ID 재전달은 지원하지 않습니다. 신호 유실·발행 실패의 무손실 복구를 보장하지 않습니다.
             기존 /api/v1/.../notifications/stream JSON 폴링은 호환용으로 유지합니다.
@@ -58,6 +64,9 @@ public interface NotificationStreamApi {
 
                             event:kicked
                             data:{}
+
+                            event:recommendation
+                            data:{"generationTrigger":"USER","generationStatus":"COMPLETED"}
 
                             :heartbeat
 
