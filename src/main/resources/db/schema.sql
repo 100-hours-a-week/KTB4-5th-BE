@@ -312,6 +312,16 @@ CREATE TABLE analysis_job_states (
     CONSTRAINT ck_analysis_job_states_status CHECK (status IN ('QUEUED','PROCESSING','COMPLETED','PARTIALLY_COMPLETED','FAILED'))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
+CREATE TABLE analysis_job_requests (
+    analysis_job_request_id BIGINT NOT NULL AUTO_INCREMENT,
+    request_id CHAR(36) NOT NULL COMMENT '같은 이미지 재요청 시 여러 작업이 공유하는 멱등 키',
+    analysis_job_id CHAR(36) NOT NULL,
+    PRIMARY KEY (analysis_job_request_id),
+    UNIQUE KEY uk_analysis_job_requests_request_job (request_id, analysis_job_id),
+    KEY ix_analysis_job_requests_job (analysis_job_id),
+    CONSTRAINT fk_analysis_job_requests_job FOREIGN KEY (analysis_job_id) REFERENCES analysis_job_states (analysis_job_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
 CREATE TABLE analysis_outbox (
     analysis_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
     message_id CHAR(36) NOT NULL COMMENT '재발행에도 유지하는 이벤트 ID',

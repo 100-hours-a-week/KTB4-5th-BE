@@ -3,8 +3,10 @@ package com.dameokja.backend.analysis.application.job;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisJobState;
+import com.dameokja.backend.analysis.domain.AnalysisJobRequest;
 import com.dameokja.backend.analysis.domain.AnalysisOutbox;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStateRepository;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobRequestRepository;
 import com.dameokja.backend.analysis.infrastructure.AnalysisOutboxRepository;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaProperties;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisRequestedEvent;
@@ -28,6 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 public class AnalysisJobAcceptance {
     private final UserAccessService userAccessService;
     private final AnalysisJobStateRepository analysisJobStateRepository;
+    private final AnalysisJobRequestRepository analysisJobRequestRepository;
     private final AnalysisOutboxRepository analysisOutboxRepository;
     private final AnalysisKafkaProperties analysisKafkaProperties;
     private final ObjectMapper objectMapper;
@@ -44,6 +47,7 @@ public class AnalysisJobAcceptance {
         AnalysisJob analysisJob = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, null, false);
         AnalysisJobState analysisJobState = analysisJobStateRepository.save(AnalysisJobState.queued(user, analysisJob.id(), objectMapper.writeValueAsString(analysisJob)));
         for (AnalysisImage analysisImage : analysisImages) {
+            analysisJobRequestRepository.save(new AnalysisJobRequest(analysisJobState, analysisImage.requestId()));
             AnalysisRequestedEvent analysisRequestedEvent = AnalysisRequestedEvent.create(userId, analysisImage, inputHint, submittedAt.toInstant());
             analysisOutboxRepository.save(AnalysisOutbox.pending(analysisJobState, analysisRequestedEvent.messageId(),
                     analysisKafkaProperties.requestTopic(), objectMapper.writeValueAsString(analysisRequestedEvent), submittedAt.toLocalDateTime()));

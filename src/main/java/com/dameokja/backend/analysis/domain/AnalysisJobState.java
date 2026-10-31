@@ -42,6 +42,12 @@ public class AnalysisJobState extends BaseEntity {
     @Column(name = "version", nullable = false)
     private Long version;
 
+    public void updateResult(String analysisJobBody, AnalysisStatus status, LocalDateTime expiresAt) {
+        this.analysisJobBody = analysisJobBody;
+        this.status = status;
+        this.expiresAt = expiresAt;
+    }
+
     public static AnalysisJobState queued(User user, String analysisJobId, String analysisJobBody) {
         AnalysisJobState analysisJobState = new AnalysisJobState();
         analysisJobState.id = analysisJobId;

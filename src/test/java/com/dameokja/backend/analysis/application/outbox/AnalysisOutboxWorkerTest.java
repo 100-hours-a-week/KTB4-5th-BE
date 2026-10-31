@@ -73,6 +73,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
     @AfterEach
     void cleanUp() {
         jdbcTemplate.update("DELETE FROM analysis_outbox");
+        jdbcTemplate.update("DELETE FROM analysis_job_requests");
         jdbcTemplate.update("DELETE FROM analysis_job_states");
         userRepository.deleteById(requestingUser.getId());
     }

@@ -52,6 +52,7 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
     void cleanUp() {
         jdbcTemplate.execute("DROP TRIGGER IF EXISTS fail_analysis_acceptance");
         jdbcTemplate.update("DELETE FROM analysis_outbox");
+        jdbcTemplate.update("DELETE FROM analysis_job_requests");
         jdbcTemplate.update("DELETE FROM analysis_job_states");
         userRepository.deleteById(requestingUser.getId());
     }
@@ -82,7 +83,7 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"analysis_job_states", "analysis_outbox"})
+    @ValueSource(strings = {"analysis_job_states", "analysis_job_requests", "analysis_outbox"})
     void rollsBackBothStoresWhenEitherInsertFails(String tableName) {
         String insertFailureSignal = "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'atomicity-probe';";
         String failureTriggerBody = tableName.equals("analysis_outbox")
@@ -106,6 +107,7 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
     private void assertStoredCounts(int expectedJobCount, int expectedOutboxCount) {
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_states", Integer.class)).isEqualTo(expectedJobCount);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_outbox", Integer.class)).isEqualTo(expectedOutboxCount);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_requests", Integer.class)).isEqualTo(expectedOutboxCount);
     }
 
     @TestConfiguration(proxyBeanMethods = false)
