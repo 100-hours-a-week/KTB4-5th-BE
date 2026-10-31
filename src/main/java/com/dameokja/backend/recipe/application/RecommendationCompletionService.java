@@ -1,6 +1,7 @@
 package com.dameokja.backend.recipe.application;
 
 import com.dameokja.backend.recipe.domain.RecommendationList;
+import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;
@@ -8,6 +9,7 @@ import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeJobResponse;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -20,6 +22,7 @@ public class RecommendationCompletionService {
     private final JsonMapper jsonMapper;
     private final UserAccessService userAccessService;
     private final RefrigeratorAccessService refrigeratorAccessService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void apply(AiRecipeJobResponse recommendationJobResponse) {
@@ -31,6 +34,10 @@ public class RecommendationCompletionService {
                 .findByParticipantForUpdate(recommendationJobResponse.userId(), recommendationJobResponse.refrigeratorId()).orElse(null);
         if (recommendationState == null || !recommendationState.isGeneratingRequest(recommendationJobResponse.requestId())) { return; }
         updateGenerationStatus(recommendationState, recommendationJobResponse);
+        if (recommendationJobResponse.status() == AiRecipeJobResponse.Status.COMPLETED || recommendationJobResponse.status() == AiRecipeJobResponse.Status.FAILED) {
+            eventPublisher.publishEvent(new RecommendationGenerationFinished(recommendationJobResponse.userId(), recommendationJobResponse.refrigeratorId(),
+                    recommendationState.getGenerationTrigger(), recommendationState.getGenerationStatus()));
+        }
     }
 
     private void updateGenerationStatus(RecommendationState recommendationState, AiRecipeJobResponse recommendationJobResponse) {

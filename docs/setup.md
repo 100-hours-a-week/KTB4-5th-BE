@@ -213,7 +213,9 @@ Redis에 종료 응답이 저장된 뒤 DB 반영이 실패하면 중복 콜백�
 새 결과가 없거나 이미 선택한 결과여도 현재 상태를 유지하고 204·본문 없음으로 응답하며, 새 생성·한도 차감은 없다.
 전환은 접수·완료 반영과 같은 잠금 순서를 사용한다. SENT의 Redis 정보 유실 시 자동 복구하지 않는 기존 제한은 유지한다.
 `GET /api/v1/refrigerators/{refrigeratorId}/recommendations`는 현재 선택한 JSON 결과를 반환하며 새 생성·전환·한도 차감을 하지 않는다. 상태는 미전환 결과가 있으면 STALE, 최신 선택이면 READY다.
-recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환할 레시피에 매핑된 재고만 조회하며, 조리시간·재료 매핑을 알 수 없으면 null을 반환한다. SSE 및 레시피 테이블 동기화는 후속 구현 범위다.
+recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환할 레시피에 매핑된 재고만 조회하며, 조리시간·재료 매핑을 알 수 없으면 null을 반환한다. 레시피 테이블 동기화는 후속 구현 범위다.
+추천 생성이 COMPLETED·FAILED로 종료되면 DB 커밋 후 Redis Pub/Sub를 통해 기존 V2 SSE 연결에 `event: recommendation`을 발행한다. 본인의 모든 연결에 전달하며 `data`에는 `generationTrigger`·`generationStatus`만 포함한다. 같은 작업의 중복·지연 응답과 진행 상태는 종료 신호를 다시 발행하지 않는다.
+수신하거나 재연결하면 현재 냉장고의 추천 목록을 재조회하고, 새 결과로 전환하려면 기존 전환 API를 호출한다. 다른 냉장고 작업의 종료일 수 있으므로 화면 상태는 조회 응답을 따른다. 신호 유실·Redis 발행 실패는 목록 재조회로 확인하며 추가 푸시·인앱 알림 이력·재전달 보장은 제공하지 않는다.
 `GET /api/v1/refrigerators/{refrigeratorId}/recipes/{recipeId}`는 본인의 현재 선택 결과에서 상세를 반환한다. recipeIngredientId는 해당 레시피의 AI 재료 번호 문자열이며, 재료와 조리 단계의 순서를 유지한다.
 상세의 stocks에는 현재 보유량·재배분한 예상 사용량·만료일을 함께 제공한다. 예상 사용량은 EA·G·ML 모두 정수로 반올림하며 원본 필요량은 유지한다. ETag는 상세 응답 내용의 SHA-256으로 생성하며 응답이 같으면 유지된다. 별도 요리 적용 미리보기 API 없이 이 값을 표시하며, 조회는 실제 재고를 차감하지 않는다. 선택 결과나 레시피가 없으면 404 / RECOMMEND-404-001이다.
 

@@ -4,6 +4,7 @@ import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
+import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -103,6 +104,12 @@ final class NotificationSseConnection {
             return;
         }
         emitter.send(SseEmitter.event().name("image-analysis.finished").data(finished.payload()));
+    }
+
+    public void sendRecommendationFinished(RecommendationGenerationFinished finished) throws IOException {
+        if (!userId.equals(finished.userId())) { return; }
+        Map<String, String> payload = Map.of("generationTrigger", finished.generationTrigger().name(), "generationStatus", finished.generationStatus().name());
+        emitter.send(SseEmitter.event().name("recommendation").data(payload));
     }
 
     /**
