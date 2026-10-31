@@ -224,7 +224,9 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 이관은 기존 행의 새 필드를 NULL로 유지하고 요리명 사본을 255자로 확장한다. 기존 행은 요청 전체를 확인할 수 없으므로 동일 요청 재시도로 판정하지 않는다.
 요리 적용용 `RecommendationDetailService.getForCooking`은 호출자의 쓰기 트랜잭션에 참여해 사용자→냉장고→재고 ID 순서로 잠그고, 요청한 본인 추천 결과의 상세를 현재 재고로 구성한다. 잠금은 호출한 트랜잭션의 커밋·롤백까지 유지한다.
 `CookingApplicationService`는 같은 상세 응답의 ETag를 검증하고 계산된 양수 사용량 차감·기록·요리 횟수 증가를 하나의 트랜잭션으로 반영한다. 전량 사용한 재고는 삭제하며 폐기 횟수는 증가시키지 않는다. 상세가 달라지면 412 / RECOMMEND-412-001로 거절한다.
-성공한 요청과 사용자·냉장고·추천 목록·레시피·ETag가 같은 멱등 키 재시도는 현재 상세 조회 전에 판정한다. 다른 요청의 키 재사용은 409 / RECOMMEND-409-001이며, 중복 차감 없이 롤백한다. 외부 요리 적용 API 연결은 후속 구현 범위다.
+성공한 요청과 사용자·냉장고·추천 목록·레시피·ETag가 같은 멱등 키 재시도는 현재 상세 조회 전에 판정한다. 다른 요청의 키 재사용은 409 / RECOMMEND-409-001이며, 중복 차감 없이 롤백한다.
+`POST /api/v1/refrigerators/{refrigeratorId}/cooking-records`는 `recommendationId` 문자열과 원천 조합 `recipeId`를 받는다. `If-Match`에는 상세 ETag 원문(따옴표로 감싼 소문자 16진수 64자리), `Idempotency-Key`에는 공백만으로 구성되지 않은 1~64자 키가 필수이며 입력 오류는 400 / GLOBAL-400-001이다. 인증·CSRF는 기존 공통 규칙을 따른다.
+최초 성공은 200 / RECOMMEND-200-004와 `recipeId`, 재고별로 합산한 `useIngredients`의 `ingredientId`·`useAmount`·`unit`을 반환한다. 차감하지 않은 재고는 제외하며, 성공한 동일 요청 재시도는 204와 빈 본문이다. 두 응답 모두 `Cache-Control: no-store`를 사용한다.
 
 ## 이미지 업로드 발급 내역
 
