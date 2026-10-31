@@ -10,4 +10,4 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties("analysis.kafka")
 public record AnalysisKafkaProperties(@NotBlank String requestTopic, @NotBlank String completionTopic, @NotBlank String completionDltTopic,
-        @NotNull @DurationMin(seconds = 1) Duration completionRetryDelay) {}
+        @NotNull @DurationMin(seconds = 1) Duration completionRetryDelay, @NotBlank String feedbackTopic) {}

@@ -176,6 +176,7 @@ analysis:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
     completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
+    feedback-topic: ${KAFKA_ENV:local}.dameokja.analysis.feedback.v1
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
     completion-retry-delay: ${ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY:5s}
   outbox:
