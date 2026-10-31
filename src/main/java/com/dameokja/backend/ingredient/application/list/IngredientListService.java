@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -54,6 +55,12 @@ public class IngredientListService {
     public List<Ingredient> getByIds(Long userId, Long refrigeratorId, List<Long> ingredientIds) {
         refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
         return ingredientIds.isEmpty() ? List.of() : ingredientRepository.findAllByRefrigerator_IdAndIdIn(refrigeratorId, ingredientIds);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Ingredient> getByIdsForUpdate(Long userId, Long refrigeratorId, List<Long> ingredientIds) {
+        refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+        return ingredientIds.isEmpty() ? List.of() : ingredientRepository.findAllByIdsForUpdate(refrigeratorId, ingredientIds);
     }
 
     // 커서의 기준일로 세야 스크롤 중 자정이 지나도 목록과 같은 조건으로 센다.
