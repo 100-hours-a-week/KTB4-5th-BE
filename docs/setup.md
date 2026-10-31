@@ -217,6 +217,12 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 `GET /api/v1/refrigerators/{refrigeratorId}/recipes/{recipeId}`는 본인의 현재 선택 결과에서 상세를 반환한다. recipeIngredientId는 해당 레시피의 AI 재료 번호 문자열이며, 재료와 조리 단계의 순서를 유지한다.
 상세의 stocks에는 현재 보유량·재배분한 예상 사용량·만료일을 함께 제공한다. ETag는 상세 응답 내용의 SHA-256으로 생성하며 응답이 같으면 유지된다. 별도 요리 적용 미리보기 API 없이 이 값을 표시하며, 조회는 실제 재고를 차감하지 않는다. 선택 결과나 레시피가 없으면 404 / RECOMMEND-404-001이다.
 
+## 요리 적용 기록 저장 준비
+
+`cooking_records`는 확인한 상세 ETag·원천 조합 레시피 ID와 사용자·냉장고·추천 목록 ID를 보관해 같은 멱등 키의 요청 내용을 대조한다. 추천 목록·레시피 테이블에 FK 없이 식별자를 보관하므로 추천 결과나 캐시의 보관 여부와 독립적으로 기록을 조회할 수 있다.
+신규 DB는 `db/schema.sql`을 사용한다. 기존 DB에는 `db/migrations/20261031-cooking-record-request-identity.sql`을 수동 적용한다. 애플리케이션 시작 시 자동 실행하지 않는다.
+이관은 기존 행의 새 필드를 NULL로 유지하고 요리명 사본을 255자로 확장한다. 기존 행은 요청 전체를 확인할 수 없으므로 동일 요청 재시도로 판정하지 않는다. API의 ETag 검증·재고 차감·횟수 증가·멱등 재시도 처리는 후속 구현 범위다.
+
 ## 이미지 업로드 발급 내역
 
 업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
