@@ -13,9 +13,17 @@ import tools.jackson.databind.ObjectMapper;
 public class AnalysisKafkaPublisher {
     private final KafkaTemplate<String, JsonNode> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final AnalysisKafkaProperties analysisKafkaProperties;
 
     public CompletableFuture<Void> publish(AnalysisOutbox analysisOutbox) {
-        return kafkaTemplate.send(analysisOutbox.getTopic(), analysisOutbox.getMessageKey(), objectMapper.readTree(analysisOutbox.getMessageBody()))
-                .thenApply(sendResult -> null);
+        return send(analysisOutbox.getTopic(), analysisOutbox.getMessageKey(), objectMapper.readTree(analysisOutbox.getMessageBody()));
+    }
+
+    public CompletableFuture<Void> publishFeedback(AnalysisFeedbackSubmittedEvent analysisFeedbackSubmittedEvent) {
+        return send(analysisKafkaProperties.feedbackTopic(), analysisFeedbackSubmittedEvent.payload().userId().toString(), objectMapper.valueToTree(analysisFeedbackSubmittedEvent));
+    }
+
+    private CompletableFuture<Void> send(String topic, String messageKey, JsonNode messageBody) {
+        return kafkaTemplate.send(topic, messageKey, messageBody).thenApply(sendResult -> null);
     }
 }

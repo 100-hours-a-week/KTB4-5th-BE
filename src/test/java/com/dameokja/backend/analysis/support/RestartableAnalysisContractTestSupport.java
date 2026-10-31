@@ -9,7 +9,7 @@ import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchSender
 import com.dameokja.backend.analysis.application.dispatch.LeasedDispatch;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackProperties;
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackSender;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutboxWorker;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.zaxxer.hikari.HikariDataSource;
 import java.time.Instant;
@@ -27,7 +27,7 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
     @Autowired private AnalysisDispatchSender dispatchSender;
     @Autowired private AnalysisDispatchWorker dispatchWorker;
     @Autowired private AnalysisFeedbackProperties feedbackPolicy;
-    @Autowired private AnalysisFeedbackSender feedbackSender;
+    @Autowired private AnalysisFeedbackOutboxWorker feedbackSender;
 
     protected void restartApplication() throws Exception {
         Instant resumedAt = clock.instant();

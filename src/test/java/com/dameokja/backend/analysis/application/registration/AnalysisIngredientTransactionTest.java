@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutbox;
 import com.dameokja.backend.analysis.application.registration.AnalysisIngredientCommand;
 import com.dameokja.backend.analysis.application.registration.AnalysisIngredientService;
 import com.dameokja.backend.analysis.domain.*;
@@ -59,7 +59,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
     @Autowired AnalysisJobStateAccess analysisJobStateAccess;
     @Autowired AnalysisJobAcceptance analysisJobAcceptance;
     @Autowired AnalysisCompletionPersistence analysisCompletionPersistence;
-    @MockitoSpyBean AnalysisFeedbackQueue queue;
+    @MockitoSpyBean AnalysisFeedbackOutbox queue;
 
     @AfterEach
     void cleanFeedbacks() {
@@ -88,7 +88,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
         } else {
             assertThat(service.create(owner.userId(), owner.refrigeratorId(), command).createdCount()).isEqualTo(1);
             assertThat(analysisJobStateAccess.find(job.id())).isEmpty();
-            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.items[0].confirmed.name')) FROM analysis_feedbacks", String.class))
+            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.payload.items[0].confirmed.name')) FROM analysis_feedbacks", String.class))
                     .isEqualTo("확정우유");
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("PENDING");
         }
@@ -154,14 +154,17 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
                 List.of(item("same", "우유", 2), item("changed", "우유", 3), item(null, "우유", 4))))));
         assertThat(analysisJobStateAccess.find(job.id())).isEmpty();
         JsonNode body = JsonMapper.builder().build().readTree(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class));
-        List<JsonNode> feedbacks = StreamSupport.stream(body.path("items").spliterator(), false).toList();
+        List<JsonNode> feedbacks = StreamSupport.stream(body.path("payload").path("items").spliterator(), false).toList();
         assertThat(feedbacks).extracting(feedback -> feedback.path("action").asText()).containsExactly("CONFIRMED", "CORRECTED", "ADDED", "DELETED");
         assertThat(feedbacks.getFirst().has("confirmed")).isFalse();
         assertThat(feedbacks.get(1).path("confirmed").path("quantity").asInt()).isEqualTo(3);
         assertThat(feedbacks.get(2).has("itemId")).isFalse();
         assertThat(feedbacks.get(2).path("confirmed").path("quantity").asInt()).isEqualTo(4);
         assertThat(feedbacks.getLast().has("confirmed")).isFalse();
-        assertThat(body.path("consentForModelImprovement").asBoolean()).isTrue();
+        assertThat(body.path("payload").path("consentForModelImprovement").asBoolean()).isTrue();
+        assertThat(body.path("payload").path("userId").asLong()).isEqualTo(owner.userId());
+        assertThat(body.path("payload").path("requestId").asString()).isEqualTo("request");
+        assertThat(body.path("messageId").asString()).isNotBlank();
         assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients", Integer.class)).isEqualTo(9);
         verifyNoInteractions(ai);
     }
@@ -170,7 +173,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
             return invocation.callRealMethod();
-        }).when(queue).enqueue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        }).when(queue).enqueue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -241,7 +244,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
     private void assertFeedback(String itemId, String storedName, int requestedQuantity) {
         assertThat(jdbcTemplate.queryForObject("SELECT name FROM ingredients WHERE name=?", String.class, storedName)).isEqualTo(storedName);
         String body = jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class);
-        JsonNode items = JsonMapper.builder().build().readTree(body).path("items");
+        JsonNode items = JsonMapper.builder().build().readTree(body).path("payload").path("items");
         List<JsonNode> matching = StreamSupport.stream(items.spliterator(), false)
                 .filter(item -> item.path("itemId").asText().equals(itemId)).toList();
         assertThat(matching).hasSize(1);

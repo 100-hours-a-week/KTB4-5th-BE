@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.application.registration;
 
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutbox;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.domain.*;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
@@ -27,7 +27,7 @@ public class AnalysisIngredientService {
     private static final int MAX_FEEDBACK_ITEMS = 100;
     private final AnalysisJobStateAccess analysisJobStateAccess;
     private final IngredientCreateService ingredientCreateService;
-    private final AnalysisFeedbackQueue analysisFeedbackQueue;
+    private final AnalysisFeedbackOutbox analysisFeedbackOutbox;
     private final RefrigeratorAccessService refrigeratorAccessService;
 
     @Transactional
@@ -36,7 +36,7 @@ public class AnalysisIngredientService {
         refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         AnalysisJob analysisJob = analysisJobStateAccess.findOwnedForUpdate(request.analysisId(), userId);
         List<Feedback> feedbacks = prepareRegistration(analysisJob, request);
-        IngredientWriteResult result = registerWithFeedbacks(userId, refrigeratorId, feedbacks);
+        IngredientWriteResult result = registerWithFeedbacks(analysisJob, refrigeratorId, feedbacks);
         analysisJobStateAccess.deleteOwned(analysisJob.id(), userId);
         return result;
     }
@@ -112,8 +112,8 @@ public class AnalysisIngredientService {
         }
     }
 
-    private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
-        IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).filter(java.util.Objects::nonNull).toList());
+    private IngredientWriteResult registerWithFeedbacks(AnalysisJob analysisJob, Long refrigeratorId, List<Feedback> feedbacks) {
+        IngredientWriteResult result = ingredientCreateService.create(analysisJob.userId(), refrigeratorId, feedbacks.stream().map(Feedback::command).filter(java.util.Objects::nonNull).toList());
         Map<String, List<AiAnalysisFeedbackRequest.Item>> itemsByAnalysis = new LinkedHashMap<>();
         int resultIndex = 0;
         for (Feedback feedback : feedbacks) {
@@ -124,7 +124,11 @@ public class AnalysisIngredientService {
             }
             itemsByAnalysis.computeIfAbsent(feedback.aiId(), ignored -> new ArrayList<>()).add(feedback.request(storedName));
         }
-        itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
+        itemsByAnalysis.forEach((analysisId, items) -> {
+            String requestId = analysisJob.analysisImages().stream().filter(analysisImage -> analysisId.equals(analysisImage.aiAnalysisId()))
+                    .findFirst().orElseThrow().requestId();
+            analysisFeedbackOutbox.enqueue(analysisJob.userId(), requestId, analysisId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items));
+        });
         return result;
     }
 

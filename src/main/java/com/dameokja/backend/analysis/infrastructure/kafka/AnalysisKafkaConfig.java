@@ -17,4 +17,12 @@ public class AnalysisKafkaConfig {
         analysisOutboxTaskScheduler.setThreadNamePrefix("analysis-outbox-");
         return analysisOutboxTaskScheduler;
     }
+
+    @Bean(defaultCandidate = false)
+    ThreadPoolTaskScheduler analysisFeedbackTaskScheduler() {
+        ThreadPoolTaskScheduler analysisFeedbackTaskScheduler = new ThreadPoolTaskScheduler();
+        analysisFeedbackTaskScheduler.setPoolSize(1);
+        analysisFeedbackTaskScheduler.setThreadNamePrefix("analysis-feedback-");
+        return analysisFeedbackTaskScheduler;
+    }
 }

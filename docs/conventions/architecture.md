@@ -40,7 +40,7 @@ analysis/application/
 ├── dispatch/      # AI 전달 큐·선점·전송·재시도
 ├── completion/    # 콜백 검증·종료 결과 반영
 ├── notification/  # 완료 알림·재처리
-├── feedback/      # 확정한 재고의 피드백 큐·전송
+├── feedback/      # 확정한 재고의 피드백 outbox 저장·발행
 └── registration/  # 분석 결과로 재고 등록
 analysis/infrastructure/ai/  # AI 클라이언트·통신 DTO·설정
 

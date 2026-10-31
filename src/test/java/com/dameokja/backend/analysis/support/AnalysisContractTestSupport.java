@@ -105,9 +105,9 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     protected void assertFeedbackQueued(Long refrigeratorId) {
         assertThat(jdbcTemplate.queryForList("SELECT feedback_body FROM analysis_feedbacks WHERE ai_analysis_id = ?", String.class, AI_ANALYSIS_ID))
                 .anySatisfy(body -> {
-                    assertThat(mapper.readTree(body).path("refrigeratorId").asLong()).isEqualTo(refrigeratorId);
-                    assertThat(mapper.readTree(body).at("/items/0/confirmed/name").asString()).isEqualTo("우유");
-                    assertThat(mapper.readTree(body).at("/items/0/confirmed/quantity").asInt()).isEqualTo(2);
+                    assertThat(mapper.readTree(body).path("payload").path("refrigeratorId").asLong()).isEqualTo(refrigeratorId);
+                    assertThat(mapper.readTree(body).at("/payload/items/0/confirmed/name").asString()).isEqualTo("우유");
+                    assertThat(mapper.readTree(body).at("/payload/items/0/confirmed/quantity").asInt()).isEqualTo(2);
                 });
     }
 

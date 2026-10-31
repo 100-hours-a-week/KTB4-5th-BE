@@ -1,12 +1,20 @@
 package com.dameokja.backend.analysis.application.feedback;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackErrorCode;
 import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackProperties;
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutbox;
 import com.dameokja.backend.analysis.application.feedback.LeasedFeedback;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisFeedbackSubmittedEvent;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaPublisher;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.StorageType;
@@ -46,9 +54,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-@Import({AnalysisFeedbackQueue.class, AnalysisFeedbackQueueIntegrationTest.Config.class})
+@Import({AnalysisFeedbackOutboxWorker.class, AnalysisFeedbackOutbox.class, AnalysisFeedbackOutboxIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
+class AnalysisFeedbackOutboxIntegrationTest extends MySqlJpaTest {
     private static final Instant START = Instant.parse("2026-10-19T01:00:00Z");
     private static final LocalDateTime NOW = BusinessTime.now(Clock.fixed(START, ZoneOffset.UTC));
     private static final Duration RETRY_DELAY = Duration.ofMinutes(10);
@@ -60,7 +68,9 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
             AiAnalysisFeedbackRequest.Item.corrected("item-2", AiAnalysisFeedbackRequest.Confirmed.userConfirmed(
                     "계란", IngredientCategory.DAIRY, StorageType.REFRIGERATED, MeasureType.COUNT, 1, null, WeightUnit.NONE, LocalDate.parse("2026-10-20")))));
 
-    @Autowired AnalysisFeedbackQueue queue;
+    @Autowired AnalysisFeedbackOutbox queue;
+    @Autowired AnalysisFeedbackOutboxWorker analysisFeedbackOutboxWorker;
+    @MockitoBean AnalysisKafkaPublisher analysisKafkaPublisher;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired ObjectMapper mapper;
     @Autowired PlatformTransactionManager transactionManager;
@@ -85,7 +95,10 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
     void storesConfirmedValuesAndFinishesTheLeasedFeedback() {
         enqueue(1);
         LeasedFeedback leased = queue.leaseDue().getFirst();
-        assertThat(mapper.readValue(queue.findLeased(leased).orElseThrow().getFeedbackBody(), AiAnalysisFeedbackRequest.class)).isEqualTo(request);
+        AnalysisFeedbackSubmittedEvent event = mapper.readValue(queue.findLeased(leased).orElseThrow().getFeedbackBody(), AnalysisFeedbackSubmittedEvent.class);
+        assertThat(event.payload().userId()).isEqualTo(7L);
+        assertThat(event.payload().requestId()).isEqualTo("request-0");
+        assertThat(event.payload().items()).isEqualTo(request.items());
         assertThat(row(leased.id())).containsEntry("lease_until", NOW.plus(LEASE_DURATION));
         assertThat(queue.leaseDue()).isEmpty();
         queue.finish(leased);
@@ -101,10 +114,10 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
         TimeZone.setDefault(TimeZone.getTimeZone(timeZone));
         enqueue(1);
         LeasedFeedback leased = queue.leaseDue().getFirst();
-        queue.retryLater(leased, AnalysisFeedbackErrorCode.AI_BUSY);
-        assertThat(mapper.readValue(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class), AiAnalysisFeedbackRequest.class))
-                .isEqualTo(request);
-        assertThat(row(leased.id())).containsEntry("status", "PENDING").containsEntry("attempt_count", 1).containsEntry("last_error_code", "AI_BUSY");
+        String storedEvent = jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class);
+        queue.retryLater(leased, AnalysisFeedbackErrorCode.PUBLISH_FAILED);
+        assertThat(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class)).isEqualTo(storedEvent);
+        assertThat(row(leased.id())).containsEntry("status", "PENDING").containsEntry("attempt_count", 1).containsEntry("last_error_code", "PUBLISH_FAILED");
         assertThat(jdbcTemplate.queryForObject("SELECT next_attempt_at FROM analysis_feedbacks", LocalDateTime.class)).isEqualTo(NOW.plus(RETRY_DELAY));
         assertThat(queue.leaseDue()).isEmpty();
         jdbcTemplate.update("UPDATE analysis_feedbacks SET next_attempt_at = ?", NOW);
@@ -117,16 +130,17 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
         enqueue(1);
         LeasedFeedback stale = queue.leaseDue().getFirst();
         jdbcTemplate.update("UPDATE analysis_feedbacks SET lease_until = ?", NOW);
+        assertThat(queue.findLeased(stale)).isEmpty();
         LeasedFeedback current = queue.leaseDue().getFirst();
         assertThat(current.id()).isEqualTo(stale.id());
         assertThat(current.token()).isNotEqualTo(stale.token());
         assertThat(queue.findLeased(stale)).isEmpty();
         queue.finish(stale);
-        queue.retryLater(stale, AnalysisFeedbackErrorCode.AI_UNAVAILABLE);
-        queue.fail(stale, AnalysisFeedbackErrorCode.AI_REJECTED);
+        queue.retryLater(stale, AnalysisFeedbackErrorCode.PUBLISH_FAILED);
+        queue.fail(stale, AnalysisFeedbackErrorCode.INVALID_EVENT);
         assertThat(row(current.id())).containsEntry("status", "SENDING").containsEntry("attempt_count", 0).containsEntry("lease_token", current.token());
-        queue.fail(current, AnalysisFeedbackErrorCode.AI_REJECTED);
-        assertThat(row(current.id())).containsEntry("status", "FAILED").containsEntry("attempt_count", 1).containsEntry("last_error_code", "AI_REJECTED");
+        queue.fail(current, AnalysisFeedbackErrorCode.INVALID_EVENT);
+        assertThat(row(current.id())).containsEntry("status", "FAILED").containsEntry("attempt_count", 1).containsEntry("last_error_code", "INVALID_EVENT");
     }
 
     @Test
@@ -191,9 +205,41 @@ class AnalysisFeedbackQueueIntegrationTest extends MySqlJpaTest {
         assertThat(queue.leaseDue()).hasSize(1);
     }
 
+    @Test
+    void marksTheStoredOutboxDoneAfterPublicationOutsideTheDatabaseTransaction() {
+        enqueue(1);
+        when(analysisKafkaPublisher.publishFeedback(any())).thenAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("SENDING");
+            return CompletableFuture.completedFuture(null);
+        });
+        analysisFeedbackOutboxWorker.sendDue();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("DONE");
+        verify(analysisKafkaPublisher).publishFeedback(any());
+    }
+
+    @Test
+    void retriesTheSameStoredEventAfterPublicationFailureAndThenMarksItDone() {
+        enqueue(1);
+        AnalysisFeedbackSubmittedEvent storedEvent = mapper.readValue(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class),
+                AnalysisFeedbackSubmittedEvent.class);
+        when(analysisKafkaPublisher.publishFeedback(any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("broker unavailable")))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        analysisFeedbackOutboxWorker.sendDue();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("PENDING");
+        assertThat(jdbcTemplate.queryForObject("SELECT last_error_code FROM analysis_feedbacks", String.class)).isEqualTo("PUBLISH_FAILED");
+        assertThat(jdbcTemplate.queryForObject("SELECT next_attempt_at FROM analysis_feedbacks", LocalDateTime.class)).isEqualTo(NOW.plus(RETRY_DELAY));
+        jdbcTemplate.update("UPDATE analysis_feedbacks SET next_attempt_at = ?", NOW);
+        analysisFeedbackOutboxWorker.sendDue();
+        ArgumentCaptor<AnalysisFeedbackSubmittedEvent> publishedEvents = ArgumentCaptor.forClass(AnalysisFeedbackSubmittedEvent.class);
+        verify(analysisKafkaPublisher, org.mockito.Mockito.times(2)).publishFeedback(publishedEvents.capture());
+        assertThat(publishedEvents.getAllValues()).containsExactly(storedEvent, storedEvent);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("DONE");
+    }
+
     private void enqueue(int count) {
         for (int index = 0; index < count; index++) {
-            queue.enqueue("ai-" + index, request);
+            queue.enqueue(7L, "request-" + index, "ai-" + index, request);
         }
     }
 

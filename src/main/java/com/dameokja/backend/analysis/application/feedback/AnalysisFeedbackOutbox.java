@@ -3,6 +3,7 @@ package com.dameokja.backend.analysis.application.feedback;
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisFeedbackSubmittedEvent;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -17,20 +18,21 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
-// 선점 뒤 갱신은 선점 토큰을 조건으로 한다. 변경 0건은 선점 기한이 지나 다른 서버가 다시 가져갔다는 뜻이다.
+// 재고 등록과 함께 저장한 Kafka 이벤트의 발행 대기와 선점을 관리한다. 갱신은 유효한 선점 토큰으로만 수행한다.
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class AnalysisFeedbackQueue {
+public class AnalysisFeedbackOutbox {
     private static final DateTimeFormatter SQL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
     private final AnalysisFeedbackRepository analysisFeedbackRepository;
     private final AnalysisFeedbackProperties analysisFeedbackProperties;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    public void enqueue(String aiAnalysisId, AiAnalysisFeedbackRequest feedbackRequest) {
+    public void enqueue(Long userId, String requestId, String aiAnalysisId, AiAnalysisFeedbackRequest feedbackRequest) {
         LocalDateTime now = BusinessTime.now(clock);
-        analysisFeedbackRepository.save(AnalysisFeedback.pending(aiAnalysisId, objectMapper.writeValueAsString(feedbackRequest),
+        AnalysisFeedbackSubmittedEvent analysisFeedbackSubmittedEvent = AnalysisFeedbackSubmittedEvent.create(userId, requestId, aiAnalysisId, feedbackRequest, clock.instant());
+        analysisFeedbackRepository.save(AnalysisFeedback.pending(aiAnalysisId, objectMapper.writeValueAsString(analysisFeedbackSubmittedEvent),
                 now, now.plus(analysisFeedbackProperties.expiresAfter())));
     }
 
@@ -50,9 +52,10 @@ public class AnalysisFeedbackQueue {
 
     @Transactional(readOnly = true)
     public Optional<AnalysisFeedback> findLeased(LeasedFeedback leasedFeedback) {
-        return analysisFeedbackRepository.findByIdAndLeaseToken(leasedFeedback.id(), leasedFeedback.token());
+        return analysisFeedbackRepository.findActiveLease(leasedFeedback.id(), leasedFeedback.token(), sqlTime(BusinessTime.now(clock)));
     }
 
+    // DONE은 Kafka 발행 확인이며 AI의 피드백 저장 완료를 뜻하지 않는다.
     public void finish(LeasedFeedback leasedFeedback) {
         analysisFeedbackRepository.finish(leasedFeedback.id(), leasedFeedback.token(), sqlTime(BusinessTime.now(clock)));
     }
@@ -67,6 +70,7 @@ public class AnalysisFeedbackQueue {
         analysisFeedbackRepository.fail(leasedFeedback.id(), leasedFeedback.token(), errorCode.name(), sqlTime(BusinessTime.now(clock)));
     }
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void failExpired() {
         analysisFeedbackRepository.failExpired(AnalysisFeedbackErrorCode.EXPIRED.name(), sqlTime(BusinessTime.now(clock)));
     }
