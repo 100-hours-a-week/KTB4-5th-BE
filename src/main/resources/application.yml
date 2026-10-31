@@ -34,6 +34,7 @@ spring:
         "[fetch.min.bytes]": 1
         "[fetch.max.wait.ms]": 500
     listener:
+      auto-startup: ${ANALYSIS_KAFKA_CONSUMER_ENABLED:true}
       type: single
       ack-mode: record
       concurrency: 1
@@ -176,6 +177,7 @@ analysis:
     request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
     completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
+    completion-retry-delay: ${ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY:5s}
   outbox:
     enabled: ${ANALYSIS_OUTBOX_ENABLED:true}
     poll-interval: ${ANALYSIS_OUTBOX_POLL_INTERVAL:5s}
