@@ -4,7 +4,8 @@ import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.domain.*;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.*;
+import com.dameokja.backend.analysis.application.job.AnalysisJobStateAccess;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.ingredient.application.create.*;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;
@@ -16,27 +17,27 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnalysisIngredientService {
     private static final int MAX_ITEMS = 20;
     private static final int MAX_FEEDBACK_ITEMS = 100;
-    private final AnalysisJobStore analysisJobStore;
+    private final AnalysisJobStateAccess analysisJobStateAccess;
     private final IngredientCreateService ingredientCreateService;
     private final AnalysisFeedbackQueue analysisFeedbackQueue;
-    private final TransactionTemplate transactionTemplate;
+    private final RefrigeratorAccessService refrigeratorAccessService;
 
-    // 피드백은 재고와 같은 트랜잭션으로 큐에 넣어 등록이 커밋되면 함께 남게 한다. Redis 결과 삭제는 되돌릴 수 없어 커밋 뒤에 한다.
+    @Transactional
     public IngredientWriteResult create(Long userId, Long refrigeratorId, AnalysisIngredientCommand request) {
-        AnalysisJob job = analysisJobStore.findOwned(request.analysisId(), userId);
-        List<Feedback> feedbacks = prepareRegistration(job, request);
-        IngredientWriteResult result = transactionTemplate.execute(status -> registerWithFeedbacks(userId, refrigeratorId, feedbacks));
-        deleteResult(job.id());
+        // 사용자→냉장고→참여자 순서를 먼저 지킨 뒤 분석 작업을 잠가 동시 등록이 결과를 중복 소비하지 못하게 한다.
+        refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
+        AnalysisJob analysisJob = analysisJobStateAccess.findOwnedForUpdate(request.analysisId(), userId);
+        List<Feedback> feedbacks = prepareRegistration(analysisJob, request);
+        IngredientWriteResult result = registerWithFeedbacks(userId, refrigeratorId, feedbacks);
+        analysisJobStateAccess.deleteOwned(analysisJob.id(), userId);
         return result;
     }
 
@@ -125,15 +126,6 @@ public class AnalysisIngredientService {
         }
         itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
         return result;
-    }
-
-    // 결과가 남아 있으면 같은 항목을 다시 등록할 수 있으므로, 피드백 전송을 기다리지 않고 등록이 커밋되면 바로 지운다.
-    private void deleteResult(String jobId) {
-        try {
-            analysisJobStore.delete(jobId);
-        } catch (RuntimeException exception) {
-            log.warn("재고 등록 후 분석 결과 삭제 실패: jobId={}", jobId, exception);
-        }
     }
 
     private void validateRegistration(boolean valid) {

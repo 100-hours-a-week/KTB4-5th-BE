@@ -16,6 +16,7 @@ import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.DateTimeFeature;
 
@@ -35,6 +36,11 @@ public class AnalysisJobStateAccess {
 
     public AnalysisJob findOwned(String analysisJobId, Long userId) {
         return requireOwned(find(analysisJobId).orElseThrow(() -> new CustomException(AnalysisExceptionCode.NOT_FOUND)), userId);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AnalysisJob findOwnedForUpdate(String analysisJobId, Long userId) {
+        return requireOwned(read(lockActive(analysisJobId)), userId);
     }
 
     public List<AnalysisJob> findAllOwned(Long userId) {
