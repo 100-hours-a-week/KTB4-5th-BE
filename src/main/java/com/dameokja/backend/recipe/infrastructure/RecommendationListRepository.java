@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecommendationListRepository extends JpaRepository<RecommendationList, Long> {
     Optional<RecommendationList> findByRequestId(String requestId);
+    Optional<RecommendationList> findByIdAndUserIdAndRefrigeratorId(Long id, Long userId, Long refrigeratorId);
 }

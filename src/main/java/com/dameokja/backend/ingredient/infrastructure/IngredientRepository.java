@@ -29,6 +29,10 @@ public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     List<Ingredient> findAllByRefrigerator_IdOrderByIdAsc(Long refrigeratorId);
     List<Ingredient> findAllByRefrigerator_IdAndIdIn(Long refrigeratorId, Collection<Long> ingredientIds);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId and i.id in :ingredientIds order by i.id")
+    List<Ingredient> findAllByIdsForUpdate(@Param("refrigeratorId") Long refrigeratorId, @Param("ingredientIds") Collection<Long> ingredientIds);
+
     @Query("select i from Ingredient i where i.refrigerator.id = :refrigeratorId "
             + "and i.expirationDate <= :expirationThrough order by i.expirationDate, i.id")
     List<Ingredient> findExpirationNotificationTargets(@Param("refrigeratorId") Long refrigeratorId,
