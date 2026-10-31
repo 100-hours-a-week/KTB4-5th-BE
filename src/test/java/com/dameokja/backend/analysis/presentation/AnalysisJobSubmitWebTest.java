@@ -75,7 +75,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
         AnalysisJob analysisJob = analysisJobStateAccess.findOwned(jsonNode.path("analysisId").asString(), 7L);
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
         assertCommittedRequestEvents();
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @ParameterizedTest
@@ -88,7 +88,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("GLOBAL-400-001"));
         assertNothingAccepted();
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @ParameterizedTest
@@ -100,7 +100,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().is(status)).andExpect(jsonPath("$.code").value(code));
         assertNothingAccepted();
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @Test
@@ -111,7 +111,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value("IMAGE-422-001"));
         assertNothingAccepted();
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @Test
@@ -123,7 +123,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(csrfCookie, accessToken()).header("X-XSRF-TOKEN", csrfCookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY)).andExpect(status().is5xxServerError());
         assertNothingAccepted();
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @AfterEach

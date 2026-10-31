@@ -30,9 +30,7 @@ public interface AnalysisApi {
             @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
             @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001)"),
             @ApiResponse(responseCode = "422", description = "사용자·용도·유효기간에 맞는 발급 내역이 없는 이미지 (IMAGE-422-001)"),
-            @ApiResponse(responseCode = "429", description = "AI 요청 횟수 제한 (IMAGE-429-001)"),
-            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)"),
-            @ApiResponse(responseCode = "503", description = "AI 분석 접수 일시 불가 (IMAGE-503-001)")
+            @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)")
     })
     ResponseEntity<SuccessResponse<AnalysisJobSubmitResponse>> submit(@Parameter(hidden = true) Long userId,
             @RequestBody(required = true, content = @Content(schema = @Schema(implementation = AnalysisJobSubmitRequest.class),
@@ -55,11 +53,11 @@ public interface AnalysisApi {
             + "UNRECOGNIZED, NEEDS_REVIEW, AI_ESTIMATED, RECOGNIZED 순이며 빈 결과는 UNRECOGNIZED입니다. 모두 대기 중이면 QUEUED, "
             + "대기·처리 중 이미지가 남으면 PROCESSING입니다. 모든 이미지가 종료되면 COMPLETED, PARTIALLY_COMPLETED 또는 FAILED입니다. "
             + "pollAfterMs는 진행 중 1000, 종료 시 null입니다. 값만 있는 필드는 직접 반환하며 weight는 value·unit 객체입니다. confidence와 imageQuality는 반환하지 않습니다. "
-            + "미인식 수량·중량의 0과 측정 방식·단위 조합을 콜백에서 받은 그대로 반환하며, 실제 등록 가능한 조합인지는 재고 등록에서 검증합니다. "
+            + "미인식 수량·중량의 0과 측정 방식·단위 조합을 완료 이벤트에서 받은 그대로 반환하며, 실제 등록 가능한 조합인지는 재고 등록에서 검증합니다. "
             + "reviewReasons는 field·code·messages 객체 배열이며 사유가 없으면 빈 배열입니다. messages는 하나 이상의 비어 있지 않은 문자열입니다. "
             + "expiresAt은 묶음 종료 결과 저장 전 null이며, 전체 종료를 확정해 저장한 시점부터 기본 7일입니다. 조회로 연장하지 않습니다. "
-            + "Redis에 보관한 결과를 반환하며 사용자 조회에서 AI API를 호출하지 않습니다. AI 접수 전에는 QUEUED, 접수 후 종료 결과가 없으면 PROCESSING입니다. "
-            + "expiration은 확정 날짜만 반환하며 예상 소비기한 범위만 있으면 null입니다.")
+            + "DB에 보관한 작업 상태·결과를 반환하며 사용자 조회에서 AI API를 호출하지 않습니다. "
+            + "expiration은 date·dateType·estimatedRange 객체이며 확정 날짜가 없으면 date는 null입니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 인식 결과 조회 성공 (IMAGE-200-002)", content = @Content(
                     mediaType = "application/json",
@@ -75,7 +73,7 @@ public interface AnalysisApi {
 
     @Operation(summary = "이미지 분석 작업·결과 삭제", description = "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. "
             + "재고 등록 여부와 관계없이 모든 이미지가 종료된 작업(COMPLETED, PARTIALLY_COMPLETED, FAILED)을 삭제합니다. "
-            + "대기·처리 중 이미지가 하나라도 있으면 삭제하지 않습니다. 묶음 전체의 BE 작업·저장 결과와 조회용 색인을 지우며 "
+            + "대기·처리 중 이미지가 하나라도 있으면 삭제하지 않습니다. 묶음 전체의 DB 작업 상태·요청 매핑·요청 outbox를 지우며 "
             + "AI 작업 취소, AI 피드백 전송, 원본 이미지 삭제는 하지 않고 이미 등록된 재고에는 영향을 주지 않습니다. "
             + "삭제 후 같은 작업 ID로 조회·재고 등록·삭제를 요청하면 404입니다.")
     @ApiResponses({

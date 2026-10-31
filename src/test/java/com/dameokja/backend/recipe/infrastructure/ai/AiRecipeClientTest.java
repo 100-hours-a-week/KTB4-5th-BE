@@ -2,7 +2,6 @@ package com.dameokja.backend.recipe.infrastructure.ai;
 
 import com.dameokja.backend.global.config.ai.AiClientConfig;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -53,7 +52,7 @@ class AiRecipeClientTest {
         server.createContext("/ai/v1/recipe-recommendations", this::respond);
         server.start();
         baseUrl = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
-        http = new AiClientConfig().aiHttpClient(properties(baseUrl, Duration.ofSeconds(2)));
+        http = new AiClientConfig().aiHttpClient(properties(baseUrl));
     }
 
     @AfterEach
@@ -66,7 +65,7 @@ class AiRecipeClientTest {
     void sendsWikiRequestAndPreservesWholeResponseOverRealHttp() {
         String simulationUrl = System.getenv("RECIPE_AI_SIMULATION_URL");
         URI target = simulationUrl == null ? baseUrl : URI.create(simulationUrl);
-        AiRecipeClient client = new AiClientConfig().aiRecipeClient(properties(target, Duration.ofSeconds(2)), http, Duration.ofSeconds(2));
+        AiRecipeClient client = new AiClientConfig().aiRecipeClient(properties(target), http, Duration.ofSeconds(2));
         AiRecipeRecommendationResponse response = client.recommend(request);
         assertThat(mapper.readTree(mapper.writeValueAsString(response))).isEqualTo(mapper.readTree(body.get()));
         if (simulationUrl == null) {
@@ -148,36 +147,26 @@ class AiRecipeClientTest {
         new ApplicationContextRunner()
                 .withInitializer(context -> context.getBeanFactory().setConversionService(ApplicationConversionService.getSharedInstance()))
                 .withInitializer(new ConfigDataApplicationContextInitializer()).withUserConfiguration(AiClientConfig.class)
-                .withPropertyValues("ai.base-url=" + baseUrl, "ai.api-key=shared-key", "ai.connect-timeout=1s", "ai.read-timeout=2s")
+                .withPropertyValues("ai.base-url=" + baseUrl, "ai.api-key=shared-key", "ai.connect-timeout=1s")
                 .run(context -> {
                     context.getBean(AiRecipeClient.class).recommend(request);
                     assertThat(receivedKey.get()).isEqualTo("shared-key");
                 });
     }
 
-    @Test
-    void keepsAnalysisAndRecipeReadTimeoutsIndependent() {
-        server.createContext("/ai/v1/analyses", this::respond);
-        delay.set(300);
-        context().withPropertyValues("ai.read-timeout=50ms", "ai.recipe.read-timeout=2s").run(context -> {
-            assertThatThrownBy(() -> context.getBean(AiAnalysisClient.class).get("analysis-1")).isInstanceOf(RestClientException.class);
-            assertThat(context.getBean(AiRecipeClient.class).recommend(request).recommendationId()).isEqualTo("rec-1");
-        });
-    }
-
     private ApplicationContextRunner context() {
         return new ApplicationContextRunner()
                 .withInitializer(context -> context.getBeanFactory().setConversionService(ApplicationConversionService.getSharedInstance()))
                 .withUserConfiguration(AiClientConfig.class).withPropertyValues(
-                "ai.base-url=" + baseUrl, "ai.api-key=test-key", "ai.connect-timeout=1s", "ai.read-timeout=2s", "ai.recipe.read-timeout=60s");
+                "ai.base-url=" + baseUrl, "ai.api-key=test-key", "ai.connect-timeout=1s", "ai.recipe.read-timeout=60s");
     }
 
     private AiRecipeClient client(Duration timeout) {
-        return new AiClientConfig().aiRecipeClient(properties(baseUrl, timeout), http, timeout);
+        return new AiClientConfig().aiRecipeClient(properties(baseUrl), http, timeout);
     }
 
-    private AiClientProperties properties(URI url, Duration timeout) {
-        return new AiClientProperties(url, "test-key", Duration.ofSeconds(1), timeout);
+    private AiClientProperties properties(URI url) {
+        return new AiClientProperties(url, "test-key", Duration.ofSeconds(1));
     }
 
     private void respond(HttpExchange exchange) throws IOException {

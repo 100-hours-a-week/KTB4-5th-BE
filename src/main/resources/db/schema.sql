@@ -355,54 +355,12 @@ CREATE TABLE analysis_outbox (
     CONSTRAINT ck_analysis_outbox_published CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
-CREATE TABLE analysis_dispatch_gates (
-    gate_id TINYINT NOT NULL COMMENT '항상 1. 이 행 잠금으로 여러 BE의 진행 중 개수 판단과 선점을 직렬화',
-    PRIMARY KEY (gate_id),
-    CONSTRAINT ck_analysis_dispatch_gate_single CHECK (gate_id = 1)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
-
-INSERT INTO analysis_dispatch_gates (gate_id) VALUES (1);
-
-CREATE TABLE analysis_dispatches (
-    analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',
-    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. (사용자, objectKey, sha256, inputHint)에서 파생해 같은 사진 재요청과 재전송이 같은 값을 쓴다',
-    analysis_job_id CHAR(36) NOT NULL COMMENT 'Redis 분석 묶음 ID',
-    user_id BIGINT NOT NULL,
-    object_key VARCHAR(512) NOT NULL,
-    sha256 CHAR(64) NOT NULL,
-    input_hint VARCHAR(16) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    ai_analysis_id VARCHAR(64) NULL COMMENT '마지막으로 접수된 AI 작업 ID',
-    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI 전송 실패·재전송 횟수. 429와 AI 준비 전 보류는 제외',
-    next_attempt_at DATETIME(6) NOT NULL,
-    lease_token VARCHAR(64) NULL,
-    lease_until DATETIME(6) NULL COMMENT 'DISPATCHING·CHECKING은 점유 만료, AWAITING_CALLBACK은 콜백 기한',
-    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 FAILED',
-    last_ai_status VARCHAR(20) NULL COMMENT '마지막 AI 작업 조회 상태',
-    last_error_code VARCHAR(64) NULL,
-    dispatched_at DATETIME(6) NULL COMMENT '마지막 전송 시작',
-    accepted_at DATETIME(6) NULL COMMENT '마지막 AI 접수',
-    finished_at DATETIME(6) NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (analysis_dispatch_id),
-    UNIQUE KEY uk_analysis_dispatch_request (request_id, analysis_job_id),
-    KEY ix_analysis_dispatch_due (status, next_attempt_at),
-    KEY ix_analysis_dispatch_lease (status, lease_until),
-    CONSTRAINT ck_analysis_dispatch_status CHECK (status IN ('PENDING','DISPATCHING','AWAITING_CALLBACK','CHECKING','DONE','FAILED')),
-    CONSTRAINT ck_analysis_dispatch_attempts CHECK (attempt_count >= 0),
-    CONSTRAINT ck_analysis_dispatch_lease CHECK (status NOT IN ('DISPATCHING','AWAITING_CALLBACK','CHECKING')
-        OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
-    CONSTRAINT ck_analysis_dispatch_awaiting CHECK (status NOT IN ('AWAITING_CALLBACK','CHECKING') OR ai_analysis_id IS NOT NULL),
-    CONSTRAINT ck_analysis_dispatch_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
-
 CREATE TABLE analysis_feedbacks (
     analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI 분석 하나에 보낼 피드백 묶음',
     ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
-    feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
+    feedback_body JSON NOT NULL COMMENT 'Kafka 피드백 이벤트 JSON. 재시도 시 messageId와 본문 유지',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
-    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'Kafka 발행 또는 이벤트 처리 실패 횟수',
     next_attempt_at DATETIME(6) NOT NULL,
     lease_token VARCHAR(64) NULL,
     lease_until DATETIME(6) NULL COMMENT 'SENDING 점유 만료. 지나면 다른 서버가 다시 가져감',

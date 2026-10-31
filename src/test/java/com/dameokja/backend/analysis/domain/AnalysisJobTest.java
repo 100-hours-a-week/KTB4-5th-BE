@@ -47,7 +47,7 @@ class AnalysisJobTest {
         AnalysisJob finished = resent.complete("ai-new", failure(submittedAt), submittedAt.plusDays(7));
 
         assertThat(resent.analysisImages().getFirst().aiAnalysisId()).isEqualTo("ai-new");
-        assertThat(resent.requestIdOf("ai-new")).isEqualTo(requestId);
+        assertThat(resent.analysisImages().getFirst().requestId()).isEqualTo(requestId);
         assertThat(finished.register(requestId, "ai-new")).isEqualTo(finished);
         assertThatThrownBy(() -> finished.register(requestId, "ai-other")).isInstanceOf(IllegalStateException.class);
     }

@@ -5,14 +5,11 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore.Lease;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.NotificationStreamService;
-import java.time.Clock;
-import java.time.Duration;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,35 +25,19 @@ public class AnalysisCompletionNotifier {
     private final AnalysisPendingNotificationStore analysisPendingNotificationStore;
     private final AnalysisFinishedEventService analysisFinishedEventService;
     private final NotificationStreamService notificationStreamService;
-    private final Clock clock;
-    private final Duration retryDelay;
     private final int sseMaxAttempts;
 
     public AnalysisCompletionNotifier(AnalysisNotificationState analysisNotificationState, AnalysisPendingNotificationStore analysisPendingNotificationStore,
-            AnalysisFinishedEventService analysisFinishedEventService, NotificationStreamService notificationStreamService, Clock clock,
-            @Value("${analysis.notification.retry-delay:1s}") Duration retryDelay, @Value("${analysis.notification.sse-max-attempts:3}") int sseMaxAttempts) {
-        if (retryDelay == null || retryDelay.toMillis() < 1 || sseMaxAttempts < 1) {
-            throw new IllegalArgumentException("알림 재시도 간격은 1밀리초 이상, SSE 최대 시도 횟수는 1 이상이어야 합니다.");
+            AnalysisFinishedEventService analysisFinishedEventService, NotificationStreamService notificationStreamService,
+            @Value("${analysis.notification.sse-max-attempts:3}") int sseMaxAttempts) {
+        if (sseMaxAttempts < 1) {
+            throw new IllegalArgumentException("SSE 최대 시도 횟수는 1 이상이어야 합니다.");
         }
         this.analysisNotificationState = analysisNotificationState;
         this.analysisPendingNotificationStore = analysisPendingNotificationStore;
         this.analysisFinishedEventService = analysisFinishedEventService;
         this.notificationStreamService = notificationStreamService;
-        this.clock = clock;
-        this.retryDelay = retryDelay;
         this.sseMaxAttempts = sseMaxAttempts;
-    }
-
-    public void addPending(String analysisJobId) {
-        try {
-            analysisPendingNotificationStore.schedule(analysisJobId, clock.instant().plus(retryDelay));
-        } catch (DataAccessException exception) {
-            throw new CustomException(AnalysisExceptionCode.CALLBACK_UNAVAILABLE);
-        }
-    }
-
-    public void notifyFinished(AnalysisJob analysisJob, String requestId, AnalysisCompletion completion) {
-        addPending(analysisJob.id());
     }
 
     public synchronized void deliverPending() {

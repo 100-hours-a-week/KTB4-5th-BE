@@ -1,71 +1,67 @@
 package com.dameokja.backend.analysis.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchLeaseService;
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchSender;
-import com.dameokja.backend.analysis.application.dispatch.LeasedDispatch;
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackProperties;
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutboxWorker;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
+import com.dameokja.backend.analysis.application.completion.AnalysisCompletionPersistence;
+import com.dameokja.backend.analysis.application.job.AnalysisJobStateAccess;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
+import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
+import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisStatus;
+import com.dameokja.backend.analysis.domain.RecognitionStatus;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisCompletedEvent;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaPublisher;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.zaxxer.hikari.HikariDataSource;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestContextManager;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-public abstract class RestartableAnalysisContractTestSupport extends AnalysisContractTestSupport {
+public abstract class RestartableAnalysisContractTestSupport extends AnalysisDatabaseContractTestSupport {
     @Autowired private ConfigurableApplicationContext application;
-    @Autowired private AnalysisDispatchProperties dispatchPolicy;
-    @Autowired private AnalysisDispatchLeaseService dispatchLeases;
-    @Autowired private AnalysisDispatchSender dispatchSender;
-    @Autowired private AnalysisDispatchWorker dispatchWorker;
-    @Autowired private AnalysisFeedbackProperties feedbackPolicy;
-    @Autowired private AnalysisFeedbackOutboxWorker feedbackSender;
+    @Autowired private AnalysisJobStateAccess analysisJobStateAccess;
+    @Autowired private AnalysisCompletionPersistence analysisCompletionPersistence;
 
     protected void restartApplication() throws Exception {
         Instant resumedAt = clock.instant();
-        ConfigurableApplicationContext stopped = application;
-        HikariDataSource stoppedPool = stopped.getBean(HikariDataSource.class);
-        AiAnalysisClient stoppedAi = ai;
-        TestContextManager contexts = new TestContextManager(getClass());
-        // 캐시에서 제거하면서 실제 종료하고, DB·Redis는 정리하지 않은 채 같은 공통 설정으로 다시 띄운다.
-        contexts.getTestContext().markApplicationContextDirty(DirtiesContext.HierarchyMode.CURRENT_LEVEL);
-        assertThat(stopped.isActive()).isFalse();
+        ConfigurableApplicationContext stoppedApplication = application;
+        HikariDataSource stoppedPool = stoppedApplication.getBean(HikariDataSource.class);
+        AnalysisKafkaPublisher stoppedPublisher = analysisKafkaPublisher;
+        TestContextManager testContexts = new TestContextManager(getClass());
+        // 실제 컨텍스트와 커넥션 풀을 종료하되 DB·Redis 데이터는 유지한다.
+        testContexts.getTestContext().markApplicationContextDirty(DirtiesContext.HierarchyMode.CURRENT_LEVEL);
+        assertThat(stoppedApplication.isActive()).isFalse();
         assertThat(stoppedPool.isClosed()).isTrue();
-        contexts.prepareTestInstance(this);
+        testContexts.prepareTestInstance(this);
         clock.set(resumedAt.toString());
-        acceptAiRequests();
-        assertThat(application).isNotSameAs(stopped);
+        assertThat(application).isNotSameAs(stoppedApplication);
         assertThat(application.isActive()).isTrue();
-        assertThat(ai).isNotSameAs(stoppedAi);
+        assertThat(analysisKafkaPublisher).isNotSameAs(stoppedPublisher);
     }
 
-    @Override
-    protected void dispatchDueAnalyses() {
-        // 자동 만료 조회가 잠깐 잠근 작업은 같은 시각으로 다시 선점하고, 전송 자체는 호출 스레드에서 한 번만 실행한다.
-        List<LeasedDispatch> dispatches = await().atMost(WAIT_LIMIT).until(dispatchLeases::leaseDue, leased -> !leased.isEmpty());
-        dispatches.forEach(dispatchSender::send);
+    protected String acceptAnalysis(Long userId) throws Exception {
+        String response = submitImage(userId, "PRODUCT").andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isAccepted())
+                .andReturn().getResponse().getContentAsString();
+        return mapper.readTree(response).at("/data/analysisId").asString();
     }
 
-    // 중단된 전송과 콜백 대기 모두 복구 대상이 되도록 시계만 진행하고 실제 워커를 실행한다.
-    protected void recoverInterruptedAnalyses() {
-        clock.set(clock.instant().plus(dispatchPolicy.leaseDuration()).plus(dispatchPolicy.callbackTimeout()).toString());
-        dispatchWorker.poll();
-    }
-
-    protected void pollAnalyses() { dispatchWorker.poll(); }
-
-    protected void sendFeedback() { feedbackSender.sendDue(); }
-
-    protected void recoverInterruptedFeedback() {
-        clock.set(clock.instant().plus(feedbackPolicy.leaseDuration()).toString());
-        feedbackSender.sendDue();
+    protected void completeStoredAnalysis(String analysisJobId, Long userId) {
+        AnalysisJob analysisJob = analysisJobStateAccess.findOwned(analysisJobId, userId);
+        AnalysisCompletionItem analysisCompletionItem = new AnalysisCompletionItem("milk", RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.COUNT, 1, new AnalysisCompletionItem.Weight(null, WeightUnit.NONE),
+                new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.UNKNOWN, null), List.of());
+        analysisCompletionPersistence.apply(new AnalysisCompletedEvent(UUID.randomUUID().toString(), new AnalysisCompletedEvent.Payload("AnalysisCompleted",
+                clock.instant(), analysisJob.analysisImages().getFirst().requestId(), userId, AI_ANALYSIS_ID, AnalysisStatus.COMPLETED, clock.instant(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.PRODUCT, List.of(analysisCompletionItem)), null)));
     }
 }

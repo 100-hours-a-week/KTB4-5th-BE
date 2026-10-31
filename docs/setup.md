@@ -132,32 +132,23 @@ Presigner 생성 시에는 자격 증명을 조회하지 않고 실제 서명 �
 실제 PUT 업로드에는 서명 주체의 설정된 prefix 아래 `analysis/`·`profile/` 객체 쓰기 권한과 프론트 Origin·PUT·업로드 헤더를 허용하는
 버킷 CORS 설정이 필요하다. [AWS3][AWS4] 버킷·IAM·CORS 변경은 이 설정 코드가 수행하지 않는다.
 
-## AI 분석 호출 설정
+## AI HTTP 공통 접속 설정
+
+레시피 추천의 HTTP 클라이언트는 공통 `AiClientConfig`·`AiClientProperties`를 사용한다.
 
 | 환경변수 | 내용 |
 |---|---|
-| `AI_BASE_URL` | AI 서버의 HTTP(S) 기본 주소 |
-| `AI_INTERNAL_API_KEY` | `X-Internal-API-Key` 헤더에 넣는 내부 인증키 |
+| `AI_BASE_URL` | AI 서버의 HTTP(S) 주소 |
+| `AI_INTERNAL_API_KEY` | `X-Internal-API-Key` 인증 값 |
 | `AI_CONNECT_TIMEOUT` | 연결 타임아웃. Duration 형식, 1ms 이상 |
-| `AI_READ_TIMEOUT` | 응답 읽기 타임아웃. Duration 형식, 1ms 이상 |
 
-기본값 없이 외부 환경에서 주입하며, 누락·잘못된 설정은 기동 시 거절한다.
-공통 접속 속성은 `ai`의 `AiClientProperties`에서 검증하고, `AiClientConfig`가 HTTP 연결·인증 헤더를 구성한다.
-`AiAnalysisClient.submit`은 단건 분석을 접수하고, `get`은 `analysisId`로 상태·결과를 조회한다.
-`requestId`는 요청별로 구분하며 같은 요청의 재전송에는 같은 값을 사용한다.
-접수 응답은 분석 완료를 뜻하지 않는다. HTTP 오류·통신 실패는 Spring `RestClientException` 계열로 전달한다.
-현재 AI 서버는 영수증 분석만 지원한다. `POST /api/v1/image-analyses`로 묶음 접수하고 `GET /api/v1/image-analyses/{analysisId}`로 이미지별 결과를 조회한다.
-조회는 로그인 사용자의 작업만 허용하며, 작업이 없거나 만료되면 404를 반환한다. AI 통신·인증 오류는 접수 시 503으로 반환한다.
-조회 응답에서 값만 있는 필드는 직접 반환하고 `weight`만 `value`·`unit` 객체를 유지한다. `confidence`와 `imageQuality`는 AI 원본 응답에만 유지한다.
-종료 콜백으로 저장한 결과를 사용자 GET에서 반환한다. 재고 등록은 후속 구현 범위다.
+위 값은 기본값 없이 외부 환경에서 주입하며, 누락·잘못된 설정은 기동 시 거절한다.
+추천 응답 읽기 타임아웃은 `AI_RECIPE_READ_TIMEOUT`이며 기본값은 60초다.
+분석 전용 HTTP 접수·진행 조회·완료 콜백과 `AI_READ_TIMEOUT` 설정은 제거했다.
 
 ## AI 추천 호출 설정
 
-분석·추천 클라이언트는 공통 `AiClientConfig`·`AiClientProperties`와 HTTP 연결을 사용한다.
-읽기 타임아웃은 `AI_RECIPE_READ_TIMEOUT`으로 분리하며 기본값은 60초다.
-AI 추천이 분석 접수보다 오래 걸릴 수 있어 분석 클라이언트의 읽기 제한을 바꾸지 않는다.
-`AiRecipeClient.recommend`는 위키 요청 필드만 전송하고, 위키에 없는 선택 입력은 AI 기본값을 사용한다.
-응답은 확인 후보·필요량·재고별 사용량·경고·추적 정보까지 포함한 `AiRecipeRecommendationResponse` record로 수신한다.
+`AiRecipeClient.recommend`는 추천 요청을 HTTP로 전송하고, 결과를 `AiRecipeRecommendationResponse`로 수신한다.
 HTTP·통신 실패와 요청 냉장고·재고 지문·모드가 다른 응답은 `RestClientException` 계열로 전달한다.
 외부 추천 API, 작업 큐, 결과 캐시, 레시피 저장·재고 차감은 이 클라이언트가 수행하지 않는다.
 
@@ -177,25 +168,27 @@ SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는�
 발급 내역은 발급 시각부터 만료된다. 발급 내역의 유효기간과 분석 결과의 보관기간은 분리한다.
 발급 내역은 Redis TTL과 저장된 만료 시각으로 검사하며 BE 인스턴스 간 공유한다. 조회는 TTL을 연장하지 않는다.
 발급 내역은 업로드 완료를 의미하지 않는다. 실제 이미지의 존재·해시 일치는 AI에서 검증한다.
-분석 접수 서비스는 저장된 SHA-256으로 묶음 작업을 생성하고 이미지별 AI 접수 ID를 순차 저장한다.
-접수나 ID 저장 중 하나라도 실패하면 묶음과 AI ID 색인을 지우고 오류를 반환한다. 이미 접수된 이미지의 콜백은 저장할 묶음이 없어 503으로 응답하며, AI 재시도가 끝나면 버려진다.
-작업은 Redis의 `analysis:job:<id>` 키에 JSON으로 저장한다. 접수·진행 중에는 TTL을 설정하지 않고 `expiresAt`은 null이다.
-이미지별 등록은 Lua 비교·교체로 수행해 다른 인스턴스의 등록 결과를 덮어쓰지 않는다. GET은 Redis에 보관한 상태·결과를 반환하며 AI API를 호출하지 않는다.
-AI 접수 ID가 없는 이미지는 `QUEUED`, 접수 후 종료 결과가 없는 이미지는 `PROCESSING`으로 반환한다.
-진행 중에는 `pollAfterMs=1000`, 종료 후에는 `null`을 반환한다. 일부 이미지가 실패하면 `PARTIALLY_COMPLETED`, 전부 실패하면 `FAILED`로 응답한다.
-이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. 발급 내역과 분석 작업 상태는 Redis에서 공유한다.
+## 분석 Kafka 전달·상태
 
-AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 접수 정보와 함께 원자적으로 저장한다. 진행 중인 묶음과 색인에는 TTL이 없다.
-사용자별 `analysis:user:<userId>` sorted set은 작업 ID를 접수 시각 순으로 보관한다. 작업 저장 뒤에 추가해 목록 조회의 정리가 생성 중인 작업을 지우지 않게 한다.
-이 색인에는 TTL을 두지 않고, 목록 조회 시 만료되거나 사라진 작업 ID를 제거한다. 접수 실패로 묶음을 지울 때 이 색인에서도 함께 지운다.
-분석 저장소는 이미지별 종료 결과·오류·종료 시각을 작업 JSON에 보관하고, 모든 이미지가 종료된 최초 시점에 알림 처리 대기 표시를 함께 저장한다.
-종료 시각은 실제 순간을 유지한 채 `BusinessTime.ZONE`의 서울 시간으로 변환해 보관한다. 서로 다른 오프셋으로 전달된 같은 순간도 같은 종료 시각으로 비교한다.
-항목의 `reviewReasons`는 `field`·`code`·`messages` 객체 배열로 보관하며, 예상 소비기한의 날짜 범위를 확정 날짜로 변환하지 않는다.
-같은 종료 결과는 다시 쓰지 않고 다른 결과는 충돌로 거절한다. 마지막 이미지까지 종료를 확정해 저장한 BE 시각부터 결과 보관기간을 시작한다. 묶음과 모든 AI ID 색인에 같은 만료 시각을 원자적으로 설정하며, 중복 콜백·등록·조회는 이를 연장하지 않는다.
-`ANALYSIS_RESULT_TTL`은 결과 보관기간이며 기본값은 7일이다. AI가 보낸 종료 시각이나 작업 생성 시각으로 계산하지 않는다.
-이미 TTL이 걸린 기존 키는 새 설정만으로 바뀌지 않으므로, 배포 시 기존 작업의 처리 상태를 확인해 이관 여부를 정해야 한다.
-예상 소비기한 범위는 저장 상태에서 유지하고 사용자 GET의 `expiration`에는 확정 날짜만 반환하므로, 추정 범위만 있으면 null이다.
-콜백 누락 복구는 후속 구현 범위다.
+분석 접수는 업로드 발급 내역을 검증한 뒤 `analysis_job_states`·`analysis_job_requests`·`analysis_outbox`를 한 트랜잭션으로 저장한다.
+커밋 후 기존 FE 계약대로 202를 반환하며, HTTP 요청 안에서 Kafka 발행이나 AI 완료를 기다리지 않는다.
+요청 outbox는 기본 5초 간격으로 선점해 Kafka로 발행한다. 작업 상태·이미지·완료 결과는 DB에 저장하고 사용자 조회에서는 AI를 호출하지 않는다.
+완료 이벤트는 `AnalysisKafkaConsumer`가 적용하며, 결과와 알림 대기가 함께 커밋된 뒤 RECORD 방식으로 offset을 처리한다.
+공통 이벤트 형식은 `{messageId, payload}`이고, Kafka key는 문자열 `userId`다. 재발행 시 저장된 `messageId`·본문을 유지한다.
+
+요청 outbox와 피드백 outbox(`analysis_feedbacks`)는 테이블·실행 스레드를 분리하고 `AnalysisKafkaPublisher`의 Kafka 전송 코드를 재사용한다.
+두 outbox는 배치 크기만큼 한 트랜잭션에서 선점한 뒤, DB 트랜잭션 밖에서 건별 가상 스레드로 동시에 발행한다.
+각 건은 producer의 최종 ACK·실패를 기다려 독립적으로 완료·재시도를 기록한다. 일시 장애의 내부 재시도와 전달 제한은 Kafka의 `delivery.timeout.ms`가 관리한다. [KAFKA1]
+피드백은 재고 등록과 원자적으로 저장하며, 발행 확인 후 DONE으로 기록한다. DONE은 AI의 피드백 처리 완료를 뜻하지 않는다.
+Kafka 발행 후 DB 기록 전에 종료되면 같은 이벤트가 다시 발행될 수 있으므로 소비 측에서 중복을 처리해야 한다.
+기존 HTTP 전달 큐의 `analysis_dispatches`·`analysis_dispatch_gates`와 Redis 작업·AI ID·사용자별 작업 색인, 콜백 임시 보관은 사용하지 않는다.
+빈 DB는 최신 `db/schema.sql`을 사용한다. 기존 DB의 반영 SQL은 코드 변경 안내에 별도로 제공하며 자동 실행하지 않는다.
+
+결과는 마지막 이미지까지 종료를 확정해 저장한 BE 시점부터 `ANALYSIS_RESULT_TTL`(기본 7일) 동안 보관한다.
+중복 완료 이벤트·조회는 보관기간을 연장하지 않는다. 처리 기한은 별도 `ANALYSIS_JOB_TIMEOUT`(기본 30분 30초)이다.
+처리 기한이 지난 작업은 조회·삭제 경로에서 실패로 확정하며, 주기적인 AI 상태 조회는 수행하지 않는다.
+`reviewReasons`의 객체 배열과 `expiration`의 확정 날짜·예상 기간은 완료 이벤트에서 저장된 형태를 유지한다.
+업로드 발급 내역과 SSE 연결 상태·Pub/Sub에는 Redis를 계속 사용한다.
 
 ## Redis 접속 설정
 
@@ -270,11 +263,14 @@ state와 가입 대기 토큰은 최초 발급부터 10분간 보관한다. 공�
 빈 DB는 최신 `schema.sql`을 적용한다.
 ANALYSIS 작업도 INBOX와 같은 DB 워커가 선점해 발송한다. 발송 직전 활성 회원·ANALYSIS 수신 설정·활성 구독·소유자·생성 당시 구독 버전을 다시 확인하며, 냉장고 접근 권한은 확인하지 않는다.
 이미지 하나의 성공·실패 결과를 저장할 때마다 마지막 이미지를 포함해 `image-analysis.image-finished`를 기존 Redis Pub/Sub으로 전달한다. 묶음 `analysisId`·`imageObjectKey`·`imageStatus`와 `expiresAt:null`을 보낸다. 개별 이벤트에서는 연결 상태 조회·푸시 생성·전달 경로 선택을 하지 않는다.
-마지막 이미지의 성공·실패 결과까지 저장한 콜백에서는 개별 이벤트 발행 뒤 사용자 전체 SSE 연결 상태를 확인한다. 연결되어 있으면 `image-analysis.finished`를 추가 발행하고, 미연결이면 푸시 작업을 만든 뒤 알림 처리 대기 표시를 지운다.
-두 이벤트의 `totalImageCount`는 전체 수, `completedImageCount`는 성공 수, `failedImageCount`는 실패 수이며 결과 저장 후 집계한다. 전체 이벤트 `status`는 실패 0이면 `COMPLETED`, 성공 0이면 `FAILED`, 나머지는 `PARTIALLY_COMPLETED`다. SSE에는 `type`을 보내지 않는다.
-선택한 전달 경로는 작업 JSON에 원자적으로 저장하며 재시도에도 유지한다. 연결 상태 조회·이벤트 발행·푸시 생성·처리 확인이 실패하면 콜백에 503을 반환한다. Redis 장애를 미연결로 간주하지 않는다.
-개별 이벤트 발행 실패는 최종 처리 전 503으로 재시도하며, 같은 콜백의 재전송은 전체 완료 확인 후에도 개별 이벤트를 다시 발행할 수 있다. 개별→전체 발행 순서와 실제 수신 순서는 다를 수 있으므로 이벤트 순서보다 GET의 저장 상태를 기준으로 갱신한다.
-SSE 발행 후 처리 확인이 실패하면 재시도에서 이벤트가 중복될 수 있으므로 프론트는 `analysisId`로 결과를 다시 조회한다. 선택 이후 연결이 끊겨도 푸시로 전환하지 않으며, 재연결 시 분석 목록 조회로 누락을 복구한다. 같은 묶음의 푸시 발송 작업은 재생성하지 않는다.
+전체 완료 알림은 Redis에서 사용자의 SSE 연결 상태를 확인하고, 미연결이면 즉시 푸시 발송 작업을 생성한다.
+연결 확인·SSE 발행 실패는 기본 1초 간격으로 최초 포함 최대 3회 시도하며, 이후에는 푸시 작업을 생성한다.
+개별 이미지 이벤트도 최대 3회 시도하며 실패가 전체 완료 알림 처리를 막지 않는다.
+푸시 작업 생성과 분석 알림 대기 해제는 같은 DB 트랜잭션으로 처리한다. 실제 발송·재시도는 기존 푸시 워커가 담당한다.
+SSE 연결 확인·Pub/Sub 발행은 DB 트랜잭션 밖에서 수행한다. 발행 성공은 브라우저의 수신 확인을 뜻하지 않는다.
+두 이벤트의 `totalImageCount`는 전체 수, `completedImageCount`는 성공 수, `failedImageCount`는 실패 수이며 결과 저장 후 집계한다.
+전체 이벤트 `status`는 실패 0이면 `COMPLETED`, 성공 0이면 `FAILED`, 나머지는 `PARTIALLY_COMPLETED`다. SSE에는 `type`을 보내지 않는다.
+발행 후 DB 기록 전에 종료되면 SSE가 중복될 수 있으므로 프론트는 `analysisId`로 저장 결과를 다시 조회한다.
 `PUSH_ANALYSIS_TTL`은 분석 완료 푸시의 유효기간이며 기본값은 1시간이다. 푸시 작업 생성 시점부터 계산하되 결과 보관 만료를 넘지 않는다.
 푸시가 만료돼도 발송 작업 행은 남으므로 같은 묶음의 푸시를 다시 만들지 않는다.
 
@@ -329,3 +325,4 @@ SSE 발행 후 처리 확인이 실패하면 재시도에서 이벤트가 중복
 | R2 | [Spring Boot — Common Application Properties](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) (확인 2026-10-08) | Redis 연결·인증·타임아웃·TLS·Repository 및 health check 설정 |
 | K1 | [카카오 REST API](https://developers.kakao.com/docs/ko/kakaologin/rest-api), [앱 설정](https://developers.kakao.com/docs/ko/kakaologin/prerequisite) | 코드 교환·시크릿·콜백·이메일 동의 설정 (확인 2026-10-10) |
 | SENTRY1 | [Sentry Java SDK 8.58.0 소스](https://repo.maven.apache.org/maven2/io/sentry/sentry/8.58.0/sentry-8.58.0-sources.jar) (확인 2026-10-24) | `Sentry.preInitConfigurations`는 빈 DSN이면 SDK를 비활성화한다. |
+| KAFKA1 | [Apache Kafka — KafkaProducer](https://kafka.apache.org/42/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html) (확인 2026-11-02) | producer는 비동기 발행과 내부 재시도를 지원하며 `delivery.timeout.ms`로 전달 시간을 제한한다. |

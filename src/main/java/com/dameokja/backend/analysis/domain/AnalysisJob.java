@@ -12,7 +12,6 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<String> publishedImageEvents) {
     public AnalysisJob {
         analysisImages = List.copyOf(analysisImages);
-        // 배포 전에 저장된 작업에는 알림 대기 필드가 없다.
         notificationPending = Boolean.TRUE.equals(notificationPending);
         publishedImageEvents = publishedImageEvents == null ? List.of() : List.copyOf(publishedImageEvents);
     }
@@ -66,10 +65,6 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
                 .map(image -> image.requestId().equals(requestId) ? image.fail(failure) : image).toList(), resultExpiresAt);
     }
 
-    public String requestIdOf(String analysisId) {
-        return analysisImages.stream().filter(image -> analysisId.equals(image.aiAnalysisId())).findFirst().orElseThrow().requestId();
-    }
-
     private AnalysisJob withImages(List<AnalysisImage> images, OffsetDateTime resultExpiresAt) {
         boolean newlyCompleted = images.stream().allMatch(image -> image.completion() != null)
                 && analysisImages.stream().anyMatch(image -> image.completion() == null);
@@ -83,11 +78,7 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, false, notificationChannel, publishedImageEvents);
     }
 
-    public AnalysisJob reopenNotification() {
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, notificationChannel, publishedImageEvents);
-    }
-
-    // 같은 결과가 콜백·조회로 여러 번 적용돼도 이미지 완료 이벤트는 한 번만 보내려고, 보낸 이력을 작업과 함께 보관한다.
+    // 이미 발행을 기록한 이미지 이벤트는 중복 완료 이벤트 적용으로 다시 발행하지 않는다.
     public boolean imageEventPublished(String requestId) { return publishedImageEvents.contains(requestId); }
 
     public AnalysisJob publishImageEvent(String requestId) {
@@ -99,8 +90,5 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
                 Stream.concat(publishedImageEvents.stream(), Stream.of(requestId)).toList());
     }
 
-    public AnalysisJob withdrawImageEvent(String requestId) {
-        return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel,
-                publishedImageEvents.stream().filter(published -> !published.equals(requestId)).toList());
-    }
+
 }

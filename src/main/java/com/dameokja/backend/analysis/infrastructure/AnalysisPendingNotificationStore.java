@@ -8,7 +8,6 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
@@ -44,11 +43,6 @@ public class AnalysisPendingNotificationStore {
         this.retryDelay = retryDelay;
         this.leaseDuration = leaseDuration;
         this.sseMaxAttempts = sseMaxAttempts;
-    }
-
-    public void schedule(String analysisJobId, Instant nextCheckAt) {
-        analysisJobStateRepository.findForUpdate(analysisJobId)
-                .ifPresent(analysisJobState -> analysisJobState.scheduleNotification(nextCheckAt.atZone(BusinessTime.ZONE).toLocalDateTime()));
     }
 
     // 인덱스 범위를 읽은 뒤 시각을 갱신하므로 갭락을 피하고, 외부 발행 전에 트랜잭션을 끝낸다.

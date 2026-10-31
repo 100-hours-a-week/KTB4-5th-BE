@@ -52,6 +52,6 @@ public class AnalysisCompletionValidator {
 
     private boolean hasText(String value) { return value != null && !value.isBlank(); }
     private void require(boolean valid) {
-        if (!valid) { throw new IllegalArgumentException("콜백 필드 조합이 올바르지 않습니다."); }
+        if (!valid) { throw new IllegalArgumentException("완료 이벤트 필드 조합이 올바르지 않습니다."); }
     }
 }

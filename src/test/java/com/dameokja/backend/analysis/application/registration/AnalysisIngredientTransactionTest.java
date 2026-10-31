@@ -97,7 +97,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_states", Integer.class)).isEqualTo(shouldFail ? 1 : 0);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_requests", Integer.class)).isEqualTo(shouldFail ? 1 : 0);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_outbox", Integer.class)).isEqualTo(shouldFail ? 1 : 0);
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @Test
@@ -166,7 +166,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
         assertThat(body.path("payload").path("requestId").asString()).isEqualTo("request");
         assertThat(body.path("messageId").asString()).isNotBlank();
         assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients", Integer.class)).isEqualTo(9);
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     private void assertFeedbackUsesTheTransaction() {
@@ -192,7 +192,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
                 .andExpect(jsonPath("$.data.createdCount").value(1)).andExpect(jsonPath("$.data.mergedCount").value(0));
         assertThat(analysisJobStateAccess.find(analysisJob.id())).isEmpty();
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(1);
-        verifyNoInteractions(ai);
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @Test
