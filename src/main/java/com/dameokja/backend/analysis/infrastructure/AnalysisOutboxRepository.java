@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AnalysisOutboxRepository extends JpaRepository<AnalysisOutbox, Long> {
+    @Query("select entry.id from AnalysisOutbox entry where entry.analysisJobState.id = :analysisJobId order by entry.id")
+    List<Long> findIdsByAnalysisJobId(String analysisJobId);
+
     @Query(value = """
             SELECT * FROM analysis_outbox
             WHERE status = 'PENDING' AND next_attempt_at <= CAST(:currentTime AS DATETIME(6))
