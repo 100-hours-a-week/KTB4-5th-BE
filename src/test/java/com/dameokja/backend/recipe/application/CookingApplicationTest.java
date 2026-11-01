@@ -80,6 +80,20 @@ class CookingApplicationTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void stockExpiringAfterConfirmationRequiresReconfirmationAndIsNotConsumed() {
+        jdbcTemplate.update("UPDATE ingredients SET expiration_date = ? WHERE ingredient_id = ?", BusinessTime.today(clock), stockId);
+        CookingApplicationRequest confirmed = request();
+        clock.set("2026-09-17T15:00:00Z");
+
+        assertFailure(confirmed, RecommendationExceptionCode.DETAIL_CHANGED);
+        assertThat(stockAmount()).isEqualByComparingTo("400");
+        assertOutcome(0);
+        assertThat(apply(request())).isPresent();
+        assertThat(stockAmount()).isEqualByComparingTo("400");
+        assertOutcome(1);
+    }
+
+    @Test
     void changedDetailFailsWithoutSideEffectsAndCanBeReconfirmed() {
         CookingApplicationRequest outdatedRequest = request();
         jdbcTemplate.update("UPDATE ingredients SET weight_value = 70 WHERE ingredient_id = ?", stockId);

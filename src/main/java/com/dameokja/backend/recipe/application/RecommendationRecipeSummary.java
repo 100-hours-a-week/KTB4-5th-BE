@@ -34,7 +34,7 @@ final class RecommendationRecipeSummary {
                 return new IngredientCounts(requiredIngredientNos.size(), null, null);
             }
             AiRecipeInventoryItem stock = inventory.get(inventoryUsage.ingredientId());
-            if (stock == null || !available(stock)) { continue; }
+            if (stock == null || stock.expirationDate().isBefore(today) || !available(stock)) { continue; }
             for (Allocation allocation : inventoryUsage.allocations()) {
                 if (!requiredIngredientNos.contains(allocation.ingredientNo())) { return new IngredientCounts(requiredIngredientNos.size(), null, null); }
                 ownedIngredientNos.add(allocation.ingredientNo());

@@ -17,7 +17,7 @@ final class RecommendationDetailMapper {
 
     static RecommendationDetailResult from(Recipe recipe, Map<Long, AiRecipeInventoryItem> inventoryById, LocalDate today) {
         RecommendationListResult.RecipeSummary summary = RecommendationRecipeSummary.from(recipe, inventoryById, today);
-        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(recipe, inventoryById);
+        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(recipe, inventoryById, today);
         return RecommendationDetailResult.builder()
                 .recipeId(summary.recipeId())
                 .name(recipe.name())

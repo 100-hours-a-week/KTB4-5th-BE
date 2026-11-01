@@ -47,6 +47,15 @@ class RecommendationRecipeSummaryTest {
                 .isEqualTo(new IngredientCounts(1, null, null));
     }
 
+    @Test
+    void excludesExpiredStockFromOwnedCount() throws Exception {
+        Recipe recipe = jsonMapper.treeToValue(recipeSnapshot(), Recipe.class);
+        AiRecipeInventoryItem expiredStock = stock(101L, "두부", TODAY.minusDays(1));
+
+        assertThat(RecommendationRecipeSummary.from(recipe, Map.of(101L, expiredStock), TODAY).ingredientCounts())
+                .isEqualTo(new IngredientCounts(1, 0, 0));
+    }
+
     private ObjectNode recipeSnapshot() throws Exception {
         return (ObjectNode) jsonMapper.readTree(getClass().getResourceAsStream("/recipe-ai/response.json")).path("recommendations").get(0);
     }

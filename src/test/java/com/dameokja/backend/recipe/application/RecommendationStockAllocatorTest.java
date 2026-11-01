@@ -21,6 +21,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 class RecommendationStockAllocatorTest {
+    private static final LocalDate TODAY = LocalDate.of(2026, 11, 3);
     private final JsonMapper jsonMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Test
@@ -29,14 +30,14 @@ class RecommendationStockAllocatorTest {
         Map<Long, AiRecipeInventoryItem> inventory = Map.of(101L, weightStock(101L, "국산 두부", "120"),
                 102L, weightStock(102L, "큰 두부", "500"));
 
-        List<StockAllocation> allocations = RecommendationStockAllocator.allocate(recipe, inventory).get(1);
+        List<StockAllocation> allocations = RecommendationStockAllocator.allocate(recipe, inventory, TODAY).get(1);
 
         assertThat(allocations).extracting(StockAllocation::ingredientId).containsExactly(101L, 102L);
         assertThat(allocations.get(0).usedAmount()).isEqualByComparingTo("120");
         assertThat(allocations.get(1).usedAmount()).isEqualByComparingTo("180");
         assertThat(allocations.get(1).ownedAmount()).isEqualByComparingTo("500");
         List<StockAllocation> reduced = RecommendationStockAllocator.allocate(recipe,
-                Map.of(101L, weightStock(101L, "국산 두부", "50"), 102L, weightStock(102L, "큰 두부", "100"))).get(1);
+                Map.of(101L, weightStock(101L, "국산 두부", "50"), 102L, weightStock(102L, "큰 두부", "100")), TODAY).get(1);
         assertThat(reduced.get(0).usedAmount()).isEqualByComparingTo("50");
         assertThat(reduced.get(1).usedAmount()).isEqualByComparingTo("100");
     }
@@ -51,7 +52,7 @@ class RecommendationStockAllocatorTest {
         ((ArrayNode) recipeSnapshot.path("inventoryUsage").get(0).path("allocations")).addObject().put("ingredientNo", 2);
         Recipe recipe = jsonMapper.treeToValue(recipeSnapshot, Recipe.class);
 
-        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", "300")));
+        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", "300")), TODAY);
 
         assertThat(allocations.get(1).getFirst().usedAmount()).isEqualByComparingTo("200");
         assertThat(allocations.get(2).getFirst().usedAmount()).isEqualByComparingTo("100");
@@ -70,7 +71,7 @@ class RecommendationStockAllocatorTest {
             stock = new AiRecipeInventoryItem(101L, "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                     MeasureType.WEIGHT, null, new BigDecimal("5"), WeightUnit.valueOf(unit), LocalDate.of(2026, 11, 3));
         }
-        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, stock)).get(1).getFirst();
+        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, stock), TODAY).get(1).getFirst();
 
         assertThat(allocation.usedAmount()).isEqualByComparingTo("3");
         assertThat(allocation.ownedAmount()).isEqualByComparingTo("5");
@@ -80,8 +81,8 @@ class RecommendationStockAllocatorTest {
 
     @Test
     void keepsConfirmedStockVisibleWhenUnitsCannotBeConvertedOrRequirementIsUnknown() throws Exception {
-        StockAllocation incompatible = RecommendationStockAllocator.allocate(recipe("300", "G", 101L), Map.of(101L, countStock(101L, 2))).get(1).getFirst();
-        StockAllocation unknown = RecommendationStockAllocator.allocate(recipe(null, "G", 101L), Map.of(101L, weightStock(101L, "두부", "300"))).get(1).getFirst();
+        StockAllocation incompatible = RecommendationStockAllocator.allocate(recipe("300", "G", 101L), Map.of(101L, countStock(101L, 2)), TODAY).get(1).getFirst();
+        StockAllocation unknown = RecommendationStockAllocator.allocate(recipe(null, "G", 101L), Map.of(101L, weightStock(101L, "두부", "300")), TODAY).get(1).getFirst();
 
         assertThat(incompatible.usedAmount()).isNull();
         assertThat(incompatible.ownedAmount()).isEqualByComparingTo("2");
@@ -95,12 +96,26 @@ class RecommendationStockAllocatorTest {
     @Test
     void omitsDeletedStockAndDoesNotInferMissingMappingsFromMatchingNames() throws Exception {
         Map<Long, AiRecipeInventoryItem> unrelatedStock = Map.of(999L, weightStock(999L, "두부", "300"));
-        assertThat(RecommendationStockAllocator.allocate(recipe("300", "G", 101L), unrelatedStock).get(1)).isEmpty();
+        assertThat(RecommendationStockAllocator.allocate(recipe("300", "G", 101L), unrelatedStock, TODAY).get(1)).isEmpty();
         ObjectNode recipeSnapshot = snapshot("300", "G", 101L);
         ((ObjectNode) recipeSnapshot.path("inventoryUsage").get(0)).put("allocationStatus", "UNRESOLVED").putArray("allocations");
         Recipe recipe = jsonMapper.treeToValue(recipeSnapshot, Recipe.class);
 
-        assertThat(RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", "300"))).get(1)).isEmpty();
+        assertThat(RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", "300")), TODAY).get(1)).isEmpty();
+    }
+
+    @Test
+    void detailExcludesStockAfterItExpiresButIncludesExpirationDay() throws Exception {
+        Recipe recipe = recipe("300", "G", 101L);
+        Map<Long, AiRecipeInventoryItem> inventory = Map.of(101L, weightStock(101L, "두부", "500"));
+        LocalDate expirationDate = LocalDate.of(2026, 11, 3);
+
+        RecommendationDetailResult onExpirationDay = RecommendationDetailMapper.from(recipe, inventory, expirationDate);
+        RecommendationDetailResult afterExpiration = RecommendationDetailMapper.from(recipe, inventory, expirationDate.plusDays(1));
+
+        assertThat(onExpirationDay.ingredients().getFirst().stocks().getFirst().usedAmount()).isEqualByComparingTo("300");
+        assertThat(afterExpiration.ingredients().getFirst().stocks()).isEmpty();
+        assertThat(afterExpiration).isNotEqualTo(onExpirationDay);
     }
 
     private Recipe recipe(String requiredAmount, String unit, Long... ingredientIds) throws Exception {

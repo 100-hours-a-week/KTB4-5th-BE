@@ -18,7 +18,7 @@ import java.util.Map;
 final class RecommendationStockAllocator {
     private RecommendationStockAllocator() {}
 
-    static Map<Integer, List<StockAllocation>> allocate(Recipe recipe, Map<Long, AiRecipeInventoryItem> inventoryById) {
+    static Map<Integer, List<StockAllocation>> allocate(Recipe recipe, Map<Long, AiRecipeInventoryItem> inventoryById, LocalDate today) {
         Map<Integer, List<StockAllocation>> allocationsByIngredient = new LinkedHashMap<>();
         Map<Long, BigDecimal> remainingByStock = new HashMap<>();
         if (recipe.ingredients() == null) { return allocationsByIngredient; }
@@ -26,7 +26,7 @@ final class RecommendationStockAllocator {
             Integer ingredientNo = ingredient.ingredientNo();
             if (ingredientNo == null || allocationsByIngredient.containsKey(ingredientNo)) { continue; }
             IngredientRequirement requirement = requirement(recipe, ingredientNo);
-            List<AiRecipeInventoryItem> mappedStocks = mappedStocks(recipe.inventoryUsage(), ingredientNo, inventoryById);
+            List<AiRecipeInventoryItem> mappedStocks = mappedStocks(recipe.inventoryUsage(), ingredientNo, inventoryById, today);
             List<StockAllocation> stockAllocations = allocateIngredient(requirement, mappedStocks, remainingByStock);
             allocationsByIngredient.put(ingredientNo, stockAllocations);
         }
@@ -39,14 +39,14 @@ final class RecommendationStockAllocator {
     }
 
     private static List<AiRecipeInventoryItem> mappedStocks(List<InventoryUsage> inventoryUsage, Integer ingredientNo,
-            Map<Long, AiRecipeInventoryItem> inventoryById) {
+            Map<Long, AiRecipeInventoryItem> inventoryById, LocalDate today) {
         Map<Long, AiRecipeInventoryItem> mappedStocks = new LinkedHashMap<>();
         if (inventoryUsage == null) { return List.of(); }
         for (InventoryUsage usage : inventoryUsage) {
             if ("UNUSED".equals(usage.allocationStatus()) || usage.allocations() == null) { continue; }
             boolean mapped = usage.allocations().stream().anyMatch(allocation -> ingredientNo.equals(allocation.ingredientNo()));
             AiRecipeInventoryItem stock = inventoryById.get(usage.ingredientId());
-            if (mapped && stock != null && amount(stock).signum() > 0) { mappedStocks.putIfAbsent(stock.ingredientId(), stock); }
+            if (mapped && stock != null && !stock.expirationDate().isBefore(today) && amount(stock).signum() > 0) { mappedStocks.putIfAbsent(stock.ingredientId(), stock); }
         }
         return List.copyOf(mappedStocks.values());
     }

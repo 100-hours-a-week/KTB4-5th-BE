@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "추천")
 public interface RecommendationDetailApi {
     @Operation(summary = "레시피 상세 조회", description = "본인의 현재 선택 결과에서 레시피를 조회합니다. 재료 ID는 이 레시피의 재료 번호 문자열입니다. "
-            + "stocks는 현재 재고와 재배분한 예상 사용량이며 계산 불가는 usedAmount=null, UNRESOLVED입니다. 조회로 재고를 차감하지 않습니다. ETag는 응답 내용이 같으면 유지됩니다.")
+            + "stocks는 조회 시 한국 날짜 기준으로 만료되지 않은 현재 재고와 재배분한 예상 사용량이며 계산 불가는 usedAmount=null, UNRESOLVED입니다. 조회로 재고를 차감하지 않습니다. ETag는 응답 내용이 같으면 유지됩니다.")
     @ApiResponse(responseCode = "200", description = "레시피 상세 조회 성공 (RECOMMEND-200-002)", content = @Content(examples = @ExampleObject(value = RecommendationDetailApiExamples.DETAIL)))
     @ApiResponse(responseCode = "304", description = "If-None-Match가 현재 ETag와 일치하면 응답 본문 없음")
     @ApiResponse(responseCode = "400", description = "잘못된 경로·원천 조합 식별자 (GLOBAL-400-001)")
