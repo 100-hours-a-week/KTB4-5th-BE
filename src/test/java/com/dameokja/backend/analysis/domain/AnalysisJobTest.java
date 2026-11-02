@@ -13,7 +13,7 @@ class AnalysisJobTest {
     @Test
     void acknowledgesNotificationWithoutChangingTheRestOfTheJob() {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))),
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 11L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))),
                 submittedAt, submittedAt.plusDays(7), true);
 
         AnalysisJob acknowledged = job.acknowledgeNotification();
@@ -27,7 +27,7 @@ class AnalysisJobTest {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
         AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, submittedAt, null,
                 new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, 1000));
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)),
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 11L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)),
                 AnalysisImage.pending("second", "cd".repeat(32))), submittedAt, null, false);
         AnalysisJob registered = job.register(job.analysisImages().getFirst().requestId(), "ai-first")
                 .register(job.analysisImages().getLast().requestId(), "ai-second");
@@ -36,6 +36,11 @@ class AnalysisJobTest {
         assertThat(job.finished()).isFalse();
         assertThat(partlyFinished.finished()).isFalse();
         assertThat(partlyFinished.complete("ai-second", failure, submittedAt.plusDays(7)).finished()).isTrue();
+        assertThat(registered.refrigeratorId()).isEqualTo(11L);
+        assertThat(partlyFinished.refrigeratorId()).isEqualTo(11L);
+        AnalysisJob notified = partlyFinished.complete("ai-second", failure, submittedAt.plusDays(7))
+                .selectNotificationChannel(AnalysisNotificationChannel.SSE).publishImageEvent(job.analysisImages().getFirst().requestId()).fallBackToPush();
+        assertThat(notified.refrigeratorId()).isEqualTo(11L);
     }
 
     @Test

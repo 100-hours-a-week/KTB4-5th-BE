@@ -34,6 +34,15 @@ class AnalysisIngredientServiceTest {
     private final IngredientWriteResult result = writeResult(1);
 
     @Test
+    void rejectsRegisteringAnAnalysisInAnotherRefrigerator() {
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
+        assertThatThrownBy(() -> service.create(7L, 2L, request(List.of(count)))).isInstanceOf(CustomException.class)
+                .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
+        verifyNoInteractions(creator, queue);
+        verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
+    }
+
+    @Test
     void registersAndQueuesConfirmedFeedbackThenDeletesResult() {
         IngredientWriteResult result = writeResult(2);
         AnalysisIngredientCommand.Item weight = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
@@ -276,6 +285,6 @@ class AnalysisIngredientServiceTest {
     }
 
     private AnalysisJob job(AnalysisImage... images) {
-        return new AnalysisJob("job", 7L, "AUTO", List.of(images), OffsetDateTime.now(), null, false);
+        return new AnalysisJob("job", 7L, 1L, "AUTO", List.of(images), OffsetDateTime.now(), null, false);
     }
 }

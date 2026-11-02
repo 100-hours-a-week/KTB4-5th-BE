@@ -202,7 +202,7 @@ class AnalysisNotificationPersistenceTest extends AnalysisDatabaseContractTestSu
     private AnalysisJob accept(int imageCount) {
         List<AnalysisImage> analysisImages = IntStream.range(0, imageCount)
                 .mapToObj(imageIndex -> AnalysisImage.pending("image-" + imageIndex, "ab".repeat(32))).toList();
-        return analysisJobAcceptance.accept(7L, "AUTO", analysisImages);
+        return analysisJobAcceptance.accept(7L, 91L, "AUTO", analysisImages);
     }
 
     private void complete(AnalysisJob analysisJob, int imageIndex) {

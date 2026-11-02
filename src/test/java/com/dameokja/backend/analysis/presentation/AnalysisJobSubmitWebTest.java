@@ -15,6 +15,7 @@ import com.dameokja.backend.analysis.application.job.AnalysisJobStateAccess;
 import com.dameokja.backend.analysis.support.AnalysisDatabaseContractTestSupport;
 import com.dameokja.backend.analysis.support.AnalysisDatabaseJobFixture;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisRequestedEvent;
+import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import com.dameokja.backend.global.security.JwtProvider;
@@ -45,11 +46,14 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
     @Autowired AnalysisDatabaseJobFixture analysisDatabaseJobFixture;
     @Autowired ObjectMapper objectMapper;
     private MockMvc mockMvc;
+    private Long refrigeratorId;
 
     @BeforeEach
     void setup() {
         clock.set("2026-10-08T01:00:00Z");
         analysisDatabaseJobFixture.ensureUser(7L);
+        refrigeratorId = refrigerator("접수 냉장고").getId();
+        refrigeratorMemberRepository.save(RefrigeratorMember.owner(userRepository.findById(7L).orElseThrow(), refrigeratorRepository.getReferenceById(refrigeratorId)));
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "second", "cd".repeat(32));
@@ -74,6 +78,7 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
         assertThat(jsonNode.size()).isEqualTo(5);
         AnalysisJob analysisJob = analysisJobStateAccess.findOwned(jsonNode.path("analysisId").asString(), 7L);
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
+        assertThat(analysisJob.refrigeratorId()).isEqualTo(refrigeratorId);
         assertCommittedRequestEvents();
         verifyNoInteractions(analysisKafkaPublisher);
     }
@@ -135,7 +140,10 @@ class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
         List<AnalysisRequestedEvent> analysisRequestedEvents = jdbcTemplate.query("SELECT message_body FROM analysis_outbox ORDER BY analysis_outbox_id",
                 (resultSet, rowNumber) -> objectMapper.readValue(resultSet.getString(1), AnalysisRequestedEvent.class));
         assertThat(analysisRequestedEvents).extracting(event -> event.payload().image().objectKey()).containsExactly("first", "second");
-        assertThat(analysisRequestedEvents).allSatisfy(event -> assertThat(event.payload().userId()).isEqualTo(7L));
+        assertThat(analysisRequestedEvents).allSatisfy(event -> {
+            assertThat(event.payload().userId()).isEqualTo(7L);
+            assertThat(event.payload().refrigeratorId()).isEqualTo(refrigeratorId);
+        });
         assertThat(jdbcTemplate.queryForList("SELECT message_key FROM analysis_outbox", String.class)).containsOnly("7");
         assertThat(jdbcTemplate.queryForList("SELECT status FROM analysis_outbox", String.class)).containsOnly("PENDING");
     }

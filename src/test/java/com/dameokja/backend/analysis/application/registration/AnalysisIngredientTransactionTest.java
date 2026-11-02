@@ -71,7 +71,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
     @ValueSource(strings = {"NONE", "ingredients", "analysis_feedbacks", "analysis_job_states"})
     void commitsInventoryFeedbackAndResultDeletionTogetherOrRollsEverythingBack(String failureTable) {
         Fixture owner = ownerFixture("등록자");
-        AnalysisJob job = completedJob(owner.userId());
+        AnalysisJob job = completedJob(owner);
         boolean shouldFail = !failureTable.equals("NONE");
         if (shouldFail) {
             String failureOperation = failureTable.equals("analysis_job_states") ? "DELETE" : "INSERT";
@@ -179,7 +179,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
     @Test
     void registersTheDatabaseResultThroughTheExistingHttpContract() throws Exception {
         Fixture owner = ownerFixture("HTTP등록자");
-        AnalysisJob analysisJob = completedJob(owner.userId());
+        AnalysisJob analysisJob = completedJob(owner);
         String body = """
                 {"analysisId":"%s","images":[{"imageObjectKey":"image","items":[
                   {"itemId":"item","name":"우유","category":"DAIRY","storageType":"REFRIGERATED",
@@ -198,7 +198,7 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
     @Test
     void consumesTheResultOnlyOnceWhenTwoInstancesRegisterItConcurrently() throws Exception {
         Fixture owner = ownerFixture("동시등록자");
-        AnalysisJob analysisJob = completedJob(owner.userId());
+        AnalysisJob analysisJob = completedJob(owner);
         AnalysisIngredientCommand command = new AnalysisIngredientCommand(analysisJob.id(), List.of(new AnalysisIngredientCommand.Image("image", List.of(item("item", "우유", 2)))));
         CyclicBarrier startRegistrations = new CyclicBarrier(2);
         try (ExecutorService executorService = Executors.newFixedThreadPool(2)) {
@@ -252,11 +252,12 @@ class AnalysisIngredientTransactionTest extends AnalysisDatabaseContractTestSupp
         assertThat(matching.getFirst().path("confirmed").path("quantity").asInt()).isEqualTo(requestedQuantity);
     }
 
-    private AnalysisJob completedJob(Long userId) {
+    private AnalysisJob completedJob(Fixture owner) {
+        Long userId = owner.userId();
         AnalysisCompletionItem item = new AnalysisCompletionItem("item", RecognitionStatus.RECOGNIZED, "원본우유", IngredientCategory.DAIRY,
                 StorageType.REFRIGERATED, MeasureType.COUNT, 1, new AnalysisCompletionItem.Weight(null, WeightUnit.NONE),
                 new AnalysisCompletionItem.Expiration(null, AnalysisExpirationDateType.UNKNOWN, null), List.of());
-        AnalysisJob analysisJob = analysisJobAcceptance.accept(userId, "RECEIPT", List.of(AnalysisImage.pending("image", "ab".repeat(32))));
+        AnalysisJob analysisJob = analysisJobAcceptance.accept(userId, owner.refrigeratorId(), "RECEIPT", List.of(AnalysisImage.pending("image", "ab".repeat(32))));
         return analysisCompletionPersistence.apply(new AnalysisCompletedEvent(UUID.randomUUID().toString(), new AnalysisCompletedEvent.Payload("AnalysisCompleted",
                 clock.instant(), analysisJob.analysisImages().getFirst().requestId(), userId, "ai-success", AnalysisStatus.COMPLETED, clock.instant(),
                 new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of(item)), null))).getFirst();

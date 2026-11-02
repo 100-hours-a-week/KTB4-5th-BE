@@ -31,7 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 
 // 하위 클래스가 같은 설정과 Kafka publisher mock을 상속해 컨텍스트·DB 풀을 함께 사용한다.
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {"spring.datasource.hikari.maximum-pool-size=4", "spring.datasource.hikari.minimum-idle=0"})
+@TestPropertySource(properties = {"spring.datasource.hikari.maximum-pool-size=4", "spring.datasource.hikari.minimum-idle=0", "spring.kafka.listener.auto-startup=false"})
 public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest {
     protected static final String OBJECT_KEY = "uploads/analysis/contract.png";
     protected static final String AI_ANALYSIS_ID = "ai-contract";
@@ -59,6 +59,10 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     }
 
     protected ResultActions submitImages(Long userId, List<String> objectKeys, String inputHint) throws Exception {
+        // HTTP 분석 접수는 현재 선택한 냉장고가 있어야 하므로 계약 시나리오의 접수 전제를 준비한다.
+        if (refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(userId).isEmpty()) {
+            join(userRepository.findById(userId).orElseThrow(), refrigerator("분석접수"), true, true);
+        }
         objectKeys.forEach(key -> uploads.save(userId, ImageUploadPurpose.ANALYSIS, key, "ab".repeat(32)));
         return postAsUser(userId, "/api/v1/image-analyses", mapper.writeValueAsString(
                 Map.of("imageObjectKeys", objectKeys, "inputHint", inputHint)));

@@ -51,14 +51,14 @@ class AnalysisEventContractTest {
 
     @Test
     void createsTheAgreedRequestEnvelopeAndImageInput() {
-        AnalysisRequestedEvent event = AnalysisRequestedEvent.create(42L,
+        AnalysisRequestedEvent event = AnalysisRequestedEvent.create(42L, 91L,
                 AnalysisImage.pending("analysis/42/receipt-001.jpg", "ab".repeat(32), REQUEST_ID), "AUTO", REQUESTED_AT);
         JsonNode expected = mapper.readTree("""
                 {
                   "messageId": "%s",
                   "payload": {
                     "eventType": "AnalysisRequested", "occurredAt": "2026-10-29T03:00:00Z",
-                    "requestId": "%s", "userId": 42,
+                    "requestId": "%s", "userId": 42, "refrigeratorId": 91,
                     "image": {"objectKey": "analysis/42/receipt-001.jpg", "sha256": "%s"},
                     "inputHint": "AUTO", "locale": "ko-KR", "timezone": "Asia/Seoul"
                   }

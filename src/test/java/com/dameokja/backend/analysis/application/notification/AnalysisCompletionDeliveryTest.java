@@ -264,7 +264,7 @@ class AnalysisCompletionDeliveryTest extends AnalysisDatabaseContractTestSupport
     private AnalysisJob registeredJob(int images) {
         List<AnalysisImage> pendingImages = java.util.stream.IntStream.range(0, images)
                 .mapToObj(index -> AnalysisImage.pending("image-" + index, "ab".repeat(32))).toList();
-        AnalysisJob analysisJob = analysisJobAcceptance.accept(7L, "AUTO", pendingImages);
+        AnalysisJob analysisJob = analysisJobAcceptance.accept(7L, 91L, "AUTO", pendingImages);
         for (int index = 0; index < images; index++) {
             requestIdsByAnalysisId.put("ai-" + index, pendingImages.get(index).requestId());
         }

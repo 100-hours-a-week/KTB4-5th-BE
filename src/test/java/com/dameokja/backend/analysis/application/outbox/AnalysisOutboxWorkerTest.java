@@ -67,7 +67,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
     @BeforeEach
     void enqueueRequest() {
         requestingUser = userRepository.saveAndFlush(new User("발행자", "profile"));
-        analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
+        analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
     }
 
     @AfterEach
@@ -140,7 +140,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
 
     @Test
     void leasesAnotherMessageWhileTheFirstClaimTransactionStillHoldsItsLock() throws Exception {
-        analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(
+        analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(
                 AnalysisImage.pending("second", "cd".repeat(32)), AnalysisImage.pending("third", "ef".repeat(32))));
         CompletableFuture<List<Long>> firstClaimedOutboxIds = new CompletableFuture<>();
         CompletableFuture<Void> releaseFirstClaim = new CompletableFuture<>();
@@ -165,7 +165,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
 
     @Test
     void publishesBothRequestsBeforeAckAndRecordsSuccessWhileAnotherRequestStillWaits() throws Exception {
-        analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(AnalysisImage.pending("second", "cd".repeat(32))));
+        analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(AnalysisImage.pending("second", "cd".repeat(32))));
         List<Long> ids = jdbcTemplate.queryForList("SELECT analysis_outbox_id FROM analysis_outbox ORDER BY analysis_outbox_id", Long.class);
         CountDownLatch started = new CountDownLatch(2);
         CompletableFuture<Void> firstAck = new CompletableFuture<>();
@@ -192,7 +192,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
 
     @Test
     void reclaimsExpiredRowsBeforePendingRowsWithoutExceedingTheBatchSize() {
-        analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(
+        analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(
                 AnalysisImage.pending("second", "cd".repeat(32)), AnalysisImage.pending("third", "ef".repeat(32))));
         List<AnalysisOutbox> initial = analysisOutboxQueue.leaseBatch();
         assertThat(initial).hasSize(2);

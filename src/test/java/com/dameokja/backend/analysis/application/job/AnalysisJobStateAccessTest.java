@@ -72,7 +72,7 @@ class AnalysisJobStateAccessTest extends MySqlJpaTest {
         when(clock.withZone(BusinessTime.ZONE)).thenAnswer(invocation -> Clock.fixed(clock.instant(), BusinessTime.ZONE));
         requestingUser = userRepository.saveAndFlush(new User("작업소유자", "profile"));
         anotherUser = userRepository.saveAndFlush(new User("다른사용자", "profile"));
-        analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
+        analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))));
     }
 
     @AfterEach
@@ -87,8 +87,8 @@ class AnalysisJobStateAccessTest extends MySqlJpaTest {
     @Test
     void readsOwnedJobsNewestFirstAndPreservesTheStoredTimeOffset() {
         when(clock.instant()).thenReturn(ACCEPTED_AT.plusSeconds(1));
-        AnalysisJob newerAnalysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "PRODUCT", List.of(AnalysisImage.pending("second", "cd".repeat(32))));
-        analysisJobAcceptance.accept(anotherUser.getId(), "AUTO", List.of(AnalysisImage.pending("other", "ef".repeat(32))));
+        AnalysisJob newerAnalysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "PRODUCT", List.of(AnalysisImage.pending("second", "cd".repeat(32))));
+        analysisJobAcceptance.accept(anotherUser.getId(), 91L, "AUTO", List.of(AnalysisImage.pending("other", "ef".repeat(32))));
         assertThat(analysisJobStateAccess.findOwned(analysisJob.id(), requestingUser.getId())).isEqualTo(analysisJob);
         assertThat(analysisJobStateAccess.findAllOwned(requestingUser.getId())).containsExactly(newerAnalysisJob, analysisJob);
         assertThatThrownBy(() -> analysisJobStateAccess.findOwned(analysisJob.id(), anotherUser.getId()))
@@ -136,7 +136,7 @@ class AnalysisJobStateAccessTest extends MySqlJpaTest {
 
     @Test
     void deletesOnlyTheOwnedJobAndItsOutboxAndRequestLinks() {
-        AnalysisJob repeatedAnalysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", analysisJob.analysisImages());
+        AnalysisJob repeatedAnalysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", analysisJob.analysisImages());
         assertThatThrownBy(() -> analysisJobStateAccess.deleteOwned(analysisJob.id(), anotherUser.getId()))
                 .isInstanceOfSatisfying(CustomException.class, exception -> assertThat(exception.getExceptionCode()).isEqualTo(GlobalExceptionCode.FORBIDDEN));
         assertStoredCounts(2);

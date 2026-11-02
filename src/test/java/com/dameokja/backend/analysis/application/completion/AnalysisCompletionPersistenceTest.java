@@ -65,7 +65,7 @@ class AnalysisCompletionPersistenceTest extends MySqlJpaTest {
         when(clock.instant()).thenReturn(COMPLETED_AT);
         when(clock.withZone(BusinessTime.ZONE)).thenAnswer(invocation -> Clock.fixed(clock.instant(), BusinessTime.ZONE));
         requestingUser = userRepository.saveAndFlush(new User("결과수신자", "profile"));
-        analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", analysisImages);
+        analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", analysisImages);
     }
 
     @AfterEach
@@ -87,6 +87,7 @@ class AnalysisCompletionPersistenceTest extends MySqlJpaTest {
         analysisCompletionPersistence.apply(event(1, true));
         assertStatus("PARTIALLY_COMPLETED");
         assertThat(storedJob().finished()).isTrue();
+        assertThat(storedJob().refrigeratorId()).isEqualTo(91L);
         assertThat(storedJob().notificationPending()).isTrue();
         assertThat(storedJob().expiresAt().toInstant()).isEqualTo(COMPLETED_AT.plus(Duration.ofDays(7)));
         assertThat(jdbcTemplate.queryForObject("SELECT expires_at FROM analysis_job_states", LocalDateTime.class))
@@ -136,7 +137,7 @@ class AnalysisCompletionPersistenceTest extends MySqlJpaTest {
 
     @Test
     void appliesOneRequestResultToEveryJobThatReusedTheSameImageRequest() {
-        AnalysisJob repeatedJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(analysisImages.getFirst()));
+        AnalysisJob repeatedJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(analysisImages.getFirst()));
         assertThat(analysisCompletionPersistence.apply(event(0, false))).extracting(AnalysisJob::id)
                 .containsExactlyInAnyOrder(analysisJob.id(), repeatedJob.id());
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_job_states WHERE analysis_job_id = ?", String.class, repeatedJob.id()))
@@ -145,7 +146,7 @@ class AnalysisCompletionPersistenceTest extends MySqlJpaTest {
 
     @Test
     void rollsBackAllMatchingJobsWhenPersistenceFailsPartwayThrough() {
-        AnalysisJob repeatedJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", List.of(analysisImages.getFirst()));
+        AnalysisJob repeatedJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", List.of(analysisImages.getFirst()));
         String lastJobId = List.of(analysisJob.id(), repeatedJob.id()).stream().sorted().toList().getLast();
         jdbcTemplate.execute("CREATE TRIGGER fail_analysis_completion BEFORE UPDATE ON analysis_job_states FOR EACH ROW BEGIN "
                 + "IF NEW.analysis_job_id = '" + lastJobId + "' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'completion-rollback'; END IF; END");

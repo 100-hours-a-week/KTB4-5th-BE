@@ -33,6 +33,18 @@ public class RefrigeratorAccessService {
         return refrigeratorRepository.getReferenceById(refrigeratorId);
     }
 
+    public Refrigerator findCurrentForRead(Long userId) {
+        userAccessService.validateActive(userId);
+        RefrigeratorMember membership = refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(userId)
+                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
+        Refrigerator refrigerator = membership.getRefrigerator();
+        refrigerator.validateAvailable();
+        if (!membership.isSelected()) {
+            throw new CustomException(ACCESS_DENIED);
+        }
+        return refrigerator;
+    }
+
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
         Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)

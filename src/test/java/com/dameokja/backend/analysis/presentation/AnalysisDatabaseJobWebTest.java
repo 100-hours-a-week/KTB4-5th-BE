@@ -105,7 +105,7 @@ class AnalysisDatabaseJobWebTest extends AnalysisContractTestSupport {
     @Test
     void expiresOnlyUnfinishedImagesThroughTheDatabaseUpdatePath() throws Exception {
         User requestingUser = user("기한확인");
-        AnalysisJob analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO",
+        AnalysisJob analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO",
                 List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
         complete(analysisJob, 0);
         clock.set(clock.instant().plus(jobTimeout).minusMillis(1).toString());
@@ -131,7 +131,7 @@ class AnalysisDatabaseJobWebTest extends AnalysisContractTestSupport {
     }
 
     private AnalysisJob accept(Long userId) {
-        return analysisJobAcceptance.accept(userId, "AUTO", List.of(AnalysisImage.pending("database", "ab".repeat(32))));
+        return analysisJobAcceptance.accept(userId, 91L, "AUTO", List.of(AnalysisImage.pending("database", "ab".repeat(32))));
     }
 
     private void complete(AnalysisJob analysisJob, int imageIndex) {

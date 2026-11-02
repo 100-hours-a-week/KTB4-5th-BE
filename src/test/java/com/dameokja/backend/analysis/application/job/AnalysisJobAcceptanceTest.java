@@ -59,10 +59,11 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
 
     @Test
     void commitsTheQueuedJobAndOneFixedEventPerImage() {
-        AnalysisJob analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "RECEIPT", analysisImages);
+        AnalysisJob analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), 91L, "RECEIPT", analysisImages);
         assertStoredCounts(1, 2);
         assertThat(analysisJob.submittedAt().toInstant()).isEqualTo(SUBMITTED_AT);
         assertThat(analysisJob.expiresAt()).isNull();
+        assertThat(analysisJob.refrigeratorId()).isEqualTo(91L);
         assertThat(objectMapper.readTree(jdbcTemplate.queryForObject("SELECT job_body FROM analysis_job_states", String.class)))
                 .isEqualTo(objectMapper.readTree(objectMapper.writeValueAsString(analysisJob)));
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_job_states", String.class)).isEqualTo("QUEUED");
@@ -73,6 +74,7 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
         assertThat(analysisRequestedEvents).extracting(AnalysisRequestedEvent::messageId).doesNotHaveDuplicates();
         assertThat(analysisRequestedEvents).allSatisfy(analysisRequestedEvent -> {
             assertThat(analysisRequestedEvent.payload().userId()).isEqualTo(requestingUser.getId());
+            assertThat(analysisRequestedEvent.payload().refrigeratorId()).isEqualTo(91L);
             assertThat(analysisRequestedEvent.payload().occurredAt()).isEqualTo(SUBMITTED_AT);
             assertThat(analysisRequestedEvent.payload().inputHint()).isEqualTo("RECEIPT");
         });
@@ -90,14 +92,14 @@ class AnalysisJobAcceptanceTest extends MySqlJpaTest {
                 ? "IF JSON_UNQUOTE(JSON_EXTRACT(NEW.message_body, '$.payload.image.objectKey')) = 'second' THEN " + insertFailureSignal + " END IF;" : insertFailureSignal;
         jdbcTemplate.execute("CREATE TRIGGER fail_analysis_acceptance BEFORE INSERT ON " + tableName + " FOR EACH ROW BEGIN " + failureTriggerBody + " END");
 
-        assertThatThrownBy(() -> analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", analysisImages)).hasStackTraceContaining("atomicity-probe");
+        assertThatThrownBy(() -> analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", analysisImages)).hasStackTraceContaining("atomicity-probe");
         assertStoredCounts(0, 0);
     }
 
     @Test
     void joinsTheCallersTransactionInsteadOfCommittingTheOutboxSeparately() {
         new TransactionTemplate(transactionManager).executeWithoutResult(transactionStatus -> {
-            analysisJobAcceptance.accept(requestingUser.getId(), "AUTO", analysisImages);
+            analysisJobAcceptance.accept(requestingUser.getId(), 91L, "AUTO", analysisImages);
             assertStoredCounts(1, 2);
             transactionStatus.setRollbackOnly();
         });

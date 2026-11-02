@@ -37,18 +37,19 @@ public class AnalysisJobAcceptance {
     private final Clock clock;
 
     @Transactional
-    public AnalysisJob accept(Long userId, String inputHint, List<AnalysisImage> analysisImages) {
+    public AnalysisJob accept(Long userId, Long refrigeratorId, String inputHint, List<AnalysisImage> analysisImages) {
         inputHint = inputHint == null ? "AUTO" : inputHint;
-        if (userId == null || analysisImages == null || analysisImages.isEmpty() || !Set.of("AUTO", "RECEIPT", "PRODUCT").contains(inputHint)) {
+        if (userId == null || refrigeratorId == null || refrigeratorId <= 0 || analysisImages == null || analysisImages.isEmpty()
+                || !Set.of("AUTO", "RECEIPT", "PRODUCT").contains(inputHint)) {
             throw new CustomException(GlobalExceptionCode.BAD_REQUEST);
         }
         User user = userAccessService.getActive(userId);
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
-        AnalysisJob analysisJob = new AnalysisJob(UUID.randomUUID().toString(), userId, inputHint, analysisImages, submittedAt, null, false);
+        AnalysisJob analysisJob = new AnalysisJob(UUID.randomUUID().toString(), userId, refrigeratorId, inputHint, analysisImages, submittedAt, null, false);
         AnalysisJobState analysisJobState = analysisJobStateRepository.save(AnalysisJobState.queued(user, analysisJob.id(), objectMapper.writeValueAsString(analysisJob)));
         for (AnalysisImage analysisImage : analysisImages) {
             analysisJobRequestRepository.save(new AnalysisJobRequest(analysisJobState, analysisImage.requestId()));
-            AnalysisRequestedEvent analysisRequestedEvent = AnalysisRequestedEvent.create(userId, analysisImage, inputHint, submittedAt.toInstant());
+            AnalysisRequestedEvent analysisRequestedEvent = AnalysisRequestedEvent.create(userId, refrigeratorId, analysisImage, inputHint, submittedAt.toInstant());
             analysisOutboxRepository.save(AnalysisOutbox.pending(analysisJobState, analysisRequestedEvent.messageId(),
                     analysisKafkaProperties.requestTopic(), objectMapper.writeValueAsString(analysisRequestedEvent), submittedAt.toLocalDateTime()));
         }

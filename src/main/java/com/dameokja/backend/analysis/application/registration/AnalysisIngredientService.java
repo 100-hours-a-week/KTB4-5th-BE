@@ -35,6 +35,7 @@ public class AnalysisIngredientService {
         // 사용자→냉장고→참여자 순서를 먼저 지킨 뒤 분석 작업을 잠가 동시 등록이 결과를 중복 소비하지 못하게 한다.
         refrigeratorAccessService.lockForWrite(userId, refrigeratorId);
         AnalysisJob analysisJob = analysisJobStateAccess.findOwnedForUpdate(request.analysisId(), userId);
+        validateRegistration(analysisJob.refrigeratorId() == null || analysisJob.refrigeratorId().equals(refrigeratorId));
         List<Feedback> feedbacks = prepareRegistration(analysisJob, request);
         IngredientWriteResult result = registerWithFeedbacks(analysisJob, refrigeratorId, feedbacks);
         analysisJobStateAccess.deleteOwned(analysisJob.id(), userId);

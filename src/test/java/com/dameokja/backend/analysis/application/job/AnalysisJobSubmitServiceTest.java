@@ -18,6 +18,8 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Clock;
 import java.time.Duration;
@@ -39,14 +41,20 @@ class AnalysisJobSubmitServiceTest {
     private final Clock clock = mock(Clock.class);
     private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, UPLOAD_TTL, redisTemplate(), JsonMapper.builder().build());
     private final AnalysisJobAcceptance analysisJobAcceptance = mock(AnalysisJobAcceptance.class);
-    private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobAcceptance);
+    private final RefrigeratorAccessService refrigeratorAccessService = mock(RefrigeratorAccessService.class);
+    private final Refrigerator refrigerator = mock(Refrigerator.class);
+    private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(
+            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobAcceptance, refrigeratorAccessService);
 
     @BeforeEach
     void acceptValidImages() {
         when(clock.instant()).thenReturn(SUBMITTED_AT);
         when(clock.withZone(any())).thenAnswer(invocation -> Clock.fixed(clock.instant(), BusinessTime.ZONE));
-        when(analysisJobAcceptance.accept(any(), anyString(), anyList())).thenAnswer(invocation -> new AnalysisJob(UUID.randomUUID().toString(),
-                invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2), SUBMITTED_AT.atZone(BusinessTime.ZONE).toOffsetDateTime(), null, false));
+        when(refrigeratorAccessService.findCurrentForRead(7L)).thenReturn(refrigerator);
+        when(refrigerator.getId()).thenReturn(11L);
+        when(analysisJobAcceptance.accept(any(), any(), anyString(), anyList())).thenAnswer(invocation -> new AnalysisJob(UUID.randomUUID().toString(),
+                invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2), invocation.getArgument(3),
+                SUBMITTED_AT.atZone(BusinessTime.ZONE).toOffsetDateTime(), null, false));
     }
 
     @Test
@@ -54,7 +62,8 @@ class AnalysisJobSubmitServiceTest {
         issue("first", "ab");
         issue("second", "cd");
         AnalysisJob analysisJob = analysisJobSubmitService.submit(7L, List.of("first", "second"), "RECEIPT");
-        verify(analysisJobAcceptance).accept(7L, "RECEIPT", analysisJob.analysisImages());
+        verify(analysisJobAcceptance).accept(7L, 11L, "RECEIPT", analysisJob.analysisImages());
+        assertThat(analysisJob.refrigeratorId()).isEqualTo(11L);
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::objectKey).containsExactly("first", "second");
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::sha256).containsExactly("ab".repeat(32), "cd".repeat(32));
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::requestId).doesNotHaveDuplicates();
@@ -75,6 +84,16 @@ class AnalysisJobSubmitServiceTest {
         assertThat(otherHintAnalysisJob.analysisImages().getFirst().requestId()).isNotEqualTo(firstAnalysisJob.analysisImages().getFirst().requestId());
     }
 
+    @Test
+    void separatesTheSamePhotoWhenTheSelectedRefrigeratorChanges() {
+        issue("first", "ab");
+        AnalysisJob first = analysisJobSubmitService.submit(7L, List.of("first"), "AUTO");
+        when(refrigerator.getId()).thenReturn(12L);
+        AnalysisJob moved = analysisJobSubmitService.submit(7L, List.of("first"), "AUTO");
+        assertThat(moved.refrigeratorId()).isEqualTo(12L);
+        assertThat(moved.analysisImages().getFirst().requestId()).isNotEqualTo(first.analysisImages().getFirst().requestId());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"missing", "other-owner", "profile", "expired"})
     void validatesEveryImageBeforeAcceptingAny(String objectKey) {
@@ -93,13 +112,13 @@ class AnalysisJobSubmitServiceTest {
     void normalizesTheDefaultHintBeforeAcceptance() {
         issue("first", "ab");
         AnalysisJob analysisJob = analysisJobSubmitService.submit(7L, List.of("first"), null);
-        verify(analysisJobAcceptance).accept(7L, "AUTO", analysisJob.analysisImages());
+        verify(analysisJobAcceptance).accept(7L, 11L, "AUTO", analysisJob.analysisImages());
     }
 
     @Test
     void propagatesFailureWhenTheAcceptanceTransactionCannotCommit() {
         issue("first", "ab");
-        when(analysisJobAcceptance.accept(any(), anyString(), anyList())).thenThrow(new DataAccessResourceFailureException("mysql"));
+        when(analysisJobAcceptance.accept(any(), any(), anyString(), anyList())).thenThrow(new DataAccessResourceFailureException("mysql"));
         assertThatThrownBy(() -> analysisJobSubmitService.submit(7L, List.of("first"), null)).isInstanceOf(DataAccessResourceFailureException.class);
     }
 
