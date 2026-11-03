@@ -24,6 +24,14 @@
 
 합의한 버전은 "최신 LTS"를 이유로 임의 변경하지 않는다. 「팀」 버전 변경은 빌드·의존성 PR로 따로 합의해야 팀원 환경이 어긋나지 않는다.
 
+## 분석 작업 DB 상태 저장
+
+빈 DB에는 최신 `src/main/resources/db/schema.sql`을 적용한다. 기존 DB에는 **이 변경이 포함된 앱 배포 전에**
+`src/main/resources/db/migrations/20261104-analysis-job-state-storage.sql`을 한 번 수동 적용한다. 자동 실행하지 않는다.
+추가 테이블은 `analysis_job_states`(작업·이미지·결과 및 알림 재시도 상태)와
+`analysis_job_requests`(이미지 requestId와 작업의 연결)이며, 기존 HTTP/Redis 작업·데이터는 이관하거나 삭제하지 않는다.
+이번 단계는 저장 모델만 추가한다. 신규 접수의 DB 저장과 Kafka 발행 연결은 후속 PR에서 적용한다.
+
 ## 빌드·실행
 
 ```bash
