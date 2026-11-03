@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class AnalysisPendingNotificationScheduler {
     private final AnalysisCompletionNotifier analysisCompletionNotifier;
 
-    @Scheduled(fixedDelayString = "${analysis.notification.poll-interval:1s}")
+    @Scheduled(fixedDelayString = "${analysis.notification.poll-interval:1s}", scheduler = "analysisNotificationTaskScheduler")
     public void poll() {
         analysisCompletionNotifier.deliverPending();
     }

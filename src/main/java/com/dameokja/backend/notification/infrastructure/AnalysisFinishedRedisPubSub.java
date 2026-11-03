@@ -21,7 +21,7 @@ public class AnalysisFinishedRedisPubSub implements MessageListener {
     private final ObjectMapper mapper;
     private final NotificationSseConnections connections;
 
-    // 분석 결과는 Redis에 저장되므로 DB 트랜잭션 이벤트를 기다리지 않는다.
+    // 호출자는 DB 트랜잭션 밖에서 발행해 Redis 응답 동안 DB 커넥션을 점유하지 않는다.
     public void publish(AnalysisFinished finished) {
         redis.convertAndSend(CHANNEL, mapper.writeValueAsString(finished));
     }
