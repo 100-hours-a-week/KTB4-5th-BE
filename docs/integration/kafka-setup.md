@@ -1,7 +1,7 @@
 # Kafka 공통 설정
 
-현재 단위는 Kafka 의존성·공통 설정·토픽 이름만 추가한다. 업무 API는 기존 HTTP 연동을 사용하며,
-Kafka producer 발행, 업무 consumer, outbox·스케줄러와 공통 envelope는 후속 작업이다.
+Kafka 의존성·공통 설정·토픽 이름과 공통 메시지 envelope를 제공한다. 업무 API는 기존 HTTP 연동을 사용하며,
+Kafka producer 발행, 업무 consumer와 outbox·스케줄러는 후속 작업이다.
 Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한다.
 
 ## 환경변수
@@ -34,6 +34,35 @@ Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한�
 파티션 수·복제 수·보관 설정과 토픽의 실제 생성은 인프라 준비 시 별도로 적용한다.
 추천·요리 payload와 분석 payload의 구체 계약은 각 기능의 후속 작업에서 제공한다.
 
+## 공통 메시지 계약
+
+공통 JSON 외곽은 `EventEnvelope<T>`의 `messageId`와 `payload` 두 필드다.
+아래 payload는 구조 설명용 예시이며, 구체 업무 필드는 각 기능의 계약에서 정의한다.
+
+```json
+{
+  "messageId": "7f52cf4a-600f-4ad6-8e96-3f392d1f9fea",
+  "payload": {
+    "requestId": "8f2c574c-d3cf-4a7c-b4fa-b02545548886",
+    "userId": 1
+  }
+}
+```
+
+`EventEnvelope.create(payload)`는 새 UUID 메시지 ID를 생성한다. 재발행에는 처음 만든 ID와 본문을
+보존하며, 매 재시도에 `create`를 호출해 다른 논리 메시지로 만들지 않는다.
+생성자는 UUID로 해석할 수 없는 ID와 null payload를 거절한다. 업무 필드 검증은 각 payload에서 수행한다.
+envelope는 특정 도메인이나 payload 타입에 의존하지 않는다.
+
+사건 종류·버전은 토픽 이름으로 구분하고 공통 외곽에는 `eventType`·`schemaVersion`을 추가하지 않는다.
+Kafka key는 UTF-8 문자열 `userId`, 해당 업무 payload의 `userId`는 JSON 정수다.
+key와 payload 사용자 일치 확인은 소비 경계에서 처리하며 envelope 생성자가 Kafka key를 검증하지 않는다.
+`messageId`는 논리 메시지 식별자이며, 요청·완료의 업무 연결에는 payload의 `requestId` 등을 사용한다.
+
+Jackson 역직렬화에는 `TypeReference<EventEnvelope<구체 Payload>>() {}`로 본문 타입까지 지정한다.
+raw `EventEnvelope.class`만 사용하면 본문을 구체 DTO로 복구할 수 없다. 공통 외곽에는 Java 타입 헤더가 필요하지 않다.
+이 클래스 자체는 발행·소비·저장·중복 제거를 실행하지 않는다.
+
 ## 직렬화와 활성화 경계
 
 producer는 문자열 key와 JSON 객체 value를 사용하고 Java 타입 헤더를 보내지 않는다.
@@ -50,3 +79,5 @@ consumer에도 `allow.auto.create.topics=false`를 적용한다. producer 발행
 | 자료 | 확인일 | 확인 내용 |
 |---|---|---|
 | [application.yml](../../src/main/resources/application.yml) | 2026-11-03 | 환경변수·직렬화·토픽·기본 비활성 설정 |
+| [EventEnvelope](../../src/main/java/com/dameokja/backend/global/common/EventEnvelope.java) | 2026-11-03 | 메시지 ID 생성·UUID와 payload 존재 검증 |
+| [EventEnvelopeTest](../../src/test/java/com/dameokja/backend/global/common/EventEnvelopeTest.java) | 2026-11-03 | 서로 다른 본문 타입의 JSON 왕복과 잘못된 입력 거절 |
