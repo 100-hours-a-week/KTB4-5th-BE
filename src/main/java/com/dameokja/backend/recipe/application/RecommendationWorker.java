@@ -2,6 +2,7 @@ package com.dameokja.backend.recipe.application;
 
 import com.dameokja.backend.recipe.domain.RecommendationOutbox.Status;
 import com.dameokja.backend.recipe.infrastructure.RecommendationJobStore;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
 import java.util.Set;
@@ -19,14 +20,22 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class RecommendationWorker {
-    private static final int MAX_CONCURRENT_RECOMMENDATIONS = 4;
     private final RecommendationOutboxService recommendationOutboxService;
     private final RecommendationExecutionService recommendationExecutionService;
     private final RecommendationJobStore recommendationJobStore;
     private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
     private final Set<String> activeEventIds = ConcurrentHashMap.newKeySet();
     @Value("${recipe.dispatch.enabled:true}") private boolean dispatchEnabled;
+    // AI에 동시에 맡기는 추천 수. 한 번의 폴링에서 이 수에서 처리 중인 건을 뺀 만큼만 outbox를 읽는다.
+    @Value("${recipe.dispatch.concurrency:4}") private int maxConcurrentRecommendations;
     private long lastScannedOutboxId;
+
+    @PostConstruct
+    void validateConcurrency() {
+        if (maxConcurrentRecommendations < 1) {
+            throw new IllegalArgumentException("추천 동시 전달 수는 1 이상이어야 합니다.");
+        }
+    }
 
     @Scheduled(fixedDelayString = "${recipe.dispatch.poll-interval:5s}")
     public void scheduledPoll() {
@@ -34,8 +43,8 @@ public class RecommendationWorker {
     }
 
     public synchronized void poll() {
-        if (executorService.isShutdown() || activeEventIds.size() >= MAX_CONCURRENT_RECOMMENDATIONS) { return; }
-        List<RecommendationOutboxService.Event> outboxEvents = recommendationOutboxService.batch(lastScannedOutboxId, MAX_CONCURRENT_RECOMMENDATIONS - activeEventIds.size());
+        if (executorService.isShutdown() || activeEventIds.size() >= maxConcurrentRecommendations) { return; }
+        List<RecommendationOutboxService.Event> outboxEvents = recommendationOutboxService.batch(lastScannedOutboxId, maxConcurrentRecommendations - activeEventIds.size());
         if (outboxEvents.isEmpty()) {
             lastScannedOutboxId = 0;
             return;

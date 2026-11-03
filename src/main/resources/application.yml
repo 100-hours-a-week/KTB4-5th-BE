@@ -134,6 +134,13 @@ ai:
   recipe:
     read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
 
+recipe:
+  dispatch:
+    enabled: ${RECIPE_DISPATCH_ENABLED:true}
+    poll-interval: ${RECIPE_DISPATCH_POLL_INTERVAL:5s}
+    # AI에 동시에 맡기는 추천 수. AI 레시피 대기열(기본 100)보다 작게 둔다.
+    concurrency: ${RECIPE_DISPATCH_CONCURRENCY:4}
+
 analysis:
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
