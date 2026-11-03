@@ -50,4 +50,3 @@ consumer에도 `allow.auto.create.topics=false`를 적용한다. producer 발행
 | 자료 | 확인일 | 확인 내용 |
 |---|---|---|
 | [application.yml](../../src/main/resources/application.yml) | 2026-11-03 | 환경변수·직렬화·토픽·기본 비활성 설정 |
-| [KafkaConfigurationTest](../../src/test/java/com/dameokja/backend/global/config/kafka/KafkaConfigurationTest.java) | 2026-11-03 | 설정 컨텍스트 로드·listener 비활성·환경변수와 토픽 이름 바인딩 |
