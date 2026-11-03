@@ -1,0 +1,59 @@
+{
+  "requested": {
+    "messageId": "11111111-1111-4111-8111-111111111111",
+    "payload": {
+      "occurredAt": "2026-11-03T03:00:00Z", "requestId": "22222222-2222-4222-8222-222222222222", "userId": 42, "refrigeratorId": 17,
+      "inventoryFingerprint": "2365cff803d55e41e66e1ee61a7f3c20326fbdeba7cf1fcff16c9b56c53b4352", "recommendationMode": "EXCLUDE_EXPIRED",
+      "inventory": [{
+        "ingredientId": 1, "name": "당근", "category": "VEGETABLE", "storageType": "REFRIGERATED", "measureType": "COUNT",
+        "quantity": 3, "weightValue": null, "weightUnit": "NONE", "expirationDate": "2026-11-05"
+      }],
+      "excludedIngredientNames": ["땅콩"], "limit": 10, "preferenceTags": ["매운"], "targetServings": 2,
+      "strategies": ["USE_EXPIRING", "SIMPLE_COOKING"], "pantryIngredientNames": ["소금"], "recentRecipeIds": ["MANUAL:0"]
+    }
+  },
+  "completed": {
+    "messageId": "33333333-3333-4333-8333-333333333333",
+    "payload": {
+      "occurredAt": "2026-11-03T03:00:15Z", "requestId": "22222222-2222-4222-8222-222222222222", "userId": 42, "refrigeratorId": 17,
+      "jobId": "rjob_example", "status": "COMPLETED", "submittedAt": "2026-11-03T03:00:01Z",
+      "startedAt": "2026-11-03T03:00:02Z", "completedAt": "2026-11-03T03:00:15Z",
+      "result": {
+        "recommendationId": "rec_example", "userId": 42, "refrigeratorId": 17,
+        "inventoryFingerprint": "2365cff803d55e41e66e1ee61a7f3c20326fbdeba7cf1fcff16c9b56c53b4352", "recommendationMode": "EXCLUDE_EXPIRED",
+        "recommendations": [{
+          "source": "MANUAL", "sourceRecipeId": "1", "sourceRevision": "v1", "name": "당근볶음", "baseServings": 2,
+          "ingredients": [{"ingredientNo": 1, "name": "당근", "amountText": "1개", "measureType": "COUNT", "amountValue": 1, "unit": "EA"}],
+          "steps": [{"stepNo": 1, "instruction": "당근을 볶는다."}], "score": 0.8,
+          "scoreBreakdown": {"expiringIngredient": 1, "inventoryCoverage": 1, "missingIngredientPenalty": 0, "variety": 0.2},
+          "usesInventory": ["당근"], "usesExpiringIngredients": ["당근"], "missingIngredients": [], "excludedIngredientCheck": "PASSED",
+          "reason": "임박 재료 활용", "targetServings": 2,
+          "inventoryUsage": [{
+            "ingredientId": 1, "name": "당근", "unit": "EA", "availableAmount": 3, "usedAmount": 1, "remainingAmount": 2,
+            "allocationStatus": "CALCULATED", "allocations": [{"ingredientNo": 1, "usedAmount": 1}]
+          }]
+        }],
+        "confirmationCandidates": [], "uncoveredExpiringIngredients": [], "generatedAt": "2026-11-03T03:00:15Z",
+        "recommendationEngine": "RULE_FALLBACK", "warnings": [], "preferenceTags": ["매운"], "context": {"targetServings": "2"}
+      },
+      "error": null
+    }
+  },
+  "failed": {
+    "messageId": "44444444-4444-4444-8444-444444444444",
+    "payload": {
+      "occurredAt": "2026-11-03T03:00:15Z", "requestId": "22222222-2222-4222-8222-222222222222", "userId": 42, "refrigeratorId": 17,
+      "jobId": "rjob_example", "status": "FAILED", "submittedAt": "2026-11-03T03:00:01Z",
+      "startedAt": "2026-11-03T03:00:02Z", "completedAt": "2026-11-03T03:00:15Z", "result": null,
+      "error": {"code": "RECIPE_TIMEOUT", "message": "추천 처리 시간 초과", "retryable": true}
+    }
+  },
+  "cookingApplied": {
+    "messageId": "55555555-5555-4555-8555-555555555555",
+    "payload": {
+      "occurredAt": "2026-11-03T03:05:00Z", "requestId": "22222222-2222-4222-8222-222222222222", "userId": 42, "refrigeratorId": 17,
+      "cookingRecordId": 9, "recommendationId": "123", "recipeId": "MANUAL:1", "recipeName": "당근볶음", "cookedAt": "2026-11-03T03:05:00Z",
+      "consumptions": [{"ingredientId": 1, "usedAmount": 1, "unit": "EA"}]
+    }
+  }
+}
