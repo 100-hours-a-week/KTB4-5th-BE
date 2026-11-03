@@ -257,6 +257,11 @@ AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 �
 예상 소비기한 범위는 저장 상태에서 유지하고 사용자 GET의 `expiration`에는 확정 날짜만 반환하므로, 추정 범위만 있으면 null이다.
 콜백 누락 복구는 후속 구현 범위다.
 
+## Kafka 공통 설정
+
+Kafka 의존성·환경변수·토픽 이름과 기본 비활성 상태는 [Kafka 공통 설정](integration/kafka-setup.md)을 참고한다.
+현재 업무 API는 기존 HTTP 연동을 유지하며 Kafka 인프라 없이 설정을 로드한다.
+
 ## Redis 접속 설정
 
 `spring-boot-starter-data-redis`의 기본 클라이언트인 Lettuce를 사용한다.
