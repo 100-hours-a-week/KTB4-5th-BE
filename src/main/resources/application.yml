@@ -168,6 +168,12 @@ analysis:
     completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
     feedback-topic: ${KAFKA_ENV:local}.dameokja.analysis.feedback.v1
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
+  outbox:
+    enabled: ${ANALYSIS_OUTBOX_ENABLED:true}
+    poll-interval: ${ANALYSIS_OUTBOX_POLL_INTERVAL:5s}
+    batch-size: ${ANALYSIS_OUTBOX_BATCH_SIZE:20}
+    lease-duration: ${ANALYSIS_OUTBOX_LEASE_DURATION:60s}
+    retry-delay: ${ANALYSIS_OUTBOX_RETRY_DELAY:5s}
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
   # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
