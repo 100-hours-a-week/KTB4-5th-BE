@@ -8,6 +8,7 @@ import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -19,7 +20,8 @@ public class RecommendationAcceptanceService {
     private final RecommendationOutboxService recommendationOutboxService;
     private final RecommendationDailyQuotaService recommendationDailyQuotaService;
 
-    @Transactional
+    // 상태 행이 없는 사용자의 FOR UPDATE 조회가 갭 잠금을 걸어, 처음 접수하는 사용자끼리 INSERT가 교착되지 않도록 READ COMMITTED로 실행한다.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public RecommendationSubmissionResult accept(Long userId, AiRecipeRecommendationRequest recommendationRequest) {
         // 상태 행이 없는 최초 접수도 사용자 잠금 아래 직렬화한다.
         Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, recommendationRequest.refrigeratorId());

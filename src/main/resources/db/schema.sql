@@ -378,6 +378,7 @@ CREATE TABLE recommendation_outbox (
     PRIMARY KEY (recommendation_outbox_id),
     UNIQUE KEY uk_recommendation_outbox_event (event_id),
     KEY ix_recommendation_outbox_refrigerator (refrigerator_id),
+    KEY ix_recommendation_outbox_request (request_id, recommendation_outbox_id),
     CONSTRAINT fk_recommendation_outbox_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
     CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','SENT','FAILED'))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
