@@ -2,6 +2,34 @@ spring:
   application:
     name: backend
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    security:
+      protocol: PLAINTEXT
+    admin:
+      auto-create: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        "[enable.idempotence]": true
+        "[spring.json.add.type.headers]": false
+        "[delivery.timeout.ms]": 30000
+        "[request.timeout.ms]": 10000
+        "[max.block.ms]": 10000
+    consumer:
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        "[allow.auto.create.topics]": false
+    listener:
+      auto-startup: ${KAFKA_LISTENER_ENABLED:false}
+      type: single
+      ack-mode: record
+
   security:
     oauth2:
       client:
@@ -135,6 +163,11 @@ ai:
     read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
 
 analysis:
+  kafka:
+    request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
+    completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
+    feedback-topic: ${KAFKA_ENV:local}.dameokja.analysis.feedback.v1
+    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
   # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
@@ -166,6 +199,15 @@ analysis:
     retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
     orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
     check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
+
+recommendation:
+  kafka:
+    request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
+    completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
+
+cooking:
+  kafka:
+    applied-topic: ${KAFKA_ENV:local}.dameokja.cooking.applied.v1
 
 management:
   health:
