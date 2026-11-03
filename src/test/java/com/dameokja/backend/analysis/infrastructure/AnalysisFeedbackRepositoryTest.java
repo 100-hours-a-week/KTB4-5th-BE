@@ -21,10 +21,12 @@ import tools.jackson.databind.json.JsonMapper;
 class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
     private static final LocalDateTime NOW = BusinessTime.now(Clock.fixed(Instant.parse("2026-10-19T01:00:00Z"), BusinessTime.ZONE));
     private static final String BODY = """
-            {"refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item-1","action":"CORRECTED",
+            {"messageId":"70000000-0000-0000-0000-000000000001","payload":{"eventType":"AnalysisFeedbackSubmitted",
+             "occurredAt":"2026-10-19T01:00:00Z","requestId":"70000000-0000-0000-0000-000000000002","userId":7,"analysisId":"ai-1",
+             "refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item-1","action":"CORRECTED",
              "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED",
                           "measureType":"WEIGHT","quantity":null,"weightValue":10.5,
-                          "weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}
+                          "weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}}
             """;
 
     @Autowired JdbcTemplate jdbcTemplate;

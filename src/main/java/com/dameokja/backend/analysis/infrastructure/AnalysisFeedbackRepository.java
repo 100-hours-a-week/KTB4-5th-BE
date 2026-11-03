@@ -40,13 +40,17 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
     int markSending(@Param("ids") List<Long> ids, @Param("leaseToken") String leaseToken,
             @Param("now") String now, @Param("leaseUntil") String leaseUntil);
 
-    Optional<AnalysisFeedback> findByIdAndLeaseToken(Long id, String leaseToken);
+    @Query(value = """
+            SELECT * FROM analysis_feedbacks
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND lease_until > CAST(:now AS DATETIME(6))
+            """, nativeQuery = true)
+    Optional<AnalysisFeedback> findActiveLease(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("now") String now);
 
     @Modifying
     @Query(value = """
             UPDATE analysis_feedbacks
             SET status = 'DONE', lease_token = NULL, lease_until = NULL, last_error_code = NULL, finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
-            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND lease_until > CAST(:now AS DATETIME(6))
             """, nativeQuery = true)
     int finish(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("now") String now);
 
@@ -55,7 +59,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
             UPDATE analysis_feedbacks
             SET status = 'PENDING', lease_token = NULL, lease_until = NULL, next_attempt_at = CAST(:nextAttemptAt AS DATETIME(6)),
                 attempt_count = attempt_count + 1, last_error_code = :errorCode, updated_at = CAST(:now AS DATETIME(6))
-            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND lease_until > CAST(:now AS DATETIME(6))
             """, nativeQuery = true)
     int reschedule(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("nextAttemptAt") String nextAttemptAt,
             @Param("errorCode") String errorCode, @Param("now") String now);
@@ -65,7 +69,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
             UPDATE analysis_feedbacks
             SET status = 'FAILED', lease_token = NULL, lease_until = NULL, attempt_count = attempt_count + 1,
                 last_error_code = :errorCode, finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
-            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND lease_until > CAST(:now AS DATETIME(6))
             """, nativeQuery = true)
     int fail(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("errorCode") String errorCode, @Param("now") String now);
 

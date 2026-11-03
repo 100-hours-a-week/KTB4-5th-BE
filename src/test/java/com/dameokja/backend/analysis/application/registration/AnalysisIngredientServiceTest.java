@@ -6,9 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
+import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackOutbox;
 import com.dameokja.backend.analysis.domain.*;
-import com.dameokja.backend.analysis.infrastructure.*;
+import com.dameokja.backend.analysis.application.job.AnalysisJobStateAccess;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.ingredient.application.create.*;
@@ -21,65 +22,75 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 class AnalysisIngredientServiceTest {
-    private final AnalysisJobStore store = mock(AnalysisJobStore.class);
+    private final AnalysisJobStateAccess analysisJobStateAccess = mock(AnalysisJobStateAccess.class);
+    private final RefrigeratorAccessService refrigeratorAccessService = mock(RefrigeratorAccessService.class);
     private final IngredientCreateService creator = mock(IngredientCreateService.class);
-    private final AnalysisFeedbackQueue queue = mock(AnalysisFeedbackQueue.class);
-    private final AnalysisIngredientService service = new AnalysisIngredientService(store, creator, queue,
-            new TransactionTemplate(mock(PlatformTransactionManager.class)));
+    private final AnalysisFeedbackOutbox queue = mock(AnalysisFeedbackOutbox.class);
+    private final AnalysisIngredientService service = new AnalysisIngredientService(analysisJobStateAccess, creator, queue, refrigeratorAccessService);
     private final AnalysisIngredientCommand.Item count = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
             StorageType.REFRIGERATED, MeasureType.COUNT, BigDecimal.TWO, null, LocalDate.parse("2026-10-20"));
     private final IngredientWriteResult result = writeResult(1);
+
+    @Test
+    void rejectsRegistrationIntoAnotherRefrigeratorBeforeCreatingInventoryOrFeedback() {
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
+        assertThatThrownBy(() -> service.create(7L, 2L, request(List.of(count))))
+                .isInstanceOf(CustomException.class);
+        verifyNoInteractions(creator, queue);
+        verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
+    }
 
     @Test
     void registersAndQueuesConfirmedFeedbackThenDeletesResult() {
         IngredientWriteResult result = writeResult(2);
         AnalysisIngredientCommand.Item weight = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
                 StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new AnalysisIngredientCommand.Weight(BigDecimal.TEN, WeightUnit.ML), count.expiration());
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(List.of(count), List.of(weight)))).isSameAs(result);
-        org.mockito.InOrder order = inOrder(creator, queue, store);
+        org.mockito.InOrder order = inOrder(refrigeratorAccessService, analysisJobStateAccess, creator, queue);
+        order.verify(refrigeratorAccessService).lockForWrite(7L, 1L);
+        order.verify(analysisJobStateAccess).findOwnedForUpdate("job", 7L);
         order.verify(creator).create(eq(7L), eq(1L), argThat(commands -> commands.getFirst().registrationSource() == RegistrationSource.RECEIPT
                 && commands.getLast().registrationSource() == RegistrationSource.FOOD_IMAGE));
-        order.verify(queue).enqueue(eq("ai-receipt"), argThat(f -> f.refrigeratorId().equals(1L) && f.items().size() == 1
+        order.verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), argThat(f -> f.refrigeratorId().equals(1L) && f.items().size() == 1
                 && f.items().getFirst().itemId().equals("item") && f.items().getFirst().action().equals("CORRECTED")
                 && f.consentForModelImprovement() && f.items().getFirst().confirmed().quantity() == 2 && f.items().getFirst().confirmed().weightUnit() == WeightUnit.NONE
                 && f.items().getFirst().confirmed().expirationSource().equals("USER_CONFIRMED")));
-        order.verify(queue).enqueue(eq("ai-product"), argThat(f -> f.items().getFirst().confirmed().quantity() == null && f.items().getFirst().confirmed().weightValue().equals(BigDecimal.TEN)
+        order.verify(queue).enqueue(eq(7L), eq("request-product"), eq("ai-product"), argThat(f -> f.items().getFirst().confirmed().quantity() == null
+                && f.items().getFirst().confirmed().weightValue().equals(BigDecimal.TEN)
                 && f.items().getFirst().confirmed().weightUnit() == WeightUnit.ML));
-        order.verify(store).delete("job");
+        order.verify(analysisJobStateAccess).deleteOwned("job", 7L);
     }
 
     @ParameterizedTest
     @CsvSource({"1,true", "2,false", ",true"})
     void allowsOnlyTheOriginalRefrigeratorWhileKeepingLegacyResults(Long analysisRefrigeratorId, boolean allowed) {
-        AnalysisJob job = new AnalysisJob("job", 7L, "AUTO", List.of(image("receipt", AnalysisDocumentType.RECEIPT)),
-                OffsetDateTime.now(), null, false, null, List.of(), analysisRefrigeratorId);
-        when(store.findOwned("job", 7L)).thenReturn(job);
+        AnalysisJob job = new AnalysisJob("job", 7L, analysisRefrigeratorId, "AUTO", List.of(image("receipt", AnalysisDocumentType.RECEIPT)),
+                OffsetDateTime.now(), null, false, null, List.of());
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job);
         if (!allowed) {
             assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class)
                     .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
             verifyNoInteractions(creator, queue);
-            verify(store, never()).delete(any());
+            verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
             return;
         }
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(List.of(count)))).isSameAs(result);
-        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> feedback.refrigeratorId().equals(1L)));
-        verify(store).delete("job");
+        verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), argThat(feedback -> feedback.refrigeratorId().equals(1L)));
+        verify(analysisJobStateAccess).deleteOwned("job", 7L);
     }
 
     @Test
     void keepsResultWhenFeedbackCannotBeQueuedBecauseRegistrationRollsBack() {
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
-        doThrow(new IllegalStateException("db unavailable")).when(queue).enqueue(any(), any());
+        doThrow(new IllegalStateException("db unavailable")).when(queue).enqueue(any(), any(), any(), any());
         assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(IllegalStateException.class);
-        verify(store, never()).delete(any());
+        verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
     }
 
     @ParameterizedTest
@@ -89,7 +100,7 @@ class AnalysisIngredientServiceTest {
         if (scenario.equals("PENDING")) { receipt = new AnalysisImage("receipt", "hash", "r", "ai-receipt", null); }
         if (scenario.equals("FAILED")) { receipt = new AnalysisImage("receipt", "hash", "r", "ai-receipt",
                 new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.now(), null, new AnalysisCompletionFailure("FAIL", "실패", true, 1000))); }
-        when(store.findOwned("job", 7L)).thenReturn(job(receipt));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(receipt));
         List<AnalysisIngredientCommand.Item> items = scenario.equals("DUPLICATE_ITEM") ? List.of(count, count) : List.of(count);
         if (scenario.equals("EMPTY")) { items = List.of(); }
         if (scenario.equals("TOO_MANY")) { items = java.util.stream.IntStream.range(0, 21).mapToObj(i -> new AnalysisIngredientCommand.Item(
@@ -102,22 +113,22 @@ class AnalysisIngredientServiceTest {
         assertThatThrownBy(() -> service.create(7L, 1L, command)).isInstanceOf(CustomException.class)
                 .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
         verifyNoInteractions(creator, queue);
-        verify(store, never()).delete(any());
+        verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
     }
 
     @Test
-    void doesNotQueueFeedbackOnOwnershipOrInventoryFailureAndToleratesCleanupFailure() {
-        when(store.findOwned("job", 7L)).thenThrow(new CustomException(GlobalExceptionCode.FORBIDDEN));
+    void propagatesOwnershipInventoryAndResultDeletionFailures() {
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenThrow(new CustomException(GlobalExceptionCode.FORBIDDEN));
         assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class);
         verifyNoInteractions(creator, queue);
-        doReturn(job(image("receipt", AnalysisDocumentType.RECEIPT))).when(store).findOwned("job", 7L);
+        doReturn(job(image("receipt", AnalysisDocumentType.RECEIPT))).when(analysisJobStateAccess).findOwnedForUpdate("job", 7L);
         when(creator.create(eq(7L), eq(1L), any())).thenThrow(new IllegalStateException("rollback"));
         assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(queue);
-        verify(store, never()).delete(any());
+        verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
         doReturn(result).when(creator).create(eq(7L), eq(1L), any());
-        doThrow(new IllegalStateException("redis unavailable")).when(store).delete("job");
-        assertThat(service.create(7L, 1L, request(List.of(count)))).isSameAs(result);
+        doThrow(new IllegalStateException("mysql unavailable")).when(analysisJobStateAccess).deleteOwned("job", 7L);
+        assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -125,11 +136,11 @@ class AnalysisIngredientServiceTest {
         IngredientWriteResult result = writeResult(20);
         List<AnalysisIngredientCommand.Item> items = java.util.stream.IntStream.range(0, 20).mapToObj(i -> new AnalysisIngredientCommand.Item(
                 "item" + i, count.name(), count.category(), count.storageType(), count.measureType(), count.quantity(), null, count.expiration())).toList();
-        when(store.findOwned("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT),
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT),
                 items.stream().map(item -> original(item.itemId())).toList())));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         assertThat(service.create(7L, 1L, request(items))).isSameAs(result);
-        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
+        verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), argThat(feedback -> {
             assertThat(feedback.refrigeratorId()).isEqualTo(1L);
             assertThat(feedback.items()).extracting(com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest.Item::itemId)
                     .containsExactlyElementsOf(items.stream().map(AnalysisIngredientCommand.Item::itemId).toList());
@@ -163,41 +174,41 @@ class AnalysisIngredientServiceTest {
                 count.storageType(), count.measureType(), 2, null, null, List.of());
         AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, OffsetDateTime.now(),
                 new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of(item)), null);
-        when(store.findOwned("job", 7L)).thenReturn(job(new AnalysisImage(cached.objectKey(), cached.sha256(), cached.requestId(), aiAnalysisId, completion)));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(new AnalysisImage(cached.objectKey(), cached.sha256(), cached.requestId(), aiAnalysisId, completion)));
         AnalysisIngredientCommand.Item requested = new AnalysisIngredientCommand.Item(itemId, count.name(), count.category(), count.storageType(),
                 count.measureType(), count.quantity(), null, count.expiration());
         if (analysisIdLength == 64 && itemIdLength == 64) {
             when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
             assertThat(service.create(7L, 1L, request(List.of(requested)))).isSameAs(result);
-            verify(queue).enqueue(eq(aiAnalysisId), argThat(feedback -> feedback.items().getFirst().itemId().equals(itemId)));
+            verify(queue).enqueue(eq(7L), any(), eq(aiAnalysisId), argThat(feedback -> feedback.items().getFirst().itemId().equals(itemId)));
         } else {
             assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(requested)))).isInstanceOf(CustomException.class)
                     .extracting("exceptionCode.code").isEqualTo("IMAGE-400-002");
             verifyNoInteractions(creator, queue);
-            verify(store, never()).delete(any());
+            verify(analysisJobStateAccess, never()).deleteOwned(any(), any());
         }
     }
 
     @Test
     void sendsDeletedItemsForAnEntireUnselectedCompletedImage() {
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), image("product", AnalysisDocumentType.PRODUCT)));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         service.create(7L, 1L, request(List.of(count)));
-        verify(queue).enqueue(eq("ai-product"), argThat(feedback -> feedback.consentForModelImprovement()
+        verify(queue).enqueue(eq(7L), eq("request-product"), eq("ai-product"), argThat(feedback -> feedback.consentForModelImprovement()
                 && feedback.items().stream().allMatch(item -> item.action().equals("DELETED") && item.confirmed() == null)));
     }
 
     @Test
     void combinesAddedConfirmedCorrectedAndDeletedWithoutLosingQuantities() {
         AnalysisImage receipt = withItems(image("receipt", AnalysisDocumentType.RECEIPT), List.of(original("same"), original("changed"), original("deleted")));
-        when(store.findOwned("job", 7L)).thenReturn(job(receipt));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(receipt));
         IngredientWriteResult result = writeResult(3);
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         List<AnalysisIngredientCommand.Item> items = java.util.Arrays.asList("same", "changed", null).stream()
                 .map(id -> new AnalysisIngredientCommand.Item(id, count.name(), count.category(), count.storageType(), count.measureType(),
                         "changed".equals(id) ? BigDecimal.TEN : count.quantity(), null, count.expiration())).toList();
         service.create(7L, 1L, request(items));
-        verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> {
+        verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), argThat(feedback -> {
             assertThat(feedback.items()).extracting(com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest.Item::action)
                     .containsExactly("CONFIRMED", "CORRECTED", "ADDED", "DELETED");
             assertThat(feedback.items().get(1).confirmed().quantity()).isEqualTo(10);
@@ -217,11 +228,11 @@ class AnalysisIngredientServiceTest {
         };
         AnalysisImage omitted = withItems(image("product", AnalysisDocumentType.PRODUCT), originals);
         if (scenario.equals("INVALID_AI_ID")) { omitted = new AnalysisImage("product", "hash", "request", " ", omitted.completion()); }
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), omitted));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), omitted));
         if (scenario.equals("AT_LIMIT")) {
             when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
             service.create(7L, 1L, request(List.of(count)));
-            verify(queue).enqueue(eq("ai-product"), argThat(feedback -> feedback.items().size() == 100));
+            verify(queue).enqueue(eq(7L), eq("request-product"), eq("ai-product"), argThat(feedback -> feedback.items().size() == 100));
         } else {
             assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count)))).isInstanceOf(CustomException.class);
             verifyNoInteractions(creator, queue);
@@ -233,14 +244,14 @@ class AnalysisIngredientServiceTest {
     void countsAddedItemsTogetherWithAllOriginalItemsForTheAiLimit(int originalCount) {
         List<AnalysisCompletionItem> originals = java.util.stream.IntStream.range(0, originalCount)
                 .mapToObj(index -> original(index == 0 ? "item" : "item" + index)).toList();
-        when(store.findOwned("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT), originals)));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(withItems(image("receipt", AnalysisDocumentType.RECEIPT), originals)));
         AnalysisIngredientCommand.Item added = new AnalysisIngredientCommand.Item(null, count.name(), count.category(), count.storageType(),
                 count.measureType(), count.quantity(), null, count.expiration());
         if (originalCount == 99) {
             IngredientWriteResult result = writeResult(2);
             when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
             service.create(7L, 1L, request(List.of(count, added)));
-            verify(queue).enqueue(eq("ai-receipt"), argThat(feedback -> feedback.items().size() == 100));
+            verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), argThat(feedback -> feedback.items().size() == 100));
         } else {
             assertThatThrownBy(() -> service.create(7L, 1L, request(List.of(count, added)))).isInstanceOf(CustomException.class);
             verifyNoInteractions(creator, queue);
@@ -254,10 +265,10 @@ class AnalysisIngredientServiceTest {
         if (status.equals("PENDING")) { ignored = new AnalysisImage("product", "hash", "request", null, null); }
         if (status.equals("FAILED")) { ignored = new AnalysisImage("product", "hash", "request", "ai-product",
                 new AnalysisCompletion(AnalysisStatus.FAILED, OffsetDateTime.now(), null, new AnalysisCompletionFailure("FAIL", "실패", true, 1000))); }
-        when(store.findOwned("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), ignored));
+        when(analysisJobStateAccess.findOwnedForUpdate("job", 7L)).thenReturn(job(image("receipt", AnalysisDocumentType.RECEIPT), ignored));
         when(creator.create(eq(7L), eq(1L), any())).thenReturn(result);
         service.create(7L, 1L, request(List.of(count)));
-        verify(queue).enqueue(eq("ai-receipt"), any());
+        verify(queue).enqueue(eq(7L), eq("request-receipt"), eq("ai-receipt"), any());
         verifyNoMoreInteractions(queue);
     }
 
@@ -293,6 +304,6 @@ class AnalysisIngredientServiceTest {
     }
 
     private AnalysisJob job(AnalysisImage... images) {
-        return new AnalysisJob("job", 7L, "AUTO", List.of(images), OffsetDateTime.now(), null, false);
+        return new AnalysisJob("job", 7L, 1L, "AUTO", List.of(images), OffsetDateTime.now(), null, false);
     }
 }

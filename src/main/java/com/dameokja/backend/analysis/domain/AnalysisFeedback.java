@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 재고 등록 뒤 AI 분석 하나에 속한 품목들을 함께 보내는 피드백이다. 분석 결과는 등록 직후 지우므로 사용자가 확정한 값을 본문에 그대로 담는다.
+// 재고 등록 트랜잭션에서 저장하는 피드백 전용 outbox 행이다. DONE은 Kafka 발행 확인이며 AI의 처리 완료를 뜻하지 않는다.
 @Getter
 @Entity
 @Table(name = "analysis_feedbacks")
