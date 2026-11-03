@@ -31,14 +31,16 @@
 추가 테이블은 `analysis_job_states`(작업·이미지·결과 및 알림 재시도 상태)와
 `analysis_job_requests`(이미지 requestId와 작업의 연결)이며, 기존 HTTP/Redis 작업·데이터는 이관하거나 삭제하지 않는다.
 내부 접수 서비스는 작업·이미지 requestId 연결·요청 outbox를 같은 트랜잭션으로 저장한다.
-HTTP 진입점 전환과 Kafka 발행 연결은 후속 PR에서 적용한다.
+HTTP 진입점 전환은 후속 PR에서 적용한다.
 
 ## 분석 요청 outbox 저장
 
 `analysis_outbox` 테이블을 추가한다. 기존 DB에는 `analysis_job_states`를 먼저 준비하고,
 앱 배포 전에 `src/main/resources/db/migrations/20261104-analysis-outbox-storage.sql`을 한 번 수동 적용한다.
 통합 DDL로 같은 테이블을 이미 생성했다면 중복 실행하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
-Kafka 발행 워커와 HTTP 진입점 연결은 후속 PR에서 적용한다.
+발행 워커는 선점 트랜잭션이 끝난 뒤 고정 메시지를 전송하고 브로커 ACK 후에만 완료를 기록한다. 실패·만료 lease는 재시도한다.
+`ANALYSIS_OUTBOX_ENABLED`(기본 true)로 전용 발행 스케줄러를 제어한다. `KAFKA_LISTENER_ENABLED`는 발행을 제어하지 않는다.
+HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 DDL은 없다.
 
 ## 빌드·실행
 
