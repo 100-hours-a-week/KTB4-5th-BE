@@ -21,6 +21,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.core.convert.ConversionService;
+import org.springframework.boot.convert.ApplicationConversionService;
+import com.dameokja.backend.global.security.SecurityConfig;
+import com.dameokja.backend.global.security.SecurityErrorHandler;
+import com.dameokja.backend.global.exception.GlobalExceptionHandler;
+import java.time.Clock;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -30,7 +39,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 @org.springframework.test.context.bean.override.mockito.MockitoBean(types = {com.dameokja.backend.global.security.OAuthSecurityConfig.class,
         com.dameokja.backend.user.application.access.UserAccessService.class})
-@SpringJUnitConfig({AnalysisJobListWebTest.WebConfiguration.class, AnalysisIngredientWebTest.Configuration.class})
+@SpringJUnitConfig(AnalysisIngredientWebTest.Configuration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=", "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d"})
 @ExtendWith(RedisTestSupport.class)
@@ -91,8 +100,12 @@ class AnalysisIngredientWebTest {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    @Import(AnalysisIngredientController.class)
+    @EnableWebMvc
+    @Import({AnalysisIngredientController.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, GlobalExceptionHandler.class})
     static class Configuration {
+        @Bean static ConversionService conversionService() { return new ApplicationConversionService(); }
+        @Bean Clock clock() { return mock(Clock.class); }
+        @Bean ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
         @Bean
         AnalysisIngredientService analysisIngredientService() { return mock(AnalysisIngredientService.class); }
     }

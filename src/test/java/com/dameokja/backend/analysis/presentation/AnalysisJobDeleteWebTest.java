@@ -1,9 +1,5 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
-import com.dameokja.backend.analysis.application.job.AnalysisOverdueJobExpirer;
-import java.time.Duration;
-import static org.mockito.Mockito.mock;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -11,9 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
@@ -21,67 +14,46 @@ import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
-import com.dameokja.backend.auth.presentation.CsrfController;
-import com.dameokja.backend.global.exception.GlobalExceptionHandler;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseContractTestSupport;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseJobFixture;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.OAuthSecurityConfig;
-import com.dameokja.backend.global.security.SecurityConfig;
-import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.convert.ApplicationConversionService;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.convert.ConversionService;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
-@SpringJUnitConfig(AnalysisJobDeleteWebTest.WebConfiguration.class)
-@WebAppConfiguration
-@TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "analysis.job-ttl=1h", "analysis.result-ttl=7d"})
-@ExtendWith(RedisTestSupport.class)
-class AnalysisJobDeleteWebTest {
+@TestPropertySource(properties = "analysis.result-ttl=7d")
+class AnalysisJobDeleteWebTest extends AnalysisDatabaseContractTestSupport {
     private static final String PATH = "/api/v1/image-analyses/{analysisId}";
     @Autowired WebApplicationContext webApplicationContext;
     @Autowired JwtProvider jwtProvider;
-    @Autowired Clock clock;
-    @Autowired AnalysisJobStore store;
+    @Autowired AnalysisDatabaseJobFixture analysisDatabaseJobFixture;
     private MockMvc mockMvc;
 
     @BeforeEach
-    void setup() { mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build(); }
+    void setup() {
+        for (Long userId : List.of(7L, 8L, 9L)) {
+            analysisDatabaseJobFixture.ensureUser(userId);
+        }
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
+    }
 
     @Test
     void deletesAFinishedJobThatWasNeverRegisteredAsIngredients() throws Exception {
         AnalysisJob job = job(7L, "receipt", "blur");
-        AnalysisJobStores.complete(store, "ai-receipt", success());
-        AnalysisJobStores.complete(store, "ai-blur", failure());
+        analysisDatabaseJobFixture.complete("ai-receipt", success());
+        analysisDatabaseJobFixture.complete("ai-blur", failure());
 
         deleteJob(job.id(), 7L).andExpect(status().isNoContent()).andExpect(content().string(""));
 
@@ -97,10 +69,10 @@ class AnalysisJobDeleteWebTest {
     void keepsJobsThatStillHaveImagesInProgress(String jobStatus) throws Exception {
         AnalysisJob job;
         if (jobStatus.equals("QUEUED")) {
-            job = store.create(7L, "AUTO", List.of(AnalysisImage.pending("receipt", "ab".repeat(32))));
+            job = analysisDatabaseJobFixture.create(7L, "AUTO", List.of(AnalysisImage.pending("receipt", "ab".repeat(32))));
         } else {
             job = job(7L, "receipt", "blur");
-            AnalysisJobStores.complete(store, "ai-receipt", success());
+            analysisDatabaseJobFixture.complete("ai-receipt", success());
         }
 
         deleteJob(job.id(), 7L).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IMAGE-409-002"));
@@ -112,7 +84,7 @@ class AnalysisJobDeleteWebTest {
     @Test
     void rejectsAnotherUsersJobAndUnknownJobs() throws Exception {
         AnalysisJob job = job(8L, "receipt");
-        AnalysisJobStores.complete(store, "ai-receipt", success());
+        analysisDatabaseJobFixture.complete("ai-receipt", success());
 
         deleteJob(job.id(), 7L).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("GLOBAL-403-001"));
         deleteJob("missing", 7L).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("IMAGE-404-001"));
@@ -135,9 +107,9 @@ class AnalysisJobDeleteWebTest {
 
     private AnalysisJob job(Long userId, String... objectKeys) {
         List<AnalysisImage> images = List.of(objectKeys).stream().map(key -> AnalysisImage.pending(key, "ab".repeat(32))).toList();
-        AnalysisJob job = store.create(userId, "AUTO", images);
+        AnalysisJob job = analysisDatabaseJobFixture.create(userId, "AUTO", images);
         for (AnalysisImage image : job.analysisImages()) {
-            store.register(job.id(), userId, image.requestId(), "ai-" + image.objectKey());
+            analysisDatabaseJobFixture.register(job.id(), userId, image.requestId(), "ai-" + image.objectKey());
         }
         return job;
     }
@@ -156,23 +128,4 @@ class AnalysisJobDeleteWebTest {
 
     private Cookie accessToken(Long userId) { return new Cookie("accessToken", jwtProvider.createAccessToken(userId, UserRole.USER)); }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    @EnableWebMvc
-    @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, CsrfController.class,
-            GlobalExceptionHandler.class, AnalysisController.class, AnalysisJobQueryService.class, AnalysisOverdueJobExpirer.class, AnalysisJobDeleteService.class, AnalysisJobStore.class})
-    static class WebConfiguration {
-        @Bean
-        AnalysisDispatchProperties analysisDispatchProperties() {
-            return new AnalysisDispatchProperties(1, Duration.ofSeconds(30), Duration.ofMinutes(2), Duration.ofMinutes(30), 3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
-        }
-        @Bean
-        static ConversionService conversionService() { return new ApplicationConversionService(); }
-        // 결과 만료 시각을 Redis 키 만료에도 쓰므로 실제 현재 시각을 기준으로 둔다.
-        @Bean
-        Clock clock() { return Clock.fixed(Instant.now(), BusinessTime.ZONE); }
-        @Bean
-        ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
-        @Bean
-        AnalysisJobSubmitService analysisJobSubmitService() { return mock(AnalysisJobSubmitService.class); }
-    }
 }

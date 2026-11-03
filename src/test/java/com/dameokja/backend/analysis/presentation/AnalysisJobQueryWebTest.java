@@ -1,108 +1,73 @@
 package com.dameokja.backend.analysis.presentation;
 
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
-import com.dameokja.backend.analysis.application.job.AnalysisOverdueJobExpirer;
-import java.time.Duration;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
-import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
-import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
+import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
+import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
-import com.dameokja.backend.global.exception.GlobalExceptionHandler;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseContractTestSupport;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseJobFixture;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.OAuthSecurityConfig;
-import com.dameokja.backend.global.security.SecurityConfig;
-import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.convert.ApplicationConversionService;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.convert.ConversionService;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class})
-@SpringJUnitConfig(AnalysisJobQueryWebTest.WebConfiguration.class)
-@WebAppConfiguration
-@TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "analysis.job-ttl=1h", "analysis.result-ttl=1h"})
-@ExtendWith(RedisTestSupport.class)
-class AnalysisJobQueryWebTest {
+@TestPropertySource(properties = "analysis.result-ttl=1h")
+class AnalysisJobQueryWebTest extends AnalysisDatabaseContractTestSupport {
     private static final Instant INSTANT = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
-    private static final String RESULT = """
-            {"documentType":{"value":"RECEIPT","confidence":0.9},"imageQuality":{"score":0.8,"issues":[]},
-             "items":[],"modelTrace":{"pipelineVersion":"v1","ocrVersion":"v1","llmModel":"test","normalizerVersion":"v1","policyVersion":"v1"}}
-            """;
-    private static final String ERROR = """
-            {"code":"MODEL_UNAVAILABLE","message":"분석 실패","retryable":true,"retryAfterMs":30000}
-            """;
     @Autowired WebApplicationContext webApplicationContext;
     @Autowired JwtProvider jwtProvider;
-    @Autowired Clock clock;
-    @Autowired AnalysisJobStore analysisJobStore;
+    @Autowired AnalysisDatabaseJobFixture analysisDatabaseJobFixture;
     @Autowired ObjectMapper objectMapper;
     private MockMvc mockMvc;
     private AnalysisJob analysisJob;
 
     @BeforeEach
     void setup() {
-        when(clock.instant()).thenReturn(INSTANT);
-        when(clock.withZone(any())).thenReturn(Clock.fixed(INSTANT, BusinessTime.ZONE));
+        for (Long userId : List.of(7L, 8L, 9L)) {
+            analysisDatabaseJobFixture.ensureUser(userId);
+        }
+        clock.set(INSTANT.toString());
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
-        analysisJob = analysisJobStore.create(7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
-        analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
-        analysisJobStore.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
+        analysisJob = analysisDatabaseJobFixture.create(7L, "AUTO",
+                List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
+        analysisDatabaseJobFixture.register(analysisJob.id(), 7L, analysisJob.analysisImages().getFirst().requestId(), "ai-first");
+        analysisDatabaseJobFixture.register(analysisJob.id(), 7L, analysisJob.analysisImages().getLast().requestId(), "ai-second");
     }
 
     @ParameterizedTest
     @CsvSource({"PROCESSING,PROCESSING,PROCESSING,", "COMPLETED,PROCESSING,PROCESSING,UNRECOGNIZED", "FAILED,PROCESSING,PROCESSING,",
             "COMPLETED,COMPLETED,COMPLETED,UNRECOGNIZED", "COMPLETED,FAILED,PARTIALLY_COMPLETED,UNRECOGNIZED", "FAILED,FAILED,FAILED,"})
     void aggregatesStatusesAndPreservesImageOrder(String firstStatus, String secondStatus, String groupStatus, String recognitionStatus) throws Exception {
-        expectView("ai-first", firstStatus);
-        expectView("ai-second", secondStatus);
+        recordCompletion("ai-first", firstStatus);
+        recordCompletion("ai-second", secondStatus);
         String response = mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(MockMvcResultMatchers.header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.code").value("IMAGE-200-002"))
@@ -132,9 +97,9 @@ class AnalysisJobQueryWebTest {
         if (scenario.equals("EXPIRED")) {
             AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                     new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of()), null);
-            AnalysisJobStores.complete(analysisJobStore, "ai-first", completion);
-            AnalysisJobStores.complete(analysisJobStore, "ai-second", completion);
-            when(clock.instant()).thenReturn(INSTANT.plusSeconds(3600));
+            analysisDatabaseJobFixture.complete("ai-first", completion);
+            analysisDatabaseJobFixture.complete("ai-second", completion);
+            clock.set(INSTANT.plusSeconds(3600).toString());
         }
         String analysisId = analysisJob.id();
         if (scenario.equals("MISSING")) {
@@ -156,8 +121,8 @@ class AnalysisJobQueryWebTest {
     @CsvSource({"RECOGNIZED,RECOGNIZED,RECOGNIZED", "UNRECOGNIZED,RECOGNIZED,UNRECOGNIZED", "NEEDS_REVIEW,AI_ESTIMATED,NEEDS_REVIEW",
             "AI_ESTIMATED,RECOGNIZED,AI_ESTIMATED", "RECOGNIZED,UNRECOGNIZED,UNRECOGNIZED", "AI_ESTIMATED,NEEDS_REVIEW,NEEDS_REVIEW"})
     void aggregatesLowestRecognitionStatusAndPreservesItemFields(String firstDisplayStatus, String secondDisplayStatus, String recognitionStatus) throws Exception {
-        expectView("ai-first", "COMPLETED", createItem(firstDisplayStatus), createItem(secondDisplayStatus));
-        expectView("ai-second", "FAILED");
+        recordCompletion("ai-first", "COMPLETED", createItem(firstDisplayStatus), createItem(secondDisplayStatus));
+        recordCompletion("ai-second", "FAILED");
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.results[0].recognitionStatus").value(recognitionStatus))
                 .andExpect(jsonPath("$.data.results[0].items[0].displayStatus").value(firstDisplayStatus))
@@ -184,21 +149,21 @@ class AnalysisJobQueryWebTest {
     void returnsEmptyReviewReasonsWhenNoReviewIsNeeded() throws Exception {
         ObjectNode item = createItem("RECOGNIZED");
         item.putArray("reviewReasons");
-        expectView("ai-first", "COMPLETED", item);
-        expectView("ai-second", "QUEUED");
+        recordCompletion("ai-first", "COMPLETED", item);
+        recordCompletion("ai-second", "QUEUED");
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.results[0].items[0].reviewReasons").isArray())
                 .andExpect(jsonPath("$.data.results[0].items[0].reviewReasons").isEmpty());
     }
 
     @Test
-    void readsNewCallbacksOnLaterPoll() throws Exception {
-        expectView("ai-first", "QUEUED");
-        expectView("ai-second", "QUEUED");
+    void readsNewResultsOnLaterPoll() throws Exception {
+        recordCompletion("ai-first", "QUEUED");
+        recordCompletion("ai-second", "QUEUED");
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("PROCESSING"));
-        expectView("ai-first", "COMPLETED");
-        expectView("ai-second", "COMPLETED");
+        recordCompletion("ai-first", "COMPLETED");
+        recordCompletion("ai-second", "COMPLETED");
         mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
@@ -206,10 +171,10 @@ class AnalysisJobQueryWebTest {
     @Test
     void preservesWeightAndNullableExpirationFields() throws Exception {
         ObjectNode objectNode = createItem("NEEDS_REVIEW").put("measureType", "WEIGHT").putNull("quantity");
-        objectNode.putObject("weight").put("value", new BigDecimal("1000.5")).put("unit", "ML").put("source", "OCR").put("confidence", 0.7);
-        objectNode.putObject("expiration").putNull("date").put("dateType", "UNKNOWN").putNull("source").putNull("confidence");
-        expectView("ai-first", "COMPLETED", objectNode);
-        expectView("ai-second", "FAILED");
+        objectNode.putObject("weight").put("value", new BigDecimal("1000.5")).put("unit", "ML");
+        objectNode.putObject("expiration").putNull("date").put("dateType", "UNKNOWN");
+        recordCompletion("ai-first", "COMPLETED", objectNode);
+        recordCompletion("ai-second", "FAILED");
         String response = mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.results[0].items[0].weight.value").value(1000.5))
                 .andExpect(jsonPath("$.data.results[0].items[0].weight.unit").value("ML")).andReturn().getResponse().getContentAsString();
@@ -226,7 +191,7 @@ class AnalysisJobQueryWebTest {
         ((ObjectNode) item.get("weight")).putNull("unit");
         ObjectNode expiration = item.putObject("expiration").putNull("date").put("dateType", "ESTIMATED_CONSUMPTION_WINDOW");
         expiration.putObject("estimatedRange").put("from", "2026-10-15").put("to", "2026-10-18");
-        expectView("ai-first", "COMPLETED", item);
+        recordCompletion("ai-first", "COMPLETED", item);
         String response = mockMvc.perform(get("/api/v1/image-analyses/{analysisId}", analysisJob.id()).cookie(accessToken(7L)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("PROCESSING"))
                 .andReturn().getResponse().getContentAsString();
@@ -243,17 +208,17 @@ class AnalysisJobQueryWebTest {
         assertThat(returnedExpiration.path("estimatedRange").path("to").asText()).isEqualTo("2026-10-18");
         assertThat(returnedItem.path("weight").path("value").isNull()).isTrue();
         assertThat(returnedItem.path("weight").path("unit").isNull()).isTrue();
-        AnalysisCompletionItem stored = analysisJobStore.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion().result().items().getFirst();
+        AnalysisCompletionItem stored = analysisDatabaseJobFixture.findOwned(analysisJob.id(), 7L).analysisImages().getFirst().completion().result().items().getFirst();
         assertThat(stored.expiration().estimatedRange().from()).isEqualTo(java.time.LocalDate.parse("2026-10-15"));
         assertThat(stored.expiration().estimatedRange().to()).isEqualTo(java.time.LocalDate.parse("2026-10-18"));
     }
 
     private ObjectNode createItem(String displayStatus) {
         ObjectNode objectNode = (ObjectNode) objectMapper.readTree("""
-                {"itemId":"item-1","name":{"value":"우유","normalizedValue":"우유","source":"OCR","confidence":0.9,"evidenceText":"우유"},
-                 "category":{"value":"DAIRY","source":"MODEL_INFERENCE","confidence":0.8},"storageType":"REFRIGERATED","measureType":"COUNT",
-                 "quantity":{"value":2,"source":"OCR","confidence":0.7},"weight":{"value":null,"unit":"NONE","source":"BUSINESS_RULE","confidence":0.0},
-                 "expiration":{"date":"2026-10-12","dateType":"USE_BY","source":"OCR","confidence":0.6},
+                {"itemId":"item-1","name":"우유",
+                 "category":"DAIRY","storageType":"REFRIGERATED","measureType":"COUNT",
+                 "quantity":2,"weight":{"value":null,"unit":"NONE"},
+                 "expiration":{"date":"2026-10-12","dateType":"USE_BY","estimatedRange":null},
                  "reviewReasons":[{"field":"EXPIRATION","code":"EXPIRATION_ESTIMATED",
                    "messages":["보관 조건으로 예상했습니다.","소비기한을 확인해 주세요."]}]}
                 """);
@@ -261,40 +226,16 @@ class AnalysisJobQueryWebTest {
     }
 
     private Cookie accessToken(Long userId) { return new Cookie("accessToken", jwtProvider.createAccessToken(userId, UserRole.USER)); }
-    private void expectView(String analysisId, String status, ObjectNode... objectNodes) {
-        ObjectNode objectNode = objectMapper.createObjectNode().put("analysisId", analysisId).put("status", status).put("submittedAt", INSTANT.toString());
-        objectNode.putNull("result").putNull("error");
-        if (status.equals("COMPLETED")) {
-            ObjectNode resultObjectNode = (ObjectNode) objectMapper.readTree(RESULT);
-            for (ObjectNode itemObjectNode : objectNodes) {
-                resultObjectNode.withArray("items").add(itemObjectNode);
-            }
-            objectNode.set("result", resultObjectNode);
-        }
-        if (status.equals("FAILED")) {
-            objectNode.set("error", objectMapper.readTree(ERROR));
-        }
-        com.dameokja.backend.analysis.AnalysisStoredResultFixture.store(analysisJobStore, objectNode, INSTANT);
+    private void recordCompletion(String analysisId, String status, ObjectNode... itemNodes) {
+        AnalysisStatus analysisStatus = AnalysisStatus.valueOf(status);
+        if (analysisStatus.isInProgress()) { return; }
+        AnalysisCompletionSuccess result = analysisStatus == AnalysisStatus.COMPLETED
+                ? new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, List.of(itemNodes).stream()
+                        .map(itemNode -> objectMapper.treeToValue(itemNode, AnalysisCompletionItem.class)).toList()) : null;
+        AnalysisCompletionFailure error = analysisStatus == AnalysisStatus.FAILED
+                ? new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, 30000) : null;
+        analysisDatabaseJobFixture.complete(analysisId,
+                new AnalysisCompletion(analysisStatus, INSTANT.atZone(BusinessTime.ZONE).toOffsetDateTime(), result, error));
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    @EnableWebMvc
-    @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class, GlobalExceptionHandler.class,
-            AnalysisController.class, AnalysisJobQueryService.class, AnalysisOverdueJobExpirer.class, AnalysisJobStore.class})
-    static class WebConfiguration {
-        @Bean
-        AnalysisDispatchProperties analysisDispatchProperties() {
-            return new AnalysisDispatchProperties(1, Duration.ofSeconds(30), Duration.ofMinutes(2), Duration.ofMinutes(30), 3, Duration.ofSeconds(1), Duration.ofSeconds(30), 20);
-        }
-        @Bean
-        static ConversionService conversionService() { return new ApplicationConversionService(); }
-        @Bean
-        Clock clock() { return mock(Clock.class); }
-        @Bean
-        ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
-        @Bean
-        AnalysisJobSubmitService analysisJobSubmitService() { return mock(AnalysisJobSubmitService.class); }
-        @Bean
-        AnalysisJobDeleteService analysisJobDeleteService() { return mock(AnalysisJobDeleteService.class); }
-    }
 }

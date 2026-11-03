@@ -157,7 +157,6 @@ ai:
   base-url: ${AI_BASE_URL}
   api-key: ${AI_INTERNAL_API_KEY}
   connect-timeout: ${AI_CONNECT_TIMEOUT}
-  read-timeout: ${AI_READ_TIMEOUT}
 
   recipe:
     read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
@@ -168,37 +167,31 @@ analysis:
     completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
     feedback-topic: ${KAFKA_ENV:local}.dameokja.analysis.feedback.v1
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
+    completion-group-id: ${KAFKA_ENV:local}.dameokja.be.analysis-result.v1
+    completion-retry-delay: ${ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY:5s}
+  outbox:
+    enabled: ${ANALYSIS_OUTBOX_ENABLED:true}
+    poll-interval: ${ANALYSIS_OUTBOX_POLL_INTERVAL:5s}
+    batch-size: ${ANALYSIS_OUTBOX_BATCH_SIZE:20}
+    lease-duration: ${ANALYSIS_OUTBOX_LEASE_DURATION:60s}
+    retry-delay: ${ANALYSIS_OUTBOX_RETRY_DELAY:5s}
+  job-timeout: ${ANALYSIS_JOB_TIMEOUT:PT30M30S}
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
-  # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
-  parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
   notification:
     retry-enabled: ${ANALYSIS_NOTIFICATION_RETRY_ENABLED:true}
     poll-interval: ${ANALYSIS_NOTIFICATION_POLL_INTERVAL:1s}
-    # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
-    retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
-    sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
+    # 미연결이면 즉시 푸시 작업을 생성한다. 연결 확인·발행 오류만 최초 포함 최대 3회 시도한다.
+    retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:1s}
+    sse-max-attempts: ${ANALYSIS_NOTIFICATION_SSE_MAX_ATTEMPTS:3}
+    lease-duration: ${ANALYSIS_NOTIFICATION_LEASE_DURATION:30s}
   feedback:
     enabled: ${ANALYSIS_FEEDBACK_ENABLED:true}
-    poll-interval: ${ANALYSIS_FEEDBACK_POLL_INTERVAL:10s}
-    retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:10m}
+    poll-interval: ${ANALYSIS_FEEDBACK_POLL_INTERVAL:5s}
+    retry-delay: ${ANALYSIS_FEEDBACK_RETRY_DELAY:5s}
     lease-duration: ${ANALYSIS_FEEDBACK_LEASE_DURATION:5m}
     expires-after: ${ANALYSIS_FEEDBACK_EXPIRES_AFTER:3d}
     batch-size: ${ANALYSIS_FEEDBACK_BATCH_SIZE:20}
-  dispatch:
-    enabled: ${ANALYSIS_DISPATCH_ENABLED:true}
-    poll-interval: ${ANALYSIS_DISPATCH_POLL_INTERVAL:5s}
-    # AI에 동시에 맡기는 이미지 수. AI 대기열(기본 100)보다 작게 두어 429 없이 보낸다. 1이면 콜백을 받은 뒤 다음 이미지를 보낸다.
-    slots: ${ANALYSIS_DISPATCH_SLOTS:10}
-    lease-duration: ${ANALYSIS_DISPATCH_LEASE_DURATION:30s}
-    # 콜백 유실을 기다리지 않고 회수하려고, 콜백이 없으면 이 주기마다 AI에 조회한다. AI 결과 보관(1h)보다 짧아야 한다.
-    callback-timeout: ${ANALYSIS_DISPATCH_CALLBACK_TIMEOUT:2m}
-    # 사용자가 결과를 기다리는 시간으로 의미 있는 상한. 넘으면 재시도 가능한 ANALYSIS_EXPIRED로 끝내 다시 요청하게 한다.
-    expires-after: ${ANALYSIS_DISPATCH_EXPIRES_AFTER:30m}
-    max-attempts: ${ANALYSIS_DISPATCH_MAX_ATTEMPTS:3}
-    retry-delay: ${ANALYSIS_DISPATCH_RETRY_DELAY:1s}
-    orphan-grace: ${ANALYSIS_DISPATCH_ORPHAN_GRACE:30s}
-    check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
 
 recommendation:
   kafka:

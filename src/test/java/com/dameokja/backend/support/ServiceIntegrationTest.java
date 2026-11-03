@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
         "spring.config.import=",
+        "spring.kafka.listener.auto-startup=false",
         "push.dispatch.enabled=false",
         "recipe.dispatch.enabled=false",
         "app.user.default-profile-image-key=profiles/default.png"

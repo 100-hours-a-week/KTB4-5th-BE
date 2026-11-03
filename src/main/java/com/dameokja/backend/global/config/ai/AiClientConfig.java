@@ -1,6 +1,5 @@
 package com.dameokja.backend.global.config.ai;
 
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeClient;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -19,11 +18,6 @@ public class AiClientConfig {
     @Bean(destroyMethod = "close")
     public HttpClient aiHttpClient(AiClientProperties properties) {
         return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(properties.connectTimeout()).build();
-    }
-
-    @Bean
-    public AiAnalysisClient aiAnalysisClient(AiClientProperties properties, @Qualifier("aiHttpClient") HttpClient httpClient) {
-        return new AiAnalysisClient(restClientBuilder(properties, httpClient, properties.readTimeout()).build());
     }
 
     @Bean

@@ -3,7 +3,6 @@ package com.dameokja.backend.recipe.infrastructure.ai;
 import com.dameokja.backend.global.config.ai.AiClientConfig;
 import com.dameokja.backend.recipe.application.RecommendationOptions;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -243,16 +242,6 @@ class AiRecipeClientTest {
                 });
     }
 
-    @Test
-    void keepsAnalysisAndRecipeReadTimeoutsIndependent() {
-        server.createContext("/ai/v1/analyses", this::respond);
-        delay.set(300);
-        context().withPropertyValues("ai.read-timeout=50ms", "ai.recipe.read-timeout=2s").run(context -> {
-            assertThatThrownBy(() -> context.getBean(AiAnalysisClient.class).get("analysis-1")).isInstanceOf(RestClientException.class);
-            assertThat(context.getBean(AiRecipeClient.class).submit(request).jobId()).isEqualTo("rjob-1");
-        });
-    }
-
     private void completedJob() {
         status.set(200);
         body.set("""
@@ -274,7 +263,7 @@ class AiRecipeClientTest {
     }
 
     private AiClientProperties properties(URI url, Duration timeout) {
-        return new AiClientProperties(url, "test-key", Duration.ofSeconds(1), timeout);
+        return new AiClientProperties(url, "test-key", Duration.ofSeconds(1));
     }
 
     private void respond(HttpExchange exchange) throws IOException {

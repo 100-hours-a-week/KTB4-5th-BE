@@ -1,7 +1,6 @@
 # Kafka 공통 설정
 
-Kafka 의존성·공통 설정·토픽 이름과 공통 메시지 envelope를 제공한다. 업무 API는 기존 HTTP 연동을 사용하며,
-Kafka producer 발행, 업무 consumer와 outbox·스케줄러는 후속 작업이다.
+Kafka 의존성·공통 설정·토픽 이름과 공통 메시지 envelope를 제공한다. 분석 전달은 이 브랜치에서 Kafka outbox와 전용 consumer에 연결하며, 추천은 기존 HTTP 연동을 유지한다.
 Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한다.
 
 ## 환경변수
@@ -12,10 +11,10 @@ Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한�
 | `KAFKA_ENV` | `local` | 토픽 환경 접두사. BE·AI에서 같은 값 사용 |
 | `KAFKA_LISTENER_ENABLED` | `false` | 기본 listener factory의 자동 시작 여부 |
 
-인프라 준비 전에는 기본값으로 설정을 로드할 수 있다. 이번 단위는 브로커 연결이나 발행을 실행하지 않는다.
+인프라 준비 전에는 기본값으로 설정을 로드할 수 있다. listener 자동 시작은 기본 비활성이다. 분석 outbox 발행은 `ANALYSIS_OUTBOX_ENABLED`와 `ANALYSIS_FEEDBACK_ENABLED`로 별도 제어한다.
 인프라 준비 후 실제 브로커 주소와 환경명을 주입한다. listener 활성화는 각 기능의 소비 구현·연동 검증 후 진행한다.
 이 변수는 발행 작업을 제어하지 않으므로 후속 발행 스케줄러에는 별도의 활성화 조건이 필요하다.
-기존 `ANALYSIS_FEEDBACK_ENABLED`는 HTTP 피드백에도 쓰이므로 Kafka 준비를 이유로 끄지 않는다.
+이 브랜치의 `ANALYSIS_FEEDBACK_ENABLED`는 Kafka 피드백 outbox 발행을 제어한다.
 
 ## 토픽 이름
 
@@ -32,7 +31,7 @@ Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한�
 | `cooking.kafka.applied-topic` | `cooking.applied.v1` | BE → 향후 소비자 요리 적용 |
 
 파티션 수·복제 수·보관 설정과 토픽의 실제 생성은 인프라 준비 시 별도로 적용한다.
-추천·요리 payload와 분석 payload의 구체 계약은 각 기능의 후속 작업에서 제공한다.
+분석 payload는 공통 envelope를 사용하며, 추천·요리 payload와 실행 연결은 별도 작업에서 제공한다.
 
 ## 공통 메시지 계약
 

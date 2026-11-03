@@ -37,12 +37,13 @@ com.dameokja.backend
 ```text
 analysis/application/
 ├── job/           # 분석 접수·조회·삭제·만료와 조회 결과
-├── dispatch/      # AI 전달 큐·선점·전송·재시도
-├── completion/    # 콜백 검증·종료 결과 반영
+├── completion/    # Kafka 완료 이벤트 검증·종료 결과 반영
 ├── notification/  # 완료 알림·재처리
-├── feedback/      # 확정한 재고의 피드백 큐·전송
+├── outbox/        # 분석 요청 Kafka 발행·재시도
+├── feedback/      # 확정한 재고의 피드백 outbox 저장·발행
 └── registration/  # 분석 결과로 재고 등록
-analysis/infrastructure/ai/  # AI 클라이언트·통신 DTO·설정
+analysis/infrastructure/kafka/  # Kafka 이벤트 DTO·publisher·consumer
+analysis/infrastructure/ai/     # AI 피드백 항목 공통 DTO
 
 user/application/
 ├── access/          # 활성 회원 조회·접근 확인

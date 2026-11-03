@@ -299,54 +299,70 @@ CREATE TABLE push_notifications (
     CONSTRAINT fk_push_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
-CREATE TABLE analysis_dispatch_gates (
-    gate_id TINYINT NOT NULL COMMENT '항상 1. 이 행 잠금으로 여러 BE의 진행 중 개수 판단과 선점을 직렬화',
-    PRIMARY KEY (gate_id),
-    CONSTRAINT ck_analysis_dispatch_gate_single CHECK (gate_id = 1)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
-
-INSERT INTO analysis_dispatch_gates (gate_id) VALUES (1);
-
-CREATE TABLE analysis_dispatches (
-    analysis_dispatch_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '이미지 한 장의 AI 전달 작업',
-    request_id CHAR(36) NOT NULL COMMENT 'AI 멱등 키. (사용자, objectKey, sha256, inputHint)에서 파생해 같은 사진 재요청과 재전송이 같은 값을 쓴다',
-    analysis_job_id CHAR(36) NOT NULL COMMENT 'Redis 분석 묶음 ID',
+CREATE TABLE analysis_job_states (
+    analysis_job_id CHAR(36) NOT NULL COMMENT '백엔드 이미지 묶음 작업 ID',
     user_id BIGINT NOT NULL,
-    object_key VARCHAR(512) NOT NULL,
-    sha256 CHAR(64) NOT NULL,
-    input_hint VARCHAR(16) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    ai_analysis_id VARCHAR(64) NULL COMMENT '마지막으로 접수된 AI 작업 ID',
-    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI 전송 실패·재전송 횟수. 429와 AI 준비 전 보류는 제외',
-    next_attempt_at DATETIME(6) NOT NULL,
-    lease_token VARCHAR(64) NULL,
-    lease_until DATETIME(6) NULL COMMENT 'DISPATCHING·CHECKING은 점유 만료, AWAITING_CALLBACK은 콜백 기한',
-    expires_at DATETIME(6) NOT NULL COMMENT '경과 시 FAILED',
-    last_ai_status VARCHAR(20) NULL COMMENT '마지막 AI 작업 조회 상태',
-    last_error_code VARCHAR(64) NULL,
-    dispatched_at DATETIME(6) NULL COMMENT '마지막 전송 시작',
-    accepted_at DATETIME(6) NULL COMMENT '마지막 AI 접수',
-    finished_at DATETIME(6) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'QUEUED',
+    job_body JSON NOT NULL COMMENT '분석 작업·이미지·결과 상태 스냅샷',
+    expires_at DATETIME(6) NULL COMMENT '진행 중에는 NULL, 종료 후 결과 조회 만료 시각',
+    notification_next_attempt_at DATETIME(6) NULL COMMENT 'NULL이면 알림 대기 없음, 선점 중에는 lease 만료 시각',
+    notification_lease_token CHAR(36) NULL,
+    notification_sse_attempt_count INT NOT NULL DEFAULT 0 COMMENT '전체 완료 SSE 시도 횟수, 최초 포함',
+    notification_image_attempt_counts JSON NULL COMMENT 'requestId별 개별 이미지 SSE 시도 횟수',
+    version BIGINT NOT NULL DEFAULT 0,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (analysis_dispatch_id),
-    UNIQUE KEY uk_analysis_dispatch_request (request_id, analysis_job_id),
-    KEY ix_analysis_dispatch_due (status, next_attempt_at),
-    KEY ix_analysis_dispatch_lease (status, lease_until),
-    CONSTRAINT ck_analysis_dispatch_status CHECK (status IN ('PENDING','DISPATCHING','AWAITING_CALLBACK','CHECKING','DONE','FAILED')),
-    CONSTRAINT ck_analysis_dispatch_attempts CHECK (attempt_count >= 0),
-    CONSTRAINT ck_analysis_dispatch_lease CHECK (status NOT IN ('DISPATCHING','AWAITING_CALLBACK','CHECKING')
-        OR (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
-    CONSTRAINT ck_analysis_dispatch_awaiting CHECK (status NOT IN ('AWAITING_CALLBACK','CHECKING') OR ai_analysis_id IS NOT NULL),
-    CONSTRAINT ck_analysis_dispatch_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
+    PRIMARY KEY (analysis_job_id),
+    KEY ix_analysis_job_states_user (user_id, created_at),
+    KEY ix_analysis_job_states_notification_due (notification_next_attempt_at, analysis_job_id),
+    CONSTRAINT fk_analysis_job_states_user FOREIGN KEY (user_id) REFERENCES users (user_id),
+    CONSTRAINT ck_analysis_job_states_status CHECK (status IN ('QUEUED','PROCESSING','COMPLETED','PARTIALLY_COMPLETED','FAILED'))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_job_requests (
+    analysis_job_request_id BIGINT NOT NULL AUTO_INCREMENT,
+    request_id CHAR(36) NOT NULL COMMENT '같은 이미지 재요청 시 여러 작업이 공유하는 멱등 키',
+    analysis_job_id CHAR(36) NOT NULL,
+    PRIMARY KEY (analysis_job_request_id),
+    UNIQUE KEY uk_analysis_job_requests_request_job (request_id, analysis_job_id),
+    KEY ix_analysis_job_requests_job (analysis_job_id),
+    CONSTRAINT fk_analysis_job_requests_job FOREIGN KEY (analysis_job_id) REFERENCES analysis_job_states (analysis_job_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE analysis_outbox (
+    analysis_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
+    message_id CHAR(36) NOT NULL COMMENT '재발행에도 유지하는 이벤트 ID',
+    analysis_job_id CHAR(36) NOT NULL,
+    topic VARCHAR(249) NOT NULL,
+    message_key VARCHAR(32) NOT NULL COMMENT 'UTF-8 문자열 userId',
+    message_body JSON NOT NULL COMMENT 'messageId와 payload를 포함한 고정 발행 본문',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token CHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
+    published_at DATETIME(6) NULL,
+    last_error_code VARCHAR(64) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_outbox_id),
+    UNIQUE KEY uk_analysis_outbox_message (message_id),
+    KEY ix_analysis_outbox_due (status, next_attempt_at),
+    KEY ix_analysis_outbox_lease (status, lease_until),
+    KEY ix_analysis_outbox_job (analysis_job_id),
+    CONSTRAINT fk_analysis_outbox_job FOREIGN KEY (analysis_job_id) REFERENCES analysis_job_states (analysis_job_id),
+    CONSTRAINT ck_analysis_outbox_status CHECK (status IN ('PENDING','PUBLISHING','PUBLISHED')),
+    CONSTRAINT ck_analysis_outbox_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_outbox_lease CHECK ((status = 'PUBLISHING') = (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_outbox_published CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE analysis_feedbacks (
     analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI 분석 하나에 보낼 피드백 묶음',
     ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
-    feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
+    feedback_body JSON NOT NULL COMMENT 'Kafka 피드백 이벤트 JSON. 재시도 시 messageId와 본문 유지',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
-    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',
+    attempt_count INT NOT NULL DEFAULT 0 COMMENT 'Kafka 발행 또는 이벤트 처리 실패 횟수',
     next_attempt_at DATETIME(6) NOT NULL,
     lease_token VARCHAR(64) NULL,
     lease_until DATETIME(6) NULL COMMENT 'SENDING 점유 만료. 지나면 다른 서버가 다시 가져감',

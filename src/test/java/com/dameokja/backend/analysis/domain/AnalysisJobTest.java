@@ -13,7 +13,7 @@ class AnalysisJobTest {
     @Test
     void acknowledgesNotificationWithoutChangingTheRestOfTheJob() {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))),
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 17L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))),
                 submittedAt, submittedAt.plusDays(7), true);
 
         AnalysisJob acknowledged = job.acknowledgeNotification();
@@ -27,7 +27,7 @@ class AnalysisJobTest {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
         AnalysisCompletion failure = new AnalysisCompletion(AnalysisStatus.FAILED, submittedAt, null,
                 new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, 1000));
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)),
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 17L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32)),
                 AnalysisImage.pending("second", "cd".repeat(32))), submittedAt, null, false);
         AnalysisJob registered = job.register(job.analysisImages().getFirst().requestId(), "ai-first")
                 .register(job.analysisImages().getLast().requestId(), "ai-second");
@@ -41,13 +41,13 @@ class AnalysisJobTest {
     @Test
     void replacesTheAiIdOnlyWhileTheImageHasNoResult() {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))), submittedAt, null, false);
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 17L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))), submittedAt, null, false);
         String requestId = job.analysisImages().getFirst().requestId();
         AnalysisJob resent = job.register(requestId, "ai-lost").register(requestId, "ai-new");
         AnalysisJob finished = resent.complete("ai-new", failure(submittedAt), submittedAt.plusDays(7));
 
         assertThat(resent.analysisImages().getFirst().aiAnalysisId()).isEqualTo("ai-new");
-        assertThat(resent.requestIdOf("ai-new")).isEqualTo(requestId);
+        assertThat(resent.analysisImages().getFirst().requestId()).isEqualTo(requestId);
         assertThat(finished.register(requestId, "ai-new")).isEqualTo(finished);
         assertThatThrownBy(() -> finished.register(requestId, "ai-other")).isInstanceOf(IllegalStateException.class);
     }
@@ -55,7 +55,7 @@ class AnalysisJobTest {
     @Test
     void failsAnImageThatAiNeverAcceptedAndStartsRetentionWhenItIsTheLast() {
         OffsetDateTime submittedAt = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
-        AnalysisJob job = new AnalysisJob("job-1", 7L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))), submittedAt, null, false);
+        AnalysisJob job = new AnalysisJob("job-1", 7L, 17L, "AUTO", List.of(AnalysisImage.pending("first", "ab".repeat(32))), submittedAt, null, false);
         String requestId = job.analysisImages().getFirst().requestId();
         AnalysisJob failed = job.fail(requestId, failure(submittedAt), submittedAt.plusDays(7));
 
@@ -71,14 +71,14 @@ class AnalysisJobTest {
     @Test
     void preservesTheRefrigeratorAcrossEveryJobStateChange() {
         OffsetDateTime time = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
-        AnalysisJob job = new AnalysisJob("job", 7L, "AUTO", List.of(AnalysisImage.pending("image", "ab".repeat(32))), time, null, false, null, List.of(), 17L);
+        AnalysisJob job = new AnalysisJob("job", 7L, 17L, "AUTO", List.of(AnalysisImage.pending("image", "ab".repeat(32))), time, null, false, null, List.of());
         String requestId = job.analysisImages().getFirst().requestId();
         AnalysisJob registered = job.register(requestId, "ai");
         AnalysisJob finished = registered.complete("ai", failure(time), time.plusDays(7));
         List<AnalysisJob> changed = List.of(registered, finished, job.fail(requestId, failure(time), time.plusDays(7)),
                 finished.selectNotificationChannel(AnalysisNotificationChannel.SSE), finished.fallBackToPush(),
-                finished.acknowledgeNotification(), finished.acknowledgeNotification().reopenNotification(),
-                finished.publishImageEvent(requestId), finished.publishImageEvent(requestId).withdrawImageEvent(requestId));
+                finished.acknowledgeNotification(),
+                finished.publishImageEvent(requestId));
         assertThat(changed).extracting(AnalysisJob::refrigeratorId).containsOnly(17L);
         String legacy = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(job).replace(",\"refrigeratorId\":17", "");
         assertThat(tools.jackson.databind.json.JsonMapper.builder().build().readValue(legacy, AnalysisJob.class).refrigeratorId()).isNull();

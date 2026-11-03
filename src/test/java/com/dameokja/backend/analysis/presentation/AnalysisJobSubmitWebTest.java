@@ -1,11 +1,6 @@
 package com.dameokja.backend.analysis.presentation;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,82 +9,49 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
-import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.refrigerator.domain.Refrigerator;
-import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
-import com.dameokja.backend.analysis.application.job.AnalysisJobDeleteService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobQueryService;
-import com.dameokja.backend.analysis.application.job.AnalysisJobSubmitService;
+import com.dameokja.backend.analysis.application.job.AnalysisJobStateAccess;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
-import com.dameokja.backend.auth.presentation.CsrfController;
-import com.dameokja.backend.global.exception.GlobalExceptionHandler;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisRequestedPayload;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseContractTestSupport;
+import com.dameokja.backend.analysis.support.AnalysisDatabaseJobFixture;
+import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.global.security.OAuthSecurityConfig;
-import com.dameokja.backend.global.security.SecurityConfig;
-import com.dameokja.backend.global.security.SecurityErrorHandler;
-import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
-import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
-import java.time.Clock;
-import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.convert.ApplicationConversionService;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.convert.ConversionService;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
-@ExtendWith(RedisTestSupport.class)
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class, RefrigeratorAccessService.class})
-@SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
-@WebAppConfiguration
-@TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h"})
-@ExtendWith(RedisTestSupport.class)
-class AnalysisJobSubmitWebTest {
+class AnalysisJobSubmitWebTest extends AnalysisDatabaseContractTestSupport {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";
     @Autowired WebApplicationContext webApplicationContext;
     @Autowired JwtProvider jwtProvider;
-    @Autowired AnalysisDispatchQueue analysisDispatchQueue;
-    @Autowired AnalysisDispatchWorker analysisDispatchWorker;
     @Autowired ImageUploadMetadataStore imageUploadMetadataStore;
-    @Autowired AnalysisJobStore analysisJobStore;
+    @Autowired AnalysisJobStateAccess analysisJobStateAccess;
+    @Autowired AnalysisDatabaseJobFixture analysisDatabaseJobFixture;
     @Autowired ObjectMapper objectMapper;
-    @Autowired RefrigeratorAccessService access;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setup() {
-        reset(analysisDispatchQueue, analysisDispatchWorker);
-        Refrigerator refrigerator = mock(Refrigerator.class);
-        when(refrigerator.getId()).thenReturn(17L);
-        when(access.findCurrentForRead(7L)).thenReturn(refrigerator);
+        clock.set("2026-10-08T01:00:00Z");
+        analysisDatabaseJobFixture.ensureUser(7L);
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).apply(springSecurity()).build();
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "first", "ab".repeat(32));
         imageUploadMetadataStore.save(7L, ImageUploadPurpose.ANALYSIS, "second", "cd".repeat(32));
@@ -112,11 +74,10 @@ class AnalysisJobSubmitWebTest {
                 .andExpect(jsonPath("$.data.pollAfterMs").value(1000)).andReturn().getResponse().getContentAsString();
         JsonNode jsonNode = objectMapper.readTree(response).path("data");
         assertThat(jsonNode.size()).isEqualTo(5);
-        AnalysisJob analysisJob = analysisJobStore.findOwned(jsonNode.path("analysisId").asString(), 7L);
-        assertThat(analysisJob.refrigeratorId()).isEqualTo(17L);
+        AnalysisJob analysisJob = analysisJobStateAccess.findOwned(jsonNode.path("analysisId").asString(), 7L);
         assertThat(analysisJob.analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsOnlyNulls();
-        verify(analysisDispatchQueue).enqueue(eq(analysisJob.id()), eq(7L), eq(inputHint == null ? "AUTO" : inputHint), eq(analysisJob.analysisImages()));
-        verify(analysisDispatchWorker).wakeUp();
+        assertCommittedRequestEvents();
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @ParameterizedTest
@@ -128,7 +89,8 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken()).header("X-XSRF-TOKEN", cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("GLOBAL-400-001"));
-        verifyNoInteractions(analysisDispatchQueue, analysisDispatchWorker);
+        assertNothingAccepted();
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @ParameterizedTest
@@ -139,7 +101,8 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookies).header("X-XSRF-TOKEN", missing.equals("MISMATCH") ? "wrong" : cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().is(status)).andExpect(jsonPath("$.code").value(code));
-        verifyNoInteractions(analysisDispatchQueue, analysisDispatchWorker);
+        assertNothingAccepted();
+        verifyNoInteractions(analysisKafkaPublisher);
     }
 
     @Test
@@ -149,31 +112,43 @@ class AnalysisJobSubmitWebTest {
         mockMvc.perform(post("/api/v1/image-analyses").cookie(cookie, accessToken()).header("X-XSRF-TOKEN", cookie.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.code").value("IMAGE-422-001"));
-        verifyNoInteractions(analysisDispatchQueue, analysisDispatchWorker);
+        assertNothingAccepted();
+        verifyNoInteractions(analysisKafkaPublisher);
+    }
+
+    @Test
+    void doesNotReturnAcceptedOrLeavePartialWorkWhenAnOutboxInsertFails() throws Exception {
+        jdbcTemplate.execute("CREATE TRIGGER fail_submission_outbox BEFORE INSERT ON analysis_outbox FOR EACH ROW BEGIN "
+                + "IF JSON_UNQUOTE(JSON_EXTRACT(NEW.message_body, '$.payload.image.objectKey')) = 'second' "
+                + "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'submission-rollback'; END IF; END");
+        Cookie csrfCookie = csrf();
+        mockMvc.perform(post("/api/v1/image-analyses").cookie(csrfCookie, accessToken()).header("X-XSRF-TOKEN", csrfCookie.getValue())
+                        .contentType(MediaType.APPLICATION_JSON).content(BODY)).andExpect(status().is5xxServerError());
+        assertNothingAccepted();
+        verifyNoInteractions(analysisKafkaPublisher);
+    }
+
+    @AfterEach
+    void dropFailureTrigger() { jdbcTemplate.execute("DROP TRIGGER IF EXISTS fail_submission_outbox"); }
+
+    private void assertCommittedRequestEvents() {
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_states", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_requests", Integer.class)).isEqualTo(2);
+        List<EventEnvelope<AnalysisRequestedPayload>> analysisRequestedEvents = jdbcTemplate.query("SELECT message_body FROM analysis_outbox ORDER BY analysis_outbox_id",
+                (resultSet, rowNumber) -> objectMapper.readValue(resultSet.getString(1), new TypeReference<EventEnvelope<AnalysisRequestedPayload>>() {}));
+        assertThat(analysisRequestedEvents).extracting(event -> event.payload().image().objectKey()).containsExactly("first", "second");
+        assertThat(analysisRequestedEvents).allSatisfy(event -> assertThat(event.payload().userId()).isEqualTo(7L));
+        assertThat(jdbcTemplate.queryForList("SELECT message_key FROM analysis_outbox", String.class)).containsOnly("7");
+        assertThat(jdbcTemplate.queryForList("SELECT status FROM analysis_outbox", String.class)).containsOnly("PENDING");
+    }
+
+    private void assertNothingAccepted() {
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_states", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_job_requests", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_outbox", Integer.class)).isZero();
     }
 
     private Cookie csrf() throws Exception { return mockMvc.perform(get("/api/v1/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN"); }
     private Cookie accessToken() { return new Cookie("accessToken", jwtProvider.createAccessToken(7L, UserRole.USER)); }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    @EnableWebMvc
-    @Import({RedisTestSupport.Configuration.class, SecurityConfig.class, SecurityErrorHandler.class, JwtProvider.class,
-            CsrfController.class, GlobalExceptionHandler.class,
-            AnalysisController.class, AnalysisJobSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
-    static class WebConfiguration {
-        @Bean
-        static ConversionService conversionService() { return new ApplicationConversionService(); }
-        @Bean
-        AnalysisJobQueryService analysisJobQueryService() { return mock(AnalysisJobQueryService.class); }
-        @Bean
-        AnalysisJobDeleteService analysisJobDeleteService() { return mock(AnalysisJobDeleteService.class); }
-        @Bean
-        Clock clock() { return Clock.fixed(Instant.parse("2026-10-08T01:00:00Z"), BusinessTime.ZONE); }
-        @Bean
-        ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
-        @Bean
-        AnalysisDispatchQueue dispatchQueue() { return mock(AnalysisDispatchQueue.class); }
-        @Bean
-        AnalysisDispatchWorker dispatchWorker() { return mock(AnalysisDispatchWorker.class); }
-    }
 }
