@@ -46,7 +46,9 @@ HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 D
 
 내부 완료 처리 서비스는 requestId에 연결된 작업을 잠그고 결과·조회 만료 시각·알림 재시도 대기를 같은 트랜잭션으로 저장한다.
 같은 결과의 재전달은 보관 기한을 연장하지 않으며 다른 사용자·냉장고나 충돌 결과는 거부한다. 추가 DDL은 없다.
-Kafka 완료 consumer와 HTTP 신규 접수의 Kafka 전환은 후속 PR에서 연결한다.
+완료 consumer는 DB 저장 성공 후 RECORD 단위로 offset을 커밋한다. DB 장애는 재시도하고 적용 불가능한 이벤트는 DLT 발행 성공 후 넘긴다.
+`KAFKA_LISTENER_ENABLED` 기본값은 false이며, `ANALYSIS_KAFKA_COMPLETION_GROUP_ID`와 `ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY`(기본 5s)로 설정한다.
+활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 이번 단계도 추가 DDL은 없으며 HTTP 신규 접수 전환은 후속 PR이다.
 
 ## 빌드·실행
 
