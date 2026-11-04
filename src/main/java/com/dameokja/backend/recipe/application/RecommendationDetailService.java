@@ -71,7 +71,7 @@ public class RecommendationDetailService {
     private Recipe selectedRecipe(RecommendationList selectedList, String recipeId) {
         if (selectedList == null) { return null; }
         AiRecipeRecommendationResponse snapshot = jsonMapper.readValue(selectedList.getResultJson(), AiRecipeRecommendationResponse.class);
-        return snapshot.recommendations().stream().filter(recipe -> recipeId.equals(recipe.source() + ":" + recipe.sourceRecipeId())).findFirst().orElse(null);
+        return RecommendationRecipes.from(snapshot).stream().filter(recipe -> recipeId.equals(recipe.source() + ":" + recipe.sourceRecipeId())).findFirst().orElse(null);
     }
 
     private List<Long> mappedStockIds(Recipe recipe) {
