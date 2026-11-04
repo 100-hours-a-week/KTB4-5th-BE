@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: 검증 및 이미지 빌드
-    # dev(v2, t3)는 amd64, main(v1 prod, t4g)은 ARM 러너에서 해당 아키텍처만 빌드한다.
+    # dev(v3 EKS, m7i)는 amd64, main(v1 prod, t4g)은 ARM 러너에서 해당 아키텍처만 빌드한다.
     runs-on: ${{ github.ref_name == 'main' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     permissions:
@@ -126,7 +126,7 @@ jobs:
     # stage 배포가 끝난 뒤 GitHub Environment "prod" 승인을 받아야 v1 prod에 배포한다.
     needs: [build, deploy-stage]
     environment: prod
-    # dev는 v2(ECS)로 전환되어 deploy-v2가 배포한다. 이 job은 prod(main)를 명시적으로 활성화했을 때만 배포한다.
+    # dev는 v3(EKS)로 전환되어 deploy-dev가 배포를 요청한다. 이 job은 prod(main)를 명시적으로 활성화했을 때만 배포한다.
     if: >-
       github.event_name == 'push' &&
       github.ref_name == 'main' && vars.CD_ENABLED == 'true'
@@ -186,18 +186,22 @@ jobs:
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd '$DEPLOY_PATH' && bash scripts/deploy-v1.sh backend '$IMAGE' '$COMPOSE_PROJECT' '$COMPOSE_FILE_NAME' '$GHCR_USER'"
 
-  deploy-v2:
-    name: v2 dev 배포
+  deploy-dev:
+    name: v3 dev 배포 요청
     needs: build
-    # 배포 절차는 CLOUD 저장소가 관리한다. 여기서는 빌드한 이미지만 넘긴다.
+    # CLOUD가 v3 dev 이미지 값을 main에 커밋하면 Argo CD가 반영한다(CLOUD #238).
     if: github.event_name == 'push' && github.ref_name == 'dev'
-    permissions:
-      contents: read
-      id-token: write
-    uses: 100-hours-a-week/KTB4-5th-CLOUD/.github/workflows/ecs-deploy.yml@main
-    with:
-      service: backend
-      image: ${{ needs.build.outputs.image }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: CLOUD v3 dev 이미지 반영 실행
+        env:
+          GH_TOKEN: ${{ secrets.CLOUD_DISPATCH_TOKEN }}
+          IMAGE: ${{ needs.build.outputs.image }}
+        run: |
+          test -n "$GH_TOKEN" || { echo "CLOUD_DISPATCH_TOKEN Secret이 필요합니다."; exit 1; }
+          gh workflow run v3-dev-image.yml --repo 100-hours-a-week/KTB4-5th-CLOUD --ref main -f app=be -f image="$IMAGE"
+          echo "[CLOUD 반영 확인](https://github.com/100-hours-a-week/KTB4-5th-CLOUD/actions/workflows/v3-dev-image.yml): \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-stage:
     name: v2 stage 배포
