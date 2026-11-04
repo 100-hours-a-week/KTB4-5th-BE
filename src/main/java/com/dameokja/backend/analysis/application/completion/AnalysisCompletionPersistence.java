@@ -49,20 +49,29 @@ public class AnalysisCompletionPersistence {
     @Transactional
     public List<AnalysisJob> apply(EventEnvelope<AnalysisCompletedPayload> analysisCompletedEvent) {
         AnalysisCompletion completion = validatedCompletion(analysisCompletedEvent);
-        List<String> analysisJobIds = analysisJobRequestRepository.findAnalysisJobIds(analysisCompletedEvent.payload().requestId());
+        List<String> analysisJobIds = findJobIds(analysisCompletedEvent.payload().requestId());
+        return applyToJobs(analysisJobIds, analysisCompletedEvent.payload(), completion);
+    }
+
+    private List<String> findJobIds(String requestId) {
+        List<String> analysisJobIds = analysisJobRequestRepository.findAnalysisJobIds(requestId);
         if (analysisJobIds.isEmpty()) {
             throw new CustomException(AnalysisExceptionCode.NOT_FOUND);
         }
+        return analysisJobIds;
+    }
+
+    private List<AnalysisJob> applyToJobs(List<String> analysisJobIds, AnalysisCompletedPayload payload, AnalysisCompletion completion) {
         List<AnalysisJob> completedAnalysisJobs = new ArrayList<>();
         int conflictCount = 0;
         // 같은 requestId를 공유하는 작업도 항상 같은 기본키 순서로 잠가 잠금 순서의 역전을 막는다.
         for (String analysisJobId : analysisJobIds) {
             AnalysisJobState analysisJobState = analysisJobStateRepository.findForUpdate(analysisJobId).orElse(null);
-            if (analysisJobState == null || analysisJobState.getExpiresAt() != null && !BusinessTime.now(clock).isBefore(analysisJobState.getExpiresAt())) {
+            if (isMissingOrExpired(analysisJobState)) {
                 continue;
             }
             try {
-                completedAnalysisJobs.add(applyToJob(analysisJobState, analysisCompletedEvent.payload(), completion));
+                completedAnalysisJobs.add(applyToJob(analysisJobState, payload, completion));
             } catch (CustomException exception) {
                 if (exception.getExceptionCode() != AnalysisExceptionCode.RESULT_CONFLICT) {
                     throw exception;
@@ -76,9 +85,26 @@ public class AnalysisCompletionPersistence {
         return List.copyOf(completedAnalysisJobs);
     }
 
+    private boolean isMissingOrExpired(AnalysisJobState analysisJobState) {
+        return analysisJobState == null || analysisJobState.getExpiresAt() != null && !BusinessTime.now(clock).isBefore(analysisJobState.getExpiresAt());
+    }
+
     private AnalysisJob applyToJob(AnalysisJobState analysisJobState, AnalysisCompletedPayload payload, AnalysisCompletion completion) {
-        AnalysisJob analysisJob = objectMapper.readerFor(AnalysisJob.class).without(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+        AnalysisJob analysisJob = readJob(analysisJobState);
+        validateRequestContext(analysisJob, payload);
+        AnalysisJob completedAnalysisJob = completeImage(analysisJob, payload, completion);
+        if (!completedAnalysisJob.equals(analysisJob)) {
+            persistResultAndNotification(analysisJobState, completedAnalysisJob);
+        }
+        return completedAnalysisJob;
+    }
+
+    private AnalysisJob readJob(AnalysisJobState analysisJobState) {
+        return objectMapper.readerFor(AnalysisJob.class).without(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
                 .readValue(analysisJobState.getAnalysisJobBody());
+    }
+
+    private void validateRequestContext(AnalysisJob analysisJob, AnalysisCompletedPayload payload) {
         if (!analysisJob.userId().equals(payload.userId())) {
             throw new IllegalArgumentException("분석 요청의 사용자와 완료 이벤트 사용자가 다릅니다.");
         }
@@ -89,15 +115,19 @@ public class AnalysisCompletionPersistence {
         if (analysisImage.completion() != null && !payload.analysisId().equals(analysisImage.aiAnalysisId())) {
             throw new CustomException(AnalysisExceptionCode.RESULT_CONFLICT);
         }
-        AnalysisJob completedAnalysisJob = analysisJob.register(payload.requestId(), payload.analysisId()).complete(payload.analysisId(), completion,
+    }
+
+    private AnalysisJob completeImage(AnalysisJob analysisJob, AnalysisCompletedPayload payload, AnalysisCompletion completion) {
+        return analysisJob.register(payload.requestId(), payload.analysisId()).complete(payload.analysisId(), completion,
                 BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime().plus(resultTtl));
-        if (!completedAnalysisJob.equals(analysisJob)) {
-            AnalysisJobResult analysisJobResult = new AnalysisJobResult(completedAnalysisJob, completedAnalysisJob.analysisImages().stream().map(AnalysisImageResult::fromStored).toList());
-            analysisJobState.updateResult(objectMapper.writeValueAsString(completedAnalysisJob), analysisJobResult.status(),
-                    completedAnalysisJob.expiresAt() == null ? null : completedAnalysisJob.expiresAt().toLocalDateTime());
-            analysisJobState.scheduleNotification(BusinessTime.now(clock));
-        }
-        return completedAnalysisJob;
+    }
+
+    private void persistResultAndNotification(AnalysisJobState analysisJobState, AnalysisJob completedAnalysisJob) {
+        AnalysisJobResult analysisJobResult = new AnalysisJobResult(completedAnalysisJob,
+                completedAnalysisJob.analysisImages().stream().map(AnalysisImageResult::fromStored).toList());
+        analysisJobState.updateResult(objectMapper.writeValueAsString(completedAnalysisJob), analysisJobResult.status(),
+                completedAnalysisJob.expiresAt() == null ? null : completedAnalysisJob.expiresAt().toLocalDateTime());
+        analysisJobState.scheduleNotification(BusinessTime.now(clock));
     }
 
     private AnalysisCompletion validatedCompletion(EventEnvelope<AnalysisCompletedPayload> analysisCompletedEvent) {
