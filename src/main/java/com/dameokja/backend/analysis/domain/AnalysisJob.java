@@ -34,6 +34,11 @@ public record AnalysisJob(String id, Long userId, String inputHint, List<Analysi
         this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, notificationChannel, publishedImageEvents, null);
     }
 
+    public AnalysisJob(String id, Long userId, Long refrigeratorId, String inputHint, List<AnalysisImage> analysisImages,
+            OffsetDateTime submittedAt, OffsetDateTime expiresAt, Boolean notificationPending) {
+        this(id, userId, inputHint, analysisImages, submittedAt, expiresAt, notificationPending, null, List.of(), refrigeratorId);
+    }
+
     public AnalysisJob selectNotificationChannel(AnalysisNotificationChannel channel) {
         if (!notificationPending || notificationChannel != null) { return this; }
         return new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, expiresAt, true, Objects.requireNonNull(channel), publishedImageEvents, refrigeratorId);
