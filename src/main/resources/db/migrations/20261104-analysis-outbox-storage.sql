@@ -1,0 +1,28 @@
+-- analysis_job_states 생성 후, 이 코드가 포함된 앱 배포 전에 한 번 수동 적용한다. 통합 SQL로 이미 생성했다면 실행하지 않는다.
+CREATE TABLE analysis_outbox (
+    analysis_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
+    message_id CHAR(36) NOT NULL COMMENT '재발행에도 유지하는 이벤트 ID',
+    analysis_job_id CHAR(36) NOT NULL,
+    topic VARCHAR(249) NOT NULL,
+    message_key VARCHAR(32) NOT NULL COMMENT 'UTF-8 문자열 userId',
+    message_body JSON NOT NULL COMMENT 'messageId와 payload를 포함한 고정 발행 본문',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    attempt_count INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME(6) NOT NULL,
+    lease_token CHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
+    published_at DATETIME(6) NULL,
+    last_error_code VARCHAR(64) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (analysis_outbox_id),
+    UNIQUE KEY uk_analysis_outbox_message (message_id),
+    KEY ix_analysis_outbox_due (status, next_attempt_at),
+    KEY ix_analysis_outbox_lease (status, lease_until),
+    KEY ix_analysis_outbox_job (analysis_job_id),
+    CONSTRAINT fk_analysis_outbox_job FOREIGN KEY (analysis_job_id) REFERENCES analysis_job_states (analysis_job_id),
+    CONSTRAINT ck_analysis_outbox_status CHECK (status IN ('PENDING','PUBLISHING','PUBLISHED')),
+    CONSTRAINT ck_analysis_outbox_attempts CHECK (attempt_count >= 0),
+    CONSTRAINT ck_analysis_outbox_lease CHECK ((status = 'PUBLISHING') = (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
+    CONSTRAINT ck_analysis_outbox_published CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
