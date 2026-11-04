@@ -128,7 +128,8 @@ class RecommendationListWebTest extends ServiceIntegrationTest {
         prepareSelectedResult("첫요리");
         mockMvc.perform(request().param("limit", "1")).andExpect(jsonPath("$.data.recipes.length()").value(1))
                 .andExpect(jsonPath("$.data.recipes[0].name").value("첫요리"));
-        mockMvc.perform(request()).andExpect(jsonPath("$.data.recipes.length()").value(2)).andExpect(jsonPath("$.data.recipes[1].name").value("둘째요리"));
+        mockMvc.perform(request()).andExpect(jsonPath("$.data.recipes.length()").value(3)).andExpect(jsonPath("$.data.recipes[1].name").value("둘째요리"))
+                .andExpect(jsonPath("$.data.recipes[2].recipeId").value("FOOD_SAFETY_KOREA:1025"));
         User otherParticipant = user("다른참여회원");
         join(otherParticipant, refrigeratorRepository.getReferenceById(refrigeratorParticipant.refrigeratorId()), true, false);
         mockMvc.perform(get(PATH, refrigeratorParticipant.refrigeratorId()).cookie(new Cookie("accessToken", jwtProvider.createAccessToken(otherParticipant.getId(), UserRole.USER))))

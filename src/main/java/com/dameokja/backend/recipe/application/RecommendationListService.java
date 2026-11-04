@@ -32,7 +32,6 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 @RequiredArgsConstructor
 public class RecommendationListService {
-    private static final int MAX_RECIPES = 10;
     private final IngredientListService ingredientListService;
     private final RecommendationStateRepository recommendationStateRepository;
     private final RecommendationOutboxRepository recommendationOutboxRepository;
@@ -42,7 +41,7 @@ public class RecommendationListService {
 
     @Transactional(readOnly = true)
     public RecommendationListResult get(Long userId, Long refrigeratorId, int limit) {
-        if (limit < 1 || limit > MAX_RECIPES) { throw new CustomException(GlobalExceptionCode.BAD_REQUEST); }
+        if (limit < 1 || limit > RecommendationRecipes.MAX_RECIPES) { throw new CustomException(GlobalExceptionCode.BAD_REQUEST); }
         RecommendationState recommendationState = recommendationStateRepository.findByUserIdAndRefrigeratorId(userId, refrigeratorId).orElse(null);
         RecommendationList selectedList = recommendationState == null ? null : recommendationState.getCurrentList();
         AiRecipeRecommendationResponse snapshot = selectedList == null ? null : jsonMapper.readValue(selectedList.getResultJson(), AiRecipeRecommendationResponse.class);
@@ -89,7 +88,7 @@ public class RecommendationListService {
     }
 
     private List<RecipeSummary> recipes(AiRecipeRecommendationResponse snapshot, Long userId, Long refrigeratorId, int limit) {
-        List<Recipe> selectedRecipes = snapshot == null ? List.of() : snapshot.recommendations().stream().limit(limit).toList();
+        List<Recipe> selectedRecipes = snapshot == null ? List.of() : RecommendationRecipes.from(snapshot).stream().limit(limit).toList();
         List<Long> ingredientIds = selectedRecipes.stream()
                 .flatMap(recipe -> recipe.inventoryUsage() == null ? Stream.empty() : recipe.inventoryUsage().stream())
                 .filter(usage -> usage.allocations() != null && !usage.allocations().isEmpty()).map(InventoryUsage::ingredientId).distinct().toList();

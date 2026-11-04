@@ -68,9 +68,10 @@ class CookingApplicationTest extends ServiceIntegrationTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"false,100", "true,1"})
-    void appliesPartialAndFullConsumptionWithOneRecordAndCountPerCooking(boolean countStock, BigDecimal expectedRemaining) throws Exception {
+    @CsvSource({"false,false,100", "true,false,1", "false,true,100", "true,true,1"})
+    void appliesPartialAndFullConsumptionWithOneRecordAndCountPerCooking(boolean countStock, boolean confirmationOnly, BigDecimal expectedRemaining) throws Exception {
         if (countStock) { useCountStock(); }
+        if (confirmationOnly) { useConfirmationCandidate(); }
         assertThat(apply(request())).isPresent();
         assertThat(stockAmount()).isEqualByComparingTo(expectedRemaining);
         assertOutcome(1);
@@ -209,6 +210,14 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         ObjectNode snapshot = (ObjectNode) jsonMapper.readTree(selectedList.getResultJson());
         ((ObjectNode) snapshot.path("recommendations").get(0).path("ingredientRequirements").get(0))
                 .put("requiredAmount", 2).put("unit", "EA").put("amountText", "2개");
+        jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", snapshot.toString(), selectedList.getId());
+    }
+
+    private void useConfirmationCandidate() {
+        ObjectNode snapshot = (ObjectNode) jsonMapper.readTree(jdbcTemplate.queryForObject("SELECT result_json FROM recommendation_lists WHERE recommendation_list_id = ?",
+                String.class, selectedList.getId()));
+        snapshot.set("confirmationCandidates", snapshot.path("recommendations"));
+        snapshot.putArray("recommendations");
         jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", snapshot.toString(), selectedList.getId());
     }
 }

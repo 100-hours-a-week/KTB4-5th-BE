@@ -74,6 +74,24 @@ class CookingDetailSnapshotTest extends ServiceIntegrationTest {
     }
 
     @Test
+    void readsConfirmationCandidateForDisplayAndLockedCookingWithoutChangingStoredSnapshot() throws Exception {
+        ObjectNode result = (ObjectNode) jsonMapper.readTree(selectedList.getResultJson());
+        result.set("confirmationCandidates", result.path("recommendations"));
+        result.putArray("recommendations");
+        String storedSnapshot = result.toString();
+        jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", storedSnapshot, selectedList.getId());
+
+        RecommendationDetailResult displayed = recommendationDetailService.get(refrigeratorParticipant.userId(), refrigeratorParticipant.refrigeratorId(), RECIPE_ID);
+        RecommendationDetailResult cooking = snapshot(selectedList.getId());
+
+        assertThat(displayed.name()).isEqualTo("선택 요리");
+        assertThat(cooking).isEqualTo(displayed);
+        assertThat(cooking.ingredients().getFirst().stocks().getFirst().usedAmount()).isEqualByComparingTo("300");
+        assertThat(jsonMapper.readTree(jdbcTemplate.queryForObject("SELECT result_json FROM recommendation_lists WHERE recommendation_list_id = ?",
+                String.class, selectedList.getId()))).isEqualTo(result);
+    }
+
+    @Test
     void readsRequestedOwnedResultWithoutChangingCurrentSelection() throws Exception {
         RecommendationList requestedList = saveList(refrigeratorParticipant.userId(), refrigeratorParticipant.refrigeratorId(), "요청 요리");
 
