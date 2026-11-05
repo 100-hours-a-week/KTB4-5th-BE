@@ -31,7 +31,7 @@
 추가 테이블은 `analysis_job_states`(작업·이미지·결과 및 알림 재시도 상태)와
 `analysis_job_requests`(이미지 requestId와 작업의 연결)이며, 기존 HTTP/Redis 작업·데이터는 이관하거나 삭제하지 않는다.
 내부 접수 서비스는 작업·이미지 requestId 연결·요청 outbox를 같은 트랜잭션으로 저장한다.
-HTTP 진입점 전환은 후속 PR에서 적용한다.
+HTTP 진입점은 `ANALYSIS_KAFKA_SUBMISSION_ENABLED=true`일 때 이 서비스를 사용한다.
 
 ## 분석 요청 outbox 저장
 
@@ -40,7 +40,7 @@ HTTP 진입점 전환은 후속 PR에서 적용한다.
 통합 DDL로 같은 테이블을 이미 생성했다면 중복 실행하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
 발행 워커는 선점 트랜잭션이 끝난 뒤 고정 메시지를 전송하고 브로커 ACK 후에만 완료를 기록한다. 실패·만료 lease는 재시도한다.
 `ANALYSIS_OUTBOX_ENABLED`(기본 true)로 전용 발행 스케줄러를 제어한다. `KAFKA_LISTENER_ENABLED`는 발행을 제어하지 않는다.
-HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 DDL은 없다.
+신규 Kafka 접수는 이 outbox를 사용하며 추가 DDL은 없다.
 
 ## 분석 완료 결과 DB 반영
 
@@ -48,19 +48,19 @@ HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 D
 같은 결과의 재전달은 보관 기한을 연장하지 않으며 다른 사용자·냉장고나 충돌 결과는 거부한다. 추가 DDL은 없다.
 완료 consumer는 DB 저장 성공 후 RECORD 단위로 offset을 커밋한다. DB 장애는 재시도하고 적용 불가능한 이벤트는 DLT 발행 성공 후 넘긴다.
 `KAFKA_LISTENER_ENABLED` 기본값은 false이며, `ANALYSIS_KAFKA_COMPLETION_GROUP_ID`와 `ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY`(기본 5s)로 설정한다.
-활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 이번 단계도 추가 DDL은 없으며 HTTP 신규 접수 전환은 후속 PR이다.
+활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 추가 DDL은 없다.
 
 ## 분석 DB 작업 접근
 
 내부 DB 접근 서비스는 소유자·냉장고·결과 보관 기한으로 조회를 제한하고, 갱신·삭제는 작업 잠금과 같은 트랜잭션에서 처리한다.
-삭제 시 해당 작업의 요청 연결과 outbox도 함께 정리하며 추가 DDL은 없다. 기존 HTTP 조회·접수 경로는 아직 변경하지 않는다.
-HTTP 경로 연결은 후속 PR에서 적용한다.
+조회·삭제는 DB에 행이 있는지 확인해 경로를 결정한다. DB 작업의 권한·만료 오류는 그대로 반환한다.
+목록은 로그인 사용자의 DB·Redis 작업을 합쳐 최근 접수 순으로 반환한다. 삭제는 종료된 작업과 해당 요청 연결·outbox를 함께 정리한다.
 
 ## 분석 DB 작업 시간 초과
 
 내부 DB 만료 서비스는 `ANALYSIS_JOB_TIMEOUT`(기본 `PT30M30S`) 경계부터 미완료 이미지를 `ANALYSIS_EXPIRED`로 종료한다.
 완료 이미지는 보존하고, 잠금 후 최신 상태를 다시 확인한 뒤 실패 결과·`ANALYSIS_RESULT_TTL`(기본 7d) 보관 기한·알림 예약을 같은 트랜잭션으로 저장한다.
-이번 단계는 내부 서비스 준비이며 HTTP 조회·삭제 경로 연결과 주기 실행은 아직 추가하지 않는다. 추가 DDL은 없다.
+DB 작업은 조회·삭제 시 기한을 확인하며 별도 주기 실행은 없다. 추가 DDL은 없다.
 
 ## 분석 DB 완료 알림 선점
 
@@ -77,14 +77,14 @@ DB 알림 워커는 기존 Redis 알림 워커와 같은 `analysis.notification.
 `src/main/resources/db/migrations/20261104-analysis-feedback-message-body.sql`을 한 번 수동 적용한다.
 통합 SQL의 `05-analysis-feedback-kafka.sql`로 이미 추가한 DB에는 중복 적용하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
 기존 본문·상태·선점 정보는 유지되며, `message_body`가 NULL인 기존 행은 HTTP 워커가 계속 처리한다.
-Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다. Kafka 발행과 등록 경로 연결은 후속 PR이다.
+Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다.
 
 ## 분석 피드백 Kafka outbox DB 처리
 
 내부 outbox 서비스는 재고 등록 트랜잭션에서 이벤트 전체를 고정해 저장하고 Kafka 행만 선점·회수한다.
 완료·재시도·실패 갱신은 Kafka 행의 유효한 선점 토큰과 기한으로 제한한다. 보관 기한이 지나도 유효한 선점은 유지한다.
 `ANALYSIS_FEEDBACK_BATCH_SIZE`, `ANALYSIS_FEEDBACK_LEASE_DURATION`, `ANALYSIS_FEEDBACK_RETRY_DELAY`, `ANALYSIS_FEEDBACK_EXPIRES_AFTER` 설정을 사용한다.
-추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다. 등록 경로 연결은 후속 PR이다.
+추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다.
 Kafka 피드백 워커는 기존 `analysis.kafka.feedback-topic`에 사용자 ID를 key로 JSON 이벤트를 발행하고 브로커 ACK 후 DONE을 기록한다.
 발행 실패는 같은 이벤트로 재시도하고 읽을 수 없는 저장 본문은 INVALID_EVENT로 종료한다. DONE은 AI 저장 완료가 아닌 Kafka 발행 확인이다.
 HTTP·Kafka 피드백 스케줄러는 `ANALYSIS_FEEDBACK_ENABLED`(기본 true), `ANALYSIS_FEEDBACK_POLL_INTERVAL`(기본 10s)을 함께 사용한다.
@@ -309,6 +309,7 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 전환을 되돌릴 때는 쓰기 플래그만 false로 변경한다. 구 바이너리는 DB 발급 내역을 읽지 못하므로, DB에 발급한 내역의 TTL이 모두 지난 뒤에만 바이너리를 롤백한다.
 DB 만료 행은 `IMAGE_UPLOAD_METADATA_CLEANUP_ENABLED`(기본 true), `IMAGE_UPLOAD_METADATA_CLEANUP_POLL_INTERVAL`(기본 1m), `IMAGE_UPLOAD_METADATA_CLEANUP_BATCH_SIZE`(기본 100, 양수)로 주기당 제한된 수만 삭제한다.
 발급 내역은 업로드 완료를 의미하지 않는다. 실제 이미지의 존재·해시 일치는 AI에서 검증한다.
+아래 작업·색인 설명은 기존 HTTP/Redis 경로에 해당한다. Kafka 경로는 위의 DB 상태 저장·요청 outbox를 사용한다.
 분석 접수 서비스는 저장된 SHA-256으로 묶음 작업을 생성하고 이미지별 AI 접수 ID를 순차 저장한다.
 접수나 ID 저장 중 하나라도 실패하면 묶음과 AI ID 색인을 지우고 오류를 반환한다. 이미 접수된 이미지의 콜백은 저장할 묶음이 없어 503으로 응답하며, AI 재시도가 끝나면 버려진다.
 작업은 Redis의 `analysis:job:<id>` 키에 JSON으로 저장한다. 접수·진행 중에는 TTL을 설정하지 않고 `expiresAt`은 null이다.
@@ -338,7 +339,11 @@ AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 �
 ## Kafka 공통 설정
 
 Kafka 의존성·환경변수·토픽 이름과 기본 비활성 상태는 [Kafka 공통 설정](integration/kafka-setup.md)을 참고한다.
-현재 업무 API는 기존 HTTP 연동을 유지하며 Kafka 인프라 없이 설정을 로드한다.
+신규 분석 접수는 `ANALYSIS_KAFKA_SUBMISSION_ENABLED` 기본값 `false`에서 HTTP 경로를 사용한다.
+기존 분석 DB DDL 적용 → 모든 BE 인스턴스 업그레이드 → 요청·완료·피드백 및 DLT 토픽과 AI Kafka 소비자 준비 순으로 진행한다.
+BE의 `KAFKA_LISTENER_ENABLED=true`, `ANALYSIS_OUTBOX_ENABLED=true`를 확인한 뒤 신규 접수 플래그를 `true`로 전환한다.
+Kafka 경로의 이미지 상태는 완료·실패 이벤트를 받기 전까지 QUEUED다. 일부 이미지만 종료되면 묶음은 PROCESSING이며 모든 이미지가 종료되면 최종 상태를 반환한다.
+플래그를 다시 `false`로 바꿔도 기존 DB 작업은 계속 조회·삭제하고 처리해야 한다. DB 작업이 남은 동안에는 이를 읽지 못하는 구 바이너리로 롤백하지 않는다.
 
 ## Redis 접속 설정
 

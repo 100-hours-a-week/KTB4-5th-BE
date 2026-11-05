@@ -12,13 +12,25 @@ import org.springframework.stereotype.Service;
 public class AnalysisJobDeleteService {
     private final AnalysisJobStore analysisJobStore;
     private final AnalysisOverdueJobExpirer analysisOverdueJobExpirer;
+    private final AnalysisJobStateAccess analysisJobStateAccess;
+    private final AnalysisDatabaseJobExpirer analysisDatabaseJobExpirer;
 
     // 종료된 묶음은 콜백으로 다시 진행 상태가 되지 않으므로 확인과 삭제 사이에 잠금을 두지 않는다.
     public void delete(Long userId, String analysisId) {
-        AnalysisJob job = analysisOverdueJobExpirer.expireIfOverdue(analysisJobStore.findOwned(analysisId, userId));
-        if (!job.finished()) {
+        if (analysisJobStateAccess.exists(analysisId)) {
+            AnalysisJob analysisJob = analysisDatabaseJobExpirer.expireIfOverdue(analysisJobStateAccess.findOwned(analysisId, userId));
+            requireFinished(analysisJob);
+            analysisJobStateAccess.deleteOwned(analysisId, userId);
+            return;
+        }
+        AnalysisJob analysisJob = analysisOverdueJobExpirer.expireIfOverdue(analysisJobStore.findOwned(analysisId, userId));
+        requireFinished(analysisJob);
+        analysisJobStore.delete(analysisJob.id());
+    }
+
+    private void requireFinished(AnalysisJob analysisJob) {
+        if (!analysisJob.finished()) {
             throw new CustomException(AnalysisExceptionCode.DELETE_IN_PROGRESS);
         }
-        analysisJobStore.delete(job.id());
     }
 }
