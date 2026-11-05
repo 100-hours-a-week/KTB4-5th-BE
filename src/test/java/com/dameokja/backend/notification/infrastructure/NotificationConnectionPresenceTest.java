@@ -9,6 +9,8 @@ import com.dameokja.backend.notification.application.NotificationStreamService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -19,11 +21,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 @ExtendWith(RedisTestSupport.class)
 class NotificationConnectionPresenceTest {
+    private final List<SseEmitter> emitters = new ArrayList<>();
     private final StringRedisTemplate redis = RedisTestSupport.redisTemplate();
     private final NotificationConnectionPresence firstServer = new NotificationConnectionPresence(redis);
     private final NotificationConnectionPresence secondServer = new NotificationConnectionPresence(redis);
@@ -72,7 +76,7 @@ class NotificationConnectionPresenceTest {
     @ParameterizedTest
     @ValueSource(strings = {"completion", "timeout", "error", "initial-send", "heartbeat", "shutdown"})
     void everyTerminationPathRemovesPresence(String termination) throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         if (termination.equals("initial-send")) {
             doThrow(new IOException("closed")).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
@@ -99,7 +103,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void completionDuringHeartbeatCannotResurrectTheConnection() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         connections.connect(1L, 17L);
         doAnswer(invocation -> {
@@ -112,7 +116,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void concurrentCloseWaitsForHeartbeatAndRemovesItsRefreshedLease() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         connections.connect(1L, 17L);
         CountDownLatch sending = new CountDownLatch(1);
@@ -138,7 +142,7 @@ class NotificationConnectionPresenceTest {
     @ValueSource(booleans = {false, true})
     void registrationAndHeartbeatRedisFailuresCloseTheConnection(boolean heartbeat) {
         NotificationConnectionPresence failing = spy(firstServer);
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, failing);
         if (heartbeat) {
             connections.connect(1L, 17L);
@@ -157,7 +161,7 @@ class NotificationConnectionPresenceTest {
     @Test
     void removalFailureFallsBackToTtlWithoutHeartbeatResurrection() {
         NotificationConnectionPresence failing = spy(firstServer);
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, failing);
         connections.connect(1L, 17L);
         doThrow(new org.springframework.data.redis.RedisConnectionFailureException("offline"))
@@ -173,7 +177,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void terminationBeforeLocalRegistrationDoesNotLeaveADeadConnection() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         doAnswer(invocation -> {
             invocation.getArgument(0, Runnable.class).run();
             return null;
@@ -192,6 +196,21 @@ class NotificationConnectionPresenceTest {
                 .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("offline"));
         NotificationStreamService service = stream(new NotificationConnectionPresence(failing));
         assertThatThrownBy(() -> service.isConnected(1L)).isInstanceOf(org.springframework.data.redis.RedisConnectionFailureException.class);
+    }
+
+    @AfterEach
+    void releaseEmitterMocks() {
+        for (SseEmitter emitter : emitters) {
+            reset(emitter);
+            org.mockito.Mockito.framework().clearInlineMock(emitter);
+        }
+        emitters.clear();
+    }
+
+    private SseEmitter mockEmitter() {
+        SseEmitter emitter = mock(SseEmitter.class);
+        emitters.add(emitter);
+        return emitter;
     }
 
     private Runnable callback(SseEmitter emitter, boolean timeout) {
