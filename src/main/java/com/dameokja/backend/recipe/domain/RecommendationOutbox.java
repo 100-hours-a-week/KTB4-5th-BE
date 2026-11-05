@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,7 +27,7 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecommendationOutbox extends BaseEntity {
     // SENT는 메시지 전달 완료이며 추천 생성 완료 상태가 아니다.
-    public enum Status { PENDING, SENT, FAILED }
+    public enum Status { PENDING, PUBLISHING, SENT, FAILED }
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "recommendation_outbox_id")
@@ -46,6 +47,17 @@ public class RecommendationOutbox extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private Status status;
+    @Column(length = 249, updatable = false)
+    private String topic;
+    @Column(length = 32, updatable = false)
+    private String messageKey;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(updatable = false)
+    private String messageBody;
+    private LocalDateTime nextAttemptAt;
+    @Column(length = 36)
+    private String leaseToken;
+    private LocalDateTime leaseUntil;
 
     @Column(nullable = false)
     private boolean dbJob;
@@ -69,4 +81,20 @@ public class RecommendationOutbox extends BaseEntity {
     }
 
     public void markSent() { this.status = Status.SENT; }
+
+    public void prepareKafka(String topic, String messageKey, String messageBody, LocalDateTime nextAttemptAt) {
+        if (id != null || this.messageBody != null) {
+            throw new IllegalStateException("저장한 메시지는 변경할 수 없습니다.");
+        }
+        this.topic = Objects.requireNonNull(topic);
+        this.messageKey = Objects.requireNonNull(messageKey);
+        this.messageBody = Objects.requireNonNull(messageBody);
+        this.nextAttemptAt = Objects.requireNonNull(nextAttemptAt);
+    }
+
+    public void lease(String token, LocalDateTime until) {
+        status = Status.PUBLISHING;
+        leaseToken = token;
+        leaseUntil = until;
+    }
 }
