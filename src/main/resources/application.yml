@@ -169,7 +169,7 @@ ai:
     read-timeout: ${AI_RECIPE_READ_TIMEOUT:60s}
 
 analysis:
-  kafka-submission-enabled: ${ANALYSIS_KAFKA_SUBMISSION_ENABLED:false}
+  kafka-submission-enabled: ${ANALYSIS_KAFKA_SUBMISSION_ENABLED:true}
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
     completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1

@@ -28,7 +28,7 @@ public class AnalysisJobSubmitService {
 
     public AnalysisJobSubmitService(ImageAnalysisInputService imageAnalysisInputService, AnalysisJobStore analysisJobStore,
             AnalysisDispatchQueue analysisDispatchQueue, AnalysisDispatchWorker analysisDispatchWorker, RefrigeratorAccessService refrigeratorAccessService,
-            AnalysisJobAcceptance analysisJobAcceptance, @Value("${analysis.kafka-submission-enabled:false}") boolean kafkaSubmissionEnabled) {
+            AnalysisJobAcceptance analysisJobAcceptance, @Value("${analysis.kafka-submission-enabled:true}") boolean kafkaSubmissionEnabled) {
         this.imageAnalysisInputService = imageAnalysisInputService;
         this.analysisJobStore = analysisJobStore;
         this.analysisDispatchQueue = analysisDispatchQueue;

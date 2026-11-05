@@ -339,9 +339,9 @@ AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 �
 ## Kafka 공통 설정
 
 Kafka 의존성·환경변수·토픽 이름과 기본 비활성 상태는 [Kafka 공통 설정](integration/kafka-setup.md)을 참고한다.
-신규 분석 접수는 `ANALYSIS_KAFKA_SUBMISSION_ENABLED` 기본값 `false`에서 HTTP 경로를 사용한다.
+신규 분석 접수는 `ANALYSIS_KAFKA_SUBMISSION_ENABLED` 기본값 `true`에서 Kafka 경로를 사용한다. `false`로 설정하면 HTTP 경로로 접수한다.
 기존 분석 DB DDL 적용 → 모든 BE 인스턴스 업그레이드 → 요청·완료·피드백 및 DLT 토픽과 AI Kafka 소비자 준비 순으로 진행한다.
-BE의 `KAFKA_LISTENER_ENABLED=true`, `ANALYSIS_OUTBOX_ENABLED=true`를 확인한 뒤 신규 접수 플래그를 `true`로 전환한다.
+BE의 `KAFKA_LISTENER_ENABLED=true`, `ANALYSIS_OUTBOX_ENABLED=true`를 확인한 뒤 Kafka 기본 접수 버전을 배포한다. 준비 중인 환경에서는 접수 플래그를 `false`로 설정한다.
 Kafka 경로의 이미지 상태는 완료·실패 이벤트를 받기 전까지 QUEUED다. 일부 이미지만 종료되면 묶음은 PROCESSING이며 모든 이미지가 종료되면 최종 상태를 반환한다.
 플래그를 다시 `false`로 바꿔도 기존 DB 작업은 계속 조회·삭제하고 처리해야 한다. DB 작업이 남은 동안에는 이를 읽지 못하는 구 바이너리로 롤백하지 않는다.
 
