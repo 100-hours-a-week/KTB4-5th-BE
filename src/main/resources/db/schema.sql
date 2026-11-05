@@ -515,3 +515,13 @@ CREATE TABLE analysis_outbox (
     CONSTRAINT ck_analysis_outbox_lease CHECK ((status = 'PUBLISHING') = (lease_token IS NOT NULL AND lease_until IS NOT NULL)),
     CONSTRAINT ck_analysis_outbox_published CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE image_upload_metadata (
+    object_key VARBINARY(1024) NOT NULL,
+    user_id BIGINT NOT NULL,
+    purpose VARCHAR(16) NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (object_key),
+    KEY idx_image_upload_metadata_expires_at (expires_at, object_key)
+) ENGINE=InnoDB;
