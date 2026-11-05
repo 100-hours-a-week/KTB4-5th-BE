@@ -5,6 +5,11 @@ import com.dameokja.backend.notification.domain.NotificationType;
 import com.dameokja.backend.notification.infrastructure.NotificationRepository;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.user.domain.User;
+import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.refrigerator.application.membership.MembershipKafkaProperties;
+import com.dameokja.backend.refrigerator.domain.MembershipChangeSnapshot;
+import com.dameokja.backend.refrigerator.domain.MembershipChangeType;
+import java.time.Clock;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipNotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientService notificationRecipientService;
+    private final MembershipKafkaProperties kafka;
+    private final Clock clock;
 
     public void joined(RefrigeratorMember joiningMembership, List<RefrigeratorMember> members) {
         save(joiningMembership, members, NotificationType.MEMBER_JOINED,
@@ -34,7 +41,7 @@ public class MembershipNotificationService {
     }
 
     /**
-     * 잠금으로 확정한 구성원 중 당사자를 제외하고 참여 변경과 같은 트랜잭션에 알림을 저장한다.
+     * 잠금으로 확정한 구성원 중 당사자를 제외하고 기존 알림을 저장하거나 참여 업무 기록에 변경 당시 정보를 남긴다.
      * @param subject 사건 당사자의 참여 관계
      * @param members 냉장고 잠금 후 조회한 유효 참여 관계
      * @param type 구성원 사건 유형
@@ -49,10 +56,27 @@ public class MembershipNotificationService {
                 .filter(member -> !member.belongsToUser(subject.getUser()))
                 .map(RefrigeratorMember::getUser)
                 .toList();
+        if (kafka.enabled()) {
+            recordChange(subject, recipients, type, title, body);
+            return;
+        }
         if (recipients.isEmpty()) {
             return;
         }
         Notification notification = notificationRepository.save(new Notification(type, title, body, subject.getRefrigerator()));
         notificationRecipientService.saveRecipients(notification, recipients);
     }
+
+    private void recordChange(RefrigeratorMember subject, List<User> recipients,
+            NotificationType type, String title, String body) {
+        MembershipChangeType changeType = switch (type) {
+            case MEMBER_JOINED -> MembershipChangeType.JOINED;
+            case MEMBER_LEFT -> MembershipChangeType.LEFT;
+            case MEMBER_KICKED -> MembershipChangeType.KICKED;
+            default -> throw new IllegalArgumentException("구성원 변경 유형이 아닙니다.");
+        };
+        subject.recordChange(new MembershipChangeSnapshot(subject.getRefrigerator().nextMembershipSequence(),
+                changeType, BusinessTime.now(clock), title, body, recipients.stream().map(User::getId).toList()));
+    }
+
 }
