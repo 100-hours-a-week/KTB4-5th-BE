@@ -178,6 +178,7 @@ analysis:
     retry-delay: ${ANALYSIS_OUTBOX_RETRY_DELAY:5s}
   job-ttl: ${ANALYSIS_JOB_TTL}
   result-ttl: ${ANALYSIS_RESULT_TTL:7d}
+  job-timeout: ${ANALYSIS_JOB_TIMEOUT:PT30M30S}
   # AI ID 등록 전에 도착한 콜백 보관 기간. 같은 requestId 재전송으로 ID가 등록될 때까지만 남으면 된다.
   parked-callback-ttl: ${ANALYSIS_PARKED_CALLBACK_TTL:10m}
   notification:
