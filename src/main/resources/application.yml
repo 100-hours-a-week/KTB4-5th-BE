@@ -187,7 +187,7 @@ analysis:
     # 완료 알림 재시도 간격. SSE가 연결되지 않았거나 발행이 실패하면 sse-retries만큼 다시 시도한 뒤 푸시로 보낸다.
     retry-delay: ${ANALYSIS_NOTIFICATION_RETRY_DELAY:5s}
     sse-retries: ${ANALYSIS_NOTIFICATION_SSE_RETRIES:3}
-    # DB 알림 선점 기간과 SSE 최대 시도 횟수. 전송 워커 연결 시 사용한다.
+    # DB 알림 선점 기간과 SSE 최대 시도 횟수.
     lease-duration: ${ANALYSIS_NOTIFICATION_LEASE_DURATION:30s}
     sse-max-attempts: ${ANALYSIS_NOTIFICATION_SSE_MAX_ATTEMPTS:3}
   feedback:

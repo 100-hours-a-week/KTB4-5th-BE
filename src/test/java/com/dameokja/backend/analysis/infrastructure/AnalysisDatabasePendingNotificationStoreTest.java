@@ -37,12 +37,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTest {
-    @Autowired AnalysisDatabasePendingNotificationStore notifications;
-    @Autowired AnalysisJobAcceptance acceptance;
-    @Autowired AnalysisCompletionPersistence completions;
-    @Autowired AnalysisJobStateAccess states;
-    @Autowired AnalysisJobStateRepository jobs;
-    @Autowired TransactionTemplate transactions;
+    @Autowired AnalysisDatabasePendingNotificationStore analysisDatabasePendingNotificationStore;
+    @Autowired AnalysisJobAcceptance analysisJobAcceptance;
+    @Autowired AnalysisCompletionPersistence analysisCompletionPersistence;
+    @Autowired AnalysisJobStateAccess analysisJobStateAccess;
+    @Autowired AnalysisJobStateRepository analysisJobStateRepository;
+    @Autowired TransactionTemplate transactionTemplate;
     private final List<AnalysisJob> createdJobs = new ArrayList<>();
     private Fixture owner;
 
@@ -63,30 +63,30 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
     @Test
     void leasesOnlyCommittedCompletionWorkAndRollsBackItsAttemptCounts() {
         AnalysisJob job = accept(1);
-        assertThat(notifications.leaseNext()).isEmpty();
-        transactions.executeWithoutResult(status -> {
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
+        transactionTemplate.executeWithoutResult(status -> {
             complete(job, 0);
             status.setRollbackOnly();
         });
-        assertThat(notifications.leaseNext()).isEmpty();
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
         complete(job, 0);
-        transactions.executeWithoutResult(status -> {
-            Lease lease = notifications.leaseNext().orElseThrow();
+        transactionTemplate.executeWithoutResult(status -> {
+            Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
             assertThat(lease.userId()).isEqualTo(owner.userId());
-            assertThat(notifications.claimSseAttempt(lease)).isEqualTo(1);
-            assertThat(notifications.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
+            assertThat(analysisDatabasePendingNotificationStore.claimSseAttempt(lease)).isEqualTo(1);
+            assertThat(analysisDatabasePendingNotificationStore.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
             status.setRollbackOnly();
         });
-        Lease lease = notifications.leaseNext().orElseThrow();
-        assertThat(notifications.claimSseAttempt(lease)).isEqualTo(1);
-        assertThat(notifications.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        assertThat(analysisDatabasePendingNotificationStore.claimSseAttempt(lease)).isEqualTo(1);
+        assertThat(analysisDatabasePendingNotificationStore.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
     }
 
     @Test
     void leasesEachJobOnlyOnceAcrossConcurrentCallers() throws Exception {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        List<Object> results = concurrently(List.of(notifications::leaseNext, notifications::leaseNext));
+        List<Object> results = concurrently(List.of(analysisDatabasePendingNotificationStore::leaseNext, analysisDatabasePendingNotificationStore::leaseNext));
         assertThat(results).containsExactlyInAnyOrder(java.util.Optional.empty(), java.util.Optional.of(
                 new Lease(job.id(), stored(job).getNotificationLeaseToken(), owner.userId())));
     }
@@ -98,9 +98,9 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
         complete(first, 0);
         complete(second, 0);
         try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
-            transactions.executeWithoutResult(status -> {
-                jobs.findForUpdate(first.id()).orElseThrow();
-                Future<Lease> lease = executor.submit(() -> notifications.leaseNext().orElseThrow());
+            transactionTemplate.executeWithoutResult(status -> {
+                analysisJobStateRepository.findForUpdate(first.id()).orElseThrow();
+                Future<Lease> lease = executor.submit(() -> analysisDatabasePendingNotificationStore.leaseNext().orElseThrow());
                 try {
                     assertThat(lease.get(5, TimeUnit.SECONDS).analysisJobId()).isEqualTo(second.id());
                 } catch (Exception exception) {
@@ -114,46 +114,46 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
     void rejectsAnExpiredLeaseEvenBeforeItIsReclaimed() {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        Lease lease = notifications.leaseNext().orElseThrow();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         clock.set(clock.instant().plusSeconds(30).toString());
-        assertThatThrownBy(() -> notifications.claimSseAttempt(lease)).isInstanceOf(CustomException.class);
-        assertThatThrownBy(() -> notifications.claimImageEventAttempt(lease, requestId(job, 0))).isInstanceOf(CustomException.class);
-        notifications.completeAttempt(lease);
+        assertThatThrownBy(() -> analysisDatabasePendingNotificationStore.claimSseAttempt(lease)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> analysisDatabasePendingNotificationStore.claimImageEventAttempt(lease, requestId(job, 0))).isInstanceOf(CustomException.class);
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
         assertThat(stored(job).getNotificationLeaseToken()).isEqualTo(lease.token());
         assertThat(stored(job).getNotificationSseAttemptCount()).isZero();
-        assertThat(notifications.leaseNext()).isPresent();
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isPresent();
     }
 
     @Test
     void protectsTheNewOwnerFromAnOldLease() {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        Lease old = notifications.leaseNext().orElseThrow();
+        Lease old = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         clock.set(clock.instant().plusSeconds(30).toString());
-        Lease current = notifications.leaseNext().orElseThrow();
+        Lease current = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         assertThat(current.token()).isNotEqualTo(old.token());
-        assertThatThrownBy(() -> notifications.claimSseAttempt(old)).isInstanceOf(CustomException.class);
-        notifications.completeAttempt(old);
+        assertThatThrownBy(() -> analysisDatabasePendingNotificationStore.claimSseAttempt(old)).isInstanceOf(CustomException.class);
+        analysisDatabasePendingNotificationStore.completeAttempt(old);
         assertThat(stored(job).getNotificationLeaseToken()).isEqualTo(current.token());
-        assertThat(notifications.claimSseAttempt(current)).isEqualTo(1);
+        assertThat(analysisDatabasePendingNotificationStore.claimSseAttempt(current)).isEqualTo(1);
     }
 
     @Test
     void keepsAttemptLimitsAcrossLeasesAndSeparatelyForEachImage() {
         AnalysisJob job = accept(2);
         complete(job, 0);
-        Lease lease = notifications.leaseNext().orElseThrow();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         for (int attempt = 1; attempt <= 3; attempt++) {
-            assertThat(notifications.claimSseAttempt(lease)).isEqualTo(attempt);
-            assertThat(notifications.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
+            assertThat(analysisDatabasePendingNotificationStore.claimSseAttempt(lease)).isEqualTo(attempt);
+            assertThat(analysisDatabasePendingNotificationStore.claimImageEventAttempt(lease, requestId(job, 0))).isTrue();
         }
-        notifications.completeAttempt(lease);
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
         complete(job, 1);
         clock.set(clock.instant().plusSeconds(5).toString());
-        Lease next = notifications.leaseNext().orElseThrow();
-        assertThat(notifications.claimSseAttempt(next)).isZero();
-        assertThat(notifications.claimImageEventAttempt(next, requestId(job, 0))).isFalse();
-        assertThat(notifications.claimImageEventAttempt(next, requestId(job, 1))).isTrue();
+        Lease next = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        assertThat(analysisDatabasePendingNotificationStore.claimSseAttempt(next)).isZero();
+        assertThat(analysisDatabasePendingNotificationStore.claimImageEventAttempt(next, requestId(job, 0))).isFalse();
+        assertThat(analysisDatabasePendingNotificationStore.claimImageEventAttempt(next, requestId(job, 1))).isTrue();
         assertThat(stored(job).getNotificationImageAttemptCounts()).containsEntry(requestId(job, 0), 3).containsEntry(requestId(job, 1), 1);
     }
 
@@ -161,14 +161,14 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
     void retainsWorkForAnImageCompletingDuringAnEarlierAttempt() {
         AnalysisJob job = accept(2);
         complete(job, 0);
-        Lease lease = notifications.leaseNext().orElseThrow();
-        states.update(job.id(), latest -> latest.publishImageEvent(requestId(job, 0)));
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisJobStateAccess.update(job.id(), latest -> latest.publishImageEvent(requestId(job, 0)));
         complete(job, 1);
-        notifications.completeAttempt(lease);
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
         assertThat(stored(job).getNotificationNextAttemptAt()).isEqualTo(BusinessTime.now(clock).plusSeconds(5));
-        assertThat(notifications.leaseNext()).isEmpty();
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
         clock.set(clock.instant().plus(Duration.ofSeconds(5)).toString());
-        assertThat(notifications.leaseNext()).get().extracting(Lease::analysisJobId).isEqualTo(job.id());
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).get().extracting(Lease::analysisJobId).isEqualTo(job.id());
     }
 
     @ParameterizedTest
@@ -176,45 +176,45 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
     void finishesAcknowledgedWorkWhenImagesArePublishedOrExhaustedOrPushIsSelected(String outcome) {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        Lease lease = notifications.leaseNext().orElseThrow();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         if (outcome.equals("EXHAUSTED")) {
-            for (int attempt = 0; attempt < 3; attempt++) { notifications.claimImageEventAttempt(lease, requestId(job, 0)); }
+            for (int attempt = 0; attempt < 3; attempt++) { analysisDatabasePendingNotificationStore.claimImageEventAttempt(lease, requestId(job, 0)); }
         }
-        states.update(job.id(), latest -> {
+        analysisJobStateAccess.update(job.id(), latest -> {
             AnalysisJob selected = latest.selectNotificationChannel(outcome.equals("PUSH") ? AnalysisNotificationChannel.PUSH : AnalysisNotificationChannel.SSE);
             return (outcome.equals("SSE") ? selected.publishImageEvent(requestId(job, 0)) : selected).acknowledgeNotification();
         });
-        notifications.completeAttempt(lease);
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
         assertThat(stored(job).getNotificationNextAttemptAt()).isNull();
         assertThat(stored(job).getNotificationLeaseToken()).isNull();
-        assertThat(notifications.leaseNext()).isEmpty();
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
     }
 
     @Test
     void clearsExpiredResultWorkWithoutRetryingIt() {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        clock.set(states.find(job.id()).orElseThrow().expiresAt().toInstant().toString());
-        Lease lease = notifications.leaseNext().orElseThrow();
-        notifications.completeAttempt(lease);
+        clock.set(analysisJobStateAccess.find(job.id()).orElseThrow().expiresAt().toInstant().toString());
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
         assertThat(stored(job).getNotificationNextAttemptAt()).isNull();
-        assertThat(notifications.leaseNext()).isEmpty();
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
     }
 
     @Test
     void toleratesAJobConsumedByInventoryRegistration() {
         AnalysisJob job = accept(1);
         complete(job, 0);
-        Lease lease = notifications.leaseNext().orElseThrow();
-        states.deleteOwned(job.id(), owner.userId());
-        notifications.completeAttempt(lease);
-        assertThatThrownBy(() -> notifications.claimSseAttempt(lease)).isInstanceOf(CustomException.class);
-        assertThat(notifications.leaseNext()).isEmpty();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisJobStateAccess.deleteOwned(job.id(), owner.userId());
+        analysisDatabasePendingNotificationStore.completeAttempt(lease);
+        assertThatThrownBy(() -> analysisDatabasePendingNotificationStore.claimSseAttempt(lease)).isInstanceOf(CustomException.class);
+        assertThat(analysisDatabasePendingNotificationStore.leaseNext()).isEmpty();
     }
 
     private AnalysisJob accept(int imageCount) {
         if (owner == null) { owner = ownerFixture("DB알림"); }
-        AnalysisJob job = acceptance.accept(owner.userId(), "AUTO", IntStream.range(0, imageCount)
+        AnalysisJob job = analysisJobAcceptance.accept(owner.userId(), "AUTO", IntStream.range(0, imageCount)
                 .mapToObj(index -> AnalysisImage.pending("image-" + createdJobs.size() + "-" + index, "ab".repeat(32))).toList());
         createdJobs.add(job);
         return job;
@@ -223,9 +223,9 @@ class AnalysisDatabasePendingNotificationStoreTest extends ServiceIntegrationTes
     private String requestId(AnalysisJob job, int index) { return job.analysisImages().get(index).requestId(); }
 
     private void complete(AnalysisJob job, int index) {
-        completions.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), requestId(job, index), owner.userId(), owner.refrigeratorId(),
+        analysisCompletionPersistence.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), requestId(job, index), owner.userId(), owner.refrigeratorId(),
                 "ai-" + job.id() + "-" + index, AnalysisStatus.FAILED, clock.instant(), null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null))));
     }
 
-    private AnalysisJobState stored(AnalysisJob job) { return jobs.findById(job.id()).orElseThrow(); }
+    private AnalysisJobState stored(AnalysisJob job) { return analysisJobStateRepository.findById(job.id()).orElseThrow(); }
 }

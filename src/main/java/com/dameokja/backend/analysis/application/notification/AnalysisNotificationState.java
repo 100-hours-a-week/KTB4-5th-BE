@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnalysisNotificationState {
     private final AnalysisJobStateAccess analysisJobStateAccess;
     private final PushAnalysisCreationService pushAnalysisCreationService;
-    private final AnalysisDatabasePendingNotificationStore analysisPendingNotificationStore;
+    private final AnalysisDatabasePendingNotificationStore analysisDatabasePendingNotificationStore;
     private final UserAccessService userAccessService;
 
     @Transactional(readOnly = true)
@@ -61,7 +61,7 @@ public class AnalysisNotificationState {
     }
 
     private AnalysisJob requireOwnedLease(Lease lease) {
-        analysisPendingNotificationStore.requireLease(lease);
+        analysisDatabasePendingNotificationStore.requireLease(lease);
         return analysisJobStateAccess.findOwnedForUpdate(lease.analysisJobId(), lease.userId());
     }
 }
