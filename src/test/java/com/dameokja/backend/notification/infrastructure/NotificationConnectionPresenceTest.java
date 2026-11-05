@@ -3,13 +3,14 @@ package com.dameokja.backend.notification.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.MockMakers.SUBCLASS;
 import static org.mockito.Mockito.*;
 
 import com.dameokja.backend.notification.application.NotificationStreamService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.support.RedisTestSupport;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -20,11 +21,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 @ExtendWith(RedisTestSupport.class)
 class NotificationConnectionPresenceTest {
+    private final List<SseEmitter> emitters = new ArrayList<>();
     private final StringRedisTemplate redis = RedisTestSupport.redisTemplate();
     private final NotificationConnectionPresence firstServer = new NotificationConnectionPresence(redis);
     private final NotificationConnectionPresence secondServer = new NotificationConnectionPresence(redis);
@@ -195,9 +198,19 @@ class NotificationConnectionPresenceTest {
         assertThatThrownBy(() -> service.isConnected(1L)).isInstanceOf(org.springframework.data.redis.RedisConnectionFailureException.class);
     }
 
+    @AfterEach
+    void releaseEmitterMocks() {
+        for (SseEmitter emitter : emitters) {
+            reset(emitter);
+            org.mockito.Mockito.framework().clearInlineMock(emitter);
+        }
+        emitters.clear();
+    }
+
     private SseEmitter mockEmitter() {
-        // 콜백 인자가 emitter를 다시 참조하므로 inline 전역 맵에 보관하지 않는다.
-        return mock(SseEmitter.class, withSettings().mockMaker(SUBCLASS));
+        SseEmitter emitter = mock(SseEmitter.class);
+        emitters.add(emitter);
+        return emitter;
     }
 
     private Runnable callback(SseEmitter emitter, boolean timeout) {
