@@ -12,7 +12,10 @@ import static com.dameokja.backend.user.domain.UserStatus.ACTIVE;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.common.BaseEntity;
 import com.dameokja.backend.user.domain.User;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -52,6 +55,26 @@ public class RefrigeratorMember extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     private RefrigeratorMemberRole role;
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "sequence", column = @Column(name = "joined_sequence")),
+        @AttributeOverride(name = "type", column = @Column(name = "joined_type", length = 20)),
+        @AttributeOverride(name = "occurredAt", column = @Column(name = "joined_occurred_at")),
+        @AttributeOverride(name = "title", column = @Column(name = "joined_title", length = 150)),
+        @AttributeOverride(name = "body", column = @Column(name = "joined_body", length = 500)),
+        @AttributeOverride(name = "recipientUserIds", column = @Column(name = "joined_recipient_user_ids"))
+    })
+    private MembershipChangeSnapshot joinedChange;
+    @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "sequence", column = @Column(name = "ended_sequence")),
+        @AttributeOverride(name = "type", column = @Column(name = "ended_type", length = 20)),
+        @AttributeOverride(name = "occurredAt", column = @Column(name = "ended_occurred_at")),
+        @AttributeOverride(name = "title", column = @Column(name = "ended_title", length = 150)),
+        @AttributeOverride(name = "body", column = @Column(name = "ended_body", length = 500)),
+        @AttributeOverride(name = "recipientUserIds", column = @Column(name = "ended_recipient_user_ids"))
+    })
+    private MembershipChangeSnapshot endedChange;
 
     public RefrigeratorMember(User user, Refrigerator refrigerator) {
         this(user, refrigerator, RefrigeratorMemberRole.MEMBER, false);
@@ -150,7 +173,9 @@ public class RefrigeratorMember extends BaseEntity {
     }
 
     public void joinSharedRefrigerator() {
-        endedAt = null;
+        if (!isLive()) {
+            throw new CustomException(INTERNAL_SERVER_ERROR);
+        }
         role = RefrigeratorMemberRole.MEMBER;
         isActive = true;
     }
@@ -171,6 +196,24 @@ public class RefrigeratorMember extends BaseEntity {
 
     public void updateOwner() {
         role = RefrigeratorMemberRole.OWNER;
+    }
+
+    /**
+     * 별도 알림 작업 행 없이 참여 업무 기록에 변경 당시 정보를 보존한다.
+     * @param snapshot 기존 냉장고 잠금 아래 순번과 수신자를 확정한 변경 정보
+     */
+    public void recordChange(MembershipChangeSnapshot snapshot) {
+        if (snapshot.getType() == MembershipChangeType.JOINED) {
+            if (!isLive() || joinedChange != null) {
+                throw new IllegalStateException("이미 종료되었거나 기록된 참여입니다.");
+            }
+            joinedChange = snapshot;
+            return;
+        }
+        if (isLive() || endedChange != null) {
+            throw new IllegalStateException("종료가 확정되지 않았거나 이미 기록되었습니다.");
+        }
+        endedChange = snapshot;
     }
 
     private void changeActiveStatus(boolean active) {

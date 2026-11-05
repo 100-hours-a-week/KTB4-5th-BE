@@ -40,6 +40,8 @@ public class Refrigerator extends BaseEntity {
     private String expiredCountMonth;
     @Column(name = "expired_counted_on")
     private LocalDate expiredCountedOn;
+    @Column(nullable = false)
+    private long membershipSequence;
 
     public Refrigerator(String name, String expiredCountMonth) {
         this.name = name;
@@ -50,6 +52,15 @@ public class Refrigerator extends BaseEntity {
 
     public void rename(String name) {
         this.name = name;
+    }
+
+    /**
+     * 구성원 변경이 이미 획득한 냉장고 행 잠금 아래 다음 업무 순번을 발급한다.
+     * @return 같은 트랜잭션이 롤백되면 함께 취소되는 구성원 변경 순번
+     */
+    public long nextMembershipSequence() {
+        membershipSequence = Math.incrementExact(membershipSequence);
+        return membershipSequence;
     }
 
     public void validateAvailable() {
