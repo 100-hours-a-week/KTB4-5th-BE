@@ -28,4 +28,12 @@ public class MembershipTransmission extends BaseEntity {
     private Refrigerator refrigerator;
     @Column(nullable = false)
     private long lastSequence;
+
+    public MembershipTransmission(Refrigerator refrigerator) {
+        this.refrigerator = refrigerator;
+    }
+
+    public void confirmThrough(long sequence) {
+        lastSequence = Math.max(lastSequence, sequence);
+    }
 }
