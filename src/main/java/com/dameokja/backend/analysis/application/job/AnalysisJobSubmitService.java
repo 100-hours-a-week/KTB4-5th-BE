@@ -4,12 +4,12 @@ import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
+import com.dameokja.backend.analysis.domain.AnalysisRequestId;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AnalysisJobSubmitService {
-    private static final String REQUEST_CONTEXT_VERSION = "analysis-refrigerator-v1";
     private final ImageAnalysisInputService imageAnalysisInputService;
     private final AnalysisJobStore analysisJobStore;
     private final AnalysisDispatchQueue analysisDispatchQueue;
@@ -50,7 +49,8 @@ public class AnalysisJobSubmitService {
         Long refrigeratorId = refrigeratorAccessService.findCurrentForRead(userId).getId();
         String resolvedInputHint = inputHint;
         List<AnalysisImage> analysisImages = validateImages(userId, objectKeys).stream()
-                .map(image -> identify(userId, refrigeratorId, image, resolvedInputHint)).toList();
+                .map(image -> AnalysisImage.pending(image.objectKey(), image.sha256(),
+                        AnalysisRequestId.generate(userId, refrigeratorId, image, resolvedInputHint))).toList();
         String analysisJobId = UUID.randomUUID().toString();
         // 전달 큐를 먼저 저장한다. 그 뒤 Redis 작업 생성이 실패하면 사용자는 작업 ID를 받지 못하고, 워커가 남은 전달 행을 실패로 정리한다.
         analysisDispatchQueue.enqueue(analysisJobId, userId, inputHint, analysisImages);
@@ -62,14 +62,5 @@ public class AnalysisJobSubmitService {
     private List<AnalysisImage> validateImages(Long userId, List<String> objectKeys) {
         return objectKeys.stream().distinct()
                 .map(objectKey -> AnalysisImage.pending(objectKey, imageAnalysisInputService.findAnalysisSha256(userId, objectKey))).toList();
-    }
-
-    // 냉장고를 보내지 않던 계약과 구분하고, 동일 사용자·냉장고·사진·힌트의 재시도에는 같은 요청 ID를 사용한다.
-    private AnalysisImage identify(Long userId, Long refrigeratorId, AnalysisImage image, String inputHint) {
-        String objectKey = image.objectKey();
-        String sha256 = image.sha256();
-        String requestId = UUID.nameUUIDFromBytes(String.join("\n", REQUEST_CONTEXT_VERSION, userId.toString(), refrigeratorId.toString(), objectKey, String.valueOf(sha256), inputHint)
-                .getBytes(StandardCharsets.UTF_8)).toString();
-        return AnalysisImage.pending(objectKey, sha256, requestId);
     }
 }
