@@ -29,7 +29,7 @@ class AnalysisIngredientServiceTest {
     private final IngredientCreateService creator = mock(IngredientCreateService.class);
     private final AnalysisFeedbackQueue queue = mock(AnalysisFeedbackQueue.class);
     private final AnalysisIngredientService service = new AnalysisIngredientService(store, creator, queue,
-            new TransactionTemplate(mock(PlatformTransactionManager.class)));
+            new TransactionTemplate(mock(PlatformTransactionManager.class)), mock(AnalysisDatabaseIngredientRegistration.class));
     private final AnalysisIngredientCommand.Item count = new AnalysisIngredientCommand.Item("item", "우유", IngredientCategory.DAIRY,
             StorageType.REFRIGERATED, MeasureType.COUNT, BigDecimal.TWO, null, LocalDate.parse("2026-10-20"));
     private final IngredientWriteResult result = writeResult(1);

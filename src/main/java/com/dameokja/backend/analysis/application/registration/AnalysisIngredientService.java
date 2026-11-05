@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.function.BiConsumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,15 +31,21 @@ public class AnalysisIngredientService {
     private final IngredientCreateService ingredientCreateService;
     private final AnalysisFeedbackQueue analysisFeedbackQueue;
     private final TransactionTemplate transactionTemplate;
+    private final AnalysisDatabaseIngredientRegistration databaseRegistration;
 
     // 피드백은 재고와 같은 트랜잭션으로 큐에 넣어 등록이 커밋되면 함께 남게 한다. Redis 결과 삭제는 되돌릴 수 없어 커밋 뒤에 한다.
     public IngredientWriteResult create(Long userId, Long refrigeratorId, AnalysisIngredientCommand request) {
+        if (databaseRegistration.exists(request.analysisId())) {
+            return databaseRegistration.create(userId, refrigeratorId, request.analysisId(), job ->
+                    registerWithFeedbacks(userId, refrigeratorId, prepareRegistration(job, request),
+                            (analysisId, feedback) -> databaseRegistration.enqueueFeedback(job, analysisId, feedback)));
+        }
         AnalysisJob job = analysisJobStore.findOwned(request.analysisId(), userId);
         if (job.refrigeratorId() != null && !job.refrigeratorId().equals(refrigeratorId)) {
             throw new CustomException(AnalysisExceptionCode.INVALID_REGISTRATION);
         }
         List<Feedback> feedbacks = prepareRegistration(job, request);
-        IngredientWriteResult result = transactionTemplate.execute(status -> registerWithFeedbacks(userId, refrigeratorId, feedbacks));
+        IngredientWriteResult result = transactionTemplate.execute(status -> registerWithFeedbacks(userId, refrigeratorId, feedbacks, analysisFeedbackQueue::enqueue));
         deleteResult(job.id());
         return result;
     }
@@ -114,7 +121,7 @@ public class AnalysisIngredientService {
         }
     }
 
-    private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks) {
+    private IngredientWriteResult registerWithFeedbacks(Long userId, Long refrigeratorId, List<Feedback> feedbacks, BiConsumer<String, AiAnalysisFeedbackRequest> enqueue) {
         IngredientWriteResult result = ingredientCreateService.create(userId, refrigeratorId, feedbacks.stream().map(Feedback::command).filter(java.util.Objects::nonNull).toList());
         Map<String, List<AiAnalysisFeedbackRequest.Item>> itemsByAnalysis = new LinkedHashMap<>();
         int resultIndex = 0;
@@ -126,7 +133,7 @@ public class AnalysisIngredientService {
             }
             itemsByAnalysis.computeIfAbsent(feedback.aiId(), ignored -> new ArrayList<>()).add(feedback.request(storedName));
         }
-        itemsByAnalysis.forEach((aiId, items) -> analysisFeedbackQueue.enqueue(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
+        itemsByAnalysis.forEach((aiId, items) -> enqueue.accept(aiId, new AiAnalysisFeedbackRequest(refrigeratorId, true, items)));
         return result;
     }
 
