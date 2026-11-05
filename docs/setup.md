@@ -70,6 +70,13 @@ HTTP 경로 연결은 후속 PR에서 적용한다.
 기존 본문·상태·선점 정보는 유지되며, `message_body`가 NULL인 기존 행은 HTTP 워커가 계속 처리한다.
 Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다. Kafka 발행과 등록 경로 연결은 후속 PR이다.
 
+## 분석 피드백 Kafka outbox DB 처리
+
+내부 outbox 서비스는 재고 등록 트랜잭션에서 이벤트 전체를 고정해 저장하고 Kafka 행만 선점·회수한다.
+완료·재시도·실패 갱신은 Kafka 행의 유효한 선점 토큰과 기한으로 제한한다. 보관 기한이 지나도 유효한 선점은 유지한다.
+`ANALYSIS_FEEDBACK_BATCH_SIZE`, `ANALYSIS_FEEDBACK_LEASE_DURATION`, `ANALYSIS_FEEDBACK_RETRY_DELAY`, `ANALYSIS_FEEDBACK_EXPIRES_AFTER` 설정을 사용한다.
+추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다. 등록 경로 연결과 Kafka 발행·스케줄러 활성화는 후속 PR이다.
+
 ## 빌드·실행
 
 ```bash
