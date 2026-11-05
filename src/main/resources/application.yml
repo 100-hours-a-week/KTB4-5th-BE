@@ -224,6 +224,12 @@ cooking:
 membership:
   kafka:
     enabled: ${MEMBERSHIP_KAFKA_ENABLED:false}
+    transport-enabled: ${MEMBERSHIP_KAFKA_TRANSPORT_ENABLED:false}
+    scheduling-enabled: ${MEMBERSHIP_KAFKA_SCHEDULING_ENABLED:true}
+    topic: ${KAFKA_ENV:local}.dameokja.refrigerator.membership.v1
+    transactional-id: ${KAFKA_ENV:local}.dameokja.membership-sender.v1
+    poll-interval: ${MEMBERSHIP_KAFKA_POLL_INTERVAL:1s}
+    batch-size: ${MEMBERSHIP_KAFKA_BATCH_SIZE:100}
 
 management:
   health:
