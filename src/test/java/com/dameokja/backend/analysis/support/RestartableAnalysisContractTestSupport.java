@@ -2,6 +2,7 @@ package com.dameokja.backend.analysis.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.doNothing;
 
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchLeaseService;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchProperties;
@@ -14,10 +15,12 @@ import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.zaxxer.hikari.HikariDataSource;
 import java.time.Instant;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestContextManager;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class RestartableAnalysisContractTestSupport extends AnalysisContractTestSupport {
@@ -25,9 +28,14 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
     @Autowired private AnalysisDispatchProperties dispatchPolicy;
     @Autowired private AnalysisDispatchLeaseService dispatchLeases;
     @Autowired private AnalysisDispatchSender dispatchSender;
-    @Autowired private AnalysisDispatchWorker dispatchWorker;
+    @MockitoSpyBean private AnalysisDispatchWorker dispatchWorker;
     @Autowired private AnalysisFeedbackProperties feedbackPolicy;
     @Autowired private AnalysisFeedbackSender feedbackSender;
+
+    @BeforeEach
+    void disableAutomaticWakeUp() {
+        doNothing().when(dispatchWorker).wakeUp();
+    }
 
     protected void restartApplication() throws Exception {
         Instant resumedAt = clock.instant();
@@ -41,6 +49,7 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
         assertThat(stoppedPool.isClosed()).isTrue();
         contexts.prepareTestInstance(this);
         clock.set(resumedAt.toString());
+        disableAutomaticWakeUp();
         acceptAiRequests();
         assertThat(application).isNotSameAs(stopped);
         assertThat(application.isActive()).isTrue();
