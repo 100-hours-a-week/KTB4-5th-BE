@@ -5,6 +5,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -33,6 +34,7 @@ public class IngredientExpireService {
     private final IngredientRepository ingredientRepository;
     private final Clock clock;
     private final MonthlyExpirationService monthlyExpirationService;
+    private final IngredientListCacheInvalidator ingredientListCacheInvalidator;
 
     public Optional<IngredientExpireResult> expire(Long userId, Long ingredientId, String ifMatch,
             Integer quantity, BigDecimal weightValue) {
@@ -49,6 +51,7 @@ public class IngredientExpireService {
         boolean removed = expireIngredient(ingredient, expiredAmount);
 
         persistExpiration(ingredient, removed);
+        ingredientListCacheInvalidator.invalidateAfterCommit(refrigerator.getId());
         return Optional.of(new IngredientExpireResult(ingredient, removed));
     }
 
@@ -106,6 +109,7 @@ public class IngredientExpireService {
 
         ingredientRepository.deleteAll(expiredIngredients);
         ingredientRepository.flush();
+        ingredientListCacheInvalidator.invalidateAfterCommit(refrigeratorId);
         return expiredIngredients.size();
     }
 

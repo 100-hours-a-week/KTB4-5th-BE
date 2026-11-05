@@ -4,6 +4,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -29,6 +30,7 @@ public class IngredientCreateService {
     private final IngredientPolicy ingredientPolicy;
     private final Clock clock;
     private final UserAccessService userAccessService;
+    private final IngredientListCacheInvalidator ingredientListCacheInvalidator;
 
     public IngredientWriteResult create(
             Long userId, Long refrigeratorId,
@@ -39,6 +41,7 @@ public class IngredientCreateService {
         long existingIngredientCount = ingredientRepository.countByRefrigeratorId(refrigeratorId);
         List<IngredientWriteItem> writeItems = createOrMergeIngredients(refrigerator, owner, commands, businessDate, existingIngredientCount);
 
+        ingredientListCacheInvalidator.invalidateAfterCommit(refrigeratorId);
         return createResult(refrigerator, writeItems, existingIngredientCount);
     }
 

@@ -1,6 +1,7 @@
 package com.dameokja.backend.ingredient.application;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class IngredientConsumptionService {
     private final IngredientRepository ingredientRepository;
+    private final IngredientListCacheInvalidator ingredientListCacheInvalidator;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void consume(Long refrigeratorId, Map<Long, BigDecimal> amounts) {
@@ -29,6 +31,7 @@ public class IngredientConsumptionService {
             if (ingredient.consume(consumedAmount)) { ingredientRepository.delete(ingredient); }
         }
         ingredientRepository.flush();
+        ingredientListCacheInvalidator.invalidateAfterCommit(refrigeratorId);
     }
 
     private Measurement consumedAmount(Ingredient ingredient, BigDecimal amount) {
