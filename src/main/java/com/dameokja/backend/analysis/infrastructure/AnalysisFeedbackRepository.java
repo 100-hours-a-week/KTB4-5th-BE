@@ -14,6 +14,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
             SELECT analysis_feedback_id
             FROM analysis_feedbacks
             WHERE status = 'PENDING' AND next_attempt_at <= CAST(:now AS DATETIME(6)) AND expires_at > CAST(:now AS DATETIME(6))
+                AND message_body IS NULL
             ORDER BY next_attempt_at, analysis_feedback_id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
@@ -25,6 +26,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
             SELECT analysis_feedback_id
             FROM analysis_feedbacks
             WHERE status = 'SENDING' AND lease_until <= CAST(:now AS DATETIME(6)) AND expires_at > CAST(:now AS DATETIME(6))
+                AND message_body IS NULL
             ORDER BY lease_until, analysis_feedback_id
             LIMIT :limit
             FOR UPDATE SKIP LOCKED
@@ -40,7 +42,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
     int markSending(@Param("ids") List<Long> ids, @Param("leaseToken") String leaseToken,
             @Param("now") String now, @Param("leaseUntil") String leaseUntil);
 
-    Optional<AnalysisFeedback> findByIdAndLeaseToken(Long id, String leaseToken);
+    Optional<AnalysisFeedback> findByIdAndLeaseTokenAndMessageBodyIsNull(Long id, String leaseToken);
 
     @Modifying
     @Query(value = """
@@ -74,6 +76,7 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
             UPDATE analysis_feedbacks
             SET status = 'FAILED', lease_token = NULL, lease_until = NULL, last_error_code = :errorCode, finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
             WHERE status IN ('PENDING','SENDING') AND expires_at <= CAST(:now AS DATETIME(6)) AND (status = 'PENDING' OR lease_until <= CAST(:now AS DATETIME(6)))
+                AND message_body IS NULL
             """, nativeQuery = true)
     int failExpired(@Param("errorCode") String errorCode, @Param("now") String now);
 }
