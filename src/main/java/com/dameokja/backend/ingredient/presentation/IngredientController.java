@@ -9,8 +9,8 @@ import com.dameokja.backend.ingredient.application.detail.IngredientDetailResult
 import com.dameokja.backend.ingredient.application.detail.IngredientDetailService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireResult;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
-import com.dameokja.backend.ingredient.application.list.IngredientListResult;
-import com.dameokja.backend.ingredient.application.list.IngredientListService;
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheService;
+import com.dameokja.backend.ingredient.application.list.IngredientListView;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateResult;
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
@@ -54,12 +54,13 @@ public class IngredientController implements IngredientApi {
     private static final String EXPIRED_MESSAGE = "재고 비우기 성공";
     private static final String LIST_CODE = "INGREDIENT-200-002";
     private static final String LIST_MESSAGE = "냉장고 재고 목록 조회 성공";
+    private static final String CACHE_HEADER = "X-Ingredient-List-Cache";
 
     private final IngredientCreateService ingredientCreateService;
     private final IngredientDetailService ingredientDetailService;
     private final IngredientUpdateService ingredientUpdateService;
     private final IngredientExpireService ingredientExpireService;
-    private final IngredientListService ingredientListService;
+    private final IngredientListCacheService ingredientListCacheService;
 
     @Override
     @GetMapping("/refrigerators/{refrigeratorId}/ingredients")
@@ -72,10 +73,13 @@ public class IngredientController implements IngredientApi {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword) {
         IngredientListRequest request = new IngredientListRequest(cursor, size, sort, filter, category, keyword);
-        IngredientListResult result = ingredientListService.getList(userId, refrigeratorId, request.sortType(),
+        IngredientListView view = ingredientListCacheService.getList(userId, refrigeratorId, request.sortType(),
                 request.ingredientFilter(), request.ingredientCategory(), request.keywordValue(), request.cursorToken(), request.pageSize());
-        IngredientListResponse response = IngredientListResponse.from(result);
-        return ResponseEntity.ok(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, response));
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (view.cacheStatus() != null) {
+            builder.header(CACHE_HEADER, view.cacheStatus());
+        }
+        return builder.body(SuccessResponse.of(LIST_CODE, LIST_MESSAGE, view.response()));
     }
 
     @Override

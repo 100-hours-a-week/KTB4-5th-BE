@@ -37,7 +37,7 @@ class IngredientCreateWebTest {
     @BeforeEach
     void setup() {
         IngredientController controller = new IngredientController(service, mock(IngredientDetailService.class),
-                mock(IngredientUpdateService.class), mock(IngredientExpireService.class), mock(IngredientListService.class));
+                mock(IngredientUpdateService.class), mock(IngredientExpireService.class), mock(com.dameokja.backend.ingredient.application.list.IngredientListCacheService.class));
         mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

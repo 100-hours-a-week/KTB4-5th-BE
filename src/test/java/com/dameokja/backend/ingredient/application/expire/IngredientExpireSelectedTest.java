@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.expire;
 
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.user.domain.User;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,7 +48,8 @@ class IngredientExpireSelectedTest {
     void setUp() {
         // 2026-09-19T15:00Z = 2026-09-20 00:00 KST
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"), ZoneId.of("Asia/Seoul"));
-        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, clock, monthlyExpirationService);
+        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, clock, monthlyExpirationService,
+                org.mockito.Mockito.mock(IngredientListCacheInvalidator.class));
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
     }

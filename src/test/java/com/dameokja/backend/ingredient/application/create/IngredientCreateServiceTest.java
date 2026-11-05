@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.create;
 
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.ingredient.application.IngredientPolicy;
@@ -44,7 +45,8 @@ class IngredientCreateServiceTest {
         Clock clock = Clock.fixed(Instant.parse("2026-09-19T15:00:00Z"),
                 ZoneId.of("Asia/Seoul"));
         service = new IngredientCreateService(access, repository,
-                new IngredientPolicy(prohibitedWords), clock, users);
+                new IngredientPolicy(prohibitedWords), clock, users,
+                org.mockito.Mockito.mock(IngredientListCacheInvalidator.class));
         when(users.getActive(1L)).thenReturn(registrant);
         when(access.lockForWrite(1L, 10L)).thenReturn(refrigerator);
     }

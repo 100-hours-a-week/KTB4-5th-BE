@@ -1,5 +1,6 @@
 package com.dameokja.backend.ingredient.application.expire;
 
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.user.domain.User;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
@@ -41,7 +42,8 @@ class IngredientExpireServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, Clock.systemUTC(), monthlyExpirationService);
+        service = new IngredientExpireService(refrigeratorAccessService, ingredientRepository, Clock.systemUTC(), monthlyExpirationService,
+                org.mockito.Mockito.mock(IngredientListCacheInvalidator.class));
         refrigerator = new Refrigerator("냉장고", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
         when(refrigeratorAccessService.lockCurrentForWrite(2L)).thenReturn(refrigerator);

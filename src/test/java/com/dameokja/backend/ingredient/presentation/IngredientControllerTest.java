@@ -71,7 +71,7 @@ class IngredientControllerTest {
         when(ingredientListService.getList(2L, 10L, IngredientSortType.EXPIRATION_ASC, null, null, null, null, 10)).thenReturn(result);
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                uncachedListService());
 
         ResponseEntity<SuccessResponse<IngredientListResponse>> response = controller.getList(2L, 10L, null, null, null, null, null, null);
 
@@ -138,7 +138,7 @@ class IngredientControllerTest {
 
     private MockMvc listMvc() {
         IngredientController controller = new IngredientController(ingredientCreateService, ingredientDetailService,
-                ingredientUpdateService, ingredientExpireService, ingredientListService);
+                ingredientUpdateService, ingredientExpireService, uncachedListService());
         return MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
     }
@@ -151,7 +151,7 @@ class IngredientControllerTest {
                 .thenReturn(new IngredientDetailResult(ingredient, businessDate, "등록자"));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                uncachedListService());
 
         ResponseEntity<SuccessResponse<IngredientDetailResponse>> response =
                 controller.getDetail(2L, 1L);
@@ -174,7 +174,7 @@ class IngredientControllerTest {
                 .thenReturn(new IngredientUpdateResult(ingredient, businessDate, List.of()));
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                uncachedListService());
 
         ResponseEntity<SuccessResponse<IngredientUpdateResponse>> response =
                 controller.update(2L, 1L, "\"before\"", request);
@@ -191,7 +191,7 @@ class IngredientControllerTest {
     void expiresSelectedIngredientsAndReturnsNoContent() {
         IngredientController controller = new IngredientController(
                 ingredientCreateService, ingredientDetailService, ingredientUpdateService, ingredientExpireService,
-                ingredientListService);
+                uncachedListService());
 
         ResponseEntity<Void> response = controller.expireSelected(
                 2L, 10L, new IngredientExpireSelectedRequest(List.of(1L, 2L)));
@@ -214,5 +214,12 @@ class IngredientControllerTest {
         ReflectionTestUtils.setField(ingredient, "updatedAt",
                 LocalDateTime.of(2026, 9, 16, 0, 0));
         return ingredient;
+    }
+
+    private com.dameokja.backend.ingredient.application.list.IngredientListCacheService uncachedListService() {
+        return new com.dameokja.backend.ingredient.application.list.IngredientListCacheService(ingredientListService,
+                org.mockito.Mockito.mock(com.dameokja.backend.refrigerator.application.RefrigeratorAccessService.class),
+                org.mockito.Mockito.mock(com.dameokja.backend.ingredient.infrastructure.IngredientListCacheStore.class),
+                java.time.Clock.systemUTC(), false);
     }
 }

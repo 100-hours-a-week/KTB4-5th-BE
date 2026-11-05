@@ -4,6 +4,7 @@ import static com.dameokja.backend.ingredient.exception.IngredientExceptionCode.
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.create.IngredientWriteItem;
+import com.dameokja.backend.ingredient.application.list.IngredientListCacheInvalidator;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.ingredient.domain.IngredientDetails;
 import com.dameokja.backend.ingredient.domain.Measurement;
@@ -26,6 +27,7 @@ public class IngredientUpdateService {
     private final IngredientUpdatePolicy ingredientUpdatePolicy;
     private final Clock clock;
     private final UserAccessService userAccessService;
+    private final IngredientListCacheInvalidator ingredientListCacheInvalidator;
 
     public IngredientUpdateResult update(Long userId, Long ingredientId, String ifMatch, IngredientUpdateFields fields) {
         Ingredient ingredient = lockIngredientForUpdate(userId, ingredientId, fields);
@@ -36,6 +38,7 @@ public class IngredientUpdateService {
         IngredientDetails updateDetails = ingredientUpdatePolicy.createDetails(ingredient, fields, businessDate);
         List<IngredientWriteItem> mergedItems = applyUpdate(ingredient, updateDetails, fields);
         ingredientRepository.flush();
+        ingredientListCacheInvalidator.invalidateAfterCommit(ingredient.getRefrigerator().getId());
         return new IngredientUpdateResult(ingredient, businessDate, mergedItems);
     }
 
