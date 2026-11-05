@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,7 +29,6 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,6 +39,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+@TestPropertySource(properties = "recipe.job.database-write-enabled=true")
 class RecommendationWorkerCallbackTest extends ServiceIntegrationTest {
     private static final String PATH = "/api/v1/internal/recipe-recommendations/callback";
     @Autowired private RecommendationWorker recommendationWorker;
@@ -115,11 +116,11 @@ class RecommendationWorkerCallbackTest extends ServiceIntegrationTest {
         assertThat(send(completedResponse, null)).isEqualTo(401);
         assertThat(send(completedResponse, "wrong")).isEqualTo(401);
         assertThat(send(completedResponse, "test-key")).isEqualTo(204);
-        String recipeJobKey = "recipe:job:" + submissionResult.eventId();
-        redisTemplate().expire(recipeJobKey, Duration.ofMinutes(10));
+        clock.set("2026-09-17T03:10:00Z");
         assertThat(send(completedResponse, "test-key")).isEqualTo(204);
         assertThat(recommendationJobStore.find(submissionResult.eventId()).orElseThrow().view()).isEqualTo(completedResponse);
-        assertThat(redisTemplate().getExpire(recipeJobKey)).isBetween(590L, 600L);
+        assertThat(recommendationOutboxRepository.findByEventId(submissionResult.eventId()).orElseThrow().getJobExpiresAt())
+                .isEqualTo(com.dameokja.backend.global.util.BusinessTime.now(clock).plusMinutes(1430));
     }
 
     @Test
@@ -164,10 +165,11 @@ class RecommendationWorkerCallbackTest extends ServiceIntegrationTest {
         assertThat(recommendationJobStore.find(secondSubmissionResult.eventId()).orElseThrow().view()).isEqualTo(completedResponse);
         recommendationOutboxService.markSent(submissionResult.eventId());
         recommendationOutboxService.markSent(secondSubmissionResult.eventId());
-        redisTemplate().delete(List.of("recipe:job:" + submissionResult.eventId(), "recipe:job:" + secondSubmissionResult.eventId()));
+        clock.set("2026-09-18T03:00:00Z");
         assertThat(send(completedResponse, "test-key")).isEqualTo(204);
         assertThat(recommendationJobStore.find(submissionResult.eventId())).isEmpty();
         assertThat(recommendationJobStore.find(secondSubmissionResult.eventId())).isEmpty();
+        assertThat(recommendationOutboxRepository.findByEventId(submissionResult.eventId()).orElseThrow().getJobSnapshot()).isNull();
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.util.UUID;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +20,14 @@ public class RecommendationOutboxService {
     private final RecommendationOutboxRepository recommendationOutboxRepository;
     private final JsonMapper jsonMapper;
     private final RefrigeratorAccessService refrigeratorAccessService;
+    @Value("${recipe.job.database-write-enabled:false}")
+    private boolean databaseWriteEnabled;
 
     @Transactional
     public RecommendationSubmissionResult enqueue(AiRecipeRecommendationRequest recommendationRequest) {
         Refrigerator refrigerator = refrigeratorAccessService.getReferenceById(recommendationRequest.refrigeratorId());
         RecommendationOutbox recommendationOutbox = recommendationOutboxRepository.saveAndFlush(new RecommendationOutbox(UUID.randomUUID().toString(),
-                refrigerator, recommendationRequest.requestId(), jsonMapper.writeValueAsString(recommendationRequest)));
+                refrigerator, recommendationRequest.requestId(), jsonMapper.writeValueAsString(recommendationRequest), databaseWriteEnabled));
         return new RecommendationSubmissionResult(recommendationOutbox.getId(), recommendationOutbox.getEventId(), recommendationOutbox.getRequestId(),
                 recommendationRequest.refrigeratorId(), recommendationOutbox.getCreatedAt());
     }
@@ -37,7 +40,7 @@ public class RecommendationOutboxService {
 
     @Transactional
     public void markSent(String eventId) {
-        recommendationOutboxRepository.findByEventId(eventId).orElseThrow().markSent();
+        recommendationOutboxRepository.lockByEventId(eventId).orElseThrow().markSent();
     }
 
     public record Event(Long sequence, String eventId, RecommendationOutbox.Status status, AiRecipeRecommendationRequest request) {}

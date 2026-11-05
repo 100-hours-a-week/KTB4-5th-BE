@@ -21,7 +21,7 @@ public class RecommendationExecutionService {
     public RecommendationJobStore.Job submit(String eventId) {
         AiRecipeRecommendationRequest request = outbox.request(eventId);
         RecommendationJobStore.Job job = jobs.find(eventId).orElseGet(() -> jobs.accept(eventId, ai.submit(request)));
-        // 접수 정보를 Redis에 보관해야 이후 조회에서 같은 AI 작업을 이어갈 수 있다.
+        // 접수 정보를 저장해야 이후 조회에서 같은 AI 작업을 이어갈 수 있다.
         outbox.markSent(eventId);
         return job;
     }

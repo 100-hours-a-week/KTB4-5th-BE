@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,7 +47,19 @@ public class RecommendationOutbox extends BaseEntity {
     @Column(nullable = false, length = 16)
     private Status status;
 
-    public RecommendationOutbox(String eventId, Refrigerator refrigerator, String requestId, String payload) {
+    @Column(nullable = false)
+    private boolean dbJob;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String jobSnapshot;
+    private LocalDateTime jobExpiresAt;
+
+    public void saveJob(String snapshot, LocalDateTime expiresAt) {
+        this.jobSnapshot = snapshot;
+        this.jobExpiresAt = expiresAt;
+    }
+
+    public RecommendationOutbox(String eventId, Refrigerator refrigerator, String requestId, String payload, boolean dbJob) {
+        this.dbJob = dbJob;
         this.eventId = eventId;
         this.refrigerator = refrigerator;
         this.requestId = requestId;
