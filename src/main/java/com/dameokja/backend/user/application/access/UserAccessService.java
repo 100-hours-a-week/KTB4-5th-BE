@@ -22,6 +22,11 @@ public class UserAccessService {
         getActive(userId);
     }
 
+    // 사건 당시 수신자를 복구할 때는 현재 탈퇴 여부로 과거 대상을 바꾸지 않는다.
+    public User getReferenceById(Long userId) {
+        return userRepository.getReferenceById(userId);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public User lockActive(Long userId) {
         User user = lockExisting(userId);
