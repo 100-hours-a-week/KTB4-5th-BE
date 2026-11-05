@@ -79,4 +79,66 @@ public interface AnalysisFeedbackRepository extends JpaRepository<AnalysisFeedba
                 AND message_body IS NULL
             """, nativeQuery = true)
     int failExpired(@Param("errorCode") String errorCode, @Param("now") String now);
+
+    @Query(value = """
+            SELECT analysis_feedback_id FROM analysis_feedbacks
+            WHERE status = 'PENDING' AND message_body IS NOT NULL
+                AND next_attempt_at <= CAST(:now AS DATETIME(6)) AND expires_at > CAST(:now AS DATETIME(6))
+            ORDER BY next_attempt_at, analysis_feedback_id LIMIT :limit FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Long> findKafkaDueIdsWithSkipLock(@Param("now") String now, @Param("limit") int limit);
+
+    @Query(value = """
+            SELECT analysis_feedback_id FROM analysis_feedbacks
+            WHERE status = 'SENDING' AND message_body IS NOT NULL
+                AND lease_until <= CAST(:now AS DATETIME(6)) AND expires_at > CAST(:now AS DATETIME(6))
+            ORDER BY lease_until, analysis_feedback_id LIMIT :limit FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Long> findKafkaLeaseExpiredIdsWithSkipLock(@Param("now") String now, @Param("limit") int limit);
+
+    @Query(value = """
+            SELECT * FROM analysis_feedbacks
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND lease_until > CAST(:now AS DATETIME(6))
+                AND message_body IS NOT NULL
+            """, nativeQuery = true)
+    Optional<AnalysisFeedback> findActiveLease(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("now") String now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE analysis_feedbacks SET status = 'FAILED', lease_token = NULL, lease_until = NULL, last_error_code = :errorCode,
+                finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
+            WHERE status IN ('PENDING','SENDING') AND message_body IS NOT NULL AND expires_at <= CAST(:now AS DATETIME(6))
+                AND (status = 'PENDING' OR lease_until <= CAST(:now AS DATETIME(6)))
+            """, nativeQuery = true)
+    int failExpiredKafka(@Param("errorCode") String errorCode, @Param("now") String now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE analysis_feedbacks
+            SET status = 'DONE', lease_token = NULL, lease_until = NULL, last_error_code = NULL, finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND message_body IS NOT NULL
+                AND lease_until > CAST(:now AS DATETIME(6))
+            """, nativeQuery = true)
+    int finishKafka(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("now") String now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE analysis_feedbacks
+            SET status = 'PENDING', lease_token = NULL, lease_until = NULL, next_attempt_at = CAST(:nextAttemptAt AS DATETIME(6)),
+                attempt_count = attempt_count + 1, last_error_code = :errorCode, updated_at = CAST(:now AS DATETIME(6))
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND message_body IS NOT NULL
+                AND lease_until > CAST(:now AS DATETIME(6))
+            """, nativeQuery = true)
+    int rescheduleKafka(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("nextAttemptAt") String nextAttemptAt,
+            @Param("errorCode") String errorCode, @Param("now") String now);
+
+    @Modifying
+    @Query(value = """
+            UPDATE analysis_feedbacks
+            SET status = 'FAILED', lease_token = NULL, lease_until = NULL, attempt_count = attempt_count + 1,
+                last_error_code = :errorCode, finished_at = CAST(:now AS DATETIME(6)), updated_at = CAST(:now AS DATETIME(6))
+            WHERE analysis_feedback_id = :id AND status = 'SENDING' AND lease_token = :leaseToken AND message_body IS NOT NULL
+                AND lease_until > CAST(:now AS DATETIME(6))
+            """, nativeQuery = true)
+    int failKafka(@Param("id") Long id, @Param("leaseToken") String leaseToken, @Param("errorCode") String errorCode, @Param("now") String now);
 }
