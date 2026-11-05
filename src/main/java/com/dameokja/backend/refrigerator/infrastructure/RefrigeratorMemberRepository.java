@@ -2,6 +2,7 @@ package com.dameokja.backend.refrigerator.infrastructure;
 
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
@@ -13,6 +14,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RefrigeratorMemberRepository extends JpaRepository<RefrigeratorMember, Long> {
+    @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
+            + "and (m.joinedChange.sequence > :after or m.endedChange.sequence > :after) "
+            + "order by case when m.joinedChange.sequence > :after then m.joinedChange.sequence else m.endedChange.sequence end")
+    List<RefrigeratorMember> findMembershipChangesAfter(@Param("id") Long refrigeratorId, @Param("after") long sequence,
+            Pageable pageable);
+
+    @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
+            + "and (m.joinedChange.sequence = :sequence or m.endedChange.sequence = :sequence)")
+    List<RefrigeratorMember> findMembershipChange(@Param("id") Long refrigeratorId, @Param("sequence") long sequence);
+
     @Query("""
             select distinct m.refrigerator.id from RefrigeratorMember m
             where m.endedAt is null

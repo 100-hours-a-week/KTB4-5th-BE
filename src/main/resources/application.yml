@@ -221,6 +221,10 @@ cooking:
   kafka:
     applied-topic: ${KAFKA_ENV:local}.dameokja.cooking.applied.v1
 
+membership:
+  kafka:
+    enabled: ${MEMBERSHIP_KAFKA_ENABLED:false}
+
 management:
   health:
     redis:
