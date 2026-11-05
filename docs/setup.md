@@ -50,6 +50,12 @@ HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 D
 `KAFKA_LISTENER_ENABLED` 기본값은 false이며, `ANALYSIS_KAFKA_COMPLETION_GROUP_ID`와 `ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY`(기본 5s)로 설정한다.
 활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 이번 단계도 추가 DDL은 없으며 HTTP 신규 접수 전환은 후속 PR이다.
 
+## 분석 DB 작업 접근
+
+내부 DB 접근 서비스는 소유자·냉장고·결과 보관 기한으로 조회를 제한하고, 갱신·삭제는 작업 잠금과 같은 트랜잭션에서 처리한다.
+삭제 시 해당 작업의 요청 연결과 outbox도 함께 정리하며 추가 DDL은 없다. 기존 HTTP 조회·접수 경로는 아직 변경하지 않는다.
+진행 중인 작업의 시간 초과 판정과 HTTP 경로 연결은 후속 PR에서 적용한다.
+
 ## 빌드·실행
 
 ```bash
