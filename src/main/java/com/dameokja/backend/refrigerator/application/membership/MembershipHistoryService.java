@@ -5,6 +5,7 @@ import com.dameokja.backend.refrigerator.domain.MembershipTransmission;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.MembershipTransmissionRepository;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;
+import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -17,8 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MembershipHistoryService {
+    private static final int REFRIGERATORS_PER_POLL = 10;
     private final RefrigeratorMemberRepository memberships;
+    private final RefrigeratorRepository refrigerators;
     private final MembershipTransmissionRepository transmissions;
+
+    public List<Long> pendingRefrigerators(long afterId) {
+        return refrigerators.findPendingMembershipTransmissions(afterId, PageRequest.of(0, REFRIGERATORS_PER_POLL));
+    }
 
     /**
      * 참여 업무 기록에서 전송이 확인되지 않은 연속 사건을 복원한다.
@@ -45,6 +52,18 @@ public class MembershipHistoryService {
         return memberships.findMembershipChange(refrigeratorId, sequence).stream().flatMap(this::events)
                 .filter(event -> event.sequence() == sequence).findFirst()
                 .orElseThrow(() -> new IllegalStateException("구성원 사건의 업무 원본이 없습니다."));
+    }
+
+    /**
+     * Kafka 트랜잭션 커밋 확인 후 전송 위치만 별도 트랜잭션에서 전진시킨다.
+     * @param refrigeratorId 전송한 냉장고
+     * @param sequence Kafka 커밋이 확인된 마지막 순번
+     */
+    @Transactional
+    public void confirmTransmitted(Long refrigeratorId, long sequence) {
+        MembershipTransmission transmission = transmissions.findByRefrigeratorIdForUpdate(refrigeratorId)
+                .orElseGet(() -> transmissions.save(new MembershipTransmission(refrigerators.getReferenceById(refrigeratorId))));
+        transmission.confirmThrough(sequence);
     }
 
     private Stream<MembershipChangeEvent> events(RefrigeratorMember member) {
