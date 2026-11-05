@@ -15,11 +15,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 class AnalysisFeedbackSchedulingTest {
-    private final AnalysisFeedbackOutboxWorker worker = mock(AnalysisFeedbackOutboxWorker.class);
-    private final AnalysisFeedbackSender http = mock(AnalysisFeedbackSender.class);
+    private final AnalysisFeedbackOutboxWorker analysisFeedbackOutboxWorker = mock(AnalysisFeedbackOutboxWorker.class);
+    private final AnalysisFeedbackSender analysisFeedbackSender = mock(AnalysisFeedbackSender.class);
     private final ApplicationContextRunner context = new ApplicationContextRunner()
             .withUserConfiguration(Scheduling.class, AnalysisKafkaConfig.class, AnalysisFeedbackOutboxScheduler.class, AnalysisFeedbackScheduler.class)
-            .withBean(AnalysisFeedbackOutboxWorker.class, () -> worker).withBean(AnalysisFeedbackSender.class, () -> http)
+            .withBean(AnalysisFeedbackOutboxWorker.class, () -> analysisFeedbackOutboxWorker).withBean(AnalysisFeedbackSender.class, () -> analysisFeedbackSender)
             .withBean("taskScheduler", ThreadPoolTaskScheduler.class, ThreadPoolTaskScheduler::new)
             .withPropertyValues("analysis.kafka.request-topic=requested", "analysis.kafka.completion-topic=completed", "analysis.kafka.completion-dlt-topic=completed.dlt",
                     "analysis.kafka.completion-retry-delay=5s", "analysis.kafka.completion-group-id=test", "analysis.kafka.feedback-topic=feedback",
@@ -33,11 +33,11 @@ class AnalysisFeedbackSchedulingTest {
             kafkaThread.set(Thread.currentThread().getName());
             started.countDown();
             return null;
-        }).when(worker).sendDue();
+        }).when(analysisFeedbackOutboxWorker).sendDue();
         doAnswer(invocation -> {
             started.countDown();
             return null;
-        }).when(http).sendDue();
+        }).when(analysisFeedbackSender).sendDue();
         context.withPropertyValues("analysis.feedback.enabled=true").run(application -> {
             assertThat(application).hasNotFailed();
             assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();

@@ -27,21 +27,21 @@ class AnalysisFeedbackTransportIsolationTest extends MySqlJpaTest {
     private static final LocalDateTime NOW = BusinessTime.now(Clock.fixed(Instant.parse("2026-10-19T01:00:00Z"), BusinessTime.ZONE));
     private static final String HTTP_BODY = "{\"refrigeratorId\":17,\"consentForModelImprovement\":true,\"items\":[]}";
     private static final String KAFKA_BODY = "{\"messageId\":\"feedback-message\",\"payload\":{\"eventType\":\"AnalysisFeedbackSubmitted\"}}";
-    @Autowired AnalysisFeedbackQueue queue;
-    @Autowired AnalysisFeedbackRepository repository;
+    @Autowired AnalysisFeedbackQueue analysisFeedbackQueue;
+    @Autowired AnalysisFeedbackRepository analysisFeedbackRepository;
     @Autowired JdbcTemplate jdbcTemplate;
     private final List<Long> feedbackIds = new ArrayList<>();
 
     @AfterEach
-    void cleanUp() { repository.deleteAllById(feedbackIds); }
+    void cleanUp() { analysisFeedbackRepository.deleteAllById(feedbackIds); }
 
     @Test
     void leasesOnlyHttpFeedbackWhenBothTransportsArePending() {
         Long httpId = saveHttp();
         Long kafkaId = saveKafka();
-        assertThat(queue.leaseDue()).extracting(LeasedFeedback::id).containsExactly(httpId);
+        assertThat(analysisFeedbackQueue.leaseDue()).extracting(LeasedFeedback::id).containsExactly(httpId);
         assertThat(status(kafkaId)).isEqualTo("PENDING");
-        assertThat(queue.leaseDue()).isEmpty();
+        assertThat(analysisFeedbackQueue.leaseDue()).isEmpty();
     }
 
     @Test
@@ -50,13 +50,13 @@ class AnalysisFeedbackTransportIsolationTest extends MySqlJpaTest {
         Long kafkaId = saveKafka();
         abandon(httpId);
         abandon(kafkaId);
-        assertThat(queue.findLeased(new LeasedFeedback(kafkaId, "previous-owner"))).isEmpty();
-        List<LeasedFeedback> leased = queue.leaseDue();
+        assertThat(analysisFeedbackQueue.findLeased(new LeasedFeedback(kafkaId, "previous-owner"))).isEmpty();
+        List<LeasedFeedback> leased = analysisFeedbackQueue.leaseDue();
         assertThat(leased).extracting(LeasedFeedback::id).containsExactly(httpId);
-        queue.finish(leased.getFirst());
+        analysisFeedbackQueue.finish(leased.getFirst());
         assertThat(status(httpId)).isEqualTo("DONE");
         assertThat(status(kafkaId)).isEqualTo("SENDING");
-        assertThat(queue.leaseDue()).isEmpty();
+        assertThat(analysisFeedbackQueue.leaseDue()).isEmpty();
     }
 
     @ParameterizedTest
@@ -69,7 +69,7 @@ class AnalysisFeedbackTransportIsolationTest extends MySqlJpaTest {
             abandon(kafkaId);
         }
         feedbackIds.forEach(id -> jdbcTemplate.update("UPDATE analysis_feedbacks SET expires_at = ? WHERE analysis_feedback_id = ?", NOW, id));
-        queue.failExpired();
+        analysisFeedbackQueue.failExpired();
         assertThat(status(httpId)).isEqualTo("FAILED");
         assertThat(status(kafkaId)).isEqualTo(status);
         assertThat(jdbcTemplate.queryForObject("SELECT last_error_code FROM analysis_feedbacks WHERE analysis_feedback_id = ?", String.class, kafkaId)).isNull();
@@ -84,7 +84,7 @@ class AnalysisFeedbackTransportIsolationTest extends MySqlJpaTest {
     }
 
     private Long save(AnalysisFeedback feedback) {
-        Long id = repository.saveAndFlush(feedback).getId();
+        Long id = analysisFeedbackRepository.saveAndFlush(feedback).getId();
         feedbackIds.add(id);
         return id;
     }
