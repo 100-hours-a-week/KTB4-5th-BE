@@ -67,7 +67,9 @@ HTTP 경로 연결은 후속 PR에서 적용한다.
 DB 알림 저장소는 기존 `analysis_job_states`의 예약 시각·선점 토큰·시도 횟수를 사용하며 추가 DDL은 없다.
 `ANALYSIS_NOTIFICATION_LEASE_DURATION`(기본 30s), `ANALYSIS_NOTIFICATION_SSE_MAX_ATTEMPTS`(기본 3)와
 기존 `ANALYSIS_NOTIFICATION_RETRY_DELAY`(기본 5s)로 선점·재시도를 제어한다.
-이번 단계는 저장소 준비이며 DB 알림 전송 워커·스케줄러 연결은 후속 PR이다. 기존 HTTP/Redis 알림 경로는 유지한다.
+DB 알림 워커는 선점 커밋 후 이미지·완료 SSE를 발행하고 성공한 발행을 기록한다. 발행 완료는 브라우저 수신 확인이 아니다.
+연결 부재·조회 장애·발행 실패는 최대 시도 횟수까지 재시도한 뒤 푸시로 전환한다. 푸시 생성과 알림 확인은 같은 트랜잭션이다.
+워커는 직접 호출할 수 있으며 주기 실행 연결은 후속 PR이다. 기존 HTTP/Redis 알림 경로는 유지한다.
 
 ## 분석 피드백 HTTP/Kafka 저장 구분
 
