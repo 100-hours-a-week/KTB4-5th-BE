@@ -75,7 +75,12 @@ Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회�
 내부 outbox 서비스는 재고 등록 트랜잭션에서 이벤트 전체를 고정해 저장하고 Kafka 행만 선점·회수한다.
 완료·재시도·실패 갱신은 Kafka 행의 유효한 선점 토큰과 기한으로 제한한다. 보관 기한이 지나도 유효한 선점은 유지한다.
 `ANALYSIS_FEEDBACK_BATCH_SIZE`, `ANALYSIS_FEEDBACK_LEASE_DURATION`, `ANALYSIS_FEEDBACK_RETRY_DELAY`, `ANALYSIS_FEEDBACK_EXPIRES_AFTER` 설정을 사용한다.
-추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다. 등록 경로 연결과 Kafka 발행·스케줄러 활성화는 후속 PR이다.
+추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다. 등록 경로 연결은 후속 PR이다.
+Kafka 피드백 워커는 기존 `analysis.kafka.feedback-topic`에 사용자 ID를 key로 JSON 이벤트를 발행하고 브로커 ACK 후 DONE을 기록한다.
+발행 실패는 같은 이벤트로 재시도하고 읽을 수 없는 저장 본문은 INVALID_EVENT로 종료한다. DONE은 AI 저장 완료가 아닌 Kafka 발행 확인이다.
+HTTP·Kafka 피드백 스케줄러는 `ANALYSIS_FEEDBACK_ENABLED`(기본 true), `ANALYSIS_FEEDBACK_POLL_INTERVAL`(기본 10s)을 함께 사용한다.
+Kafka 피드백은 요청 outbox와 별도 스케줄러에서 실행한다. 활성화 전에 `${KAFKA_ENV}.dameokja.analysis.feedback.v1` 토픽을 준비한다.
+`KAFKA_LISTENER_ENABLED`는 이 발행 경로를 제어하지 않는다. 이번 단계에도 신규 피드백을 Kafka로 접수하는 등록 경로는 아직 연결하지 않는다.
 
 ## 빌드·실행
 

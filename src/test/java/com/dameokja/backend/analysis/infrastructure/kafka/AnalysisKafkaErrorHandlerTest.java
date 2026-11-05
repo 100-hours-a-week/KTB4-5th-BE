@@ -31,7 +31,7 @@ class AnalysisKafkaErrorHandlerTest {
     private final KafkaTemplate<Object, Object> bytes = mock(KafkaTemplate.class);
     // 재시도 분류를 검증하므로 테스트에서는 backoff 대기만 생략한다.
     private final DefaultErrorHandler handler = new AnalysisKafkaConsumerConfig().analysisCompletionErrorHandler(json, bytes,
-            new AnalysisKafkaProperties("requested", "completed", "completed.dlt", Duration.ZERO, "analysis-test"));
+            new AnalysisKafkaProperties("requested", "completed", "completed.dlt", Duration.ZERO, "analysis-test", "feedback"));
     private final ConsumerRecord<String, Object> record = new ConsumerRecord<>("completed", 0, 0L, "42", Map.of("messageId", "test-event"));
 
     @Test

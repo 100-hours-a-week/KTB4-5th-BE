@@ -12,6 +12,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisOutbox;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaConfig;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaPublisher;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaProperties;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.analysis.support.AnalysisRefrigeratorFixture;
@@ -95,7 +96,7 @@ class AnalysisOutboxWorkerTest extends MySqlJpaTest {
         CompletableFuture<org.springframework.kafka.support.SendResult<String, JsonNode>> ack = new CompletableFuture<>();
         JsonNode body = mapper.readTree(message.getMessageBody());
         when(template.send(message.getTopic(), message.getMessageKey(), body)).thenReturn(ack);
-        CompletableFuture<Void> delivery = new AnalysisKafkaPublisher(template, mapper).publish(message);
+        CompletableFuture<Void> delivery = new AnalysisKafkaPublisher(template, mapper, mock(AnalysisKafkaProperties.class)).publish(message);
         assertThat(delivery).isNotDone();
         ack.complete(null);
         assertThat(delivery).isCompletedWithValue(null);
