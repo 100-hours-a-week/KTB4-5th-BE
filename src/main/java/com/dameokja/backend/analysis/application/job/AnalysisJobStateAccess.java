@@ -30,6 +30,9 @@ public class AnalysisJobStateAccess {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
+    // 만료된 DB 작업도 Redis 경로로 되돌리지 않도록 저장 여부만 확인한다.
+    public boolean exists(String analysisJobId) { return analysisJobStateRepository.existsById(analysisJobId); }
+
     public Optional<AnalysisJob> find(String analysisJobId) {
         return analysisJobStateRepository.findById(analysisJobId).filter(this::isActive).map(this::read);
     }
