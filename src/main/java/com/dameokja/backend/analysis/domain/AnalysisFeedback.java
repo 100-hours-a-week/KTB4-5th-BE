@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,6 +34,10 @@ public class AnalysisFeedback extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "feedback_body", nullable = false, updatable = false)
     private String feedbackBody;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "message_body", updatable = false)
+    private String messageBody;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -67,6 +72,12 @@ public class AnalysisFeedback extends BaseEntity {
         analysisFeedback.attemptCount = 0;
         analysisFeedback.nextAttemptAt = now;
         analysisFeedback.expiresAt = expiresAt;
+        return analysisFeedback;
+    }
+
+    public static AnalysisFeedback pendingKafka(String aiAnalysisId, String feedbackBody, String messageBody, LocalDateTime now, LocalDateTime expiresAt) {
+        AnalysisFeedback analysisFeedback = pending(aiAnalysisId, feedbackBody, now, expiresAt);
+        analysisFeedback.messageBody = Objects.requireNonNull(messageBody);
         return analysisFeedback;
     }
 }

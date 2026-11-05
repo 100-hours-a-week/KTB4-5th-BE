@@ -62,6 +62,14 @@ HTTP 경로 연결은 후속 PR에서 적용한다.
 완료 이미지는 보존하고, 잠금 후 최신 상태를 다시 확인한 뒤 실패 결과·`ANALYSIS_RESULT_TTL`(기본 7d) 보관 기한·알림 예약을 같은 트랜잭션으로 저장한다.
 이번 단계는 내부 서비스 준비이며 HTTP 조회·삭제 경로 연결과 주기 실행은 아직 추가하지 않는다. 추가 DDL은 없다.
 
+## 분석 피드백 HTTP/Kafka 저장 구분
+
+기존 `analysis_feedbacks`에 `message_body JSON NULL`을 추가한다. **앱 배포 전에**
+`src/main/resources/db/migrations/20261104-analysis-feedback-message-body.sql`을 한 번 수동 적용한다.
+통합 SQL의 `05-analysis-feedback-kafka.sql`로 이미 추가한 DB에는 중복 적용하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
+기존 본문·상태·선점 정보는 유지되며, `message_body`가 NULL인 기존 행은 HTTP 워커가 계속 처리한다.
+Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다. Kafka 발행과 등록 경로 연결은 후속 PR이다.
+
 ## 빌드·실행
 
 ```bash

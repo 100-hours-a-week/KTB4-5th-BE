@@ -50,7 +50,7 @@ public class AnalysisFeedbackQueue {
 
     @Transactional(readOnly = true)
     public Optional<AnalysisFeedback> findLeased(LeasedFeedback leasedFeedback) {
-        return analysisFeedbackRepository.findByIdAndLeaseToken(leasedFeedback.id(), leasedFeedback.token());
+        return analysisFeedbackRepository.findByIdAndLeaseTokenAndMessageBodyIsNull(leasedFeedback.id(), leasedFeedback.token());
     }
 
     public void finish(LeasedFeedback leasedFeedback) {

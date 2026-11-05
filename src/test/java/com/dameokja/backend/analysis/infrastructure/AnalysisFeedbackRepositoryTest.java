@@ -37,6 +37,7 @@ class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
         AnalysisFeedback found = repository.findById(saved.getId()).orElseThrow();
         JsonMapper mapper = JsonMapper.builder().build();
         assertThat(mapper.readTree(found.getFeedbackBody())).isEqualTo(mapper.readTree(BODY));
+        assertThat(found.getMessageBody()).isNull();
         assertThat(found.getAiAnalysisId()).isEqualTo("ai-1");
         assertThat(found.getStatus()).isEqualTo(AnalysisFeedbackStatus.PENDING);
         assertThat(found.getAttemptCount()).isZero();
@@ -48,6 +49,18 @@ class AnalysisFeedbackRepositoryTest extends MySqlJpaTest {
         assertThat(found.getFinishedAt()).isNull();
         assertThat(found.getCreatedAt()).isNotNull();
         assertThat(found.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void reloadsTheKafkaEnvelopeWithoutReplacingTheExistingFeedbackPayload() {
+        String message = "{\"messageId\":\"feedback-message\",\"payload\":{\"eventType\":\"AnalysisFeedbackSubmitted\"}}";
+        AnalysisFeedback saved = repository.saveAndFlush(AnalysisFeedback.pendingKafka("ai-kafka", BODY, message, NOW, NOW.plusDays(3)));
+        flushAndClear();
+        AnalysisFeedback found = repository.findById(saved.getId()).orElseThrow();
+        JsonMapper mapper = JsonMapper.builder().build();
+        assertThat(mapper.readTree(found.getMessageBody())).isEqualTo(mapper.readTree(message));
+        assertThat(mapper.readTree(found.getFeedbackBody())).isEqualTo(mapper.readTree(BODY));
+        assertThat(found.getStatus()).isEqualTo(AnalysisFeedbackStatus.PENDING);
     }
 
     @Test

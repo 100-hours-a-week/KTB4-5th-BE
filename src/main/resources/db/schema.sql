@@ -345,6 +345,7 @@ CREATE TABLE analysis_feedbacks (
     analysis_feedback_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '재고 등록 뒤 AI 분석 하나에 보낼 피드백 묶음',
     ai_analysis_id VARCHAR(64) NOT NULL COMMENT '피드백을 받을 AI 분석 ID',
     feedback_body JSON NOT NULL COMMENT '사용자가 확정한 값. 분석 결과는 등록 직후 지우므로 AI 요청 본문을 그대로 보관',
+    message_body JSON NULL COMMENT 'Kafka 이벤트 전체. 기존 HTTP 피드백은 NULL',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     attempt_count INT NOT NULL DEFAULT 0 COMMENT 'AI에 보냈지만 받지 못한 횟수. AI 준비 전 보류는 제외',
     next_attempt_at DATETIME(6) NOT NULL,
