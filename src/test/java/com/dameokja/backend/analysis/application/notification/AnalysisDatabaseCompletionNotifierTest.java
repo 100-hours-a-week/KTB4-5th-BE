@@ -44,169 +44,170 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AnalysisDatabaseCompletionNotifierTest extends ServiceIntegrationTest {
-    @Autowired AnalysisNotificationState state;
-    @Autowired AnalysisDatabasePendingNotificationStore store;
-    @Autowired AnalysisJobAcceptance acceptance;
-    @Autowired AnalysisCompletionPersistence completions;
-    @Autowired NotificationPreferenceService preferences;
-    private final AnalysisFinishedEventService events = mock(AnalysisFinishedEventService.class);
-    private final NotificationStreamService streams = mock(NotificationStreamService.class);
-    private final List<AnalysisJob> createdJobs = new ArrayList<>();
-    private Fixture owner;
+    @Autowired AnalysisNotificationState analysisNotificationState;
+    @Autowired AnalysisDatabasePendingNotificationStore analysisDatabasePendingNotificationStore;
+    @Autowired AnalysisJobAcceptance analysisJobAcceptance;
+    @Autowired AnalysisCompletionPersistence analysisCompletionPersistence;
+    @Autowired NotificationPreferenceService notificationPreferenceService;
+    private final AnalysisFinishedEventService analysisFinishedEventService = mock(AnalysisFinishedEventService.class);
+    private final NotificationStreamService notificationStreamService = mock(NotificationStreamService.class);
+    private final List<AnalysisJob> createdAnalysisJobs = new ArrayList<>();
+    private Fixture requestingUserFixture;
 
     @Override
     @BeforeEach
     @AfterEach
     protected void cleanDatabaseAndResetTime() {
-        for (AnalysisJob job : createdJobs) {
-            jdbcTemplate.update("DELETE FROM analysis_outbox WHERE analysis_job_id = ?", job.id());
-            jdbcTemplate.update("DELETE FROM analysis_job_requests WHERE analysis_job_id = ?", job.id());
-            jdbcTemplate.update("DELETE FROM analysis_job_states WHERE analysis_job_id = ?", job.id());
+        for (AnalysisJob analysisJob : createdAnalysisJobs) {
+            jdbcTemplate.update("DELETE FROM analysis_outbox WHERE analysis_job_id = ?", analysisJob.id());
+            jdbcTemplate.update("DELETE FROM analysis_job_requests WHERE analysis_job_id = ?", analysisJob.id());
+            jdbcTemplate.update("DELETE FROM analysis_job_states WHERE analysis_job_id = ?", analysisJob.id());
         }
-        if (owner != null) {
-            jdbcTemplate.update("DELETE FROM push_notifications WHERE user_id = ?", owner.userId());
-            jdbcTemplate.update("DELETE FROM user_devices WHERE user_id = ?", owner.userId());
+        if (requestingUserFixture != null) {
+            jdbcTemplate.update("DELETE FROM push_notifications WHERE user_id = ?", requestingUserFixture.userId());
+            jdbcTemplate.update("DELETE FROM user_devices WHERE user_id = ?", requestingUserFixture.userId());
         }
-        createdJobs.clear();
-        owner = null;
-        reset(events, streams);
+        createdAnalysisJobs.clear();
+        requestingUserFixture = null;
+        reset(analysisFinishedEventService, notificationStreamService);
         super.cleanDatabaseAndResetTime();
     }
 
     @Test
     void publishesPartialThenFinalEventsOutsideTransactionsAndAcknowledgesAfterPublishing() {
-        AnalysisJob job = accept(2);
-        when(streams.isConnected(owner.userId())).thenReturn(true);
+        AnalysisJob analysisJob = acceptAnalysisJob(2);
+        when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenReturn(true);
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
             return null;
-        }).when(events).publishImageFinished(any(), any(), any(), any(), anyInt(), anyInt(), anyInt());
+        }).when(analysisFinishedEventService).publishImageFinished(any(), any(), any(), any(), anyInt(), anyInt(), anyInt());
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            assertThat(state.find(job.id()).orElseThrow().notificationPending()).isTrue();
+            assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isTrue();
             return null;
-        }).when(events).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
-        complete(job, 0);
-        notifier().deliverPending();
-        verify(events).publishImageFinished(owner.userId(), job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
-        verifyNoInteractions(streams);
-        complete(job, 1);
-        notifier().deliverPending();
-        AnalysisJob result = state.find(job.id()).orElseThrow();
-        InOrder order = inOrder(events);
-        order.verify(events).publishImageFinished(owner.userId(), job.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
-        order.verify(events).publishImageFinished(owner.userId(), job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
-        order.verify(events).publish(owner.userId(), job.id(), AnalysisStatus.FAILED, 2, 0, 2, result.expiresAt());
-        assertThat(result.notificationPending()).isFalse();
-        assertThat(result.notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
+        }).when(analysisFinishedEventService).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
+        completeAnalysisImage(analysisJob, 0);
+        createNotifier().deliverPending();
+        verify(analysisFinishedEventService).publishImageFinished(requestingUserFixture.userId(), analysisJob.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
+        verifyNoInteractions(notificationStreamService);
+        completeAnalysisImage(analysisJob, 1);
+        createNotifier().deliverPending();
+        AnalysisJob updatedAnalysisJob = analysisNotificationState.find(analysisJob.id()).orElseThrow();
+        InOrder order = inOrder(analysisFinishedEventService);
+        order.verify(analysisFinishedEventService).publishImageFinished(requestingUserFixture.userId(), analysisJob.id(), "image-0", AnalysisStatus.FAILED, 2, 0, 1);
+        order.verify(analysisFinishedEventService).publishImageFinished(requestingUserFixture.userId(), analysisJob.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
+        order.verify(analysisFinishedEventService).publish(requestingUserFixture.userId(), analysisJob.id(), AnalysisStatus.FAILED, 2, 0, 2, updatedAnalysisJob.expiresAt());
+        assertThat(updatedAnalysisJob.notificationPending()).isFalse();
+        assertThat(updatedAnalysisJob.notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"offline", "presence", "publish"})
-    void fallsBackToPushOnlyAfterThreeFailedSseAttempts(String failure) {
-        AnalysisJob job = accept(1);
+    void fallsBackToPushOnlyAfterThreeFailedSseAttempts(String sseFailureType) {
+        AnalysisJob analysisJob = acceptAnalysisJob(1);
         enablePush();
-        if (failure.equals("presence")) {
-            when(streams.isConnected(owner.userId())).thenThrow(new DataAccessResourceFailureException("redis"));
-        } else if (failure.equals("publish")) {
-            when(streams.isConnected(owner.userId())).thenReturn(true);
-            doThrow(new DataAccessResourceFailureException("publish")).when(events).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
+        if (sseFailureType.equals("presence")) {
+            when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenThrow(new DataAccessResourceFailureException("redis"));
+        } else if (sseFailureType.equals("publish")) {
+            when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenReturn(true);
+            doThrow(new DataAccessResourceFailureException("publish")).when(analysisFinishedEventService).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
         }
-        complete(job, 0);
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            notifier().deliverPending();
-            assertThat(pushCount()).isEqualTo(attempt == 3 ? 1 : 0);
-            assertThat(state.find(job.id()).orElseThrow().notificationPending()).isEqualTo(attempt < 3);
-            advance();
+        completeAnalysisImage(analysisJob, 0);
+        for (int sseAttemptNumber = 1; sseAttemptNumber <= 3; sseAttemptNumber++) {
+            createNotifier().deliverPending();
+            assertThat(pushCount()).isEqualTo(sseAttemptNumber == 3 ? 1 : 0);
+            assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isEqualTo(sseAttemptNumber < 3);
+            advanceRetryDelay();
         }
-        assertThat(state.find(job.id()).orElseThrow().notificationChannel()).isEqualTo(AnalysisNotificationChannel.PUSH);
+        assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationChannel()).isEqualTo(AnalysisNotificationChannel.PUSH);
     }
 
     @Test
     void retriesFailedImagePublicationWithoutLosingLaterCompletion() {
-        AnalysisJob job = accept(2);
-        doThrow(new DataAccessResourceFailureException("publish")).doNothing().when(events)
+        AnalysisJob analysisJob = acceptAnalysisJob(2);
+        doThrow(new DataAccessResourceFailureException("publish")).doNothing().when(analysisFinishedEventService)
                 .publishImageFinished(any(), any(), eq("image-0"), any(), anyInt(), anyInt(), anyInt());
-        complete(job, 0);
-        notifier().deliverPending();
-        assertThat(state.find(job.id()).orElseThrow().imageEventPublished(job.analysisImages().getFirst().requestId())).isFalse();
-        complete(job, 1);
-        advance();
-        when(streams.isConnected(owner.userId())).thenReturn(true);
-        notifier().deliverPending();
-        AnalysisJob result = state.find(job.id()).orElseThrow();
-        assertThat(result.publishedImageEvents()).containsExactlyInAnyOrderElementsOf(job.analysisImages().stream().map(AnalysisImage::requestId).toList());
-        verify(events, times(2)).publishImageFinished(eq(owner.userId()), eq(job.id()), eq("image-0"), any(), anyInt(), anyInt(), anyInt());
-        verify(events).publishImageFinished(owner.userId(), job.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
-        assertThat(result.notificationPending()).isFalse();
+        completeAnalysisImage(analysisJob, 0);
+        createNotifier().deliverPending();
+        assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().imageEventPublished(analysisJob.analysisImages().getFirst().requestId())).isFalse();
+        completeAnalysisImage(analysisJob, 1);
+        advanceRetryDelay();
+        when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenReturn(true);
+        createNotifier().deliverPending();
+        AnalysisJob updatedAnalysisJob = analysisNotificationState.find(analysisJob.id()).orElseThrow();
+        assertThat(updatedAnalysisJob.publishedImageEvents()).containsExactlyInAnyOrderElementsOf(analysisJob.analysisImages().stream().map(AnalysisImage::requestId).toList());
+        verify(analysisFinishedEventService, times(2)).publishImageFinished(eq(requestingUserFixture.userId()), eq(analysisJob.id()), eq("image-0"), any(), anyInt(), anyInt(), anyInt());
+        verify(analysisFinishedEventService).publishImageFinished(requestingUserFixture.userId(), analysisJob.id(), "image-1", AnalysisStatus.FAILED, 2, 0, 2);
+        assertThat(updatedAnalysisJob.notificationPending()).isFalse();
     }
 
     @Test
     void stopsBeforeLeasingWhenInterrupted() {
-        AnalysisJob job = accept(1);
-        complete(job, 0);
+        AnalysisJob analysisJob = acceptAnalysisJob(1);
+        completeAnalysisImage(analysisJob, 0);
         Thread.currentThread().interrupt();
         try {
-            notifier().deliverPending();
-            assertThat(state.find(job.id()).orElseThrow().notificationPending()).isTrue();
-            verifyNoInteractions(events, streams);
+            createNotifier().deliverPending();
+            assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isTrue();
+            verifyNoInteractions(analysisFinishedEventService, notificationStreamService);
         } finally {
             Thread.interrupted();
         }
-        when(streams.isConnected(owner.userId())).thenReturn(true);
-        notifier().deliverPending();
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isFalse();
+        when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenReturn(true);
+        createNotifier().deliverPending();
+        assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isFalse();
     }
 
     @Test
     void expiredLeaseCannotAcknowledgeAfterFinalPublication() {
-        AnalysisJob job = accept(1);
-        complete(job, 0);
-        when(streams.isConnected(owner.userId())).thenReturn(true);
+        AnalysisJob analysisJob = acceptAnalysisJob(1);
+        completeAnalysisImage(analysisJob, 0);
+        when(notificationStreamService.isConnected(requestingUserFixture.userId())).thenReturn(true);
         doAnswer(invocation -> {
             clock.set(clock.instant().plusSeconds(30).toString());
             Thread.currentThread().interrupt();
             return null;
-        }).doNothing().when(events).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
+        }).doNothing().when(analysisFinishedEventService).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
         try {
-            notifier().deliverPending();
+            createNotifier().deliverPending();
         } finally {
             Thread.interrupted();
         }
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isTrue();
+        assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isTrue();
         assertThat(pushCount()).isZero();
-        notifier().deliverPending();
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isFalse();
+        createNotifier().deliverPending();
+        assertThat(analysisNotificationState.find(analysisJob.id()).orElseThrow().notificationPending()).isFalse();
         assertThat(pushCount()).isZero();
     }
 
-    private AnalysisDatabaseCompletionNotifier notifier() {
-        return new AnalysisDatabaseCompletionNotifier(state, store, events, streams, 3);
+    private AnalysisDatabaseCompletionNotifier createNotifier() {
+        return new AnalysisDatabaseCompletionNotifier(analysisNotificationState, analysisDatabasePendingNotificationStore, analysisFinishedEventService, notificationStreamService, 3);
     }
 
-    private AnalysisJob accept(int count) {
-        owner = ownerFixture("DB전달");
-        AnalysisJob job = acceptance.accept(owner.userId(), "AUTO", IntStream.range(0, count)
-                .mapToObj(index -> AnalysisImage.pending("image-" + index, "ab".repeat(32))).toList());
-        createdJobs.add(job);
-        return job;
+    private AnalysisJob acceptAnalysisJob(int imageCount) {
+        requestingUserFixture = ownerFixture("DB전달");
+        AnalysisJob analysisJob = analysisJobAcceptance.accept(requestingUserFixture.userId(), "AUTO", IntStream.range(0, imageCount)
+                .mapToObj(imageIndex -> AnalysisImage.pending("image-" + imageIndex, "ab".repeat(32))).toList());
+        createdAnalysisJobs.add(analysisJob);
+        return analysisJob;
     }
 
-    private void complete(AnalysisJob job, int index) {
-        String requestId = job.analysisImages().get(index).requestId();
-        completions.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), requestId, owner.userId(), owner.refrigeratorId(),
-                "ai-" + job.id() + "-" + index, AnalysisStatus.FAILED, clock.instant(), null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null))));
+    private void completeAnalysisImage(AnalysisJob analysisJob, int imageIndex) {
+        String analysisRequestId = analysisJob.analysisImages().get(imageIndex).requestId();
+        analysisCompletionPersistence.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), analysisRequestId,
+                requestingUserFixture.userId(), requestingUserFixture.refrigeratorId(),
+                "ai-" + analysisJob.id() + "-" + imageIndex, AnalysisStatus.FAILED, clock.instant(), null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null))));
     }
 
     private void enablePush() {
-        preferences.create(userRepository.findById(owner.userId()).orElseThrow(), true);
+        notificationPreferenceService.create(userRepository.findById(requestingUserFixture.userId()).orElseThrow(), true);
         jdbcTemplate.update("INSERT INTO user_devices(endpoint,p256dh_key,auth_secret_encrypted,encryption_key_version,vapid_key_version,created_at,updated_at,user_id) "
-                + "VALUES (?,?,?,'v1','v1',NOW(6),NOW(6),?)", "https://push.example.com/" + owner.userId(), "key", "secret", owner.userId());
+                + "VALUES (?,?,?,'v1','v1',NOW(6),NOW(6),?)", "https://push.example.com/" + requestingUserFixture.userId(), "key", "secret", requestingUserFixture.userId());
     }
 
     private int pushCount() {
-        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM push_notifications WHERE user_id = ?", Integer.class, owner.userId());
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM push_notifications WHERE user_id = ?", Integer.class, requestingUserFixture.userId());
     }
 
-    private void advance() { clock.set(clock.instant().plusSeconds(5).toString()); }
+    private void advanceRetryDelay() { clock.set(clock.instant().plusSeconds(5).toString()); }
 }
