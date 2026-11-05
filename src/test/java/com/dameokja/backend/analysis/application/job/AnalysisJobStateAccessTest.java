@@ -145,7 +145,7 @@ class AnalysisJobStateAccessTest extends MySqlJpaTest {
     }
 
     @Test
-    void persistsTheNewTerminalStatusAndItsRetentionAlongsideTheSnapshot() {
+    void storesTerminalChangesWithoutSchedulingNotifications() {
         AnalysisCompletion failedCompletion = new AnalysisCompletion(AnalysisStatus.FAILED, ACCEPTED_AT.atZone(BusinessTime.ZONE).toOffsetDateTime(),
                 null, AnalysisFailureCode.ANALYSIS_EXPIRED.toFailure());
         AnalysisJob failedAnalysisJob = analysisJobStateAccess.update(analysisJob.id(), currentAnalysisJob -> currentAnalysisJob.fail(
@@ -154,6 +154,22 @@ class AnalysisJobStateAccessTest extends MySqlJpaTest {
         assertThat(value("status", String.class)).isEqualTo("FAILED");
         assertThat(value("expires_at", LocalDateTime.class))
                 .isEqualTo(failedAnalysisJob.expiresAt().toLocalDateTime());
+        assertThat(failedAnalysisJob.notificationPending()).isTrue();
+        assertThat(value("notification_next_attempt_at", LocalDateTime.class)).isNull();
+    }
+
+    @Test
+    void registeringAnotherImageDoesNotRescheduleACompletedImagesNotification() {
+        analysisJob = analysisJobAcceptance.accept(requestingUser.getId(), "AUTO",
+                List.of(AnalysisImage.pending("first", "ab".repeat(32)), AnalysisImage.pending("second", "cd".repeat(32))));
+        AnalysisJob partiallyCompletedJob = completeJob();
+        jdbcTemplate.update("UPDATE analysis_job_states SET notification_next_attempt_at = NULL WHERE analysis_job_id = ?", analysisJob.id());
+        String secondRequestId = analysisJob.analysisImages().get(1).requestId();
+        AnalysisJob registeredJob = analysisJobStateAccess.update(analysisJob.id(), currentAnalysisJob -> currentAnalysisJob.register(secondRequestId, "ai-second"));
+        assertThat(registeredJob.analysisImages().getFirst()).isEqualTo(partiallyCompletedJob.analysisImages().getFirst());
+        assertThat(registeredJob.analysisImages().get(1).aiAnalysisId()).isEqualTo("ai-second");
+        assertThat(analysisJobStateAccess.find(analysisJob.id())).contains(registeredJob);
+        assertThat(value("notification_next_attempt_at", LocalDateTime.class)).isNull();
     }
 
     @Test

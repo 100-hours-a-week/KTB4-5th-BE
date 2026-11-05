@@ -65,7 +65,7 @@ public class AnalysisJobStateAccess {
         AnalysisJob currentAnalysisJob = read(analysisJobState);
         AnalysisJob updatedAnalysisJob = analysisJobChange.apply(currentAnalysisJob);
         if (!currentAnalysisJob.equals(updatedAnalysisJob)) {
-            persistChange(analysisJobState, currentAnalysisJob, updatedAnalysisJob);
+            persistChange(analysisJobState, updatedAnalysisJob);
         }
         return updatedAnalysisJob;
     }
@@ -84,15 +84,11 @@ public class AnalysisJobStateAccess {
         analysisJobStateRepository.delete(analysisJobState);
     }
 
-    private void persistChange(AnalysisJobState analysisJobState, AnalysisJob currentAnalysisJob, AnalysisJob updatedAnalysisJob) {
+    private void persistChange(AnalysisJobState analysisJobState, AnalysisJob updatedAnalysisJob) {
         AnalysisJobResult analysisJobResult = new AnalysisJobResult(updatedAnalysisJob,
                 updatedAnalysisJob.analysisImages().stream().map(AnalysisImageResult::fromStored).toList());
         analysisJobState.updateResult(objectMapper.writeValueAsString(updatedAnalysisJob), analysisJobResult.status(),
                 updatedAnalysisJob.expiresAt() == null ? null : updatedAnalysisJob.expiresAt().toLocalDateTime());
-        if (!currentAnalysisJob.analysisImages().equals(updatedAnalysisJob.analysisImages())
-                && updatedAnalysisJob.analysisImages().stream().anyMatch(analysisImage -> analysisImage.completion() != null)) {
-            analysisJobState.scheduleNotification(BusinessTime.now(clock));
-        }
     }
 
     private CustomException resolveAccessFailure(String analysisJobId, Long userId) {
