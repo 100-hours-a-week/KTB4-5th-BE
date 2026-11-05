@@ -30,7 +30,7 @@ class ImageUploadMetadataStoreTest {
         ImageUploadMetadataStore first = store();
         first.save(7L, ImageUploadPurpose.ANALYSIS, "shared-key", "ab".repeat(32));
         Long before = redisTemplate().getExpire("image:upload:shared-key", TimeUnit.MILLISECONDS);
-        ImageUploadMetadataStore second = new ImageUploadMetadataStore(clock, ttl, redisTemplate(), JsonMapper.builder().build());
+        ImageUploadMetadataStore second = new ImageUploadMetadataStore(clock, ttl, redisTemplate(), JsonMapper.builder().build(), mock(ImageUploadMetadataRepository.class), false);
         assertThat(second.find("shared-key")).contains(new ImageUploadMetadata(7L, ImageUploadPurpose.ANALYSIS, "ab".repeat(32), now.plus(ttl)));
         assertThat(before).isBetween(1L, ttl.toMillis());
         assertThat(redisTemplate().getExpire("image:upload:shared-key", TimeUnit.MILLISECONDS)).isBetween(1L, before);
@@ -68,6 +68,6 @@ class ImageUploadMetadataStoreTest {
 
     private ImageUploadMetadataStore store() {
         when(clock.instant()).thenReturn(now);
-        return new ImageUploadMetadataStore(clock, ttl, redisTemplate(), JsonMapper.builder().build());
+        return new ImageUploadMetadataStore(clock, ttl, redisTemplate(), JsonMapper.builder().build(), mock(ImageUploadMetadataRepository.class), false);
     }
 }

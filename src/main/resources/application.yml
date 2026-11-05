@@ -145,6 +145,12 @@ push:
     enabled: ${PUSH_TEST_API_ENABLED:false}
 
 image:
+  upload-metadata:
+    database-write-enabled: ${IMAGE_UPLOAD_METADATA_DATABASE_WRITE_ENABLED:false}
+    cleanup:
+      enabled: ${IMAGE_UPLOAD_METADATA_CLEANUP_ENABLED:true}
+      poll-interval: ${IMAGE_UPLOAD_METADATA_CLEANUP_POLL_INTERVAL:1m}
+      batch-size: ${IMAGE_UPLOAD_METADATA_CLEANUP_BATCH_SIZE:100}
   storage:
     bucket: ${S3_BUCKET}
     region: ${S3_REGION}

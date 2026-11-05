@@ -24,6 +24,7 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
+import com.dameokja.backend.image.infrastructure.ImageUploadMetadataRepository;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
@@ -51,7 +52,8 @@ class AnalysisJobSubmitServiceTest {
     private final Clock clock = mock(Clock.class);
     private final Instant instant = Instant.parse("2026-10-08T01:00:00Z");
     private final Duration duration = Duration.ofMinutes(1);
-    private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
+    private final ImageUploadMetadataStore imageUploadMetadataStore = new ImageUploadMetadataStore(clock, duration, redisTemplate(),
+            JsonMapper.builder().build(), mock(ImageUploadMetadataRepository.class), false);
     private final AnalysisJobStore analysisJobStore = spy(new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build()));
     private final AnalysisDispatchQueue analysisDispatchQueue = mock(AnalysisDispatchQueue.class);
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);

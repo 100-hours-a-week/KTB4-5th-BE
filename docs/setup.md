@@ -300,10 +300,14 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 
 ## 이미지 업로드 발급 내역
 
-업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 Redis의 `image:upload:<objectKey>` 키에 JSON으로 저장한다.
+업로드 URL 발급 시 객체 키에 사용자·용도·요청 SHA-256과 만료 시각을 연결해 저장한다. 기본 설정은 Redis의 `image:upload:<objectKey>` JSON으로 저장하며 DB 쓰기 전환 후에는 `image_upload_metadata`에 저장한다.
 `ANALYSIS_JOB_TTL`로 발급 내역의 유효기간을 외부 주입한다. ISO-8601 Duration 형식이며 양수여야 한다. 기본값은 두지 않는다.
 발급 내역은 발급 시각부터 만료된다. 발급 내역의 유효기간과 분석 결과의 보관기간은 분리한다.
-발급 내역은 Redis TTL과 저장된 만료 시각으로 검사하며 BE 인스턴스 간 공유한다. 조회는 TTL을 연장하지 않는다.
+발급 내역은 DB를 먼저 조회하고 행이 없으면 기존 Redis JSON을 조회한다. 만료된 DB 행은 Redis로 대체하지 않는다. 저장된 만료 시각을 항상 검사하며 조회는 TTL을 연장하지 않는다.
+기존 DB에는 `src/main/resources/db/migrations/20261105-image-upload-metadata.sql`을 먼저 수동 적용한다. 빈 DB에는 최신 `schema.sql`을 적용한다.
+모든 BE 인스턴스를 새 바이너리로 업그레이드한 뒤 `IMAGE_UPLOAD_METADATA_DATABASE_WRITE_ENABLED=true`로 설정하면 신규 발급은 DB에만 기록한다. 기본값은 false이며 false여도 DB 읽기는 유지한다.
+전환을 되돌릴 때는 쓰기 플래그만 false로 변경한다. 구 바이너리는 DB 발급 내역을 읽지 못하므로, DB에 발급한 내역의 TTL이 모두 지난 뒤에만 바이너리를 롤백한다.
+DB 만료 행은 `IMAGE_UPLOAD_METADATA_CLEANUP_ENABLED`(기본 true), `IMAGE_UPLOAD_METADATA_CLEANUP_POLL_INTERVAL`(기본 1m), `IMAGE_UPLOAD_METADATA_CLEANUP_BATCH_SIZE`(기본 100, 양수)로 주기당 제한된 수만 삭제한다.
 발급 내역은 업로드 완료를 의미하지 않는다. 실제 이미지의 존재·해시 일치는 AI에서 검증한다.
 분석 접수 서비스는 저장된 SHA-256으로 묶음 작업을 생성하고 이미지별 AI 접수 ID를 순차 저장한다.
 접수나 ID 저장 중 하나라도 실패하면 묶음과 AI ID 색인을 지우고 오류를 반환한다. 이미 접수된 이미지의 콜백은 저장할 묶음이 없어 503으로 응답하며, AI 재시도가 끝나면 버려진다.
@@ -311,7 +315,7 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 이미지별 등록은 Lua 비교·교체로 수행해 다른 인스턴스의 등록 결과를 덮어쓰지 않는다. GET은 Redis에 보관한 상태·결과를 반환하며 AI API를 호출하지 않는다.
 AI 접수 ID가 없는 이미지는 `QUEUED`, 접수 후 종료 결과가 없는 이미지는 `PROCESSING`으로 반환한다.
 진행 중에는 `pollAfterMs=1000`, 종료 후에는 `null`을 반환한다. 일부 이미지가 실패하면 `PARTIALLY_COMPLETED`, 전부 실패하면 `FAILED`로 응답한다.
-이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. 발급 내역과 분석 작업 상태는 Redis에서 공유한다.
+이미지별 `recognitionStatus`는 항목 중 가장 낮은 표시 상태이며, 빈 결과는 `UNRECOGNIZED`다. 발급 내역과 분석 작업 상태는 인스턴스 간 공유한다.
 
 AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 접수 정보와 함께 원자적으로 저장한다. 진행 중인 묶음과 색인에는 TTL이 없다.
 사용자별 `analysis:user:<userId>` sorted set은 작업 ID를 접수 시각 순으로 보관한다. 작업 저장 뒤에 추가해 목록 조회의 정리가 생성 중인 작업을 지우지 않게 한다.

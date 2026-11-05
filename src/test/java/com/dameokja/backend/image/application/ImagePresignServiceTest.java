@@ -3,10 +3,12 @@ package com.dameokja.backend.image.application;
 import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import com.dameokja.backend.image.infrastructure.ImageStorageProperties;
+import com.dameokja.backend.image.infrastructure.ImageUploadMetadataRepository;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.image.infrastructure.S3ImageUploadSigner;
 import com.dameokja.backend.support.RedisTestSupport;
@@ -29,7 +31,8 @@ import tools.jackson.databind.json.JsonMapper;
 class ImagePresignServiceTest {
     private final ImageStorageProperties properties = new ImageStorageProperties("test-bucket", "us-east-1",
             "test-images/", Duration.ofMinutes(5), 2048, Set.of("image/jpeg", "image/png", "image/webp"));
-    private final ImageUploadMetadataStore uploads = new ImageUploadMetadataStore(Clock.systemUTC(), Duration.ofHours(1), redisTemplate(), JsonMapper.builder().build());
+    private final ImageUploadMetadataStore uploads = new ImageUploadMetadataStore(Clock.systemUTC(), Duration.ofHours(1),
+            redisTemplate(), JsonMapper.builder().build(), mock(ImageUploadMetadataRepository.class), false);
 
     @ParameterizedTest
     @CsvSource({"ANALYSIS,image/jpeg,jpg", "ANALYSIS,image/png,png", "PROFILE,image/webp,webp"})

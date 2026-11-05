@@ -33,6 +33,7 @@ import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.image.application.ImageAnalysisInputService;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
+import com.dameokja.backend.image.infrastructure.ImageUploadMetadataRepository;
 import com.dameokja.backend.image.infrastructure.ImageUploadMetadataStore;
 import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.user.domain.UserRole;
@@ -66,7 +67,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(RedisTestSupport.class)
-@MockitoBean(types = {OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class, RefrigeratorAccessService.class})
+@MockitoBean(types = {ImageUploadMetadataRepository.class, OAuthSecurityConfig.class, com.dameokja.backend.user.application.access.UserAccessService.class, RefrigeratorAccessService.class})
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
