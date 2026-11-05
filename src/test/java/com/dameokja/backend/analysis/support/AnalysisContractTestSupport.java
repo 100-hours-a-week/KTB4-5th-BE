@@ -29,6 +29,7 @@ import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -40,6 +41,7 @@ import tools.jackson.databind.ObjectMapper;
 
 // 하위 클래스가 같은 설정과 AI mock을 상속해 컨텍스트·DB 풀을 함께 사용한다.
 @AutoConfigureMockMvc
+@Import(AnalysisDispatchExecutionControl.class)
 @TestPropertySource(properties = {"spring.datasource.hikari.maximum-pool-size=4", "spring.datasource.hikari.minimum-idle=0"})
 public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest {
     protected static final String OBJECT_KEY = "uploads/analysis/contract.png";
@@ -48,6 +50,7 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     @Autowired protected MockMvc mvc;
     @Autowired protected ObjectMapper mapper;
     @MockitoBean protected AiAnalysisClient ai;
+    @Autowired protected AnalysisDispatchExecutionControl dispatchExecution;
     @Autowired private JwtProvider jwt;
     @Autowired private ImageUploadMetadataStore uploads;
     @Autowired private AnalysisDispatchLeaseService analysisLeases;
@@ -64,6 +67,7 @@ public abstract class AnalysisContractTestSupport extends ServiceIntegrationTest
     @BeforeEach
     @AfterEach
     protected void cleanDatabaseAndResetTime() {
+        dispatchExecution.awaitIdle(WAIT_LIMIT);
         jdbcTemplate.update("DELETE FROM analysis_feedbacks");
         jdbcTemplate.update("DELETE FROM analysis_dispatches");
         super.cleanDatabaseAndResetTime();
