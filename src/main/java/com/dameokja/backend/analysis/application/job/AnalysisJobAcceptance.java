@@ -5,6 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisJobRequest;
 import com.dameokja.backend.analysis.domain.AnalysisJobState;
 import com.dameokja.backend.analysis.domain.AnalysisOutbox;
+import com.dameokja.backend.analysis.domain.AnalysisRequestId;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobRequestRepository;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStateRepository;
 import com.dameokja.backend.analysis.infrastructure.AnalysisOutboxRepository;
@@ -17,7 +18,6 @@ import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.user.domain.User;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -48,7 +48,8 @@ public class AnalysisJobAcceptance {
         }
         Long refrigeratorId = refrigeratorAccessService.lockCurrentForWrite(userId).getId();
         String resolvedInputHint = inputHint;
-        analysisImages = analysisImages.stream().map(image -> identify(userId, refrigeratorId, image, resolvedInputHint)).toList();
+        analysisImages = analysisImages.stream().map(image -> AnalysisImage.pending(image.objectKey(), image.sha256(),
+                        AnalysisRequestId.generate(userId, refrigeratorId, image, resolvedInputHint))).toList();
         User user = userAccessService.getActive(userId);
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
         AnalysisJob analysisJob = new AnalysisJob(UUID.randomUUID().toString(), userId, refrigeratorId, inputHint, analysisImages, submittedAt, null, false);
@@ -61,12 +62,5 @@ public class AnalysisJobAcceptance {
                     analysisKafkaProperties.requestTopic(), objectMapper.writeValueAsString(analysisRequestedEvent), submittedAt.toLocalDateTime()));
         }
         return analysisJob;
-    }
-
-    // 같은 냉장고의 동일 이미지·힌트 재요청에만 논리 요청 ID를 재사용한다.
-    private AnalysisImage identify(Long userId, Long refrigeratorId, AnalysisImage image, String inputHint) {
-        String requestId = UUID.nameUUIDFromBytes(String.join("\n", userId.toString(), refrigeratorId.toString(), image.objectKey(),
-                String.valueOf(image.sha256()), inputHint).getBytes(StandardCharsets.UTF_8)).toString();
-        return AnalysisImage.pending(image.objectKey(), image.sha256(), requestId);
     }
 }
