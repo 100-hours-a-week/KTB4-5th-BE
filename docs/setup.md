@@ -62,6 +62,13 @@ HTTP 경로 연결은 후속 PR에서 적용한다.
 완료 이미지는 보존하고, 잠금 후 최신 상태를 다시 확인한 뒤 실패 결과·`ANALYSIS_RESULT_TTL`(기본 7d) 보관 기한·알림 예약을 같은 트랜잭션으로 저장한다.
 이번 단계는 내부 서비스 준비이며 HTTP 조회·삭제 경로 연결과 주기 실행은 아직 추가하지 않는다. 추가 DDL은 없다.
 
+## 분석 DB 완료 알림 선점
+
+DB 알림 저장소는 기존 `analysis_job_states`의 예약 시각·선점 토큰·시도 횟수를 사용하며 추가 DDL은 없다.
+`ANALYSIS_NOTIFICATION_LEASE_DURATION`(기본 30s), `ANALYSIS_NOTIFICATION_SSE_MAX_ATTEMPTS`(기본 3)와
+기존 `ANALYSIS_NOTIFICATION_RETRY_DELAY`(기본 5s)로 선점·재시도를 제어한다.
+이번 단계는 저장소 준비이며 DB 알림 전송 워커·스케줄러 연결은 후속 PR이다. 기존 HTTP/Redis 알림 경로는 유지한다.
+
 ## 분석 피드백 HTTP/Kafka 저장 구분
 
 기존 `analysis_feedbacks`에 `message_body JSON NULL`을 추가한다. **앱 배포 전에**
