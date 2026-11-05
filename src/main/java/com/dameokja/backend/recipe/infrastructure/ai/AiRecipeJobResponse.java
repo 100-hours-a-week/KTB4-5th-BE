@@ -26,8 +26,14 @@ public record AiRecipeJobResponse(String jobId, String requestId, Long userId, L
     }
 
     public void validateFor(String expectedJobId, AiRecipeRecommendationRequest request) {
-        if (!Objects.equals(jobId, expectedJobId) || !request.requestId().equals(requestId)
-                || !Objects.equals(userId, request.userId()) || !Objects.equals(refrigeratorId, request.refrigeratorId())) {
+        if (!Objects.equals(jobId, expectedJobId)) {
+            throw new RestClientException("AI 추천 작업 응답이 요청 작업·요청 ID·사용자·냉장고와 일치하지 않습니다.");
+        }
+        validateForRequest(request);
+    }
+
+    public void validateForRequest(AiRecipeRecommendationRequest request) {
+        if (!request.requestId().equals(requestId) || !Objects.equals(userId, request.userId()) || !Objects.equals(refrigeratorId, request.refrigeratorId())) {
             throw new RestClientException("AI 추천 작업 응답이 요청 작업·요청 ID·사용자·냉장고와 일치하지 않습니다.");
         }
         if (result != null) {
