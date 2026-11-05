@@ -227,6 +227,12 @@ recommendation:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
     completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
+  outbox:
+    enabled: ${RECOMMENDATION_OUTBOX_ENABLED:false}
+    poll-interval: ${RECOMMENDATION_OUTBOX_POLL_INTERVAL:5s}
+    batch-size: ${RECOMMENDATION_OUTBOX_BATCH_SIZE:20}
+    lease-duration: ${RECOMMENDATION_OUTBOX_LEASE_DURATION:60s}
+    retry-delay: ${RECOMMENDATION_OUTBOX_RETRY_DELAY:5s}
 
 cooking:
   kafka:
