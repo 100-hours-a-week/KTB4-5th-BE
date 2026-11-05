@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,10 @@ public class AnalysisJobStateAccess {
 
     // 만료된 DB 작업도 Redis 경로로 되돌리지 않도록 저장 여부만 확인한다.
     public boolean exists(String analysisJobId) { return analysisJobStateRepository.existsById(analysisJobId); }
+
+    public Set<String> findExistingIds(List<String> analysisJobIds) {
+        return analysisJobIds.isEmpty() ? Set.of() : Set.copyOf(analysisJobStateRepository.findExistingIds(analysisJobIds));
+    }
 
     public Optional<AnalysisJob> find(String analysisJobId) {
         return analysisJobStateRepository.findById(analysisJobId).filter(this::isActive).map(this::read);

@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 public interface AnalysisJobStateRepository extends JpaRepository<AnalysisJobState, String> {
+    @Query("select job.id from AnalysisJobState job where job.id in :analysisJobIds")
+    List<String> findExistingIds(List<String> analysisJobIds);
+
     @Query("""
             select job from AnalysisJobState job
             where job.user.id = :userId and (job.expiresAt is null or job.expiresAt > :currentTime)

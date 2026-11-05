@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.dameokja.backend.analysis.application.job.AnalysisJobAcceptance;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
@@ -162,6 +163,10 @@ class AnalysisJobSubmitWebTest {
             CsrfController.class, GlobalExceptionHandler.class,
             AnalysisController.class, AnalysisJobSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
     static class WebConfiguration {
+        @Bean
+        AnalysisJobAcceptance analysisJobAcceptance() {
+            return mock(AnalysisJobAcceptance.class);
+        }
         @Bean
         static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean

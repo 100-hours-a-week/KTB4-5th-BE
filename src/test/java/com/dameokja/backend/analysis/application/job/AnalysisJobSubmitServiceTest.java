@@ -59,7 +59,7 @@ class AnalysisJobSubmitServiceTest {
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final RefrigeratorAccessService access = mock(RefrigeratorAccessService.class);
     private final AnalysisJobSubmitService analysisJobSubmitService = new AnalysisJobSubmitService(
-            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, analysisDispatchQueue, analysisDispatchWorker, access);
+            new ImageAnalysisInputService(imageUploadMetadataStore), analysisJobStore, analysisDispatchQueue, analysisDispatchWorker, access, mock(AnalysisJobAcceptance.class), false);
 
     @BeforeEach
     void selectRefrigerator() { when(access.findCurrentForRead(7L)).thenReturn(refrigerator(17L)); }
