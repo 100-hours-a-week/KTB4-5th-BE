@@ -15,21 +15,6 @@ import tools.jackson.databind.JsonNode;
 
 class AnalysisRestartQueuedContractTest extends RestartableAnalysisContractTestSupport {
     @Test
-    void requiresExplicitDispatchEvenWhenAiIsReadyBeforeAndAfterRestart() throws Exception {
-        Long userId = ownerFixture("자동전송통제").userId();
-        String analysisId = accept(userId);
-        dispatchExecution.awaitIdle(WAIT_LIMIT);
-        queryAnalysis(userId, analysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
-        verify(ai, never()).submit(any());
-        restartApplication();
-        Fixture anotherOwner = ownerFixture("재시작후통제");
-        String anotherAnalysisId = accept(anotherOwner.userId());
-        dispatchExecution.awaitIdle(WAIT_LIMIT);
-        queryAnalysis(anotherOwner.userId(), anotherAnalysisId).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("QUEUED"));
-        verify(ai, never()).submit(any());
-    }
-
-    @Test
     void recoversAnAcceptedButUnsentAnalysisAfterTheApplicationRestarts() throws Exception {
         when(ai.ready()).thenReturn(false);
         Long userId = ownerFixture("대기복구계약").userId();

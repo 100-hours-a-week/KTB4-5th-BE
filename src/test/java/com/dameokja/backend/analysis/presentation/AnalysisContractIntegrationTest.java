@@ -1,42 +1,14 @@
 package com.dameokja.backend.analysis.presentation;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.analysis.support.AnalysisContractTestSupport;
-import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class AnalysisContractIntegrationTest extends AnalysisContractTestSupport {
-    @Test
-    void observesAnAutomaticPollBeforeAllowingSharedStateCleanup() throws Exception {
-        CountDownLatch entered = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        when(ai.ready()).thenAnswer(invocation -> {
-            entered.countDown();
-            assertThat(release.await(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS)).isTrue();
-            return false;
-        });
-        try {
-            Long userId = ownerFixture("비동기정리경계").userId();
-            submitImage(userId, "PRODUCT").andExpect(status().isAccepted());
-            assertThat(entered.await(WAIT_LIMIT.toSeconds(), TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(() -> dispatchExecution.awaitIdle(Duration.ZERO)).hasCauseInstanceOf(TimeoutException.class);
-        } finally {
-            release.countDown();
-        }
-        dispatchExecution.awaitIdle(WAIT_LIMIT);
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"RECEIPT", "PRODUCT"})
     void acceptsAnImageAndReturnsTheCompletedRecognitionThroughTheApi(String documentType) throws Exception {

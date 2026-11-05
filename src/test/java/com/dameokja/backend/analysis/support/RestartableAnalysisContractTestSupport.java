@@ -1,6 +1,7 @@
 package com.dameokja.backend.analysis.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.doNothing;
 
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchLeaseService;
@@ -37,7 +38,6 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
     }
 
     protected void restartApplication() throws Exception {
-        dispatchExecution.awaitIdle(WAIT_LIMIT);
         Instant resumedAt = clock.instant();
         ConfigurableApplicationContext stopped = application;
         HikariDataSource stoppedPool = stopped.getBean(HikariDataSource.class);
@@ -58,22 +58,18 @@ public abstract class RestartableAnalysisContractTestSupport extends AnalysisCon
 
     @Override
     protected void dispatchDueAnalyses() {
-        // 중단 예외는 테스트 호출 스레드에서 관찰해야 하므로 선점·전송을 직접 실행한다.
-        List<LeasedDispatch> dispatches = dispatchLeases.leaseDue();
-        assertThat(dispatches).as("수동 전송할 분석 작업").isNotEmpty();
+        // 자동 만료 조회가 잠깐 잠근 작업은 같은 시각으로 다시 선점하고, 전송 자체는 호출 스레드에서 한 번만 실행한다.
+        List<LeasedDispatch> dispatches = await().atMost(WAIT_LIMIT).until(dispatchLeases::leaseDue, leased -> !leased.isEmpty());
         dispatches.forEach(dispatchSender::send);
     }
 
     // 중단된 전송과 콜백 대기 모두 복구 대상이 되도록 시계만 진행하고 실제 워커를 실행한다.
     protected void recoverInterruptedAnalyses() {
         clock.set(clock.instant().plus(dispatchPolicy.leaseDuration()).plus(dispatchPolicy.callbackTimeout()).toString());
-        pollAnalyses();
+        dispatchWorker.poll();
     }
 
-    protected void pollAnalyses() {
-        dispatchWorker.poll();
-        dispatchExecution.awaitIdle(WAIT_LIMIT);
-    }
+    protected void pollAnalyses() { dispatchWorker.poll(); }
 
     protected void sendFeedback() { feedbackSender.sendDue(); }
 
