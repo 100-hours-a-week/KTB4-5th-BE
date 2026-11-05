@@ -47,6 +47,13 @@ public interface AnalysisJobStateRepository extends JpaRepository<AnalysisJobSta
             """, nativeQuery = true)
     Optional<AnalysisJobState> findDueNotificationForUpdate(String currentTime);
 
+    @Query(value = """
+            SELECT * FROM analysis_job_states
+            WHERE expires_at <= CAST(:currentTime AS DATETIME(6))
+            ORDER BY expires_at, analysis_job_id LIMIT 1 FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    Optional<AnalysisJobState> findExpiredForUpdate(String currentTime);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select job from AnalysisJobState job where job.id = :analysisJobId")
     Optional<AnalysisJobState> findForUpdate(String analysisJobId);

@@ -24,8 +24,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 class AnalysisJobStateRepositoryTest extends MySqlJpaTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 4, 12, 0);
-    @Autowired AnalysisJobStateRepository states;
-    @Autowired AnalysisJobRequestRepository requests;
+    @Autowired AnalysisJobStateRepository analysisJobStateRepository;
+    @Autowired AnalysisJobRequestRepository analysisJobRequestRepository;
     @Autowired JdbcTemplate jdbc;
 
     @Test
@@ -35,18 +35,18 @@ class AnalysisJobStateRepositoryTest extends MySqlJpaTest {
         AnalysisJobState first = saveJob(user, 17L);
         AnalysisJobState second = saveJob(user, 17L);
         String requestId = UUID.randomUUID().toString();
-        AnalysisJobRequest request = requests.save(new AnalysisJobRequest(first, requestId));
-        requests.save(new AnalysisJobRequest(second, requestId));
+        AnalysisJobRequest request = analysisJobRequestRepository.save(new AnalysisJobRequest(first, requestId));
+        analysisJobRequestRepository.save(new AnalysisJobRequest(second, requestId));
         flushAndClear();
-        AnalysisJobState restored = states.findById(first.getId()).orElseThrow();
+        AnalysisJobState restored = analysisJobStateRepository.findById(first.getId()).orElseThrow();
         JsonMapper mapper = JsonMapper.builder().build();
         assertThat(mapper.readTree(restored.getAnalysisJobBody())).isEqualTo(mapper.readTree(first.getAnalysisJobBody()));
         assertThat(restored.getStatus()).isEqualTo(AnalysisStatus.QUEUED);
         assertThat(restored.getCreatedAt()).isNotNull();
         assertThat(restored.getVersion()).isZero();
-        assertThat(requests.findAnalysisJobIds(requestId)).containsExactlyInAnyOrder(first.getId(), second.getId());
-        assertThat(requests.findIdsByAnalysisJobId(first.getId())).containsExactly(request.getId());
-        assertThatThrownBy(() -> requests.saveAndFlush(new AnalysisJobRequest(restored, requestId)))
+        assertThat(analysisJobRequestRepository.findAnalysisJobIds(requestId)).containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(analysisJobRequestRepository.findIdsByAnalysisJobId(first.getId())).containsExactly(request.getId());
+        assertThatThrownBy(() -> analysisJobRequestRepository.saveAndFlush(new AnalysisJobRequest(restored, requestId)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -62,13 +62,13 @@ class AnalysisJobStateRepositoryTest extends MySqlJpaTest {
         AnalysisJobState differentFridge = saveJob(user, 18L);
         AnalysisJobState foreign = saveJob(other, 17L);
         flushAndClear();
-        assertThat(states.findAllActiveOwned(user.getId(), NOW)).extracting(AnalysisJobState::getId)
+        assertThat(analysisJobStateRepository.findAllActiveOwned(user.getId(), NOW)).extracting(AnalysisJobState::getId)
                 .containsExactlyInAnyOrder(active.getId(), differentFridge.getId());
-        assertThat(states.findAllActiveOwnedInRefrigerator(user.getId(), 17L, NOW))
+        assertThat(analysisJobStateRepository.findAllActiveOwnedInRefrigerator(user.getId(), 17L, NOW))
                 .extracting(AnalysisJobState::getId).containsExactly(active.getId());
-        assertThat(states.findActiveOwnedInRefrigerator(active.getId(), user.getId(), 18L, NOW)).isEmpty();
-        assertThat(states.findActiveOwnedInRefrigerator(foreign.getId(), user.getId(), 17L, NOW)).isEmpty();
-        assertThat(states.existsActiveOwnedByAnotherUser(foreign.getId(), user.getId(), NOW)).isTrue();
+        assertThat(analysisJobStateRepository.findActiveOwnedInRefrigerator(active.getId(), user.getId(), 18L, NOW)).isEmpty();
+        assertThat(analysisJobStateRepository.findActiveOwnedInRefrigerator(foreign.getId(), user.getId(), 17L, NOW)).isEmpty();
+        assertThat(analysisJobStateRepository.existsActiveOwnedByAnotherUser(foreign.getId(), user.getId(), NOW)).isTrue();
     }
 
     @Test
@@ -90,6 +90,6 @@ class AnalysisJobStateRepositoryTest extends MySqlJpaTest {
     }
 
     private AnalysisJobState saveJob(User user, Long refrigeratorId) {
-        return states.save(AnalysisJobState.queued(user, UUID.randomUUID().toString(), "{\"refrigeratorId\":" + refrigeratorId + ",\"images\":[]}"));
+        return analysisJobStateRepository.save(AnalysisJobState.queued(user, UUID.randomUUID().toString(), "{\"refrigeratorId\":" + refrigeratorId + ",\"images\":[]}"));
     }
 }

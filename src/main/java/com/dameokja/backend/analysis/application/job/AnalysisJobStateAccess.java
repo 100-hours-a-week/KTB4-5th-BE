@@ -10,11 +10,13 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 import tools.jackson.databind.ObjectMapper;
@@ -24,6 +26,7 @@ import tools.jackson.databind.cfg.DateTimeFeature;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AnalysisJobStateAccess {
+    private static final DateTimeFormatter SQL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
     private final AnalysisJobStateRepository analysisJobStateRepository;
     private final AnalysisJobRequestRepository analysisJobRequestRepository;
     private final AnalysisOutboxRepository analysisOutboxRepository;
@@ -77,6 +80,21 @@ public class AnalysisJobStateAccess {
     public void deleteOwned(String analysisJobId, Long userId) {
         AnalysisJobState analysisJobState = lockActive(analysisJobId);
         requireOwned(read(analysisJobState), userId);
+        deleteJobState(analysisJobState);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean deleteNextExpired() {
+        Optional<AnalysisJobState> expiredAnalysisJobState = analysisJobStateRepository.findExpiredForUpdate(BusinessTime.now(clock).format(SQL_TIME));
+        if (expiredAnalysisJobState.isEmpty()) {
+            return false;
+        }
+        deleteJobState(expiredAnalysisJobState.orElseThrow());
+        return true;
+    }
+
+    private void deleteJobState(AnalysisJobState analysisJobState) {
+        String analysisJobId = analysisJobState.getId();
         // 부모 잠금 뒤 자식의 기존 기본키로 삭제해 작업 ID 범위 DELETE의 갭락을 피한다.
         for (Long analysisOutboxId : analysisOutboxRepository.findIdsByAnalysisJobId(analysisJobId)) {
             analysisOutboxRepository.deleteById(analysisOutboxId);
