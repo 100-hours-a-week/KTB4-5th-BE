@@ -1,12 +1,20 @@
 package com.dameokja.backend.analysis.application.feedback;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
 import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisFeedbackSubmittedPayload;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaConfig;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaProperties;
+import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaPublisher;
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.MySqlJpaTest;
@@ -18,23 +26,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
 
-@Import({AnalysisFeedbackOutbox.class, AnalysisFeedbackQueue.class, AnalysisFeedbackQueueIntegrationTest.Config.class})
+@Import({AnalysisFeedbackOutbox.class, AnalysisFeedbackQueue.class, AnalysisFeedbackOutboxWorker.class, AnalysisKafkaPublisher.class,
+        AnalysisKafkaConfig.class, AnalysisFeedbackQueueIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AnalysisFeedbackOutboxIntegrationTest extends MySqlJpaTest {
     private static final LocalDateTime NOW = BusinessTime.now(Clock.fixed(Instant.parse("2026-10-19T01:00:00Z"), BusinessTime.ZONE));
@@ -47,6 +64,9 @@ class AnalysisFeedbackOutboxIntegrationTest extends MySqlJpaTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired AnalysisFeedbackOutboxWorker worker;
+    @Autowired AnalysisKafkaProperties topics;
+    @MockitoBean KafkaTemplate<String, JsonNode> template;
 
     @AfterEach
     void cleanUp() { repository.deleteAllById(ids); }
@@ -180,6 +200,46 @@ class AnalysisFeedbackOutboxIntegrationTest extends MySqlJpaTest {
             });
         }
         assertThat(queue.leaseDue()).extracting(LeasedFeedback::id).containsExactly(ids.getFirst());
+    }
+
+    @Test
+    void publishesOutsideTheTransactionAndKeepsTheRowSendingUntilKafkaAcknowledges() throws Exception {
+        Long id = enqueue();
+        CompletableFuture<SendResult<String, JsonNode>> ack = new CompletableFuture<>();
+        CountDownLatch sent = new CountDownLatch(1);
+        when(template.send(eq(topics.feedbackTopic()), eq("7"), any(JsonNode.class))).thenAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            sent.countDown();
+            return ack;
+        });
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            Future<?> publication = executor.submit(worker::sendDue);
+            try {
+                assertThat(sent.await(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(row(id)).containsEntry("status", "SENDING");
+            } finally {
+                ack.complete(null);
+            }
+            publication.get(5, TimeUnit.SECONDS);
+        }
+        assertThat(row(id)).containsEntry("status", "DONE");
+    }
+
+    @Test
+    void publishesTheSameJsonObjectAndUserKeyAfterRetryingABrokerFailure() {
+        Long id = enqueue();
+        EventEnvelope<AnalysisFeedbackSubmittedPayload> stored = mapper.readValue(repository.findById(id).orElseThrow().getMessageBody(), new TypeReference<>() {});
+        when(template.send(eq(topics.feedbackTopic()), eq("7"), any(JsonNode.class)))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("broker unavailable"))).thenReturn(CompletableFuture.completedFuture(null));
+        worker.sendDue();
+        assertThat(row(id)).containsEntry("status", "PENDING").containsEntry("last_error_code", "PUBLISH_FAILED").containsEntry("next_attempt_at", NOW.plusMinutes(10));
+        update(id, "next_attempt_at", NOW);
+        worker.sendDue();
+        ArgumentCaptor<JsonNode> published = ArgumentCaptor.captor();
+        verify(template, times(2)).send(eq(topics.feedbackTopic()), eq("7"), published.capture());
+        assertThat(published.getAllValues()).allSatisfy(json ->
+                assertThat(mapper.readValue(json.toString(), new TypeReference<EventEnvelope<AnalysisFeedbackSubmittedPayload>>() {})).isEqualTo(stored));
+        assertThat(row(id)).containsEntry("status", "DONE");
     }
 
     private void enqueue(int count) {
