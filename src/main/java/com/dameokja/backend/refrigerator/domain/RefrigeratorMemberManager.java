@@ -42,7 +42,7 @@ public final class RefrigeratorMemberManager {
     }
 
     /**
-     * 현재 관계의 가입 가능 여부를 검증하고 대상 관계를 내부에 생성하거나 재사용한다.
+     * 현재 관계의 가입 가능 여부를 검증하고 종료되지 않은 대상 관계를 준비하고 재참여는 새 회차로 생성한다.
      * 기존 선택과 대상 관계의 활성·종료 상태는 변경하지 않는다.
      *
      * @param user 가입하려는 사용자
@@ -129,6 +129,7 @@ public final class RefrigeratorMemberManager {
 
     private RefrigeratorMember getPreparedMembership(Long refrigeratorId) {
         return refrigeratorMembers.stream()
+                .filter(RefrigeratorMember::isLive)
                 .filter(refrigeratorMember -> refrigeratorMember.belongsToRefrigerator(refrigeratorId))
                 .findFirst()
                 .orElseThrow(() -> new CustomException(INTERNAL_SERVER_ERROR));
@@ -138,6 +139,7 @@ public final class RefrigeratorMemberManager {
         validateUser(user);
 
         return refrigeratorMembers.stream()
+                .filter(RefrigeratorMember::isLive)
                 .filter(refrigeratorMember -> refrigeratorMember.belongsToRefrigerator(refrigerator.getId()))
                 .findFirst()
                 .orElseGet(() -> addJoiningMembership(user, refrigerator));
