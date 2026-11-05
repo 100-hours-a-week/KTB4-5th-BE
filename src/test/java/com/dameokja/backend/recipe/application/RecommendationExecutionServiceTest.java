@@ -10,7 +10,6 @@ import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationRespo
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeSubmitResponse;
 import com.dameokja.backend.recipe.infrastructure.RecommendationOutboxRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -19,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+@TestPropertySource(properties = "recipe.job.database-write-enabled=true")
 class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
     @Autowired private RecommendationExecutionService execution;
     @MockitoSpyBean private RecommendationOutboxService outbox;
@@ -68,15 +69,16 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
         assertThat(execution.submit(event.eventId()).view()).isNull();
         verify(ai).submit(frozen);
         verify(ai, never()).get(any(), any());
-        assertThat(redisTemplate().getExpire("recipe:job:" + event.eventId())).isEqualTo(-1L);
+        assertThat(redisTemplate().hasKey("recipe:job:" + event.eventId())).isFalse();
+        assertThat(repository.findByEventId(event.eventId()).orElseThrow().getJobExpiresAt()).isNull();
     }
 
     @Test
-    void redisFailureAfterAcceptanceLeavesPendingAndRetriesTheSameRequest() {
+    void storageFailureAfterAcceptanceLeavesPendingAndRetriesTheSameRequest() {
         RecommendationSubmissionResult event = event();
         when(ai.submit(any())).thenReturn(receipt(event));
-        doThrow(new IllegalStateException("redis unavailable")).doCallRealMethod().when(jobs).accept(eq(event.eventId()), any());
-        assertThatThrownBy(() -> execution.submit(event.eventId())).hasMessage("redis unavailable");
+        doThrow(new IllegalStateException("storage unavailable")).doCallRealMethod().when(jobs).accept(eq(event.eventId()), any());
+        assertThatThrownBy(() -> execution.submit(event.eventId())).hasMessage("storage unavailable");
         assertThat(repository.findByEventId(event.eventId()).orElseThrow().getStatus()).isEqualTo(RecommendationOutbox.Status.PENDING);
         assertThat(jobs.find(event.eventId())).isEmpty();
         execution.submit(event.eventId());
@@ -100,12 +102,13 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
         when(ai.get(eq(receipt(event).jobId()), any())).thenReturn(processing, completed);
         assertThat(execution.refresh(event.eventId()).view().status()).isEqualTo(Status.PROCESSING);
         assertThat(execution.refresh(event.eventId()).view()).isEqualTo(completed);
-        String key = "recipe:job:" + event.eventId();
-        assertThat(redisTemplate().getExpire(key)).isBetween(86390L, 86400L);
-        redisTemplate().expire(key, Duration.ofMinutes(10));
+        assertThat(repository.findByEventId(event.eventId()).orElseThrow().getJobExpiresAt())
+                .isEqualTo(com.dameokja.backend.global.util.BusinessTime.now(clock).plusDays(1));
+        clock.set("2026-09-17T03:10:00Z");
         jobs.update(event.eventId(), view(event, Status.PROCESSING));
         assertThat(execution.refresh(event.eventId()).view()).isEqualTo(completed);
-        assertThat(redisTemplate().getExpire(key)).isBetween(590L, 600L);
+        assertThat(repository.findByEventId(event.eventId()).orElseThrow().getJobExpiresAt())
+                .isEqualTo(com.dameokja.backend.global.util.BusinessTime.now(clock).plusMinutes(1430));
         verify(ai, times(2)).get(any(), any());
     }
 
@@ -140,7 +143,7 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
     }
 
     @Test
-    void databaseFailureAfterRedisAcceptanceDoesNotResubmitAi() {
+    void markSentFailureAfterAcceptanceDoesNotResubmitAi() {
         RecommendationSubmissionResult event = event();
         when(ai.submit(any())).thenReturn(receipt(event));
         doThrow(new IllegalStateException("DB unavailable")).doCallRealMethod().when(outbox).markSent(event.eventId());
@@ -162,6 +165,27 @@ class RecommendationExecutionServiceTest extends ServiceIntegrationTest {
         });
         assertThatThrownBy(() -> execution.refresh(event.eventId())).hasMessage("GET unavailable");
         assertThat(jobs.find(event.eventId())).contains(previous);
+    }
+
+    @Test
+    void legacyJobRemainsInRedisAndDatabaseJobsIgnoreStaleRedis() throws Exception {
+        RecommendationSubmissionResult legacy = event();
+        jdbcTemplate.update("UPDATE recommendation_outbox SET db_job = false WHERE event_id = ?", legacy.eventId());
+        jobs.accept(legacy.eventId(), receipt(legacy));
+        jobs.update(legacy.eventId(), view(legacy, Status.PROCESSING));
+        assertThat(jobs.find(legacy.eventId()).orElseThrow().view().status()).isEqualTo(Status.PROCESSING);
+        assertThat(redisTemplate().hasKey("recipe:job:" + legacy.eventId())).isTrue();
+        RecommendationSubmissionResult database = outbox.enqueue(outbox.request(legacy.eventId()));
+        redisTemplate().opsForValue().set("recipe:job:" + database.eventId(), "invalid");
+        assertThat(jobs.find(database.eventId())).isEmpty();
+        when(ai.submit(any())).thenReturn(receipt(database));
+        execution.submit(database.eventId());
+        assertThat(jobs.find(database.eventId()).orElseThrow().acceptance()).isEqualTo(receipt(database));
+        jobs.update(database.eventId(), view(database, Status.FAILED));
+        clock.set("2026-09-18T03:00:00Z");
+        assertThat(jobs.find(database.eventId())).isEmpty();
+        assertThat(repository.findByEventId(database.eventId()).orElseThrow().getJobSnapshot()).isNull();
+        assertThat(redisTemplate().hasKey("recipe:job:" + database.eventId())).isTrue();
     }
 
     @Test

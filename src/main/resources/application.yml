@@ -272,3 +272,7 @@ sentry:
   # Set profile-lifecycle to trace to automatically start and stop
   # profiling when a transaction starts and finishes.
   profile-lifecycle: TRACE
+
+recipe:
+  job:
+    database-write-enabled: ${RECOMMENDATION_JOB_DATABASE_WRITE_ENABLED:false}
