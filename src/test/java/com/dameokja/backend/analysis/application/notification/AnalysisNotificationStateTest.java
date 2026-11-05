@@ -39,13 +39,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AnalysisNotificationStateTest extends ServiceIntegrationTest {
-    @Autowired AnalysisNotificationState state;
-    @Autowired AnalysisDatabasePendingNotificationStore notifications;
-    @Autowired AnalysisJobAcceptance acceptance;
-    @Autowired AnalysisCompletionPersistence completions;
-    @Autowired AnalysisJobStateRepository jobs;
+    @Autowired AnalysisNotificationState analysisNotificationState;
+    @Autowired AnalysisDatabasePendingNotificationStore analysisDatabasePendingNotificationStore;
+    @Autowired AnalysisJobAcceptance analysisJobAcceptance;
+    @Autowired AnalysisCompletionPersistence analysisCompletionPersistence;
+    @Autowired AnalysisJobStateRepository analysisJobStateRepository;
     @Autowired NotificationPreferenceService preferences;
-    @Autowired TransactionTemplate transactions;
+    @Autowired TransactionTemplate transactionTemplate;
     private final List<AnalysisJob> createdJobs = new ArrayList<>();
     private final List<Long> createdUsers = new ArrayList<>();
 
@@ -72,29 +72,29 @@ class AnalysisNotificationStateTest extends ServiceIntegrationTest {
     @Test
     void persistsChannelImageHistoryAndAcknowledgesOnlyOnce() {
         AnalysisJob job = completedJob();
-        Lease lease = notifications.leaseNext().orElseThrow();
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         String requestId = job.analysisImages().getFirst().requestId();
-        assertThat(state.find(job.id())).isPresent();
-        assertThat(state.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE).notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
-        state.recordImageEventPublished(lease, requestId);
-        state.recordImageEventPublished(lease, requestId);
-        assertThat(state.find(job.id()).orElseThrow().publishedImageEvents()).containsExactly(requestId);
-        assertThat(state.acknowledgeNotification(lease)).isTrue();
-        assertThat(state.acknowledgeNotification(lease)).isFalse();
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isFalse();
+        assertThat(analysisNotificationState.find(job.id())).isPresent();
+        assertThat(analysisNotificationState.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE).notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
+        analysisNotificationState.recordImageEventPublished(lease, requestId);
+        analysisNotificationState.recordImageEventPublished(lease, requestId);
+        assertThat(analysisNotificationState.find(job.id()).orElseThrow().publishedImageEvents()).containsExactly(requestId);
+        assertThat(analysisNotificationState.acknowledgeNotification(lease)).isTrue();
+        assertThat(analysisNotificationState.acknowledgeNotification(lease)).isFalse();
+        assertThat(analysisNotificationState.find(job.id()).orElseThrow().notificationPending()).isFalse();
     }
 
     @Test
     void createsPushAndAcknowledgesOnce() {
         AnalysisJob job = completedJob();
         enablePush(job.userId());
-        Lease lease = notifications.leaseNext().orElseThrow();
-        state.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE);
-        state.fallBackToPush(lease);
-        state.createPushNotification(lease);
-        state.createPushNotification(lease);
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisNotificationState.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE);
+        analysisNotificationState.fallBackToPush(lease);
+        analysisNotificationState.createPushNotification(lease);
+        analysisNotificationState.createPushNotification(lease);
         assertThat(pushCount(job.userId())).isEqualTo(1);
-        AnalysisJob result = state.find(job.id()).orElseThrow();
+        AnalysisJob result = analysisNotificationState.find(job.id()).orElseThrow();
         assertThat(result.notificationChannel()).isEqualTo(AnalysisNotificationChannel.PUSH);
         assertThat(result.notificationPending()).isFalse();
     }
@@ -104,53 +104,53 @@ class AnalysisNotificationStateTest extends ServiceIntegrationTest {
     void rollsBackPushAndAcknowledgementWhenEitherWriteFails(String failure) {
         AnalysisJob job = completedJob();
         enablePush(job.userId());
-        Lease lease = notifications.leaseNext().orElseThrow();
-        state.fallBackToPush(lease);
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisNotificationState.fallBackToPush(lease);
         if (failure.equals("push")) {
             jdbcTemplate.execute("CREATE TRIGGER test_push_failure BEFORE INSERT ON push_notifications FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'push failure'");
         } else {
             jdbcTemplate.execute("CREATE TRIGGER test_job_failure BEFORE UPDATE ON analysis_job_states FOR EACH ROW "
                     + "IF JSON_EXTRACT(NEW.job_body, '$.notificationPending') = CAST('false' AS JSON) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'job failure'; END IF");
         }
-        assertThatThrownBy(() -> state.createPushNotification(lease)).isInstanceOf(RuntimeException.class)
+        assertThatThrownBy(() -> analysisNotificationState.createPushNotification(lease)).isInstanceOf(RuntimeException.class)
                 .hasStackTraceContaining(failure + " failure");
         assertThat(pushCount(job.userId())).isZero();
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isTrue();
+        assertThat(analysisNotificationState.find(job.id()).orElseThrow().notificationPending()).isTrue();
     }
 
     @Test
     void rejectsExpiredReclaimedAndWrongOwnerLeasesForEveryWrite() {
         AnalysisJob job = completedJob();
-        Lease old = notifications.leaseNext().orElseThrow();
+        Lease old = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         Lease wrongOwner = new Lease(old.analysisJobId(), old.token(), old.userId() + 1);
         assertWritesRejected(wrongOwner, job);
         clock.set(clock.instant().plusSeconds(30).toString());
         assertWritesRejected(old, job);
-        Lease current = notifications.leaseNext().orElseThrow();
+        Lease current = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
         assertThat(current.token()).isNotEqualTo(old.token());
         assertWritesRejected(old, job);
-        assertThat(state.selectNotificationChannel(current, AnalysisNotificationChannel.SSE).notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
+        assertThat(analysisNotificationState.selectNotificationChannel(current, AnalysisNotificationChannel.SSE).notificationChannel()).isEqualTo(AnalysisNotificationChannel.SSE);
     }
 
     @Test
     void locksUserBeforeJobWhenCreatingPush() throws Exception {
         AnalysisJob job = completedJob();
         enablePush(job.userId());
-        Lease lease = notifications.leaseNext().orElseThrow();
-        state.fallBackToPush(lease);
+        Lease lease = analysisDatabasePendingNotificationStore.leaseNext().orElseThrow();
+        analysisNotificationState.fallBackToPush(lease);
         CountDownLatch userLockAttempted = new CountDownLatch(1);
         Answer<?> delegate = mockingDetails(userRepository).getMockCreationSettings().getDefaultAnswer();
         try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
-            Future<?> worker = transactions.execute(status -> {
+            Future<?> worker = transactionTemplate.execute(status -> {
                 userRepository.findByIdForUpdate(job.userId()).orElseThrow();
                 doAnswer(invocation -> {
                     userLockAttempted.countDown();
                     return delegate.answer(invocation);
                 }).when(userRepository).findByIdForUpdate(job.userId());
-                Future<?> submitted = executor.submit(() -> state.createPushNotification(lease));
+                Future<?> submitted = executor.submit(() -> analysisNotificationState.createPushNotification(lease));
                 try {
                     assertThat(userLockAttempted.await(5, TimeUnit.SECONDS)).isTrue();
-                    jobs.findForUpdate(job.id()).orElseThrow();
+                    analysisJobStateRepository.findForUpdate(job.id()).orElseThrow();
                     assertThat(submitted.isDone()).isFalse();
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
@@ -161,26 +161,26 @@ class AnalysisNotificationStateTest extends ServiceIntegrationTest {
             worker.get(10, TimeUnit.SECONDS);
         }
         assertThat(pushCount(job.userId())).isEqualTo(1);
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isFalse();
+        assertThat(analysisNotificationState.find(job.id()).orElseThrow().notificationPending()).isFalse();
     }
 
     private void assertWritesRejected(Lease lease, AnalysisJob job) {
         String requestId = job.analysisImages().getFirst().requestId();
-        assertThatThrownBy(() -> state.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE)).isInstanceOf(CustomException.class);
-        assertThatThrownBy(() -> state.fallBackToPush(lease)).isInstanceOf(CustomException.class);
-        assertThatThrownBy(() -> state.recordImageEventPublished(lease, requestId)).isInstanceOf(CustomException.class);
-        assertThatThrownBy(() -> state.acknowledgeNotification(lease)).isInstanceOf(CustomException.class);
-        assertThatThrownBy(() -> state.createPushNotification(lease)).isInstanceOf(CustomException.class);
-        assertThat(state.find(job.id()).orElseThrow().notificationPending()).isTrue();
+        assertThatThrownBy(() -> analysisNotificationState.selectNotificationChannel(lease, AnalysisNotificationChannel.SSE)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> analysisNotificationState.fallBackToPush(lease)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> analysisNotificationState.recordImageEventPublished(lease, requestId)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> analysisNotificationState.acknowledgeNotification(lease)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> analysisNotificationState.createPushNotification(lease)).isInstanceOf(CustomException.class);
+        assertThat(analysisNotificationState.find(job.id()).orElseThrow().notificationPending()).isTrue();
     }
 
     private AnalysisJob completedJob() {
         Fixture owner = ownerFixture("알림상태");
         createdUsers.add(owner.userId());
-        AnalysisJob job = acceptance.accept(owner.userId(), "AUTO", List.of(AnalysisImage.pending("image", "ab".repeat(32))));
+        AnalysisJob job = analysisJobAcceptance.accept(owner.userId(), "AUTO", List.of(AnalysisImage.pending("image", "ab".repeat(32))));
         createdJobs.add(job);
         String requestId = job.analysisImages().getFirst().requestId();
-        completions.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), requestId, owner.userId(), owner.refrigeratorId(),
+        analysisCompletionPersistence.apply(EventEnvelope.create(new AnalysisCompletedPayload(clock.instant(), requestId, owner.userId(), owner.refrigeratorId(),
                 "ai-" + job.id(), AnalysisStatus.FAILED, clock.instant(), null, new AnalysisCompletionFailure("MODEL_UNAVAILABLE", "분석 실패", true, null))));
         return job;
     }
