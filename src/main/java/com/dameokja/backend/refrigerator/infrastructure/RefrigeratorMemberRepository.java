@@ -19,6 +19,16 @@ public interface RefrigeratorMemberRepository extends JpaRepository<Refrigerator
             + "and m.refrigerator.deletedAt is null order by m.id")
     List<RefrigeratorMember> findRecommendationTargetsAfter(Long after, Pageable pageable);
 
+    @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
+            + "and (m.joinedChange.sequence > :after or m.endedChange.sequence > :after) "
+            + "order by case when m.joinedChange.sequence > :after then m.joinedChange.sequence else m.endedChange.sequence end")
+    List<RefrigeratorMember> findMembershipChangesAfter(@Param("id") Long refrigeratorId, @Param("after") long sequence,
+            Pageable pageable);
+
+    @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
+            + "and (m.joinedChange.sequence = :sequence or m.endedChange.sequence = :sequence)")
+    List<RefrigeratorMember> findMembershipChange(@Param("id") Long refrigeratorId, @Param("sequence") long sequence);
+
     @Query("""
             select distinct m.refrigerator.id from RefrigeratorMember m
             where m.endedAt is null
