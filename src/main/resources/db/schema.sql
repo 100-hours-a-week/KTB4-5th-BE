@@ -426,6 +426,7 @@ CREATE TABLE recommendation_outbox (
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (recommendation_outbox_id),
     UNIQUE KEY uk_recommendation_outbox_event (event_id),
+    KEY ix_recommendation_outbox_request (request_id),
     KEY ix_recommendation_outbox_refrigerator (refrigerator_id),
     KEY ix_recommendation_outbox_pending (status, next_attempt_at),
     KEY ix_recommendation_outbox_lease (status, lease_until),

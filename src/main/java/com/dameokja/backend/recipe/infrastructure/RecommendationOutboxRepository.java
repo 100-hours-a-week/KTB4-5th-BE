@@ -17,6 +17,7 @@ public interface RecommendationOutboxRepository extends JpaRepository<Recommenda
     @Query("select o from RecommendationOutbox o where o.eventId = :eventId")
     Optional<RecommendationOutbox> lockByEventId(@Param("eventId") String eventId);
     Optional<RecommendationOutbox> findFirstByRequestIdOrderByIdAsc(String requestId);
+    Optional<RecommendationOutbox> findFirstByRequestIdAndMessageBodyIsNotNullOrderByIdAsc(String requestId);
     List<RecommendationOutbox> findByIdGreaterThanOrderByIdAsc(Long lastScannedOutboxId, Pageable pageable);
     List<RecommendationOutbox> findByRequestIdOrderByIdAsc(String requestId);
 

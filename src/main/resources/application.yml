@@ -227,6 +227,10 @@ recommendation:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
     completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
+    completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:false}
+    completion-group-id: ${KAFKA_ENV:local}.dameokja.be.recommendation-result.v1
+    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1.dlt
+    completion-retry-delay: ${RECOMMENDATION_COMPLETION_RETRY_DELAY:5s}
   outbox:
     enabled: ${RECOMMENDATION_OUTBOX_ENABLED:false}
     poll-interval: ${RECOMMENDATION_OUTBOX_POLL_INTERVAL:5s}
