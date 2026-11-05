@@ -4,12 +4,14 @@ import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;
 import com.dameokja.backend.recipe.infrastructure.RecommendationDailyQuotaStore;
+import com.dameokja.backend.recipe.infrastructure.RecommendationDatabaseQuotaStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import lombok.RequiredArgsConstructor;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -19,20 +21,36 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RecommendationDailyQuotaService {
     private static final int DAILY_LIMIT = 10;
     private final RecommendationDailyQuotaStore recommendationDailyQuotaStore;
     private final Clock clock;
+    private final RecommendationDatabaseQuotaStore databaseQuotaStore;
+    private final LocalDate databaseStartDate;
+
+    public RecommendationDailyQuotaService(RecommendationDailyQuotaStore recommendationDailyQuotaStore, Clock clock,
+            RecommendationDatabaseQuotaStore databaseQuotaStore,
+            @Value("${recipe.quota.database-start-date:}") String databaseStartDate) {
+        this.recommendationDailyQuotaStore = recommendationDailyQuotaStore;
+        this.clock = clock;
+        this.databaseQuotaStore = databaseQuotaStore;
+        this.databaseStartDate = databaseStartDate.isBlank() ? null : LocalDate.parse(databaseStartDate);
+    }
 
     public RecommendationDailyGeneration current(Long userId) {
         LocalDate date = BusinessTime.today(clock);
+        if (usesDatabase(date)) {
+            return snapshot(reservations(userId, date, false).size(), date);
+        }
         return snapshot(recommendationDailyQuotaStore.count(userId, date), date);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public RecommendationDailyGeneration reserve(Long userId, String requestId) {
         LocalDateTime now = BusinessTime.now(clock);
+        if (usesDatabase(now.toLocalDate())) {
+            return reserveInDatabase(userId, requestId);
+        }
         LocalDate date = now.toLocalDate();
         Duration ttl = Duration.between(now, date.plusDays(1).atStartOfDay());
         long used = recommendationDailyQuotaStore.reserve(userId, date, requestId, DAILY_LIMIT, ttl);
@@ -44,6 +62,32 @@ public class RecommendationDailyQuotaService {
         }
         releaseOnRollback(userId, date, requestId);
         return snapshot(used, date);
+    }
+
+    private RecommendationDailyGeneration reserveInDatabase(Long userId, String requestId) {
+        databaseQuotaStore.lockUser(userId);
+        LocalDate date = BusinessTime.today(clock);
+        Set<String> reservations = reservations(userId, date, true);
+        if (reservations.contains(requestId)) {
+            return snapshot(reservations.size(), date);
+        }
+        if (reservations.size() >= DAILY_LIMIT) {
+            throw new CustomException(RecommendationExceptionCode.DAILY_LIMIT_REACHED);
+        }
+        databaseQuotaStore.reserve(userId, date, requestId);
+        return snapshot(reservations.size() + 1, date);
+    }
+
+    private Set<String> reservations(Long userId, LocalDate date, boolean forUpdate) {
+        Set<String> reservations = databaseQuotaStore.reservations(userId, date, forUpdate);
+        if (date.equals(databaseStartDate)) {
+            reservations.addAll(recommendationDailyQuotaStore.reservations(userId, date));
+        }
+        return reservations;
+    }
+
+    private boolean usesDatabase(LocalDate date) {
+        return databaseStartDate != null && !date.isBefore(databaseStartDate);
     }
 
     private void releaseOnRollback(Long userId, LocalDate date, String requestId) {

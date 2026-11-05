@@ -274,5 +274,7 @@ sentry:
   profile-lifecycle: TRACE
 
 recipe:
+  quota:
+    database-start-date: ${RECOMMENDATION_QUOTA_DATABASE_START_DATE:}
   job:
     database-write-enabled: ${RECOMMENDATION_JOB_DATABASE_WRITE_ENABLED:false}

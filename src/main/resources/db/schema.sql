@@ -405,6 +405,14 @@ CREATE TABLE analysis_feedbacks (
     CONSTRAINT ck_analysis_feedback_finished CHECK ((status IN ('DONE','FAILED')) = (finished_at IS NOT NULL))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
+CREATE TABLE recommendation_daily_quotas (
+    user_id BIGINT NOT NULL,
+    quota_date DATE NOT NULL,
+    request_ids JSON NOT NULL,
+    PRIMARY KEY (user_id),
+    CONSTRAINT fk_recommendation_quota_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
 CREATE TABLE recommendation_outbox (
     recommendation_outbox_id BIGINT NOT NULL AUTO_INCREMENT,
     event_id VARCHAR(36) NOT NULL COMMENT '접수마다 발급하는 ID. 향후 FE jobId로 사용',

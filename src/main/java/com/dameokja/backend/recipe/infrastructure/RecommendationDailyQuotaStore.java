@@ -3,6 +3,7 @@ package com.dameokja.backend.recipe.infrastructure;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,6 +24,10 @@ public class RecommendationDailyQuotaStore {
 
     public long count(Long userId, LocalDate date) {
         return redisTemplate.opsForSet().size(key(userId, date));
+    }
+
+    public Set<String> reservations(Long userId, LocalDate date) {
+        return redisTemplate.opsForSet().members(key(userId, date));
     }
 
     public void release(Long userId, LocalDate date, String requestId) {
