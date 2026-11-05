@@ -170,6 +170,10 @@ analysis:
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
     completion-group-id: ${ANALYSIS_KAFKA_COMPLETION_GROUP_ID:${KAFKA_ENV:local}.dameokja.be.analysis-result.v1}
     completion-retry-delay: ${ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY:5s}
+  result-cleanup:
+    enabled: ${ANALYSIS_RESULT_CLEANUP_ENABLED:true}
+    poll-interval: ${ANALYSIS_RESULT_CLEANUP_POLL_INTERVAL:1m}
+    batch-size: ${ANALYSIS_RESULT_CLEANUP_BATCH_SIZE:100}
   outbox:
     enabled: ${ANALYSIS_OUTBOX_ENABLED:true}
     poll-interval: ${ANALYSIS_OUTBOX_POLL_INTERVAL:5s}

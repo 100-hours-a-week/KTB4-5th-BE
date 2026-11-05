@@ -472,6 +472,7 @@ CREATE TABLE analysis_job_states (
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (analysis_job_id),
     KEY ix_analysis_job_states_user (user_id, created_at),
+    KEY ix_analysis_job_states_expiry (expires_at, analysis_job_id),
     KEY ix_analysis_job_states_notification_due (notification_next_attempt_at, analysis_job_id),
     CONSTRAINT fk_analysis_job_states_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT ck_analysis_job_states_status CHECK (status IN ('QUEUED','PROCESSING','COMPLETED','PARTIALLY_COMPLETED','FAILED'))

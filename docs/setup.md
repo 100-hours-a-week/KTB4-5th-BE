@@ -325,6 +325,12 @@ AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 �
 예상 소비기한 범위는 저장 상태에서 유지하고 사용자 GET의 `expiration`에는 확정 날짜만 반환하므로, 추정 범위만 있으면 null이다.
 콜백 누락 복구는 후속 구현 범위다.
 
+## 만료된 DB 분석 결과 정리
+
+기존 DB에는 `src/main/resources/db/migrations/20261105-analysis-result-cleanup-index.sql`을 분석 작업 테이블 생성 후 정리 기능 배포 전에 한 번 수동 적용한다. 빈 DB에는 최신 `schema.sql`을 적용하므로 이 migration을 다시 실행하지 않는다.
+`ANALYSIS_RESULT_CLEANUP_ENABLED`(기본 `true`), `ANALYSIS_RESULT_CLEANUP_POLL_INTERVAL`(기본 `1m`), `ANALYSIS_RESULT_CLEANUP_BATCH_SIZE`(기본 `100`, 양수)로 정리를 설정한다.
+각 주기에는 만료 시각이 현재 시각 이하인 DB 작업을 최대 설정 건수만큼 하나씩 잠그고 해당 요청 연결과 outbox를 함께 삭제한다. 다른 인스턴스가 잠근 작업은 건너뛰며 만료 시각이 없는 작업은 보존한다.
+
 ## Kafka 공통 설정
 
 Kafka 의존성·환경변수·토픽 이름과 기본 비활성 상태는 [Kafka 공통 설정](integration/kafka-setup.md)을 참고한다.
