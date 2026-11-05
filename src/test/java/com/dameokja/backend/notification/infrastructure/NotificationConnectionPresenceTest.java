@@ -3,6 +3,7 @@ package com.dameokja.backend.notification.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.MockMakers.SUBCLASS;
 import static org.mockito.Mockito.*;
 
 import com.dameokja.backend.notification.application.NotificationStreamService;
@@ -72,7 +73,7 @@ class NotificationConnectionPresenceTest {
     @ParameterizedTest
     @ValueSource(strings = {"completion", "timeout", "error", "initial-send", "heartbeat", "shutdown"})
     void everyTerminationPathRemovesPresence(String termination) throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         if (termination.equals("initial-send")) {
             doThrow(new IOException("closed")).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
@@ -99,7 +100,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void completionDuringHeartbeatCannotResurrectTheConnection() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         connections.connect(1L, 17L);
         doAnswer(invocation -> {
@@ -112,7 +113,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void concurrentCloseWaitsForHeartbeatAndRemovesItsRefreshedLease() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, firstServer);
         connections.connect(1L, 17L);
         CountDownLatch sending = new CountDownLatch(1);
@@ -138,7 +139,7 @@ class NotificationConnectionPresenceTest {
     @ValueSource(booleans = {false, true})
     void registrationAndHeartbeatRedisFailuresCloseTheConnection(boolean heartbeat) {
         NotificationConnectionPresence failing = spy(firstServer);
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, failing);
         if (heartbeat) {
             connections.connect(1L, 17L);
@@ -157,7 +158,7 @@ class NotificationConnectionPresenceTest {
     @Test
     void removalFailureFallsBackToTtlWithoutHeartbeatResurrection() {
         NotificationConnectionPresence failing = spy(firstServer);
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         NotificationSseConnections connections = new NotificationSseConnections(() -> emitter, failing);
         connections.connect(1L, 17L);
         doThrow(new org.springframework.data.redis.RedisConnectionFailureException("offline"))
@@ -173,7 +174,7 @@ class NotificationConnectionPresenceTest {
 
     @Test
     void terminationBeforeLocalRegistrationDoesNotLeaveADeadConnection() throws Exception {
-        SseEmitter emitter = mock(SseEmitter.class);
+        SseEmitter emitter = mockEmitter();
         doAnswer(invocation -> {
             invocation.getArgument(0, Runnable.class).run();
             return null;
@@ -192,6 +193,11 @@ class NotificationConnectionPresenceTest {
                 .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("offline"));
         NotificationStreamService service = stream(new NotificationConnectionPresence(failing));
         assertThatThrownBy(() -> service.isConnected(1L)).isInstanceOf(org.springframework.data.redis.RedisConnectionFailureException.class);
+    }
+
+    private SseEmitter mockEmitter() {
+        // 콜백 인자가 emitter를 다시 참조하므로 inline 전역 맵에 보관하지 않는다.
+        return mock(SseEmitter.class, withSettings().mockMaker(SUBCLASS));
     }
 
     private Runnable callback(SseEmitter emitter, boolean timeout) {
