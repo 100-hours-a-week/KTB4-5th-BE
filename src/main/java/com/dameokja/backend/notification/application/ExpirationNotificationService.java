@@ -5,6 +5,7 @@ import com.dameokja.backend.ingredient.application.IngredientExpirationService;
 import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.infrastructure.NotificationRepository;
+import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
@@ -27,26 +28,33 @@ public class ExpirationNotificationService {
     private final ExpirationNotificationFactory notificationFactory;
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientService notificationRecipientService;
+    private final PushNotificationCreationService pushNotificationCreationService;
     private final Clock clock;
 
     @Transactional
-    public void generate(Long refrigeratorId) {
+    public void generate(Long refrigeratorId, boolean pushEnabled) {
+        LocalDate businessDate = BusinessTime.today(clock);
         List<RefrigeratorMember> members = refrigeratorService.findNotificationRecipients(refrigeratorId);
         if (members.isEmpty()) {
             return;
         }
 
         Refrigerator refrigerator = members.getFirst().getRefrigerator();
-        LocalDate businessDate = BusinessTime.today(clock);
 
         List<Ingredient> ingredients = ingredientExpirationService.findNotificationTargets(refrigeratorId, businessDate);
         Map<Long, List<Ingredient>> ingredientsByOwner = ingredients.stream()
                 .collect(Collectors.groupingBy(ingredient -> ingredient.getOwner().getId()));
+        List<Long> notificationIds = new ArrayList<>();
         for (RefrigeratorMember member : members) {
             User owner = member.getUser();
             List<Ingredient> ownedIngredients = ingredientsByOwner.getOrDefault(owner.getId(), List.of());
             List<Notification> notifications = createNotifications(refrigerator, ownedIngredients, businessDate);
-            saveNotifications(notifications, List.of(owner));
+            for (Notification notification : notifications) {
+                notificationIds.add(saveNotification(notification, owner));
+            }
+        }
+        if (pushEnabled && !notificationIds.isEmpty()) {
+            pushNotificationCreationService.createExpirationJobs(notificationIds, businessDate);
         }
     }
 
@@ -71,10 +79,9 @@ public class ExpirationNotificationService {
         return notifications;
     }
 
-    private void saveNotifications(List<Notification> notifications, List<User> recipients) {
-        for (Notification notification : notifications) {
-            Notification savedNotification = notificationRepository.save(notification);
-            notificationRecipientService.saveRecipients(savedNotification, recipients);
-        }
+    private Long saveNotification(Notification notification, User owner) {
+        Notification savedNotification = notificationRepository.save(notification);
+        notificationRecipientService.saveRecipients(savedNotification, List.of(owner));
+        return savedNotification.getId();
     }
 }

@@ -20,7 +20,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
             String type, String title, String body) {
         ingredient(970001L, FRIDGE, "우유", remainingDays);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messages(FRIDGE)).containsExactly(new Message(type, title, body));
         assertThat(recipientIds(FRIDGE)).containsExactly(USER);
@@ -32,7 +32,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         refrigerator(970002L);
         ingredient(970002L, 970002L, "다른냉장고", -1);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messages(FRIDGE)).isEmpty();
         assertThat(recipientIds(FRIDGE)).isEmpty();
@@ -48,7 +48,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         ingredient(970002L, FRIDGE, "만료후순위", -5);
         ingredient(970001L, FRIDGE, "달걀", -5);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messages(FRIDGE)).containsExactly(
                 new Message("EXPIRING", "3일 안에 챙길 재료가 있어요", "우유 외 2개 · 오늘까지예요"),
@@ -60,7 +60,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
 
     @Test
     void skipsFridgeWithoutIngredients() {
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messages(FRIDGE)).isEmpty();
         assertThat(recipientIds(FRIDGE)).isEmpty();
@@ -76,7 +76,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         ingredient(970004L, FRIDGE, "달걀", 1, 970002L);
         ingredient(970005L, FRIDGE, "당근", -1, 970002L);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messagesFor(USER)).containsExactly(
                 new Message("EXPIRING", "3일 안에 챙길 재료가 있어요", "우유 외 1개 · 오늘까지예요"),
@@ -94,7 +94,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         assertThat(refrigeratorService.findNotificationTargetRefrigeratorIds()).contains(FRIDGE);
         jdbc.update("UPDATE refrigerator_members SET is_active=0, ended_at=NOW() WHERE user_id=?", USER);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(messages(FRIDGE)).isEmpty();
         assertThat(recipientIds(FRIDGE)).isEmpty();
@@ -112,7 +112,7 @@ class ExpirationNotificationIntegrationTest extends NotificationGenerationTestSu
         ingredient(970003L, FRIDGE, "두부", -1, 970003L);
         ingredient(970004L, FRIDGE, "탈퇴재고", 0, 970004L);
 
-        generationService.generate(FRIDGE);
+        generationService.generate(FRIDGE, true);
 
         assertThat(recipientIds(FRIDGE)).containsExactly(USER, 970002L, 970003L);
     }

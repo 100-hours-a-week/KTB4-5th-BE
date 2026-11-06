@@ -1,7 +1,6 @@
 package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import java.time.Clock;
 import java.time.Duration;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class NotificationScheduler {
-    private final PushNotificationCreationService pushNotificationCreationService;
     private final RefrigeratorService refrigeratorService;
     private final ExpirationNotificationService expirationNotificationService;
     private final NotificationRecipientService notificationRecipientService;
@@ -24,13 +22,11 @@ public class NotificationScheduler {
     private final Clock clock;
     private final boolean expirationPushEnabled;
 
-    public NotificationScheduler(PushNotificationCreationService pushNotificationCreationService,
-                                 RefrigeratorService refrigeratorService,
+    public NotificationScheduler(RefrigeratorService refrigeratorService,
                                  ExpirationNotificationService expirationNotificationService,
                                  NotificationRecipientService notificationRecipientService,
                                  NotificationService notificationService, Clock clock,
                                  @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled) {
-        this.pushNotificationCreationService = pushNotificationCreationService;
         this.refrigeratorService = refrigeratorService;
         this.expirationNotificationService = expirationNotificationService;
         this.notificationRecipientService = notificationRecipientService;
@@ -45,7 +41,6 @@ public class NotificationScheduler {
         List<Long> refrigeratorIds = refrigeratorService.findNotificationTargetRefrigeratorIds();
         int failedRefrigeratorCount = generateNotifications(refrigeratorIds);
         recordGenerationResult(startedAtNanos, refrigeratorIds.size(), failedRefrigeratorCount);
-        createPushJobs();
     }
 
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
@@ -68,7 +63,7 @@ public class NotificationScheduler {
         int failedCount = 0;
         for (Long refrigeratorId : refrigeratorIds) {
             try {
-                expirationNotificationService.generate(refrigeratorId);
+                expirationNotificationService.generate(refrigeratorId, expirationPushEnabled);
             } catch (RuntimeException exception) {
                 failedCount++;
                 log.error("냉장고 알림 생성에 실패했습니다. refrigeratorId={}", refrigeratorId, exception);
@@ -81,15 +76,6 @@ public class NotificationScheduler {
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
         log.info("임박·만료 알림 생성 단계를 마쳤습니다. refrigeratorCount={}, failedRefrigeratorCount={}, elapsedMillis={}",
                 refrigeratorCount, failedRefrigeratorCount, elapsedMillis);
-    }
-
-    private void createPushJobs() {
-        // 푸시를 꺼도 인앱 알림 생성과 별도 보관 정리는 실행되어야 한다.
-        if (!expirationPushEnabled) {
-            return;
-        }
-        int createdCount = pushNotificationCreationService.createExpirationJobs();
-        log.info("만료·임박 알림 푸시 발송 작업을 {}건 만들었습니다.", createdCount);
     }
 
     private LocalDateTime now() {
