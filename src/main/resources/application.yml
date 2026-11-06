@@ -226,6 +226,7 @@ analysis:
 recommendation:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
+    submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:false}
     completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
     completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:false}
     completion-group-id: ${KAFKA_ENV:local}.dameokja.be.recommendation-result.v1
