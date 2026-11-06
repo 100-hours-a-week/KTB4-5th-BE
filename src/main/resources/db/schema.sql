@@ -237,6 +237,17 @@ CREATE TABLE cooking_records (
     CONSTRAINT fk_cooking_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
+CREATE TABLE cooking_outbox (
+    cooking_record_id BIGINT NOT NULL,
+    message_key VARCHAR(20) NOT NULL COMMENT 'Kafka key로 쓰는 userId 문자열',
+    message_body JSON NOT NULL COMMENT '메시지 ID와 차감 내역이 포함된 Kafka 본문',
+    publish_after DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    published_at DATETIME(6) NULL,
+    PRIMARY KEY (cooking_record_id),
+    KEY ix_cooking_outbox_pending (published_at, publish_after, cooking_record_id),
+    CONSTRAINT fk_cooking_outbox_record FOREIGN KEY (cooking_record_id) REFERENCES cooking_records (cooking_record_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
 CREATE TABLE notifications (
     notification_id BIGINT NOT NULL AUTO_INCREMENT,
     type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED / MEMBER_LEFT. 추천 푸시는 저장하지 않음',
