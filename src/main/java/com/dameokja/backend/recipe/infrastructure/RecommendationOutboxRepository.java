@@ -18,8 +18,9 @@ public interface RecommendationOutboxRepository extends JpaRepository<Recommenda
     Optional<RecommendationOutbox> lockByEventId(@Param("eventId") String eventId);
     Optional<RecommendationOutbox> findFirstByRequestIdOrderByIdAsc(String requestId);
     Optional<RecommendationOutbox> findFirstByRequestIdAndMessageBodyIsNotNullOrderByIdAsc(String requestId);
-    List<RecommendationOutbox> findByIdGreaterThanOrderByIdAsc(Long lastScannedOutboxId, Pageable pageable);
+    List<RecommendationOutbox> findByIdGreaterThanAndMessageBodyIsNullOrderByIdAsc(Long lastScannedOutboxId, Pageable pageable);
     List<RecommendationOutbox> findByRequestIdOrderByIdAsc(String requestId);
+    List<RecommendationOutbox> findByRequestIdAndMessageBodyIsNullOrderByIdAsc(String requestId);
 
     @Query(value = """
             SELECT * FROM recommendation_outbox WHERE status = 'PENDING' AND next_attempt_at <= CAST(:now AS DATETIME(6))

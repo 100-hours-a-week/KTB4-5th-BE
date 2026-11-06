@@ -21,7 +21,7 @@ public class RecommendationCallbackService {
         if (aiRecipeJobResponse.status() != AiRecipeJobResponse.Status.COMPLETED && aiRecipeJobResponse.status() != AiRecipeJobResponse.Status.FAILED) {
             throw new IllegalArgumentException("종료된 추천 작업만 수신할 수 있습니다.");
         }
-        List<RecommendationOutboxService.Event> outboxEvents = recommendationOutboxService.matching(aiRecipeJobResponse.requestId());
+        List<RecommendationOutboxService.Event> outboxEvents = recommendationOutboxService.matchingHttp(aiRecipeJobResponse.requestId());
         if (outboxEvents.isEmpty()) { throw new NoSuchElementException(); }
         List<String> activeEventIds = new ArrayList<>();
         for (RecommendationOutboxService.Event outboxEvent : outboxEvents) {

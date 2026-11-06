@@ -102,7 +102,7 @@ public class NotificationSseConnections {
         removeEmptyGroup(finished.userId());
     }
 
-    @Scheduled(fixedDelay = 25_000L)
+    @Scheduled(fixedDelay = 5_000L)
     public void heartbeat() {
         connections.forEach((userId, group) -> {
             group.heartbeat();
