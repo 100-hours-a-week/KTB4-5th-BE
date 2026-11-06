@@ -30,11 +30,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.skyscreamer.jsonassert.JSONAssert;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+@TestPropertySource(properties = "recipe.job.database-write-enabled=true")
 class RecommendationCompletionTest extends ServiceIntegrationTest {
     @Autowired private RecommendationSubmissionService recommendationSubmissionService;
     @Autowired private RecommendationSelectionService recommendationSelectionService;
@@ -103,7 +105,7 @@ class RecommendationCompletionTest extends ServiceIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void retriesDatabaseFailureEvenWhenRedisAlreadyContainsCompletion(boolean receivedThroughCallback) throws Exception {
+    void retriesDatabaseFailureEvenWhenJobAlreadyContainsCompletion(boolean receivedThroughCallback) throws Exception {
         Fixture refrigeratorParticipant = ownerFixture("복구회원");
         RecommendationSubmissionResult submissionResult = accept(refrigeratorParticipant);
         AiRecipeJobResponse completedResponse = response(submissionResult, Status.COMPLETED);

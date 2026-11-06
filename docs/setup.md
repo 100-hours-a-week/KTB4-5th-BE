@@ -236,20 +236,20 @@ HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·
 ## 추천 outbox 접수
 
 `RecommendationSubmissionService.submit`은 권한 확인과 전체 재고 조회·요청 준비를 마친 뒤 짧은 트랜잭션에서 outbox만 저장한다.
-`recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 별도 job 테이블은 두지 않으며 생성 상태·결과는 후속 Redis 구현에서 관리한다.
+`recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 활성화 이후 신규 작업의 AI 접수와 상태·결과 스냅샷은 같은 테이블에 저장한다. 기존 Redis 작업은 Redis에서 조회한다. 종료 스냅샷은 기존 TTL이 지난 뒤 워커 조회 시 지워지고 만료 표시는 유지된다.
 새 추천은 같은 재고·옵션이라도 새로운 UUID requestId와 eventId로 접수한다. 재전송에는 outbox에 저장한 requestId·본문을 재사용한다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
 SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는다.
-빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블 추가가 필요하며, 스키마 파일은 자동 실행되지 않는다.
-`RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, Redis에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.
-Redis 저장이나 AI 통신이 실패하면 outbox를 SENT로 바꾸지 않으며, 명시적인 재실행은 동일 requestId·본문을 사용한다.
+빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블과 `db/migrations/20261105-recommendation-job-state.sql`의 수동 적용이 필요하며, 스키마 파일은 자동 실행되지 않는다. DDL을 먼저 적용하고 모든 BE 인스턴스를 새 버전으로 교체한 뒤 `RECOMMENDATION_JOB_DATABASE_WRITE_ENABLED=true`로 신규 DB 저장을 활성화한다. 기본값은 false이며 저장 경로는 각 행의 생성 당시 표시로 결정된다. 구 버전 인스턴스가 남은 상태에서 활성화하지 않는다. 이미 Redis에서 사라진 기존 작업은 복구되지 않는다.
+`RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, 선택된 저장소에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.
+상태 저장이나 AI 통신이 실패하면 outbox를 SENT로 바꾸지 않으며, 명시적인 재실행은 동일 requestId·본문을 사용한다.
 `refresh(eventId)`는 보관된 AI jobId로 한 번 조회해 결과·오류를 저장한다. 통신 오류는 AI 생성 실패로 바꾸지 않는다.
 AI 통신은 DB 트랜잭션 밖에서만 허용한다. `submit`·`refresh` 호출 시 활성 트랜잭션이 있으면 거절한다.
-Redis `recipe:job:<eventId>`에는 접수 응답과 마지막 조회 결과를 보관한다. 진행 중에는 TTL이 없고, 최초 종료 저장부터 `recipe.result-ttl`(기본 24h)을 적용한다.
+선택된 DB 또는 Redis `recipe:job:<eventId>`에 접수 응답과 마지막 조회 결과를 보관한다. 진행 중에는 TTL이 없고, 최초 종료 저장부터 `recipe.result-ttl`(기본 24h)을 적용한다.
 종료 결과는 뒤늦은 진행 응답으로 덮어쓰지 않으며 중복 저장·조회는 보관기간을 연장하지 않는다.
 추천 워커는 `recipe.dispatch.enabled`(기본 true), `recipe.dispatch.poll-interval`(기본 5s)로 제어하며 인스턴스당 최대 4건을 실행한다.
-커밋된 outbox를 ID 순으로 순환하며 PENDING을 접수하고, Redis에 접수 정보가 남은 작업의 상태를 갱신한다. 통신·저장 실패는 다음 순환에서 같은 요청으로 다시 처리한다.
-동일 인스턴스의 중복 실행은 막고, 여러 인스턴스의 같은 요청 접수는 AI requestId 멱등성과 Redis 원자 갱신으로 처리한다.
-SENT의 Redis 보관 결과가 사라졌으면 다시 접수하지 않는다. AI 미완료 작업 소실·영구 오류 판정·완료 outbox 정리는 별도 복구 정책 범위다.
+커밋된 outbox를 ID 순으로 순환하며 PENDING을 접수하고, 접수 정보가 남은 작업의 상태를 갱신한다. 통신·저장 실패는 다음 순환에서 같은 요청으로 다시 처리한다.
+동일 인스턴스의 중복 실행은 막고, 여러 인스턴스의 같은 요청 접수는 AI requestId 멱등성과 저장소의 원자 갱신으로 처리한다.
+SENT의 보관 결과가 사라졌으면 다시 접수하지 않는다. AI 미완료 작업 소실·영구 오류 판정·완료 outbox 정리는 별도 복구 정책 범위다.
 추천 전용 콜백은 `POST /api/v1/internal/recipe-recommendations/callback`이며, 본문은 AI GET의 최종 작업 응답과 같다. 내부 키는 기존 분석 콜백과 같은 `AI_API_KEY`를 사용한다.
 AI의 `RECIPE_CALLBACK_URL`에는 위 경로, `RECIPE_CALLBACK_API_KEY`에는 같은 키를 설정한다. 분석 콜백 URL을 재사용하지 않는다.
 수신 성공·중복·보관기간 종료 결과는 204(본문 없음), 인증 실패는 401, 요청 불일치는 400, 미등록 requestId는 404다.
@@ -371,7 +371,7 @@ Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함�
 키 구조·TTL·역직렬화 대상 타입은 해당 도메인의 저장소에서 정한다.
 
 SSE emitter는 각 서버 메모리에 유지하고, 사용자별 `fridgely:notifications:connections:<userId>` sorted set에 연결 UUID와 lease 만료 시각을 공유한다.
-25초 heartbeat가 성공하면 Redis 서버 시각을 기준으로 75초 lease와 키 TTL을 갱신한다. 개별 연결 종료는 해당 UUID만 제거하고, 서버 비정상 종료는 TTL로 정리한다.
+5초 heartbeat가 성공하면 Redis 서버 시각을 기준으로 75초 lease와 키 TTL을 갱신한다. 개별 연결 종료는 해당 UUID만 제거하고, 서버 비정상 종료는 TTL로 정리한다.
 연결 상태 등록·갱신 실패는 해당 SSE 연결을 종료하며, 상태 조회 실패는 미연결로 처리하지 않고 예외를 전달한다. 종료 상태 제거 실패는 TTL 만료로 복구한다.
 
 ## 카카오 로그인 설정

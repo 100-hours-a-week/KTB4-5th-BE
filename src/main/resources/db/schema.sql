@@ -412,14 +412,26 @@ CREATE TABLE recommendation_outbox (
     request_id VARCHAR(36) NOT NULL COMMENT '동일 요청의 재전송 식별자. 중복 접수는 허용',
     event_type VARCHAR(64) NOT NULL,
     payload JSON NOT NULL COMMENT '접수 당시 AI 요청 스냅샷',
+    topic VARCHAR(249) NULL,
+    message_key VARCHAR(32) NULL,
+    message_body JSON NULL COMMENT 'Kafka envelope 원문. HTTP 행은 NULL',
+    next_attempt_at DATETIME(6) NULL,
+    lease_token VARCHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
     status VARCHAR(16) NOT NULL COMMENT '메시지 전달 상태. 추천 생성 상태와 분리',
+    db_job BOOLEAN NOT NULL DEFAULT FALSE,
+    job_snapshot JSON NULL,
+    job_expires_at DATETIME(6) NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (recommendation_outbox_id),
     UNIQUE KEY uk_recommendation_outbox_event (event_id),
+    KEY ix_recommendation_outbox_request (request_id),
     KEY ix_recommendation_outbox_refrigerator (refrigerator_id),
+    KEY ix_recommendation_outbox_pending (status, next_attempt_at),
+    KEY ix_recommendation_outbox_lease (status, lease_until),
     CONSTRAINT fk_recommendation_outbox_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
-    CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','SENT','FAILED'))
+    CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','PUBLISHING','SENT','FAILED'))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE recommendation_lists (

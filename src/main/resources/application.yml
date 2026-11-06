@@ -226,7 +226,18 @@ analysis:
 recommendation:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
+    submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:false}
     completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
+    completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:false}
+    completion-group-id: ${KAFKA_ENV:local}.dameokja.be.recommendation-result.v1
+    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1.dlt
+    completion-retry-delay: ${RECOMMENDATION_COMPLETION_RETRY_DELAY:5s}
+  outbox:
+    enabled: ${RECOMMENDATION_OUTBOX_ENABLED:false}
+    poll-interval: ${RECOMMENDATION_OUTBOX_POLL_INTERVAL:5s}
+    batch-size: ${RECOMMENDATION_OUTBOX_BATCH_SIZE:20}
+    lease-duration: ${RECOMMENDATION_OUTBOX_LEASE_DURATION:60s}
+    retry-delay: ${RECOMMENDATION_OUTBOX_RETRY_DELAY:5s}
 
 cooking:
   kafka:
@@ -272,3 +283,7 @@ sentry:
   # Set profile-lifecycle to trace to automatically start and stop
   # profiling when a transaction starts and finishes.
   profile-lifecycle: TRACE
+
+recipe:
+  job:
+    database-write-enabled: ${RECOMMENDATION_JOB_DATABASE_WRITE_ENABLED:false}
