@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "recommendation.outbox.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "recommendation.outbox.enabled", havingValue = "true", matchIfMissing = true)
 public class RecommendationOutboxScheduler {
     private final RecommendationOutboxWorker recommendationOutboxWorker;
 

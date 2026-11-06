@@ -226,14 +226,14 @@ analysis:
 recommendation:
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
-    submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:false}
+    submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:true}
     completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
-    completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:false}
+    completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:true}
     completion-group-id: ${KAFKA_ENV:local}.dameokja.be.recommendation-result.v1
     completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1.dlt
     completion-retry-delay: ${RECOMMENDATION_COMPLETION_RETRY_DELAY:5s}
   outbox:
-    enabled: ${RECOMMENDATION_OUTBOX_ENABLED:false}
+    enabled: ${RECOMMENDATION_OUTBOX_ENABLED:true}
     poll-interval: ${RECOMMENDATION_OUTBOX_POLL_INTERVAL:5s}
     batch-size: ${RECOMMENDATION_OUTBOX_BATCH_SIZE:20}
     lease-duration: ${RECOMMENDATION_OUTBOX_LEASE_DURATION:60s}
