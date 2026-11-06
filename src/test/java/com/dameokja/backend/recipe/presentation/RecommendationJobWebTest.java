@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.recipe.application.RecommendationReuseService;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationDailyQuotaStore;
@@ -36,6 +37,7 @@ class RecommendationJobWebTest extends ServiceIntegrationTest {
     @Autowired JwtProvider jwtProvider;
     @Autowired JsonMapper jsonMapper;
     @Autowired RecommendationListRepository recommendationListRepository;
+    @Autowired RecommendationReuseService recommendationReuseService;
     @Autowired RecommendationDailyQuotaStore recommendationDailyQuotaStore;
     @MockitoBean AiRecipeClient aiRecipeClient;
     private Fixture refrigeratorParticipant;
@@ -154,8 +156,10 @@ class RecommendationJobWebTest extends ServiceIntegrationTest {
 
     private Long finishResult(boolean selectCompletedResult) {
         String recommendationRequestId = jdbcTemplate.queryForObject("SELECT request_id FROM recommendation_outbox", String.class);
-        Long recommendationListId = recommendationListRepository.saveAndFlush(new RecommendationList(userRepository.getReferenceById(refrigeratorParticipant.userId()),
-                refrigeratorRepository.getReferenceById(refrigeratorParticipant.refrigeratorId()), recommendationRequestId, "{}")).getId();
+        RecommendationList completed = new RecommendationList(userRepository.getReferenceById(refrigeratorParticipant.userId()),
+                refrigeratorRepository.getReferenceById(refrigeratorParticipant.refrigeratorId()), recommendationRequestId, "{}");
+        recommendationReuseService.indexInputs(completed, BusinessTime.today(clock));
+        Long recommendationListId = recommendationListRepository.saveAndFlush(completed).getId();
         jdbcTemplate.update("""
                 UPDATE recommendation_states SET current_list_id = ?, latest_list_id = ?, generation_status = 'COMPLETED', active_request_id = NULL
                 WHERE user_id = ? AND refrigerator_id = ?

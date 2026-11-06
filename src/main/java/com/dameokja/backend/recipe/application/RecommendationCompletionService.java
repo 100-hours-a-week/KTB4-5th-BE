@@ -23,6 +23,7 @@ public class RecommendationCompletionService {
     private final UserAccessService userAccessService;
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final ApplicationEventPublisher eventPublisher;
+    private final RecommendationReuseService recommendationReuseService;
 
     @Transactional
     public void apply(AiRecipeJobResponse recommendationJobResponse) {
@@ -53,6 +54,7 @@ public class RecommendationCompletionService {
         String resultJson = jsonMapper.writeValueAsString(recommendationJobResponse.result());
         RecommendationList completedList = new RecommendationList(recommendationState.getUser(), recommendationState.getRefrigerator(),
                 recommendationJobResponse.requestId(), resultJson);
+        recommendationReuseService.indexInputs(completedList, recommendationState.getRequestDate());
         RecommendationList savedList = recommendationListRepository.save(completedList);
         recommendationState.completeGeneration(savedList);
     }

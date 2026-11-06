@@ -15,7 +15,8 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "추천")
 public interface RecommendationJobApi {
     @Operation(summary = "추천 생성 요청", description = "accessToken 및 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. {}는 기본값을 사용합니다. "
-            + "현재 목록은 유지하며 동일 재고·옵션의 선택 결과는 재사용합니다. 생성 중이거나 미전환 결과가 있으면 거절합니다. 사용자별 하루 10회입니다.")
+            + "현재 목록은 유지하며 같은 서울 접수 날짜의 동일 재고·옵션 완료 이력을 재사용해 최신 목록에 연결합니다. "
+            + "당일 요청이 생성 중이거나 미전환 결과가 있으면 거절하며 전날 요청은 차단하지 않습니다. 재사용은 한도 차감이 없으며 사용자별 하루 10회입니다.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(schema = @Schema(implementation = RecommendationJobSubmitRequest.class),
             examples = @ExampleObject(value = RecommendationJobApiExamples.REQUEST)))
     @ApiResponse(responseCode = "202", description = "추천 생성 시작 (RECOMMEND-202-001)", content = @Content(examples = @ExampleObject(value = RecommendationJobApiExamples.ACCEPTED)))

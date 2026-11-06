@@ -440,10 +440,13 @@ CREATE TABLE recommendation_lists (
     refrigerator_id BIGINT NOT NULL,
     request_id VARCHAR(36) NOT NULL,
     result_json JSON NOT NULL COMMENT '추천 완료 결과 전체. 레시피 상세·재료·단계·재고 배분 포함',
+    request_date DATE NULL COMMENT '추천 접수 시점의 서울 업무 날짜',
+    input_key VARCHAR(64) NULL COMMENT '재고 지문과 기본값 적용 옵션의 SHA-256',
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (recommendation_list_id),
     UNIQUE KEY uk_recommendation_list_request (request_id),
+    KEY ix_recommendation_list_reuse (user_id, refrigerator_id, request_date, input_key, recommendation_list_id),
     CONSTRAINT fk_recommendation_list_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_recommendation_list_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
@@ -455,6 +458,7 @@ CREATE TABLE recommendation_states (
     current_list_id BIGINT NULL COMMENT '명시적으로 선택한 목록. 최신 완료 목록과 같을 수 있음',
     latest_list_id BIGINT NULL COMMENT '최신 완료 목록. 완료만으로 current_list_id를 변경하지 않음',
     active_request_id VARCHAR(36) NULL,
+    request_date DATE NULL COMMENT '마지막 추천 접수·재사용의 서울 업무 날짜',
     generation_status VARCHAR(16) NULL COMMENT '마지막 생성 작업 상태. 작업이 없으면 NULL',
     generation_trigger VARCHAR(16) NULL,
     created_at DATETIME(6) NOT NULL,

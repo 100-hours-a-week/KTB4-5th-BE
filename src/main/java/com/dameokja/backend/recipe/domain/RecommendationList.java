@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,11 +39,20 @@ public class RecommendationList extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, updatable = false)
     private String resultJson;
+    @Column(updatable = false)
+    private LocalDate requestDate;
+    @Column(length = 64, updatable = false)
+    private String inputKey;
 
     public RecommendationList(User user, Refrigerator refrigerator, String requestId, String resultJson) {
         this.user = user;
         this.refrigerator = refrigerator;
         this.requestId = requestId;
         this.resultJson = resultJson;
+    }
+
+    public void recordRequestInputs(LocalDate requestDate, String inputKey) {
+        this.requestDate = requestDate;
+        this.inputKey = inputKey;
     }
 }
