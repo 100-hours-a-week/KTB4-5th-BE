@@ -56,7 +56,9 @@ public interface RefrigeratorMemberRepository extends JpaRepository<Refrigerator
     Optional<RefrigeratorMember> findActiveForUpdate(@Param("userId") Long userId,
             @Param("refrigeratorId") Long refrigeratorId);
 
-    Optional<RefrigeratorMember> findByUserIdAndIsActiveTrue(Long userId);
+    // 권한 확인은 냉장고도 함께 쓰므로 한 문장으로 읽는다.
+    @Query("select m from RefrigeratorMember m join fetch m.refrigerator where m.user.id = :userId and m.isActive = true")
+    Optional<RefrigeratorMember> findByUserIdAndIsActiveTrue(@Param("userId") Long userId);
 
     List<RefrigeratorMember> findByUserIdAndRole(Long userId, RefrigeratorMemberRole role);
 

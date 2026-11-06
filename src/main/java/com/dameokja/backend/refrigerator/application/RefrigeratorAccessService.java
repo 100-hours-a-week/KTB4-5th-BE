@@ -47,16 +47,22 @@ public class RefrigeratorAccessService {
 
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
         userAccessService.validateActive(userId);
-        Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)
-                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
+        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(userId)
+                .filter(membership -> membership.belongsToRefrigerator(refrigeratorId))
+                .orElseThrow(() -> accessFailure(refrigeratorId));
+        Refrigerator refrigerator = refrigeratorMember.getRefrigerator();
         refrigerator.validateAvailable();
-
-        RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository
-                .findByUserIdAndIsActiveTrue(userId)
-                .orElseThrow(() -> new CustomException(ACCESS_DENIED));
         refrigeratorMember.validateSelectedAccessTo(refrigeratorId);
 
         return refrigerator;
+    }
+
+    // 접근할 수 없을 때만 냉장고를 읽어, 없는 냉장고와 삭제된 냉장고의 오류 코드를 유지한다.
+    private CustomException accessFailure(Long refrigeratorId) {
+        Refrigerator refrigerator = refrigeratorRepository.findById(refrigeratorId)
+                .orElseThrow(() -> new CustomException(REFRIGERATOR_NOT_FOUND));
+        refrigerator.validateAvailable();
+        return new CustomException(ACCESS_DENIED);
     }
 
     public void validateWriteAccess(Long userId, Long refrigeratorId) {
