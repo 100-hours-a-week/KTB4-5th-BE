@@ -20,8 +20,13 @@ class RecommendationDailyJobQueueTest extends ServiceIntegrationTest {
     @Test
     void concurrentRegistrationKeepsOneJobAndItsOriginalRequestId() throws Exception {
         Fixture participant = ownerFixture("일일등록");
-        assertThat(concurrently(List.of(() -> { register(participant); return true; }, () -> { register(participant); return true; })))
-                .containsExactly(true, true);
+        assertThat(concurrently(List.of(() -> {
+            register(participant);
+            return true;
+        }, () -> {
+            register(participant);
+            return true;
+        }))).containsExactly(true, true);
         Lease first = lease().getFirst();
         register(participant);
         assertThat(countJobs()).isEqualTo(1);
