@@ -29,7 +29,7 @@ Spring Boot 자동구성의 `KafkaTemplate`과 listener factory를 재사용한�
 | `analysis.kafka.completion-dlt-topic` | `analysis.completed.v1.dlt` | BE 분석 완료 오류 보관 |
 | `recommendation.kafka.request-topic` | `recommendation.requested.v1` | BE → AI 추천 요청 |
 | `recommendation.kafka.completion-topic` | `recommendation.completed.v1` | AI → BE 추천 완료 |
-| `cooking.kafka.applied-topic` | `cooking.applied.v1` | BE → 향후 소비자 요리 적용 |
+| `cooking.kafka.applied-topic` | `cooking.applied.v1` | BE 요리 적용 Outbox → 향후 요리 이력 소비자 |
 
 파티션 수·복제 수·보관 설정과 토픽의 실제 생성은 인프라 준비 시 별도로 적용한다.
 추천·요리 payload와 분석 payload의 구체 계약은 각 기능의 후속 작업에서 제공한다.
@@ -73,6 +73,14 @@ consumer 기본값은 문자열 key·value이며 자동 offset 커밋을 끈다.
 `spring.kafka.admin.auto-create=false`로 앱 시작 시 토픽 관리를 실행하지 않으며,
 consumer에도 `allow.auto.create.topics=false`를 적용한다. producer 발행으로 인한 자동 생성 여부는
 브로커 설정의 영향도 받으므로 전환 시 토픽 사전 생성과 브로커의 자동 생성 정책을 확인한다.
+
+## 요리 적용 Outbox
+
+기존 DB에는 `db/migrations/20261106-cooking-outbox-storage.sql`을 앱 배포 전에 수동 적용한다.
+요리 적용이 커밋될 때 Outbox도 저장한다. 토픽 생성 후 `COOKING_KAFKA_PUBLISH_ENABLED=true`로 발행 워커를 켠다.
+Kafka 키는 문자열 `userId`이며, 본문은 조리 기록과 실제 사용 재고 목록을 담는다.
+목록의 각 항목은 `ingredientId`, `amount`, `unit`을 가진다. 단위는 `EA`, `G`, `ML`이다.
+발행에 실패하면 저장된 본문과 메시지 ID를 재사용한다.
 
 ## 확인 근거
 
