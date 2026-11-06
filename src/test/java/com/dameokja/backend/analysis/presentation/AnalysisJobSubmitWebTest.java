@@ -72,7 +72,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h"})
+        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h", "analysis.kafka-submission-enabled=false"})
 @ExtendWith(RedisTestSupport.class)
 class AnalysisJobSubmitWebTest {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";

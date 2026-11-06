@@ -11,7 +11,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "recommendation.kafka.completion-enabled", havingValue = "true")
+@ConditionalOnProperty(name = "recommendation.kafka.completion-enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class RecommendationKafkaConsumer {
     private final RecommendationKafkaCompletionService recommendationKafkaCompletionService;

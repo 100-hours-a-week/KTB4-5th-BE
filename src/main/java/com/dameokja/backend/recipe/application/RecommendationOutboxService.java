@@ -25,7 +25,7 @@ public class RecommendationOutboxService {
     private final JsonMapper jsonMapper;
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final Clock clock;
-    @Value("${recommendation.kafka.submission-enabled:false}")
+    @Value("${recommendation.kafka.submission-enabled:true}")
     private boolean kafkaSubmissionEnabled;
     @Value("${recommendation.kafka.request-topic}")
     private String recommendationRequestTopic;

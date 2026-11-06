@@ -28,7 +28,7 @@ import org.springframework.util.backoff.FixedBackOff;
 import tools.jackson.core.type.TypeReference;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(name = "recommendation.kafka.completion-enabled", havingValue = "true")
+@ConditionalOnProperty(name = "recommendation.kafka.completion-enabled", havingValue = "true", matchIfMissing = true)
 public class RecommendationKafkaConsumerConfig {
     private static final int PARTITION_BY_KEY = -1;
 
