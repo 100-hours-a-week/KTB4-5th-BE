@@ -17,6 +17,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -48,6 +49,7 @@ public class RecommendationState extends BaseEntity {
     private RecommendationList latestList;
     @Column(length = 36)
     private String activeRequestId;
+    private LocalDate requestDate;
     @Enumerated(EnumType.STRING)
     @Column(length = 16)
     private GenerationStatus generationStatus;
@@ -60,18 +62,21 @@ public class RecommendationState extends BaseEntity {
         this.refrigerator = refrigerator;
     }
 
-    public void queueUserRequest(String requestId) {
-        validateRequestAllowed();
+    public void queueUserRequest(String requestId, LocalDate today) {
+        validateRequestAllowed(today);
         activeRequestId = requestId;
+        requestDate = today;
         generationStatus = GenerationStatus.QUEUED;
         generationTrigger = GenerationTrigger.USER;
     }
 
-    public void validateRequestAllowed() {
+    public void validateRequestAllowed(LocalDate today) {
+        if (requestDate != null && requestDate.isBefore(today)) { return; }
         if (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING) {
             throw new CustomException(RecommendationExceptionCode.GENERATION_IN_PROGRESS);
         }
-        if (latestList != null && (currentList == null || !latestList.getId().equals(currentList.getId()))) {
+        if (latestList != null && (currentList == null || !latestList.getId().equals(currentList.getId()))
+                && (latestList.getRequestDate() == null || !latestList.getRequestDate().isBefore(today))) {
             throw new CustomException(RecommendationExceptionCode.UNSELECTED_RESULT);
         }
     }
@@ -81,6 +86,11 @@ public class RecommendationState extends BaseEntity {
     }
 
     public void markProcessing() { generationStatus = GenerationStatus.PROCESSING; }
+
+    public void reuseList(RecommendationList matchingList) {
+        latestList = matchingList;
+        requestDate = matchingList.getRequestDate();
+    }
 
     public void completeGeneration(RecommendationList completedList) {
         latestList = completedList;

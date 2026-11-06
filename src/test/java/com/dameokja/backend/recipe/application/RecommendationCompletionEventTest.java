@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
@@ -81,7 +82,7 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
         requestId = UUID.randomUUID().toString();
         RecommendationState recommendationState = new RecommendationState(userRepository.getReferenceById(refrigeratorParticipant.userId()),
                 refrigeratorRepository.getReferenceById(refrigeratorParticipant.refrigeratorId()));
-        recommendationState.queueUserRequest(requestId);
+        recommendationState.queueUserRequest(requestId, BusinessTime.today(clock));
         recommendationStateRepository.saveAndFlush(recommendationState);
     }
 
