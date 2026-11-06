@@ -81,6 +81,19 @@ public class RecommendationState extends BaseEntity {
         }
     }
 
+    public boolean isGeneratingOn(LocalDate today) {
+        return (requestDate == null || !requestDate.isBefore(today))
+                && (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING);
+    }
+
+    public void queueScheduledRequest(String requestId, LocalDate today) {
+        if (isGeneratingOn(today)) { throw new CustomException(RecommendationExceptionCode.GENERATION_IN_PROGRESS); }
+        activeRequestId = requestId;
+        requestDate = today;
+        generationStatus = GenerationStatus.QUEUED;
+        generationTrigger = GenerationTrigger.SCHEDULED;
+    }
+
     public boolean isGeneratingRequest(String requestId) {
         return requestId.equals(activeRequestId) && (generationStatus == GenerationStatus.QUEUED || generationStatus == GenerationStatus.PROCESSING);
     }
