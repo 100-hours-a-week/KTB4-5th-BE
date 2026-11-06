@@ -246,6 +246,7 @@ recommendation:
 
 cooking:
   kafka:
+    publish-enabled: ${COOKING_KAFKA_PUBLISH_ENABLED:false}
     applied-topic: ${KAFKA_ENV:local}.dameokja.cooking.applied.v1
 
 membership:
