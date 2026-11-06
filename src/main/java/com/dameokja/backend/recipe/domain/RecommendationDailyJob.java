@@ -67,4 +67,20 @@ public class RecommendationDailyJob extends BaseEntity {
         leaseToken = null;
         leaseUntil = null;
     }
+
+    public void markAccepted() {
+        status = Status.ACCEPTED;
+        clearLease();
+    }
+
+    public void reuse(RecommendationList list) {
+        recommendationList = Objects.requireNonNull(list);
+        status = Status.REUSED;
+        clearLease();
+    }
+
+    private void clearLease() {
+        leaseToken = null;
+        leaseUntil = null;
+    }
 }
