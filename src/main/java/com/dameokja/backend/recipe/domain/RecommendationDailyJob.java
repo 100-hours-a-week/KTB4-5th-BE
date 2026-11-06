@@ -79,6 +79,16 @@ public class RecommendationDailyJob extends BaseEntity {
         clearLease();
     }
 
+    public void complete(RecommendationList list) {
+        recommendationList = Objects.requireNonNull(list);
+        status = Status.COMPLETED;
+    }
+
+    public void fail(String reason) {
+        this.reason = Objects.requireNonNull(reason);
+        status = Status.FAILED;
+    }
+
     private void clearLease() {
         leaseToken = null;
         leaseUntil = null;

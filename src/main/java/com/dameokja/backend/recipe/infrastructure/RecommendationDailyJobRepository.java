@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 public interface RecommendationDailyJobRepository extends JpaRepository<RecommendationDailyJob, Long> {
+    @Query(value = "SELECT * FROM recommendation_daily_jobs WHERE request_id = :requestId AND status = 'ACCEPTED' FOR UPDATE", nativeQuery = true)
+    Optional<RecommendationDailyJob> findAcceptedForUpdate(String requestId);
+
     @Modifying
     @Query(value = """
             INSERT INTO recommendation_daily_jobs (business_date, user_id, refrigerator_id, request_id, status, created_at, updated_at)

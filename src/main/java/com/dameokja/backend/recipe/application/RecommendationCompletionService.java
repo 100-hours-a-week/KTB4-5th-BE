@@ -3,6 +3,8 @@ package com.dameokja.backend.recipe.application;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
 import com.dameokja.backend.recipe.domain.RecommendationState;
+import com.dameokja.backend.recipe.domain.RecommendationDailyJob;
+import com.dameokja.backend.recipe.infrastructure.RecommendationDailyJobRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeJobResponse;
@@ -24,6 +26,7 @@ public class RecommendationCompletionService {
     private final RefrigeratorAccessService refrigeratorAccessService;
     private final ApplicationEventPublisher eventPublisher;
     private final RecommendationReuseService recommendationReuseService;
+    private final RecommendationDailyJobRepository dailyJobs;
 
     @Transactional
     public void apply(AiRecipeJobResponse recommendationJobResponse) {
@@ -33,12 +36,25 @@ public class RecommendationCompletionService {
         refrigeratorAccessService.lockExisting(recommendationJobResponse.refrigeratorId());
         RecommendationState recommendationState = recommendationStateRepository
                 .findByParticipantForUpdate(recommendationJobResponse.userId(), recommendationJobResponse.refrigeratorId()).orElse(null);
-        if (recommendationState == null || !recommendationState.isGeneratingRequest(recommendationJobResponse.requestId())) { return; }
+        if (recommendationState == null || !recommendationState.isGeneratingRequest(recommendationJobResponse.requestId())) {
+            updateDailyJob(recommendationJobResponse, null);
+            return;
+        }
         updateGenerationStatus(recommendationState, recommendationJobResponse);
         if (recommendationJobResponse.status() == AiRecipeJobResponse.Status.COMPLETED || recommendationJobResponse.status() == AiRecipeJobResponse.Status.FAILED) {
+            updateDailyJob(recommendationJobResponse, recommendationState);
             eventPublisher.publishEvent(new RecommendationGenerationFinished(recommendationJobResponse.userId(), recommendationJobResponse.refrigeratorId(),
                     recommendationState.getGenerationTrigger(), recommendationState.getGenerationStatus()));
         }
+    }
+
+    private void updateDailyJob(AiRecipeJobResponse response, RecommendationState state) {
+        if (response.status() != AiRecipeJobResponse.Status.COMPLETED && response.status() != AiRecipeJobResponse.Status.FAILED) { return; }
+        RecommendationDailyJob job = dailyJobs.findAcceptedForUpdate(response.requestId()).orElse(null);
+        if (job == null) { return; }
+        if (state == null) { job.fail("REQUEST_SUPERSEDED"); }
+        else if (response.status() == AiRecipeJobResponse.Status.FAILED) { job.fail("GENERATION_FAILED"); }
+        else { job.complete(state.getLatestList()); }
     }
 
     private void updateGenerationStatus(RecommendationState recommendationState, AiRecipeJobResponse recommendationJobResponse) {

@@ -14,6 +14,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RefrigeratorMemberRepository extends JpaRepository<RefrigeratorMember, Long> {
+    @Query("select m from RefrigeratorMember m join fetch m.user join fetch m.refrigerator "
+            + "where m.id > :after and m.isActive = true and m.endedAt is null and m.user.status = ACTIVE "
+            + "and m.refrigerator.deletedAt is null order by m.id")
+    List<RefrigeratorMember> findRecommendationTargetsAfter(Long after, Pageable pageable);
+
     @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
             + "and (m.joinedChange.sequence > :after or m.endedChange.sequence > :after) "
             + "order by case when m.joinedChange.sequence > :after then m.joinedChange.sequence else m.endedChange.sequence end")

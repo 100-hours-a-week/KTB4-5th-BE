@@ -224,6 +224,11 @@ analysis:
     check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
 
 recommendation:
+  daily-refresh:
+    enabled: ${RECOMMENDATION_DAILY_REFRESH_ENABLED:true}
+    poll-interval: ${RECOMMENDATION_DAILY_REFRESH_POLL_INTERVAL:10s}
+    batch-size: ${RECOMMENDATION_DAILY_REFRESH_BATCH_SIZE:20}
+    lease-duration: ${RECOMMENDATION_DAILY_REFRESH_LEASE_DURATION:2m}
   kafka:
     request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
     submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:true}
