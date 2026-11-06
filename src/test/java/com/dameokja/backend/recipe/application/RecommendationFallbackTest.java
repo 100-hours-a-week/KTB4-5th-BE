@@ -54,7 +54,7 @@ class RecommendationFallbackTest {
         snapshot.putArray("confirmationCandidates");
         when(states.findByUserIdAndRefrigeratorId(1L, 2L)).thenReturn(Optional.of(state));
         when(ingredients.getByIds(eq(1L), eq(2L), anyList())).thenReturn(List.of());
-        when(ingredients.getByIdsForUpdate(eq(1L), eq(2L), anyList())).thenReturn(List.of());
+        when(ingredients.getByIdsForUpdate(eq(2L), anyList())).thenReturn(List.of());
     }
 
     @Test
@@ -141,7 +141,7 @@ class RecommendationFallbackTest {
         assertThat(displayed.name()).isEqualTo("보충 요리");
         assertThat(cooking).isEqualTo(displayed);
         verify(access).lockForWrite(1L, 2L);
-        verify(ingredients).getByIdsForUpdate(eq(1L), eq(2L), anyList());
+        verify(ingredients).getByIdsForUpdate(eq(2L), anyList());
     }
 
     private ObjectNode add(String field, String id, String name) {
