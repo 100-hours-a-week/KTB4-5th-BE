@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +24,13 @@ public class RefrigeratorAccessService {
     private final UserAccessService userAccessService;
     private final RefrigeratorRepository refrigeratorRepository;
     private final RefrigeratorMemberRepository refrigeratorMemberRepository;
+
+    public record RecommendationTarget(Long membershipId, Long userId, Long refrigeratorId) {}
+
+    public List<RecommendationTarget> findRecommendationTargetsAfter(Long after, int size) {
+        return refrigeratorMemberRepository.findRecommendationTargetsAfter(after, PageRequest.of(0, size)).stream()
+                .map(member -> new RecommendationTarget(member.getId(), member.getUser().getId(), member.getRefrigerator().getId())).toList();
+    }
 
     public List<Long> findActiveRefrigeratorIds(Long userId) {
         return refrigeratorMemberRepository.findActiveRefrigeratorIdsByUserId(userId);

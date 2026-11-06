@@ -139,8 +139,10 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
         assertThat(publishedMessages).hasSize(1);
     }
 
-    @Test
-    void committedCompletionReachesTheSseClientAndAnotherRedisSubscriber() throws Exception {
+    @ParameterizedTest
+    @EnumSource(RecommendationState.GenerationTrigger.class)
+    void committedCompletionReachesTheSseClientAndAnotherRedisSubscriber(RecommendationState.GenerationTrigger trigger) throws Exception {
+        jdbcTemplate.update("UPDATE recommendation_states SET generation_trigger = ? WHERE user_id = ?", trigger.name(), refrigeratorParticipant.userId());
         MvcResult stream = mockMvc.perform(get("/api/v2/refrigerators/{refrigeratorId}/notifications/stream", refrigeratorParticipant.refrigeratorId())
                 .cookie(new Cookie("accessToken", jwtProvider.createAccessToken(refrigeratorParticipant.userId(), UserRole.USER))))
                 .andExpect(request().asyncStarted()).andReturn();
@@ -155,7 +157,7 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
             await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(stream.getResponse().getContentAsString()).contains("event:recommendation"));
             String frame = Arrays.stream(stream.getResponse().getContentAsString().split("\n\n")).filter(part -> part.contains("event:recommendation")).findFirst().orElseThrow();
             String payload = frame.lines().filter(line -> line.startsWith("data:")).findFirst().orElseThrow().substring("data:".length());
-            assertThat(jsonMapper.readTree(payload)).isEqualTo(jsonMapper.readTree("{\"generationTrigger\":\"USER\",\"generationStatus\":\"COMPLETED\"}"));
+            assertThat(jsonMapper.readTree(payload)).isEqualTo(jsonMapper.readTree("{\"generationTrigger\":\"" + trigger.name() + "\",\"generationStatus\":\"COMPLETED\"}"));
             String remoteMessage = remoteMessages.poll(5, TimeUnit.SECONDS);
             assertThat(remoteMessage).isNotNull();
             assertThat(jsonMapper.readTree(remoteMessage).path("userId").asLong()).isEqualTo(refrigeratorParticipant.userId());

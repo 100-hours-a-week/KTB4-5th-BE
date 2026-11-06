@@ -208,6 +208,53 @@ class RecommendationScheduledSubmissionTest extends ServiceIntegrationTest {
         assertThat(preferences.last(participant.userId())).isEqualTo(changed);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"COMPLETED", "FAILED", "SUPERSEDED"})
+    void recordsTerminalResultsWithoutChangingASupersedingRequest(String outcome) throws Exception {
+        Fixture participant = ownerFixture("자동완료");
+        Lease lease = lease(participant);
+        scheduled.submit(lease);
+        String activeRequest = lease.requestId();
+        if ("SUPERSEDED".equals(outcome)) {
+            clock.set("2026-09-17T15:00:00Z");
+            activeRequest = manual.submit(participant.userId(), participant.refrigeratorId(), null).requestId();
+        }
+        ObjectNode response = completedResponse(outbox.request(jdbcTemplate.queryForObject(
+                "SELECT event_id FROM recommendation_outbox WHERE request_id = ?", String.class, lease.requestId())));
+        if ("FAILED".equals(outcome)) {
+            response.put("status", "FAILED").putNull("result");
+            response.putObject("error").put("code", "AI_FAILED").put("message", "failure").put("retryable", false);
+        }
+        completions.apply(mapper.treeToValue(response, AiRecipeJobResponse.class));
+        completions.apply(mapper.treeToValue(response, AiRecipeJobResponse.class));
+        assertThat(status(lease)).isEqualTo("COMPLETED".equals(outcome) ? "COMPLETED" : "FAILED");
+        assertThat(state(participant).getCurrentList()).isNull();
+        if ("SUPERSEDED".equals(outcome)) { assertThat(state(participant).getActiveRequestId()).isEqualTo(activeRequest); }
+        if ("COMPLETED".equals(outcome)) {
+            assertThat(jdbcTemplate.queryForObject("SELECT recommendation_list_id FROM recommendation_daily_jobs", Long.class))
+                    .isEqualTo(state(participant).getLatestList().getId());
+        }
+        assertThat(queue.leaseBatch(lease.businessDate(), 1, Duration.ofSeconds(30))).isEmpty();
+    }
+
+    @Test
+    void rollsBackRecommendationAndDailyCompletionTogether() throws Exception {
+        Fixture participant = ownerFixture("자동완료롤백");
+        Lease lease = lease(participant);
+        scheduled.submit(lease);
+        AiRecipeJobResponse response = mapper.treeToValue(completedResponse(outbox.request(jdbcTemplate.queryForObject(
+                "SELECT event_id FROM recommendation_outbox WHERE request_id = ?", String.class, lease.requestId()))), AiRecipeJobResponse.class);
+        jdbcTemplate.execute("CREATE TRIGGER reject_daily_completion BEFORE UPDATE ON recommendation_daily_jobs FOR EACH ROW BEGIN "
+                + "IF NEW.status = 'COMPLETED' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'completion rollback'; END IF; END");
+        try { assertThatThrownBy(() -> completions.apply(response)).hasStackTraceContaining("completion rollback"); }
+        finally { jdbcTemplate.execute("DROP TRIGGER reject_daily_completion"); }
+        assertThat(status(lease)).isEqualTo("ACCEPTED");
+        assertThat(state(participant).getLatestList()).isNull();
+        assertThat(state(participant).getActiveRequestId()).isEqualTo(lease.requestId());
+        completions.apply(response);
+        assertThat(status(lease)).isEqualTo("COMPLETED");
+    }
+
     private Lease lease(Fixture participant) {
         queue.register(participant.userId(), participant.refrigeratorId(), BusinessTime.today(clock));
         return queue.leaseBatch(BusinessTime.today(clock), 1, Duration.ofSeconds(30)).getFirst();
@@ -219,11 +266,15 @@ class RecommendationScheduledSubmissionTest extends ServiceIntegrationTest {
 
     private void complete(RecommendationSubmissionResult submission) throws Exception {
         AiRecipeRecommendationRequest request = outbox.request(submission.eventId());
+        completions.apply(mapper.treeToValue(completedResponse(request), AiRecipeJobResponse.class));
+    }
+
+    private ObjectNode completedResponse(AiRecipeRecommendationRequest request) throws Exception {
         ObjectNode response = (ObjectNode) mapper.readTree(getClass().getResourceAsStream("/recipe-ai/wiki-completed-response.json"));
         response.put("requestId", request.requestId()).put("userId", request.userId()).put("refrigeratorId", request.refrigeratorId());
         ((ObjectNode) response.get("result")).put("userId", request.userId()).put("refrigeratorId", request.refrigeratorId())
                 .put("inventoryFingerprint", request.inventoryFingerprint()).put("recommendationMode", request.effectiveMode().name());
-        completions.apply(mapper.treeToValue(response, AiRecipeJobResponse.class));
+        return response;
     }
 
     private void remember(Fixture participant, RecommendationOptions options) {

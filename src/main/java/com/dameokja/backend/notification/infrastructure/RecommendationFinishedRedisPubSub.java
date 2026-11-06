@@ -1,6 +1,7 @@
 package com.dameokja.backend.notification.infrastructure;
 
 import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
+import com.dameokja.backend.recipe.domain.RecommendationState.GenerationTrigger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
@@ -21,6 +22,9 @@ public class RecommendationFinishedRedisPubSub implements MessageListener {
 
     @TransactionalEventListener
     public void afterCommit(RecommendationGenerationFinished finished) {
+        if (finished.generationTrigger() == GenerationTrigger.SCHEDULED) {
+            log.info("일일 추천 생성 종료 userId={} refrigeratorId={} status={} count=1", finished.userId(), finished.refrigeratorId(), finished.generationStatus());
+        }
         try { redis.convertAndSend(CHANNEL, mapper.writeValueAsString(finished)); }
         catch (RuntimeException exception) {
             // 결과 저장은 끝났으므로 신호 전송 실패가 완료 처리를 실패시키지 않는다.
