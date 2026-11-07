@@ -220,6 +220,6 @@ class IngredientControllerTest {
         return new com.dameokja.backend.ingredient.application.list.IngredientListCacheService(ingredientListService,
                 org.mockito.Mockito.mock(com.dameokja.backend.refrigerator.application.RefrigeratorAccessService.class),
                 org.mockito.Mockito.mock(com.dameokja.backend.ingredient.infrastructure.IngredientListCacheStore.class),
-                java.time.Clock.systemUTC(), false);
+                java.time.Clock.systemUTC(), false, false);
     }
 }

@@ -25,38 +25,41 @@ public class IngredientListCacheService {
     private final IngredientListCacheStore cacheStore;
     private final Clock clock;
     private final boolean enabled;
+    private final boolean searchEnabled;
 
     public IngredientListCacheService(IngredientListService ingredientListService, RefrigeratorAccessService refrigeratorAccessService,
-            IngredientListCacheStore cacheStore, Clock clock, @Value("${ingredient.list-cache.enabled:false}") boolean enabled) {
+            IngredientListCacheStore cacheStore, Clock clock, @Value("${ingredient.list-cache.enabled:false}") boolean enabled,
+            @Value("${ingredient.list-cache.search-enabled:false}") boolean searchEnabled) {
         this.ingredientListService = ingredientListService;
         this.refrigeratorAccessService = refrigeratorAccessService;
         this.cacheStore = cacheStore;
         this.clock = clock;
         this.enabled = enabled;
+        this.searchEnabled = searchEnabled;
     }
 
     public IngredientListView getList(Long userId, Long refrigeratorId, IngredientSortType sortType, IngredientFilter filter,
             IngredientCategory category, String keyword, String cursorToken, int size) {
-        if (!enabled || category != null || keyword != null || cursorToken != null) {
+        if (!enabled || category != null || cursorToken != null || (keyword != null && !searchEnabled)) {
             return IngredientListView.uncached(IngredientListResponse.from(
                     ingredientListService.getList(userId, refrigeratorId, sortType, filter, category, keyword, cursorToken, size)));
         }
         refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
-        Optional<String> pageKey = findPageKey(refrigeratorId, sortType, filter, size);
+        Optional<String> pageKey = findPageKey(refrigeratorId, sortType, filter, keyword, size);
         Optional<IngredientListResponse> cached = pageKey.flatMap(this::readPage);
         if (cached.isPresent()) {
             return new IngredientListView(cached.orElseThrow(), IngredientListView.HIT);
         }
         IngredientListResponse response = IngredientListResponse.from(
-                ingredientListService.getList(userId, refrigeratorId, sortType, filter, null, null, null, size));
+                ingredientListService.getList(userId, refrigeratorId, sortType, filter, null, keyword, null, size));
         pageKey.ifPresent(key -> writePage(key, response));
         return new IngredientListView(response, IngredientListView.MISS);
     }
 
     // 캐시 장애가 목록 조회 장애로 번지지 않도록 Redis 오류는 DB 조회로 넘긴다.
-    private Optional<String> findPageKey(Long refrigeratorId, IngredientSortType sortType, IngredientFilter filter, int size) {
+    private Optional<String> findPageKey(Long refrigeratorId, IngredientSortType sortType, IngredientFilter filter, String keyword, int size) {
         try {
-            String pageConditions = BusinessTime.today(clock) + ":" + sortType + ":" + filter + ":" + size;
+            String pageConditions = BusinessTime.today(clock) + ":" + sortType + ":" + filter + ":" + size + ":" + keyword;
             return Optional.of(cacheStore.pageKey(refrigeratorId, cacheStore.currentVersion(refrigeratorId), pageConditions));
         } catch (RuntimeException exception) {
             log.warn("재고 목록 캐시 버전 조회 실패. refrigeratorId={}", refrigeratorId, exception);

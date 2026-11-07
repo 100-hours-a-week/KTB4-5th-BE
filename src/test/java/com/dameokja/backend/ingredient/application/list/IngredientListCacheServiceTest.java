@@ -27,7 +27,7 @@ class IngredientListCacheServiceTest {
     private final IngredientListCacheStore cacheStore = mock(IngredientListCacheStore.class);
 
     private IngredientListCacheService serviceWith(boolean enabled) {
-        return new IngredientListCacheService(listService, accessService, cacheStore, Clock.systemUTC(), enabled);
+        return new IngredientListCacheService(listService, accessService, cacheStore, Clock.systemUTC(), enabled, false);
     }
 
     @Test
