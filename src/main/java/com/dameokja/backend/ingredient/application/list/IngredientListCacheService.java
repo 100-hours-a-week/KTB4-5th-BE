@@ -55,7 +55,7 @@ public class IngredientListCacheService {
             return new IngredientListView(cached.orElseThrow(), IngredientListView.HIT);
         }
         IngredientListResponse response = IngredientListResponse.from(
-                ingredientListService.readList(refrigerator, sortType, filter, null, keyword, null, size));
+                ingredientListService.readList(refrigeratorId, refrigerator, sortType, filter, null, keyword, null, size));
         pageKey.ifPresent(key -> writePage(key, response));
         return new IngredientListView(response, IngredientListView.MISS);
     }
