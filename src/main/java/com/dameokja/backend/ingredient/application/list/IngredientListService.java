@@ -34,8 +34,16 @@ public class IngredientListService {
 
     public IngredientListResult getList(Long userId, Long refrigeratorId, IngredientSortType sortType,
                                         IngredientFilter filter, IngredientCategory category, String keyword, String cursorToken, int size) {
-        LocalDate today = BusinessTime.today(clock);
         Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+        return readList(refrigerator, sortType, filter, category, keyword, cursorToken, size);
+    }
+
+    // 호출자가 같은 트랜잭션에서 권한을 확인한 뒤 부른다. 캐시 미스 때 권한 확인을 다시 하지 않기 위해 나눴다.
+    @Transactional(propagation = Propagation.MANDATORY, readOnly = true)
+    public IngredientListResult readList(Refrigerator refrigerator, IngredientSortType sortType,
+                                         IngredientFilter filter, IngredientCategory category, String keyword, String cursorToken, int size) {
+        Long refrigeratorId = refrigerator.getId();
+        LocalDate today = BusinessTime.today(clock);
         IngredientListCursor cursor = cursorOf(cursorToken, sortType, refrigeratorId, filter, category, keyword, today);
         List<Ingredient> rows = ingredientPageReader.read(cursor, size + LOOKAHEAD);
         List<Ingredient> page = List.copyOf(rows.subList(0, Math.min(size, rows.size())));

@@ -41,7 +41,7 @@ class IngredientListCacheServiceTest {
         assertThat(view.cacheStatus()).isEqualTo(IngredientListView.HIT);
         assertThat(view.response()).isEqualTo(CACHED_RESPONSE);
         verify(accessService).validateReadAccess(USER_ID, REFRIGERATOR_ID);
-        verify(listService, never()).getList(any(), any(), any(), any(), any(), any(), any(), any(Integer.class));
+        verify(listService, never()).readList(any(), any(), any(), any(), any(), any(), any(Integer.class));
     }
 
     @Test

@@ -12,6 +12,8 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
 
 /**
  * 검색어·카테고리·커서가 없는 탭 첫 페이지만 캐시한다. 권한 확인은 캐시 앞에서 매번 한다.
@@ -38,20 +40,22 @@ public class IngredientListCacheService {
         this.searchEnabled = searchEnabled;
     }
 
+    // 권한 확인과 미스 때의 목록 조회를 한 트랜잭션에서 해서 커넥션을 한 번만 빌린다.
+    @Transactional(readOnly = true)
     public IngredientListView getList(Long userId, Long refrigeratorId, IngredientSortType sortType, IngredientFilter filter,
             IngredientCategory category, String keyword, String cursorToken, int size) {
         if (!enabled || category != null || cursorToken != null || (keyword != null && !searchEnabled)) {
             return IngredientListView.uncached(IngredientListResponse.from(
                     ingredientListService.getList(userId, refrigeratorId, sortType, filter, category, keyword, cursorToken, size)));
         }
-        refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+        Refrigerator refrigerator = refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
         Optional<String> pageKey = findPageKey(refrigeratorId, sortType, filter, keyword, size);
         Optional<IngredientListResponse> cached = pageKey.flatMap(this::readPage);
         if (cached.isPresent()) {
             return new IngredientListView(cached.orElseThrow(), IngredientListView.HIT);
         }
         IngredientListResponse response = IngredientListResponse.from(
-                ingredientListService.getList(userId, refrigeratorId, sortType, filter, null, keyword, null, size));
+                ingredientListService.readList(refrigerator, sortType, filter, null, keyword, null, size));
         pageKey.ifPresent(key -> writePage(key, response));
         return new IngredientListView(response, IngredientListView.MISS);
     }
