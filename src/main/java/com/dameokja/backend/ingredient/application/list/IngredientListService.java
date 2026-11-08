@@ -57,9 +57,9 @@ public class IngredientListService {
         return ingredientIds.isEmpty() ? List.of() : ingredientRepository.findAllByRefrigerator_IdAndIdIn(refrigeratorId, ingredientIds);
     }
 
+    // 호출자가 같은 트랜잭션에서 lockForWrite로 권한을 확인한 뒤 호출한다.
     @Transactional(propagation = Propagation.MANDATORY)
-    public List<Ingredient> getByIdsForUpdate(Long userId, Long refrigeratorId, List<Long> ingredientIds) {
-        refrigeratorAccessService.validateReadAccess(userId, refrigeratorId);
+    public List<Ingredient> getByIdsForUpdate(Long refrigeratorId, List<Long> ingredientIds) {
         return ingredientIds.isEmpty() ? List.of() : ingredientRepository.findAllByIdsForUpdate(refrigeratorId, ingredientIds);
     }
 

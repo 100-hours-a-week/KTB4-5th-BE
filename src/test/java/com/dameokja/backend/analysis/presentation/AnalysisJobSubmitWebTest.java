@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.dameokja.backend.analysis.application.job.AnalysisJobAcceptance;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchQueue;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
@@ -71,7 +72,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringJUnitConfig(AnalysisJobSubmitWebTest.WebConfiguration.class)
 @WebAppConfiguration
 @TestPropertySource(properties = {"jwt.secret=dGVzdC1vbmx5LXNlY3JldC0zMi1ieXRlcy1sb25nISE=",
-        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h"})
+        "jwt.access-token-expiration=15m", "jwt.refresh-token-expiration=2d", "auth.cookie.secure=true", "analysis.job-ttl=1h", "analysis.kafka-submission-enabled=false"})
 @ExtendWith(RedisTestSupport.class)
 class AnalysisJobSubmitWebTest {
     private static final String BODY = "{\"imageObjectKeys\":[\"first\",\"second\"]}";
@@ -162,6 +163,10 @@ class AnalysisJobSubmitWebTest {
             CsrfController.class, GlobalExceptionHandler.class,
             AnalysisController.class, AnalysisJobSubmitService.class, ImageAnalysisInputService.class, ImageUploadMetadataStore.class, AnalysisJobStore.class})
     static class WebConfiguration {
+        @Bean
+        AnalysisJobAcceptance analysisJobAcceptance() {
+            return mock(AnalysisJobAcceptance.class);
+        }
         @Bean
         static ConversionService conversionService() { return new ApplicationConversionService(); }
         @Bean

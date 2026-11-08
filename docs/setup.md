@@ -31,7 +31,7 @@
 추가 테이블은 `analysis_job_states`(작업·이미지·결과 및 알림 재시도 상태)와
 `analysis_job_requests`(이미지 requestId와 작업의 연결)이며, 기존 HTTP/Redis 작업·데이터는 이관하거나 삭제하지 않는다.
 내부 접수 서비스는 작업·이미지 requestId 연결·요청 outbox를 같은 트랜잭션으로 저장한다.
-HTTP 진입점 전환은 후속 PR에서 적용한다.
+HTTP 진입점은 `ANALYSIS_KAFKA_SUBMISSION_ENABLED=true`일 때 이 서비스를 사용한다.
 
 ## 분석 요청 outbox 저장
 
@@ -40,7 +40,7 @@ HTTP 진입점 전환은 후속 PR에서 적용한다.
 통합 DDL로 같은 테이블을 이미 생성했다면 중복 실행하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
 발행 워커는 선점 트랜잭션이 끝난 뒤 고정 메시지를 전송하고 브로커 ACK 후에만 완료를 기록한다. 실패·만료 lease는 재시도한다.
 `ANALYSIS_OUTBOX_ENABLED`(기본 true)로 전용 발행 스케줄러를 제어한다. `KAFKA_LISTENER_ENABLED`는 발행을 제어하지 않는다.
-HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 DDL은 없다.
+신규 Kafka 접수는 이 outbox를 사용하며 추가 DDL은 없다.
 
 ## 분석 완료 결과 DB 반영
 
@@ -48,19 +48,19 @@ HTTP 진입점 전환은 후속 PR에서 적용하며, 이번 변경의 추가 D
 같은 결과의 재전달은 보관 기한을 연장하지 않으며 다른 사용자·냉장고나 충돌 결과는 거부한다. 추가 DDL은 없다.
 완료 consumer는 DB 저장 성공 후 RECORD 단위로 offset을 커밋한다. DB 장애는 재시도하고 적용 불가능한 이벤트는 DLT 발행 성공 후 넘긴다.
 `KAFKA_LISTENER_ENABLED` 기본값은 false이며, `ANALYSIS_KAFKA_COMPLETION_GROUP_ID`와 `ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY`(기본 5s)로 설정한다.
-활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 이번 단계도 추가 DDL은 없으며 HTTP 신규 접수 전환은 후속 PR이다.
+활성화 전에 분석 완료·완료 DLT 토픽을 준비해야 한다. 이미 `KAFKA_LISTENER_ENABLED=true`인 환경에서는 배포 시 이 consumer도 시작한다. 추가 DDL은 없다.
 
 ## 분석 DB 작업 접근
 
 내부 DB 접근 서비스는 소유자·냉장고·결과 보관 기한으로 조회를 제한하고, 갱신·삭제는 작업 잠금과 같은 트랜잭션에서 처리한다.
-삭제 시 해당 작업의 요청 연결과 outbox도 함께 정리하며 추가 DDL은 없다. 기존 HTTP 조회·접수 경로는 아직 변경하지 않는다.
-HTTP 경로 연결은 후속 PR에서 적용한다.
+조회·삭제는 DB에 행이 있는지 확인해 경로를 결정한다. DB 작업의 권한·만료 오류는 그대로 반환한다.
+목록은 로그인 사용자의 DB·Redis 작업을 합쳐 최근 접수 순으로 반환한다. 삭제는 종료된 작업과 해당 요청 연결·outbox를 함께 정리한다.
 
 ## 분석 DB 작업 시간 초과
 
 내부 DB 만료 서비스는 `ANALYSIS_JOB_TIMEOUT`(기본 `PT30M30S`) 경계부터 미완료 이미지를 `ANALYSIS_EXPIRED`로 종료한다.
 완료 이미지는 보존하고, 잠금 후 최신 상태를 다시 확인한 뒤 실패 결과·`ANALYSIS_RESULT_TTL`(기본 7d) 보관 기한·알림 예약을 같은 트랜잭션으로 저장한다.
-이번 단계는 내부 서비스 준비이며 HTTP 조회·삭제 경로 연결과 주기 실행은 아직 추가하지 않는다. 추가 DDL은 없다.
+DB 작업은 조회·삭제 시 기한을 확인하며 별도 주기 실행은 없다. 추가 DDL은 없다.
 
 ## 분석 DB 완료 알림 선점
 
@@ -77,14 +77,14 @@ DB 알림 워커는 기존 Redis 알림 워커와 같은 `analysis.notification.
 `src/main/resources/db/migrations/20261104-analysis-feedback-message-body.sql`을 한 번 수동 적용한다.
 통합 SQL의 `05-analysis-feedback-kafka.sql`로 이미 추가한 DB에는 중복 적용하지 않는다. 빈 DB는 최신 `schema.sql`을 사용한다.
 기존 본문·상태·선점 정보는 유지되며, `message_body`가 NULL인 기존 행은 HTTP 워커가 계속 처리한다.
-Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다. Kafka 발행과 등록 경로 연결은 후속 PR이다.
+Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회수·만료 처리에서 제외한다.
 
 ## 분석 피드백 Kafka outbox DB 처리
 
 내부 outbox 서비스는 재고 등록 트랜잭션에서 이벤트 전체를 고정해 저장하고 Kafka 행만 선점·회수한다.
 완료·재시도·실패 갱신은 Kafka 행의 유효한 선점 토큰과 기한으로 제한한다. 보관 기한이 지나도 유효한 선점은 유지한다.
 `ANALYSIS_FEEDBACK_BATCH_SIZE`, `ANALYSIS_FEEDBACK_LEASE_DURATION`, `ANALYSIS_FEEDBACK_RETRY_DELAY`, `ANALYSIS_FEEDBACK_EXPIRES_AFTER` 설정을 사용한다.
-추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다. 등록 경로 연결은 후속 PR이다.
+추가 DDL은 없으며 위 `message_body` 컬럼이 필요하다.
 Kafka 피드백 워커는 기존 `analysis.kafka.feedback-topic`에 사용자 ID를 key로 JSON 이벤트를 발행하고 브로커 ACK 후 DONE을 기록한다.
 발행 실패는 같은 이벤트로 재시도하고 읽을 수 없는 저장 본문은 INVALID_EVENT로 종료한다. DONE은 AI 저장 완료가 아닌 Kafka 발행 확인이다.
 HTTP·Kafka 피드백 스케줄러는 `ANALYSIS_FEEDBACK_ENABLED`(기본 true), `ANALYSIS_FEEDBACK_POLL_INTERVAL`(기본 10s)을 함께 사용한다.
@@ -236,20 +236,20 @@ HTTP·통신 실패, 상태별 결과·오류 조합 위반, 작업·요청 ID·
 ## 추천 outbox 접수
 
 `RecommendationSubmissionService.submit`은 권한 확인과 전체 재고 조회·요청 준비를 마친 뒤 짧은 트랜잭션에서 outbox만 저장한다.
-`recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 별도 job 테이블은 두지 않으며 생성 상태·결과는 후속 Redis 구현에서 관리한다.
+`recommendation_outbox`는 접수 ID·요청 ID·냉장고·요청 JSON·전달 상태를 보관한다. 활성화 이후 신규 작업의 AI 접수와 상태·결과 스냅샷은 같은 테이블에 저장한다. 기존 Redis 작업은 Redis에서 조회한다. 종료 스냅샷은 기존 TTL이 지난 뒤 워커 조회 시 지워지고 만료 표시는 유지된다.
 새 추천은 같은 재고·옵션이라도 새로운 UUID requestId와 eventId로 접수한다. 재전송에는 outbox에 저장한 requestId·본문을 재사용한다. 접수 ID는 향후 FE의 jobId로 사용할 수 있다.
 SENT는 메시지 전달 완료이며 추천 생성 완료를 뜻하지 않는다.
-빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블 추가가 필요하며, 스키마 파일은 자동 실행되지 않는다.
-`RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, Redis에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.
-Redis 저장이나 AI 통신이 실패하면 outbox를 SENT로 바꾸지 않으며, 명시적인 재실행은 동일 requestId·본문을 사용한다.
+빈 DB는 최신 `db/schema.sql`을 적용한다. 기존 DB에는 `recommendation_outbox` 테이블과 `db/migrations/20261105-recommendation-job-state.sql`의 수동 적용이 필요하며, 스키마 파일은 자동 실행되지 않는다. DDL을 먼저 적용하고 모든 BE 인스턴스를 새 버전으로 교체한 뒤 `RECOMMENDATION_JOB_DATABASE_WRITE_ENABLED=true`로 신규 DB 저장을 활성화한다. 기본값은 false이며 저장 경로는 각 행의 생성 당시 표시로 결정된다. 구 버전 인스턴스가 남은 상태에서 활성화하지 않는다. 이미 Redis에서 사라진 기존 작업은 복구되지 않는다.
+`RecommendationExecutionService.submit(eventId)`는 커밋된 outbox JSON을 읽어 AI에 접수하고, 선택된 저장소에 접수 응답을 저장한 뒤 outbox를 SENT로 바꾼다.
+상태 저장이나 AI 통신이 실패하면 outbox를 SENT로 바꾸지 않으며, 명시적인 재실행은 동일 requestId·본문을 사용한다.
 `refresh(eventId)`는 보관된 AI jobId로 한 번 조회해 결과·오류를 저장한다. 통신 오류는 AI 생성 실패로 바꾸지 않는다.
 AI 통신은 DB 트랜잭션 밖에서만 허용한다. `submit`·`refresh` 호출 시 활성 트랜잭션이 있으면 거절한다.
-Redis `recipe:job:<eventId>`에는 접수 응답과 마지막 조회 결과를 보관한다. 진행 중에는 TTL이 없고, 최초 종료 저장부터 `recipe.result-ttl`(기본 24h)을 적용한다.
+선택된 DB 또는 Redis `recipe:job:<eventId>`에 접수 응답과 마지막 조회 결과를 보관한다. 진행 중에는 TTL이 없고, 최초 종료 저장부터 `recipe.result-ttl`(기본 24h)을 적용한다.
 종료 결과는 뒤늦은 진행 응답으로 덮어쓰지 않으며 중복 저장·조회는 보관기간을 연장하지 않는다.
 추천 워커는 `recipe.dispatch.enabled`(기본 true), `recipe.dispatch.poll-interval`(기본 5s)로 제어하며 인스턴스당 최대 4건을 실행한다.
-커밋된 outbox를 ID 순으로 순환하며 PENDING을 접수하고, Redis에 접수 정보가 남은 작업의 상태를 갱신한다. 통신·저장 실패는 다음 순환에서 같은 요청으로 다시 처리한다.
-동일 인스턴스의 중복 실행은 막고, 여러 인스턴스의 같은 요청 접수는 AI requestId 멱등성과 Redis 원자 갱신으로 처리한다.
-SENT의 Redis 보관 결과가 사라졌으면 다시 접수하지 않는다. AI 미완료 작업 소실·영구 오류 판정·완료 outbox 정리는 별도 복구 정책 범위다.
+커밋된 outbox를 ID 순으로 순환하며 PENDING을 접수하고, 접수 정보가 남은 작업의 상태를 갱신한다. 통신·저장 실패는 다음 순환에서 같은 요청으로 다시 처리한다.
+동일 인스턴스의 중복 실행은 막고, 여러 인스턴스의 같은 요청 접수는 AI requestId 멱등성과 저장소의 원자 갱신으로 처리한다.
+SENT의 보관 결과가 사라졌으면 다시 접수하지 않는다. AI 미완료 작업 소실·영구 오류 판정·완료 outbox 정리는 별도 복구 정책 범위다.
 추천 전용 콜백은 `POST /api/v1/internal/recipe-recommendations/callback`이며, 본문은 AI GET의 최종 작업 응답과 같다. 내부 키는 기존 분석 콜백과 같은 `AI_API_KEY`를 사용한다.
 AI의 `RECIPE_CALLBACK_URL`에는 위 경로, `RECIPE_CALLBACK_API_KEY`에는 같은 키를 설정한다. 분석 콜백 URL을 재사용하지 않는다.
 수신 성공·중복·보관기간 종료 결과는 204(본문 없음), 인증 실패는 401, 요청 불일치는 400, 미등록 requestId는 404다.
@@ -264,14 +264,18 @@ SENT의 Redis 정보 부재는 보관기간 만료와 진행 중 유실을 구�
 상태는 `(user_id, refrigerator_id)`별로 보관하며, 참여가 끝난 냉장고의 이력·상태도 유지한다. 다른 냉장고 상태를 일괄 갱신하지 않는다.
 빈 DB는 최신 `schema.sql`, 기존 DB는 `db/migrations/20261030-recommendation-participant-state.sql`을 수동 적용한다.
 추천 접수는 사용자 잠금 아래 권한을 재검증하고, 동일 트랜잭션에서 참여자 상태를 `QUEUED`로 변경하고 outbox를 저장한다.
-같은 `(user_id, refrigerator_id)`에서 생성 중이거나 최신 완료 목록이 현재 선택 목록과 다르면 새 요청을 거절한다.
+같은 `(user_id, refrigerator_id)`에서 당일 요청이 생성 중이거나 최신 완료 목록이 현재 선택 목록과 다르면 새 요청을 거절한다. 전날 요청은 진행·미전환 여부와 관계없이 새 접수를 허용한다.
 공유 종료 후 다른 냉장고에서 요청할 때 이전 냉장고의 생성·미전환 상태는 차단 조건에 포함하지 않는다. 기존 목록 참조는 유지하며, 저장 실패 시 상태 변경도 롤백한다.
 일일 한도는 사용자별 하루 10회이며, 냉장고를 바꿔도 합산한다. `recipe:quota:<userId>:<서울 날짜>` Redis 집합에 요청 ID를 저장한다.
 Lua로 한도 확인·예약을 원자 처리하고 서울 자정까지 TTL을 둔다. 조회·중복 예약은 TTL을 연장하지 않으며, 키가 유실되면 사용 횟수는 0부터 시작한다. DB에는 한도 데이터를 보관하지 않는다.
 접수 트랜잭션이 롤백되면 해당 요청 ID만 반환한다. 반환 중 Redis 장애가 나면 로그를 남기며, 남은 예약은 TTL로 만료된다. outbox 재전송은 추가 차감하지 않는다.
 `POST /api/v1/refrigerators/{refrigeratorId}/recommendation-jobs`는 선택 입력을 받아 202와 작업 ID·`dailyGeneration`을 반환한다.
 AI 요청의 필수 `userId`는 로그인 사용자에서 가져와 outbox에 보관한다. 작업 조회·콜백의 최상위 및 완료 결과 사용자 ID를 원본 요청과 대조하며, 과거 결과의 `userId=null`은 추측하지 않는다.
-현재 선택한 목록과 재고 지문·기본값을 적용한 옵션이 같으면 새 작업·한도 차감 없이 200을 반환한다. 생성 중·미전환 결과 차단을 먼저 적용한다.
+같은 사용자·냉장고에서 서울 접수 날짜가 오늘이고 재고 지문·기본값 적용 옵션이 같은 완료 이력 중 가장 최근 결과를 재사용한다. 전날 접수 결과는 오늘 완료돼도 재사용하지 않는다.
+재사용은 새 작업·한도 차감 없이 200을 반환하고 최신 목록에 연결하며 현재 선택은 유지한다. 당일 요청의 생성 중·미전환 결과 차단을 먼저 적용한다. 재사용만으로 완료 SSE를 발행하지 않는다.
+정상 접수한 마지막 사용자 옵션은 재사용을 포함해 DB 커밋 후 Redis `recipe:preferences:<userId>`에 TTL 없이 저장하며 냉장고 간 공통이다. `{}` 요청은 계속 기본값을 뜻한다.
+마지막 옵션이 없거나 Redis 조회가 실패하면 기본값을 사용하며 outbox에서 복원하지 않는다. 취향 저장 실패는 접수 성공을 바꾸지 않고, 롤백된 요청은 취향을 갱신하지 않는다.
+기존 DB에는 `db/migrations/20261106-recommendation-daily-reuse.sql`을 수동 적용한다. 이전 완료 목록은 입력 키가 없어 재사용에서 제외하고 조회·선택은 유지한다.
 폴링·콜백에서 Redis가 확정한 작업 응답을 동일한 DB 반영 서비스로 전달한다. 완료 결과의 `result` 전체를 `recommendation_lists.result_json`에 저장하고,
 접수와 같은 사용자→냉장고→참여자 상태 잠금 순서로 최신 목록·완료 상태를 한 트랜잭션에서 반영한다. 현재 선택 목록은 최초 완료를 포함해 자동으로 바꾸지 않는다.
 실패 시 목록 참조는 유지하고 진행 요청을 해제해 다음 생성을 허용한다. 이전 요청의 지연 응답은 새 요청 상태를 변경하지 않는다.
@@ -286,6 +290,17 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 수신하거나 재연결하면 현재 냉장고의 추천 목록을 재조회하고, 새 결과로 전환하려면 기존 전환 API를 호출한다. 다른 냉장고 작업의 종료일 수 있으므로 화면 상태는 조회 응답을 따른다. 신호 유실·Redis 발행 실패는 목록 재조회로 확인하며 추가 푸시·인앱 알림 이력·재전달 보장은 제공하지 않는다.
 `GET /api/v1/refrigerators/{refrigeratorId}/recipes/{recipeId}`는 본인의 현재 선택 결과에서 상세를 반환한다. recipeIngredientId는 해당 레시피의 AI 재료 번호 문자열이며, 재료와 조리 단계의 순서를 유지한다.
 상세의 stocks에는 현재 보유량·재배분한 예상 사용량·만료일을 함께 제공한다. 예상 사용량은 EA·G·ML 모두 정수로 반올림하며 원본 필요량은 유지한다. ETag는 상세 응답 내용의 SHA-256으로 생성하며 응답이 같으면 유지된다. 별도 요리 적용 미리보기 API 없이 이 값을 표시하며, 조회는 실제 재고를 차감하지 않는다. 선택 결과나 레시피가 없으면 404 / RECOMMEND-404-001이다.
+
+## 일일 추천 갱신 작업 저장·선점 기반
+
+일일 추천 갱신의 저장·선점 기반은 `recommendation_daily_jobs`를 사용하며 기존 DB에는 `db/migrations/20261106-recommendation-daily-jobs.sql`을 수동 적용한다.
+업무 날짜·사용자·냉장고별 작업과 요청 ID를 한 번 등록하고, DB 잠금·선점 기한으로 중복 처리와 중단 후 회수를 제어한다. 재등록은 진행·종료 상태를 초기화하지 않는다.
+선점 작업의 취향·재고를 조회한 뒤 사용자→냉장고→추천 상태→일일 작업 잠금 아래 자격·기한·요청 ID를 재검증한다. 재사용이면 REUSED, 새 접수면 ACCEPTED와 SCHEDULED 추천 상태·outbox를 같은 트랜잭션에 저장한다.
+당일 생성 중·날짜 변경·참여 종료는 건너뛰며, 미전환 최신 목록은 자동 갱신을 차단하지 않는다. 자동 접수는 사용자 한도·마지막 취향·현재 선택을 바꾸지 않는다. 접수 실패는 전체 롤백 후 같은 요청 ID로 재시도한다.
+서울 시간 매일 7시에 활성 사용자의 현재 유효 냉장고만 등록한다. 공유 참여 중인 개인 냉장고는 제외한다. 7시 이후 재시작하면 당일 대상을 다시 등록하고 미접수·선점 만료 작업을 이어간다.
+`RECOMMENDATION_DAILY_REFRESH_ENABLED`(기본 true), `RECOMMENDATION_DAILY_REFRESH_POLL_INTERVAL`(10s), `RECOMMENDATION_DAILY_REFRESH_BATCH_SIZE`(20), `RECOMMENDATION_DAILY_REFRESH_LEASE_DURATION`(2m)으로 제어한다. 전용 단일 스케줄러를 사용하며 테스트 기본값은 비활성화다.
+완료·실패 응답은 추천 상태와 일일 작업을 같은 트랜잭션에서 갱신하고 기존 완료 SSE를 사용한다. 이전 요청이 대체된 경우 일일 작업만 FAILED로 기록한다. 완료 이벤트가 없으면 ACCEPTED를 유지하며 명시적 실패는 당일 재접수하지 않는다.
+배치 로그에 처리 건수·상태별 건수·소요 시간을 기록한다. 8시 전 완료는 목표이며 보장하지 않는다.
 
 ## 요리 적용 기록 저장 준비
 
@@ -309,6 +324,7 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 전환을 되돌릴 때는 쓰기 플래그만 false로 변경한다. 구 바이너리는 DB 발급 내역을 읽지 못하므로, DB에 발급한 내역의 TTL이 모두 지난 뒤에만 바이너리를 롤백한다.
 DB 만료 행은 `IMAGE_UPLOAD_METADATA_CLEANUP_ENABLED`(기본 true), `IMAGE_UPLOAD_METADATA_CLEANUP_POLL_INTERVAL`(기본 1m), `IMAGE_UPLOAD_METADATA_CLEANUP_BATCH_SIZE`(기본 100, 양수)로 주기당 제한된 수만 삭제한다.
 발급 내역은 업로드 완료를 의미하지 않는다. 실제 이미지의 존재·해시 일치는 AI에서 검증한다.
+아래 작업·색인 설명은 기존 HTTP/Redis 경로에 해당한다. Kafka 경로는 위의 DB 상태 저장·요청 outbox를 사용한다.
 분석 접수 서비스는 저장된 SHA-256으로 묶음 작업을 생성하고 이미지별 AI 접수 ID를 순차 저장한다.
 접수나 ID 저장 중 하나라도 실패하면 묶음과 AI ID 색인을 지우고 오류를 반환한다. 이미 접수된 이미지의 콜백은 저장할 묶음이 없어 503으로 응답하며, AI 재시도가 끝나면 버려진다.
 작업은 Redis의 `analysis:job:<id>` 키에 JSON으로 저장한다. 접수·진행 중에는 TTL을 설정하지 않고 `expiresAt`은 null이다.
@@ -338,7 +354,16 @@ AI 접수 ID의 `analysis:ai:<id>` 색인은 묶음 작업 ID를 가리키며 �
 ## Kafka 공통 설정
 
 Kafka 의존성·환경변수·토픽 이름과 기본 비활성 상태는 [Kafka 공통 설정](integration/kafka-setup.md)을 참고한다.
-현재 업무 API는 기존 HTTP 연동을 유지하며 Kafka 인프라 없이 설정을 로드한다.
+신규 분석 접수는 `ANALYSIS_KAFKA_SUBMISSION_ENABLED` 기본값 `true`에서 Kafka 경로를 사용한다. `false`로 설정하면 HTTP 경로로 접수한다.
+기존 분석 DB DDL 적용 → 모든 BE 인스턴스 업그레이드 → 요청·완료·피드백 및 DLT 토픽과 AI Kafka 소비자 준비 순으로 진행한다.
+BE의 `KAFKA_LISTENER_ENABLED=true`, `ANALYSIS_OUTBOX_ENABLED=true`를 확인한 뒤 Kafka 기본 접수 버전을 배포한다. 준비 중인 환경에서는 접수 플래그를 `false`로 설정한다.
+Kafka 경로의 이미지 상태는 완료·실패 이벤트를 받기 전까지 QUEUED다. 일부 이미지만 종료되면 묶음은 PROCESSING이며 모든 이미지가 종료되면 최종 상태를 반환한다.
+플래그를 다시 `false`로 바꿔도 기존 DB 작업은 계속 조회·삭제하고 처리해야 한다. DB 작업이 남은 동안에는 이를 읽지 못하는 구 바이너리로 롤백하지 않는다.
+
+신규 추천 접수, outbox 발행, 완료 소비는 각각 `RECOMMENDATION_KAFKA_SUBMISSION_ENABLED`, `RECOMMENDATION_OUTBOX_ENABLED`,
+`RECOMMENDATION_KAFKA_COMPLETION_ENABLED` 기본값 `true`를 사용한다. 완료 리스너 시작에는 공통 `KAFKA_LISTENER_ENABLED=true`도 필요하다.
+배포 전에 추천 outbox DDL과 요청 인덱스를 적용하고 요청·완료·완료 DLT 토픽 및 AI의 `RECOMMENDATION_KAFKA_ENABLED=true`를 확인한다.
+AI 소비 준비 전에는 추천 접수 플래그를 `false`로 설정한다. 전환 후 신규 접수를 HTTP로 되돌릴 때도 기존 Kafka 행은 발행과 완료 소비를 이어간다.
 
 ## Redis 접속 설정
 
@@ -366,7 +391,7 @@ Redis를 사용하는 기능을 배포할 때 접속·인증·TLS 설정과 함�
 키 구조·TTL·역직렬화 대상 타입은 해당 도메인의 저장소에서 정한다.
 
 SSE emitter는 각 서버 메모리에 유지하고, 사용자별 `fridgely:notifications:connections:<userId>` sorted set에 연결 UUID와 lease 만료 시각을 공유한다.
-25초 heartbeat가 성공하면 Redis 서버 시각을 기준으로 75초 lease와 키 TTL을 갱신한다. 개별 연결 종료는 해당 UUID만 제거하고, 서버 비정상 종료는 TTL로 정리한다.
+5초 heartbeat가 성공하면 Redis 서버 시각을 기준으로 75초 lease와 키 TTL을 갱신한다. 개별 연결 종료는 해당 UUID만 제거하고, 서버 비정상 종료는 TTL로 정리한다.
 연결 상태 등록·갱신 실패는 해당 SSE 연결을 종료하며, 상태 조회 실패는 미연결로 처리하지 않고 예외를 전달한다. 종료 상태 제거 실패는 TTL 만료로 복구한다.
 
 ## 카카오 로그인 설정

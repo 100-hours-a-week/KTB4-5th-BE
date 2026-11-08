@@ -237,6 +237,17 @@ CREATE TABLE cooking_records (
     CONSTRAINT fk_cooking_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
+CREATE TABLE cooking_outbox (
+    cooking_record_id BIGINT NOT NULL,
+    message_key VARCHAR(20) NOT NULL COMMENT 'Kafka key로 쓰는 userId 문자열',
+    message_body JSON NOT NULL COMMENT '메시지 ID와 차감 내역이 포함된 Kafka 본문',
+    publish_after DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    published_at DATETIME(6) NULL,
+    PRIMARY KEY (cooking_record_id),
+    KEY ix_cooking_outbox_pending (published_at, publish_after, cooking_record_id),
+    CONSTRAINT fk_cooking_outbox_record FOREIGN KEY (cooking_record_id) REFERENCES cooking_records (cooking_record_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
 CREATE TABLE notifications (
     notification_id BIGINT NOT NULL AUTO_INCREMENT,
     type VARCHAR(20) NOT NULL COMMENT 'EXPIRED / EXPIRING / MEMBER_JOINED / MEMBER_KICKED / MEMBER_LEFT. 추천 푸시는 저장하지 않음',
@@ -412,14 +423,26 @@ CREATE TABLE recommendation_outbox (
     request_id VARCHAR(36) NOT NULL COMMENT '동일 요청의 재전송 식별자. 중복 접수는 허용',
     event_type VARCHAR(64) NOT NULL,
     payload JSON NOT NULL COMMENT '접수 당시 AI 요청 스냅샷',
+    topic VARCHAR(249) NULL,
+    message_key VARCHAR(32) NULL,
+    message_body JSON NULL COMMENT 'Kafka envelope 원문. HTTP 행은 NULL',
+    next_attempt_at DATETIME(6) NULL,
+    lease_token VARCHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
     status VARCHAR(16) NOT NULL COMMENT '메시지 전달 상태. 추천 생성 상태와 분리',
+    db_job BOOLEAN NOT NULL DEFAULT FALSE,
+    job_snapshot JSON NULL,
+    job_expires_at DATETIME(6) NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (recommendation_outbox_id),
     UNIQUE KEY uk_recommendation_outbox_event (event_id),
+    KEY ix_recommendation_outbox_request (request_id),
     KEY ix_recommendation_outbox_refrigerator (refrigerator_id),
+    KEY ix_recommendation_outbox_pending (status, next_attempt_at),
+    KEY ix_recommendation_outbox_lease (status, lease_until),
     CONSTRAINT fk_recommendation_outbox_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
-    CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','SENT','FAILED'))
+    CONSTRAINT ck_recommendation_outbox_status CHECK (status IN ('PENDING','PUBLISHING','SENT','FAILED'))
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE recommendation_lists (
@@ -428,10 +451,13 @@ CREATE TABLE recommendation_lists (
     refrigerator_id BIGINT NOT NULL,
     request_id VARCHAR(36) NOT NULL,
     result_json JSON NOT NULL COMMENT '추천 완료 결과 전체. 레시피 상세·재료·단계·재고 배분 포함',
+    request_date DATE NULL COMMENT '추천 접수 시점의 서울 업무 날짜',
+    input_key VARCHAR(64) NULL COMMENT '재고 지문과 기본값 적용 옵션의 SHA-256',
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (recommendation_list_id),
     UNIQUE KEY uk_recommendation_list_request (request_id),
+    KEY ix_recommendation_list_reuse (user_id, refrigerator_id, request_date, input_key, recommendation_list_id),
     CONSTRAINT fk_recommendation_list_user FOREIGN KEY (user_id) REFERENCES users (user_id),
     CONSTRAINT fk_recommendation_list_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
@@ -443,6 +469,7 @@ CREATE TABLE recommendation_states (
     current_list_id BIGINT NULL COMMENT '명시적으로 선택한 목록. 최신 완료 목록과 같을 수 있음',
     latest_list_id BIGINT NULL COMMENT '최신 완료 목록. 완료만으로 current_list_id를 변경하지 않음',
     active_request_id VARCHAR(36) NULL,
+    request_date DATE NULL COMMENT '마지막 추천 접수·재사용의 서울 업무 날짜',
     generation_status VARCHAR(16) NULL COMMENT '마지막 생성 작업 상태. 작업이 없으면 NULL',
     generation_trigger VARCHAR(16) NULL,
     created_at DATETIME(6) NOT NULL,
@@ -455,6 +482,33 @@ CREATE TABLE recommendation_states (
     CONSTRAINT fk_recommendation_state_latest FOREIGN KEY (latest_list_id) REFERENCES recommendation_lists (recommendation_list_id),
     CONSTRAINT ck_recommendation_state_status CHECK (generation_status IN ('QUEUED','PROCESSING','COMPLETED','FAILED')),
     CONSTRAINT ck_recommendation_state_trigger CHECK (generation_trigger IN ('USER','SCHEDULED'))
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE recommendation_daily_jobs (
+    recommendation_daily_job_id BIGINT NOT NULL AUTO_INCREMENT,
+    business_date DATE NOT NULL,
+    user_id BIGINT NOT NULL,
+    refrigerator_id BIGINT NOT NULL,
+    request_id VARCHAR(36) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    recommendation_list_id BIGINT NULL,
+    reason VARCHAR(64) NULL,
+    lease_token VARCHAR(36) NULL,
+    lease_until DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (recommendation_daily_job_id),
+    UNIQUE KEY uk_recommendation_daily_participant (business_date, user_id, refrigerator_id),
+    UNIQUE KEY uk_recommendation_daily_request (request_id),
+    KEY ix_recommendation_daily_ready (business_date, status, lease_until, recommendation_daily_job_id),
+    CONSTRAINT fk_recommendation_daily_user FOREIGN KEY (user_id) REFERENCES users (user_id),
+    CONSTRAINT fk_recommendation_daily_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
+    CONSTRAINT fk_recommendation_daily_list FOREIGN KEY (recommendation_list_id) REFERENCES recommendation_lists (recommendation_list_id),
+    CONSTRAINT ck_recommendation_daily_status CHECK (status IN ('PENDING','CLAIMED','ACCEPTED','REUSED','SKIPPED','COMPLETED','FAILED')),
+    CONSTRAINT ck_recommendation_daily_lease CHECK (
+        (status = 'CLAIMED' AND lease_token IS NOT NULL AND lease_until IS NOT NULL)
+        OR (status <> 'CLAIMED' AND lease_token IS NULL AND lease_until IS NULL)
+    )
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE analysis_job_states (
@@ -525,3 +579,16 @@ CREATE TABLE image_upload_metadata (
     PRIMARY KEY (object_key),
     KEY idx_image_upload_metadata_expires_at (expires_at, object_key)
 ) ENGINE=InnoDB;
+
+CREATE TABLE expiration_checks (
+    expiration_check_id BIGINT NOT NULL AUTO_INCREMENT,
+    business_date DATE NOT NULL,
+    refrigerator_id BIGINT NOT NULL COMMENT '재전달 중복 판정을 위해 냉장고 삭제 후에도 유지하는 식별자',
+    message_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    publish_after DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    published_at DATETIME(6) NULL,
+    completed_at DATETIME(6) NULL,
+    PRIMARY KEY (expiration_check_id),
+    UNIQUE KEY uk_expiration_checks_date_refrigerator (business_date, refrigerator_id),
+    KEY ix_expiration_checks_pending (published_at, publish_after, expiration_check_id)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 import com.dameokja.backend.global.security.JwtProvider;
+import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
@@ -81,7 +82,7 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
         requestId = UUID.randomUUID().toString();
         RecommendationState recommendationState = new RecommendationState(userRepository.getReferenceById(refrigeratorParticipant.userId()),
                 refrigeratorRepository.getReferenceById(refrigeratorParticipant.refrigeratorId()));
-        recommendationState.queueUserRequest(requestId);
+        recommendationState.queueUserRequest(requestId, BusinessTime.today(clock));
         recommendationStateRepository.saveAndFlush(recommendationState);
     }
 
@@ -138,8 +139,10 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
         assertThat(publishedMessages).hasSize(1);
     }
 
-    @Test
-    void committedCompletionReachesTheSseClientAndAnotherRedisSubscriber() throws Exception {
+    @ParameterizedTest
+    @EnumSource(RecommendationState.GenerationTrigger.class)
+    void committedCompletionReachesTheSseClientAndAnotherRedisSubscriber(RecommendationState.GenerationTrigger trigger) throws Exception {
+        jdbcTemplate.update("UPDATE recommendation_states SET generation_trigger = ? WHERE user_id = ?", trigger.name(), refrigeratorParticipant.userId());
         MvcResult stream = mockMvc.perform(get("/api/v2/refrigerators/{refrigeratorId}/notifications/stream", refrigeratorParticipant.refrigeratorId())
                 .cookie(new Cookie("accessToken", jwtProvider.createAccessToken(refrigeratorParticipant.userId(), UserRole.USER))))
                 .andExpect(request().asyncStarted()).andReturn();
@@ -154,7 +157,7 @@ class RecommendationCompletionEventTest extends ServiceIntegrationTest {
             await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(stream.getResponse().getContentAsString()).contains("event:recommendation"));
             String frame = Arrays.stream(stream.getResponse().getContentAsString().split("\n\n")).filter(part -> part.contains("event:recommendation")).findFirst().orElseThrow();
             String payload = frame.lines().filter(line -> line.startsWith("data:")).findFirst().orElseThrow().substring("data:".length());
-            assertThat(jsonMapper.readTree(payload)).isEqualTo(jsonMapper.readTree("{\"generationTrigger\":\"USER\",\"generationStatus\":\"COMPLETED\"}"));
+            assertThat(jsonMapper.readTree(payload)).isEqualTo(jsonMapper.readTree("{\"generationTrigger\":\"" + trigger.name() + "\",\"generationStatus\":\"COMPLETED\"}"));
             String remoteMessage = remoteMessages.poll(5, TimeUnit.SECONDS);
             assertThat(remoteMessage).isNotNull();
             assertThat(jsonMapper.readTree(remoteMessage).path("userId").asLong()).isEqualTo(refrigeratorParticipant.userId());

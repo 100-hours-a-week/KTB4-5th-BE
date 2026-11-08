@@ -56,7 +56,7 @@ public class RecommendationDetailService {
     private RecommendationDetailResult detail(Long userId, Long refrigeratorId, RecommendationList selectedList, String recipeId, boolean forCooking) {
         Recipe recipe = selectedRecipe(selectedList, recipeId);
         List<Ingredient> inventory;
-        if (forCooking) { inventory = ingredientListService.getByIdsForUpdate(userId, refrigeratorId, mappedStockIds(recipe)); }
+        if (forCooking) { inventory = ingredientListService.getByIdsForUpdate(refrigeratorId, mappedStockIds(recipe)); }
         else { inventory = ingredientListService.getByIds(userId, refrigeratorId, mappedStockIds(recipe)); }
         Map<Long, AiRecipeInventoryItem> inventoryById = inventory.stream()
                 .map(AiRecipeInventoryItem::from).collect(Collectors.toMap(AiRecipeInventoryItem::ingredientId, Function.identity()));

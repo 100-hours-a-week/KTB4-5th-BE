@@ -42,7 +42,7 @@ public interface NotificationStreamApi {
             이전 냉장고 작업의 종료 신호일 수도 있으므로 화면은 재조회한 generationStatus·hasNewRecommendation을 기준으로 처리합니다.
             SSE 수신만으로 선택 결과는 바뀌지 않으며 새 결과로 전환하려면 POST /api/v1/refrigerators/{refrigeratorId}/recommendations/current를 호출합니다.
             connected 수신 시에도 추천 목록을 재조회해 미접속 중 완료된 결과를 확인합니다. 추천 신호는 푸시나 인앱 알림 이력을 생성하지 않습니다.
-            heartbeat는 25초 간격의 주석, 연결 타임아웃은 5분, 재연결 대기는 3초입니다.
+            heartbeat는 5초 간격의 주석, 연결 타임아웃은 5분, 재연결 대기는 3초입니다.
             이벤트 ID·Last-Event-ID 재전달은 지원하지 않습니다. 신호 유실·발행 실패의 무손실 복구를 보장하지 않습니다.
             기존 /api/v1/.../notifications/stream JSON 폴링은 호환용으로 유지합니다.
             """)

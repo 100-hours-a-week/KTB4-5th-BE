@@ -14,6 +14,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RefrigeratorMemberRepository extends JpaRepository<RefrigeratorMember, Long> {
+    @Query("select m from RefrigeratorMember m join fetch m.user join fetch m.refrigerator "
+            + "where m.id > :after and m.isActive = true and m.endedAt is null and m.user.status = ACTIVE "
+            + "and m.refrigerator.deletedAt is null order by m.id")
+    List<RefrigeratorMember> findRecommendationTargetsAfter(Long after, Pageable pageable);
+
     @Query("select m from RefrigeratorMember m where m.refrigerator.id = :id "
             + "and (m.joinedChange.sequence > :after or m.endedChange.sequence > :after) "
             + "order by case when m.joinedChange.sequence > :after then m.joinedChange.sequence else m.endedChange.sequence end")
@@ -56,7 +61,9 @@ public interface RefrigeratorMemberRepository extends JpaRepository<Refrigerator
     Optional<RefrigeratorMember> findActiveForUpdate(@Param("userId") Long userId,
             @Param("refrigeratorId") Long refrigeratorId);
 
-    Optional<RefrigeratorMember> findByUserIdAndIsActiveTrue(Long userId);
+    // 권한 확인은 냉장고도 함께 쓰므로 한 문장으로 읽는다.
+    @Query("select m from RefrigeratorMember m join fetch m.refrigerator where m.user.id = :userId and m.isActive = true")
+    Optional<RefrigeratorMember> findByUserIdAndIsActiveTrue(@Param("userId") Long userId);
 
     List<RefrigeratorMember> findByUserIdAndRole(Long userId, RefrigeratorMemberRole role);
 

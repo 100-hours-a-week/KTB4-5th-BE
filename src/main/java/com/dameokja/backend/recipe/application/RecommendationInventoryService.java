@@ -15,10 +15,14 @@ public class RecommendationInventoryService {
 
     // 전체 재고 조회의 트랜잭션이 끝난 뒤 지문과 AI 요청을 만든다.
     public AiRecipeRecommendationRequest prepare(Long userId, Long refrigeratorId, RecommendationOptions recommendationOptions) {
+        return prepare(userId, refrigeratorId, recommendationOptions, UUID.randomUUID().toString());
+    }
+
+    public AiRecipeRecommendationRequest prepare(Long userId, Long refrigeratorId, RecommendationOptions recommendationOptions, String requestId) {
         RecommendationOptions resolvedOptions = recommendationOptions == null ? RecommendationOptions.empty() : recommendationOptions;
         List<AiRecipeInventoryItem> inventory = ingredientListService.getAll(userId, refrigeratorId).stream()
                 .map(AiRecipeInventoryItem::from)
                 .toList();
-        return resolvedOptions.toRequest(UUID.randomUUID().toString(), userId, refrigeratorId, inventory);
+        return resolvedOptions.toRequest(requestId, userId, refrigeratorId, inventory);
     }
 }

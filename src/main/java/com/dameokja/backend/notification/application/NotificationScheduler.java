@@ -1,10 +1,11 @@
 package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -16,36 +17,39 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class NotificationScheduler {
-    private final PushNotificationCreationService pushNotificationCreationService;
     private final RefrigeratorService refrigeratorService;
     private final ExpirationNotificationService expirationNotificationService;
     private final NotificationRecipientService notificationRecipientService;
     private final NotificationService notificationService;
     private final Clock clock;
     private final boolean expirationPushEnabled;
+    private final ExpirationCheckRepository expirationChecks;
+    private final boolean expirationKafkaEnabled;
 
-    public NotificationScheduler(PushNotificationCreationService pushNotificationCreationService,
-                                 RefrigeratorService refrigeratorService,
+    public NotificationScheduler(RefrigeratorService refrigeratorService,
                                  ExpirationNotificationService expirationNotificationService,
                                  NotificationRecipientService notificationRecipientService,
                                  NotificationService notificationService, Clock clock,
-                                 @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled) {
-        this.pushNotificationCreationService = pushNotificationCreationService;
+                                 @Value("${push.expiration-batch.enabled:true}") boolean expirationPushEnabled,
+                                 ExpirationCheckRepository expirationChecks,
+                                 @Value("${notification.expiration-kafka.enabled:false}") boolean expirationKafkaEnabled) {
         this.refrigeratorService = refrigeratorService;
         this.expirationNotificationService = expirationNotificationService;
         this.notificationRecipientService = notificationRecipientService;
         this.notificationService = notificationService;
         this.clock = clock;
         this.expirationPushEnabled = expirationPushEnabled;
+        this.expirationChecks = expirationChecks;
+        this.expirationKafkaEnabled = expirationKafkaEnabled;
     }
 
     @Scheduled(cron = "${notification.expiration-batch.cron:0 0 8 * * *}", zone = "Asia/Seoul")
     public void runExpirationNotificationBatch() {
         long startedAtNanos = recordBatchStart();
+        LocalDate businessDate = BusinessTime.today(clock);
         List<Long> refrigeratorIds = refrigeratorService.findNotificationTargetRefrigeratorIds();
-        int failedRefrigeratorCount = generateNotifications(refrigeratorIds);
+        int failedRefrigeratorCount = processRefrigerators(refrigeratorIds, businessDate);
         recordGenerationResult(startedAtNanos, refrigeratorIds.size(), failedRefrigeratorCount);
-        createPushJobs();
     }
 
     @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
@@ -64,14 +68,18 @@ public class NotificationScheduler {
     }
 
     //todo: 로깅을 위한 try-catch. 추후 삭제 예정
-    private int generateNotifications(List<Long> refrigeratorIds) {
+    private int processRefrigerators(List<Long> refrigeratorIds, LocalDate businessDate) {
         int failedCount = 0;
         for (Long refrigeratorId : refrigeratorIds) {
             try {
-                expirationNotificationService.generate(refrigeratorId);
+                if (expirationKafkaEnabled) {
+                    expirationChecks.reserve(businessDate, refrigeratorId);
+                } else {
+                    expirationNotificationService.generate(refrigeratorId, expirationPushEnabled);
+                }
             } catch (RuntimeException exception) {
                 failedCount++;
-                log.error("냉장고 알림 생성에 실패했습니다. refrigeratorId={}", refrigeratorId, exception);
+                log.error("냉장고 알림 배치 처리에 실패했습니다. refrigeratorId={}", refrigeratorId, exception);
             }
         }
         return failedCount;
@@ -79,17 +87,8 @@ public class NotificationScheduler {
 
     private void recordGenerationResult(long startedAtNanos, int refrigeratorCount, int failedRefrigeratorCount) {
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
-        log.info("임박·만료 알림 생성 단계를 마쳤습니다. refrigeratorCount={}, failedRefrigeratorCount={}, elapsedMillis={}",
+        log.info("임박·만료 알림 배치를 마쳤습니다. refrigeratorCount={}, failedRefrigeratorCount={}, elapsedMillis={}",
                 refrigeratorCount, failedRefrigeratorCount, elapsedMillis);
-    }
-
-    private void createPushJobs() {
-        // 푸시를 꺼도 인앱 알림 생성과 별도 보관 정리는 실행되어야 한다.
-        if (!expirationPushEnabled) {
-            return;
-        }
-        int createdCount = pushNotificationCreationService.createExpirationJobs();
-        log.info("만료·임박 알림 푸시 발송 작업을 {}건 만들었습니다.", createdCount);
     }
 
     private LocalDateTime now() {

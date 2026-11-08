@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,7 +50,7 @@ class RefrigeratorAccessServiceTest {
     @ValueSource(booleans = {true, false})
     void activeOwnerAndMemberCanReadAndWrite(boolean ownerMembershipRequested) {
         User user = activeUser();
-        Refrigerator refrigerator = availableRefrigerator();
+        Refrigerator refrigerator = refrigeratorWithoutStub();
         RefrigeratorMember refrigeratorMember = ownerMembershipRequested
                 ? RefrigeratorMember.owner(user, refrigerator)
                 : new RefrigeratorMember(user, refrigerator);
@@ -57,6 +59,29 @@ class RefrigeratorAccessServiceTest {
                 .thenReturn(Optional.of(refrigeratorMember));
         assertThatCode(() -> refrigeratorAccessService.validateWriteAccess(1L, 10L))
                 .doesNotThrowAnyException();
+        verifyNoInteractions(refrigeratorRepository);
+    }
+
+    @Test
+    void memberOfDeletedRefrigeratorKeepsTheDeletedError() {
+        User user = activeUser();
+        Refrigerator refrigerator = refrigeratorWithoutStub();
+        RefrigeratorMember refrigeratorMember = RefrigeratorMember.owner(user, refrigerator);
+        refrigeratorMember.activate();
+        refrigerator.delete(LocalDateTime.of(2026, 9, 17, 12, 0));
+        when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L)).thenReturn(Optional.of(refrigeratorMember));
+
+        assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
+    }
+
+    @Test
+    void endedMemberOfTheRequestedRefrigeratorIsDenied() {
+        User user = activeUser();
+        RefrigeratorMember refrigeratorMember = RefrigeratorMember.owner(user, refrigeratorWithoutStub());
+        refrigeratorMember.end(LocalDateTime.of(2026, 9, 17, 12, 0));
+        when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L)).thenReturn(Optional.of(refrigeratorMember));
+
+        assertDenied(RefrigeratorExceptionCode.ACCESS_DENIED);
     }
 
     @ParameterizedTest
@@ -125,9 +150,14 @@ class RefrigeratorAccessServiceTest {
     }
 
     private Refrigerator availableRefrigerator() {
+        Refrigerator refrigerator = refrigeratorWithoutStub();
+        when(refrigeratorRepository.findById(10L)).thenReturn(Optional.of(refrigerator));
+        return refrigerator;
+    }
+
+    private Refrigerator refrigeratorWithoutStub() {
         Refrigerator refrigerator = new Refrigerator("fridge", "2026-09");
         ReflectionTestUtils.setField(refrigerator, "id", 10L);
-        when(refrigeratorRepository.findById(10L)).thenReturn(Optional.of(refrigerator));
         return refrigerator;
     }
 
