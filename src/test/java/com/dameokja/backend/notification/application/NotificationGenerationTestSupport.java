@@ -1,6 +1,7 @@
 package com.dameokja.backend.notification.application;
 
 import com.dameokja.backend.ingredient.application.IngredientExpirationService;
+import com.dameokja.backend.push.application.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
@@ -21,10 +22,12 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 @Import({ExpirationNotificationService.class, NotificationRecipientService.class,
         RefrigeratorService.class, RefrigeratorAccessService.class, UserAccessService.class,
         IngredientExpirationService.class, MonthlyExpirationService.class, ExpirationNotificationFactory.class,
+        PushNotificationCreationService.class, JsonMapper.class,
         NotificationGenerationTestSupport.FixedTimeConfiguration.class})
 // 테스트 자체의 트랜잭션을 끄고 서비스 프록시의 실제 커밋·롤백 결과를 확인한다.
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -53,6 +56,8 @@ abstract class NotificationGenerationTestSupport extends MySqlJpaTest {
     @AfterEach
     void cleanFixtures() {
         jdbc.execute("DROP TRIGGER IF EXISTS fail_batch_recipient");
+        jdbc.update("DELETE FROM push_notifications WHERE refrigerator_id BETWEEN 970001 AND 970099");
+        jdbc.update("DELETE FROM user_devices WHERE user_id BETWEEN 970001 AND 970099");
         jdbc.update("DELETE r FROM notification_recipients r JOIN notifications n "
                 + "ON n.notification_id=r.notification_id WHERE n.refrigerator_id BETWEEN 970001 AND 970099");
         jdbc.update("DELETE FROM notifications WHERE refrigerator_id BETWEEN 970001 AND 970099");
