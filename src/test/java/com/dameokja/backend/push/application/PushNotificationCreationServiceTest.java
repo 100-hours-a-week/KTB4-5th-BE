@@ -11,6 +11,7 @@ import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -40,15 +41,13 @@ class PushNotificationCreationServiceTest {
         UserDevice device = new UserDevice(recipient, "https://push.example.com/1", "p256dh",
                 "encrypted".getBytes(), "enc-v1", "vapid-v1");
         PushInboxTarget target = new PushInboxTarget(notification(), device);
-        when(pushNotificationRepository.findInboxPushTargets(
-                LocalDateTime.of(2026, 9, 25, 0, 0), LocalDateTime.of(2026, 9, 26, 0, 0)))
+        when(pushNotificationRepository.findInboxPushTargetsByNotificationIds(List.of(7L)))
                 .thenReturn(List.of(target));
         when(pushNotificationRepository.save(any(PushNotification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        int created = service.createExpirationJobs();
+        service.createExpirationJobs(List.of(7L), LocalDate.of(2026, 9, 25));
 
-        assertThat(created).isEqualTo(1);
         ArgumentCaptor<PushNotification> saved = ArgumentCaptor.forClass(PushNotification.class);
         verify(pushNotificationRepository).save(saved.capture());
         PushNotification job = saved.getValue();
