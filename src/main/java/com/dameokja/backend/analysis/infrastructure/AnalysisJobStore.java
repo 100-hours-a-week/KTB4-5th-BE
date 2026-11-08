@@ -57,8 +57,12 @@ public class AnalysisJobStore {
     }
 
     public AnalysisJob create(String id, Long userId, String inputHint, List<AnalysisImage> analysisImages) {
+        return create(id, userId, null, inputHint, analysisImages);
+    }
+
+    public AnalysisJob create(String id, Long userId, Long refrigeratorId, String inputHint, List<AnalysisImage> analysisImages) {
         OffsetDateTime submittedAt = BusinessTime.now(clock).atZone(BusinessTime.ZONE).toOffsetDateTime();
-        AnalysisJob job = new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, null, false);
+        AnalysisJob job = new AnalysisJob(id, userId, inputHint, analysisImages, submittedAt, null, false, null, List.of(), refrigeratorId);
         redis.opsForValue().set(PREFIX + job.id(), mapper.writeValueAsString(job));
         // 작업을 먼저 저장해야 목록 조회의 만료 정리가 생성 중인 작업을 색인에서 지우지 않는다.
         redis.opsForZSet().add(USER_PREFIX + userId, job.id(), submittedAt.toInstant().toEpochMilli());

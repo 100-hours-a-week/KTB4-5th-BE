@@ -26,7 +26,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationStore;
-import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisProperties;
+import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.push.application.PushAnalysisCreationService;
@@ -64,8 +64,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(RedisTestSupport.class)
 @SpringJUnitConfig(AnalysisCallbackWebTest.Config.class)
 @WebAppConfiguration
-@TestPropertySource(properties = {"ai.analysis.api-key=local-ai-test", "ai.analysis.base-url=http://127.0.0.1:18081",
-        "ai.analysis.connect-timeout=1s", "ai.analysis.read-timeout=3s"})
+@TestPropertySource(properties = {"ai.api-key=local-ai-test", "ai.base-url=http://127.0.0.1:18081",
+        "ai.connect-timeout=1s", "ai.read-timeout=3s"})
 class AnalysisCallbackWebTest {
     private static final String PATH = "/api/v1/internal/image-analyses/callback";
     private static final String BODY = """
@@ -248,7 +248,7 @@ class AnalysisCallbackWebTest {
     @Configuration
     @EnableWebMvc
     @EnableWebSecurity
-    @EnableConfigurationProperties(AiAnalysisProperties.class)
+    @EnableConfigurationProperties(AiClientProperties.class)
     @Import({AnalysisCallbackController.class, AnalysisCallbackSecurityConfig.class, AnalysisCallbackService.class,
             AnalysisCompletionApplier.class, AnalysisCompletionValidator.class, GlobalExceptionHandler.class})
     static class Config {

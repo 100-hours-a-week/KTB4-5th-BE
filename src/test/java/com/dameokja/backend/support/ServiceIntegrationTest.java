@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = {
         "spring.config.import=",
         "push.dispatch.enabled=false",
+        "recipe.dispatch.enabled=false",
         "app.user.default-profile-image-key=profiles/default.png"
 })
 @ExtendWith(RedisTestSupport.class)
@@ -68,6 +69,11 @@ public abstract class ServiceIntegrationTest extends MySqlDatabaseTest {
     @BeforeEach
     @AfterEach
     protected void cleanDatabaseAndResetTime() {
+        jdbcTemplate.update("DELETE FROM recommendation_daily_jobs");
+        jdbcTemplate.update("DELETE FROM cooking_records");
+        jdbcTemplate.update("DELETE FROM recommendation_states");
+        jdbcTemplate.update("DELETE FROM recommendation_lists");
+        jdbcTemplate.update("DELETE FROM recommendation_outbox");
         jdbcTemplate.update("DELETE FROM push_notifications");
         jdbcTemplate.update("DELETE FROM notification_recipients");
         jdbcTemplate.update("DELETE FROM notifications");

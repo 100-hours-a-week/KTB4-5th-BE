@@ -38,7 +38,7 @@ class AnalysisJobStoreTest {
     void independentInstancesRegisterDifferentImagesWithoutLosingEitherUpdate() throws Exception {
         AnalysisJobStore first = createAnalysisJobStore();
         AnalysisJobStore second = new AnalysisJobStore(clock, duration, redisTemplate(), JsonMapper.builder().build());
-        AnalysisJob job = first.create(7L, "AUTO", List.of(image("first"), image("second")));
+        AnalysisJob job = first.create("job", 7L, 17L, "AUTO", List.of(image("first"), image("second")));
         assertThat(job.expiresAt()).isNull();
         CountDownLatch start = new CountDownLatch(1);
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
@@ -48,6 +48,7 @@ class AnalysisJobStoreTest {
             one.get(5, TimeUnit.SECONDS);
             two.get(5, TimeUnit.SECONDS);
         }
+        assertThat(second.findOwned(job.id(), 7L).refrigeratorId()).isEqualTo(17L);
         assertThat(second.findOwned(job.id(), 7L).analysisImages()).extracting(AnalysisImage::aiAnalysisId).containsExactly("ai-first", "ai-second");
         assertThat(redisTemplate().getExpire("analysis:job:" + job.id(), TimeUnit.MILLISECONDS)).isEqualTo(-1L);
     }

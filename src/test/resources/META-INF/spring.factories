@@ -1,0 +1,2 @@
+org.springframework.test.context.ContextCustomizerFactory=\
+com.dameokja.backend.support.MockitoContextCleanupFactory

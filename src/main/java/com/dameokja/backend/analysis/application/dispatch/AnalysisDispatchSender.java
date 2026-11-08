@@ -5,6 +5,7 @@ import com.dameokja.backend.analysis.domain.AiAnalysisIdentifiers;
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
+import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
@@ -46,8 +47,11 @@ public class AnalysisDispatchSender {
         LocalDateTime now = BusinessTime.now(clock);
         if (analysisDispatch.isExpired(now)) {
             analysisDispatchFailure.fail(leasedDispatch, analysisDispatch, AnalysisFailureCode.ANALYSIS_EXPIRED);
-        } else if (analysisJobStore.find(analysisDispatch.getAnalysisJobId()).isPresent()) {
-            submit(leasedDispatch, analysisDispatch);
+            return;
+        }
+        AnalysisJob job = analysisJobStore.find(analysisDispatch.getAnalysisJobId()).orElse(null);
+        if (job != null) {
+            submit(leasedDispatch, analysisDispatch, job.refrigeratorId());
         } else if (!now.isBefore(analysisDispatch.getCreatedAt().plus(analysisDispatchProperties.orphanGrace()))) {
             analysisDispatchUpdater.fail(leasedDispatch, AnalysisDispatchErrorCode.JOB_MISSING);
         } else {
@@ -56,10 +60,10 @@ public class AnalysisDispatchSender {
         }
     }
 
-    private void submit(LeasedDispatch leasedDispatch, AnalysisDispatch analysisDispatch) {
+    private void submit(LeasedDispatch leasedDispatch, AnalysisDispatch analysisDispatch, Long refrigeratorId) {
         AiImageAnalysisSubmitResponse aiImageAnalysisResponse;
         try {
-            aiImageAnalysisResponse = aiAnalysisClient.submit(request(analysisDispatch));
+            aiImageAnalysisResponse = aiAnalysisClient.submit(request(analysisDispatch, refrigeratorId));
         } catch (RestClientResponseException exception) {
             handleResponseFailure(leasedDispatch, analysisDispatch, exception);
             return;
@@ -123,8 +127,8 @@ public class AnalysisDispatchSender {
         analysisDispatchUpdater.retryLater(leasedDispatch, delay, true, errorCode);
     }
 
-    private AiImageAnalysisSubmitRequest request(AnalysisDispatch analysisDispatch) {
+    private AiImageAnalysisSubmitRequest request(AnalysisDispatch analysisDispatch, Long refrigeratorId) {
         return new AiImageAnalysisSubmitRequest(analysisDispatch.getRequestId(), new AiImageAnalysisSubmitRequest.Image(analysisDispatch.getObjectKey(), analysisDispatch.getSha256()),
-                analysisDispatch.getInputHint(), "ko-KR", "Asia/Seoul");
+                analysisDispatch.getInputHint(), "ko-KR", "Asia/Seoul", refrigeratorId);
     }
 }

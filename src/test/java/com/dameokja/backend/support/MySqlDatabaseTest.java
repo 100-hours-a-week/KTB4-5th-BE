@@ -29,10 +29,10 @@ public abstract class MySqlDatabaseTest {
         RedisTestSupport.redisProperties(registry);
         imageStorage(registry);
         registry.add("analysis.job-ttl", () -> "PT1H");
-        registry.add("ai.analysis.base-url", () -> "http://ai.example.com");
-        registry.add("ai.analysis.api-key", () -> "test-key");
-        registry.add("ai.analysis.connect-timeout", () -> "1s");
-        registry.add("ai.analysis.read-timeout", () -> "2s");
+        registry.add("ai.base-url", () -> "http://ai.example.com");
+        registry.add("ai.api-key", () -> "test-key");
+        registry.add("ai.connect-timeout", () -> "1s");
+        registry.add("ai.read-timeout", () -> "2s");
         registry.add("jwt.secret", () -> java.util.Base64.getEncoder()
                 .encodeToString(new byte[32]));
         registry.add("push.auth-encryption.key", () -> java.util.Base64.getEncoder()

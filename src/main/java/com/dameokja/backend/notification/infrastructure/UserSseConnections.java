@@ -4,6 +4,7 @@ import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
+import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +72,13 @@ final class UserSseConnections {
             } catch (IOException | IllegalStateException exception) {
                 removeFailedConnection(connection, exception);
             }
+        });
+    }
+
+    public void notifyRecommendationFinished(RecommendationGenerationFinished finished) {
+        connections.forEach(connection -> {
+            try { connection.sendRecommendationFinished(finished); }
+            catch (IOException | RuntimeException exception) { removeFailedConnection(connection, exception); }
         });
     }
 

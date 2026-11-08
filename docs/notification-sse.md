@@ -25,7 +25,7 @@ Redis 내부 신호 예시: `{"userId":1,"refrigeratorId":17}`.
 | 응답 | HTTP 200, `Content-Type: text/event-stream`, `Cache-Control: no-store`, `X-Accel-Buffering: no` |
 | 최초·재연결 | `connected`, `data: {}`, `retry: 3000` |
 | 변경 | `notifications-changed`, `data: {"refrigeratorId":"17"}` |
-| heartbeat | 25초 간격 `:heartbeat` 주석. 재조회 트리거가 아님 |
+| heartbeat | 5초 간격 `:heartbeat` 주석. 재조회 트리거가 아님 |
 | 수명 | 5분 타임아웃. 종료·타임아웃·전송 오류 시 해당 연결 정리 |
 | 오류 | 연결 전 기존 JSON 오류: 인증 401, 활성 냉장고 권한 403, 냉장고 없음 404, 삭제 410 |
 | 기존 폴링 | `/api/v1/refrigerators/{refrigeratorId}/notifications/stream` JSON 응답 유지. 이번 작업에서 폐기하지 않음 |

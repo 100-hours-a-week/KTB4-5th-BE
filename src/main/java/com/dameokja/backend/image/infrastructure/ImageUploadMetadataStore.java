@@ -4,6 +4,8 @@ import com.dameokja.backend.image.domain.ImageUploadMetadata;
 import com.dameokja.backend.image.domain.ImageUploadPurpose;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,9 +24,12 @@ public class ImageUploadMetadataStore {
     private final Duration ttl;
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper;
+    private final ImageUploadMetadataRepository repository;
+    private final boolean databaseWriteEnabled;
 
     public ImageUploadMetadataStore(Clock clock, @Value("${analysis.job-ttl}") Duration ttl,
-            StringRedisTemplate redis, ObjectMapper mapper) {
+            StringRedisTemplate redis, ObjectMapper mapper, ImageUploadMetadataRepository repository,
+            @Value("${image.upload-metadata.database-write-enabled:false}") boolean databaseWriteEnabled) {
         if (ttl == null || ttl.isZero() || ttl.isNegative()) {
             throw new IllegalArgumentException("업로드 발급 내역 TTL은 양수여야 합니다.");
         }
@@ -32,15 +37,33 @@ public class ImageUploadMetadataStore {
         this.ttl = ttl;
         this.redis = redis;
         this.mapper = mapper;
+        this.repository = repository;
+        this.databaseWriteEnabled = databaseWriteEnabled;
     }
 
     public void save(Long userId, ImageUploadPurpose purpose, String objectKey, String sha256) {
         ImageUploadMetadata upload = new ImageUploadMetadata(userId, purpose, sha256, clock.instant().plus(ttl));
+        if (databaseWriteEnabled) {
+            Instant originalExpiration = upload.expiresAt();
+            Instant databaseExpiration = originalExpiration.truncatedTo(ChronoUnit.MICROS);
+            if (databaseExpiration.isBefore(originalExpiration)) {
+                databaseExpiration = databaseExpiration.plus(1, ChronoUnit.MICROS);
+            }
+            repository.save(objectKey, new ImageUploadMetadata(userId, purpose, sha256, databaseExpiration));
+            return;
+        }
         redis.opsForValue().set(PREFIX + objectKey, mapper.writeValueAsString(upload), Duration.ofMillis(Math.max(1, ttl.toMillis())));
     }
 
     public Optional<ImageUploadMetadata> find(String objectKey) {
-        String stored = objectKey == null ? null : redis.opsForValue().get(PREFIX + objectKey);
+        if (objectKey == null) {
+            return Optional.empty();
+        }
+        Optional<ImageUploadMetadata> databaseUpload = repository.find(objectKey);
+        if (databaseUpload.isPresent()) {
+            return databaseUpload.filter(upload -> clock.instant().isBefore(upload.expiresAt()));
+        }
+        String stored = redis.opsForValue().get(PREFIX + objectKey);
         if (stored == null) {
             return Optional.empty();
         }
