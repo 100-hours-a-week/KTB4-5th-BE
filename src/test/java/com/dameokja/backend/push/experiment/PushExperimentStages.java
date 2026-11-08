@@ -66,7 +66,7 @@ final class PushExperimentStages {
     private void generateNotifications(List<Long> ids, Map<String, Object> report) throws Exception {
         PushExperimentMeasurement.measure(report, "notificationGeneration", () -> {
             for (Long id : ids) {
-                notificationService.generate(id);
+                notificationService.generate(id, false);
             }
             return null;
         });
