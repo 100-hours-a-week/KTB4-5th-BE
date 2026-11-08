@@ -10,13 +10,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-// 재고 등록 뒤 AI에 보낼 품목 하나의 피드백이다. 분석 결과는 등록 직후 지우므로 사용자가 확정한 값을 본문에 그대로 담는다.
+// 재고 등록 뒤 AI 분석 하나에 속한 품목들을 함께 보내는 피드백이다. 분석 결과는 등록 직후 지우므로 사용자가 확정한 값을 본문에 그대로 담는다.
 @Getter
 @Entity
 @Table(name = "analysis_feedbacks")
@@ -30,12 +31,13 @@ public class AnalysisFeedback extends BaseEntity {
     @Column(name = "ai_analysis_id", nullable = false, length = 64, updatable = false)
     private String aiAnalysisId;
 
-    @Column(name = "item_id", nullable = false, length = 128, updatable = false)
-    private String itemId;
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "feedback_body", nullable = false, updatable = false)
     private String feedbackBody;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "message_body", updatable = false)
+    private String messageBody;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -62,15 +64,20 @@ public class AnalysisFeedback extends BaseEntity {
     @Column(name = "finished_at")
     private LocalDateTime finishedAt;
 
-    public static AnalysisFeedback pending(String aiAnalysisId, String itemId, String feedbackBody, LocalDateTime now, LocalDateTime expiresAt) {
+    public static AnalysisFeedback pending(String aiAnalysisId, String feedbackBody, LocalDateTime now, LocalDateTime expiresAt) {
         AnalysisFeedback analysisFeedback = new AnalysisFeedback();
         analysisFeedback.aiAnalysisId = aiAnalysisId;
-        analysisFeedback.itemId = itemId;
         analysisFeedback.feedbackBody = feedbackBody;
         analysisFeedback.status = AnalysisFeedbackStatus.PENDING;
         analysisFeedback.attemptCount = 0;
         analysisFeedback.nextAttemptAt = now;
         analysisFeedback.expiresAt = expiresAt;
+        return analysisFeedback;
+    }
+
+    public static AnalysisFeedback pendingKafka(String aiAnalysisId, String feedbackBody, String messageBody, LocalDateTime now, LocalDateTime expiresAt) {
+        AnalysisFeedback analysisFeedback = pending(aiAnalysisId, feedbackBody, now, expiresAt);
+        analysisFeedback.messageBody = Objects.requireNonNull(messageBody);
         return analysisFeedback;
     }
 }

@@ -61,7 +61,7 @@ class AnalysisCompletionDeliveryTest {
     private final AnalysisDispatchWorker analysisDispatchWorker = mock(AnalysisDispatchWorker.class);
     private final AnalysisCallbackParking analysisCallbackParking = new AnalysisCallbackParking(Duration.ofMinutes(10), RedisTestSupport.redisTemplate(),
             JsonMapper.builder().build());
-    private final AnalysisPendingNotificationStore analysisPendingNotificationStore = spy(new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate()));
+    private final AnalysisPendingNotificationStore analysisPendingNotificationStore = new AnalysisPendingNotificationStore(RedisTestSupport.redisTemplate());
     private final AnalysisCompletionNotifier analysisCompletionNotifier = new AnalysisCompletionNotifier(store, analysisPendingNotificationStore, pushes, analysisFinishedEventService,
             notificationStreamService, Clock.system(BusinessTime.ZONE), Duration.ofMillis(1), 3);
     private final AnalysisCompletionApplier analysisCompletionApplier = new AnalysisCompletionApplier(store, analysisCompletionNotifier, analysisDispatchUpdater, analysisCallbackParking);
@@ -285,7 +285,7 @@ class AnalysisCompletionDeliveryTest {
         AnalysisJob job = registeredJob(1);
         when(notificationStreamService.isConnected(7L)).thenReturn(true);
         callbacks.receive("ai-0", failure);
-        verify(analysisPendingNotificationStore).finish(job.id());
+        assertThat(analysisPendingNotificationStore.claimDue(java.time.Instant.now().plusSeconds(60), Duration.ofSeconds(30), 1)).isEmpty();
         retry(2);
         verify(analysisFinishedEventService).publish(any(), any(), any(), anyInt(), anyInt(), anyInt(), any());
     }

@@ -20,15 +20,18 @@ import org.springframework.http.ResponseEntity;
 public interface AnalysisApi {
     @Operation(summary = "이미지 분석 접수", description = "업로드 URL 발급 후 S3 업로드를 완료한 이미지 키들을 요청합니다. "
             + "accessToken 쿠키와 XSRF-TOKEN 쿠키·X-XSRF-TOKEN 헤더가 필요합니다. "
-            + "로그인 사용자의 분석용 발급 내역을 확인하고 모든 이미지의 순차 접수가 끝나면 하나의 작업 ID를 반환합니다. "
+            + "현재 선택한 냉장고의 접근 권한을 확인하고 그 ID를 작업과 AI 요청에 고정합니다. FE 요청에는 냉장고 ID를 추가하지 않습니다. "
+            + "로그인 사용자의 분석용 발급 내역을 확인하고 묶음 작업과 요청 전달 내역을 저장한 뒤 하나의 작업 ID를 반환합니다. "
             + "접수 시 expiresAt은 null이며 묶음 종료 결과 저장 후 보관 만료 시각을 정합니다. "
-            + "202 응답은 분석 접수이며 분석 완료를 의미하지 않습니다. 이후 접수가 실패해도 앞서 접수한 이미지는 자동 취소되지 않습니다.")
+            + "202 응답 이후 AI 전달과 분석이 비동기로 진행됩니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "202", description = "분석 접수 성공 (IMAGE-202-001)", content = @Content(
                     mediaType = "application/json", examples = @ExampleObject(value = AnalysisApiExamples.RESPONSE))),
             @ApiResponse(responseCode = "400", description = "요청 형식 또는 AI 입력 유형 오류 (GLOBAL-400-001)"),
             @ApiResponse(responseCode = "401", description = "로그인 필요 (GLOBAL-401-001), 인증 토큰 만료·오류 (ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"),
-            @ApiResponse(responseCode = "403", description = "CSRF 검증 실패 (COMMON-403-CSRF-001)"),
+            @ApiResponse(responseCode = "403", description = "CSRF (COMMON-403-CSRF-001), 냉장고 접근 불가 (REFRIGERATOR-403-001), 탈퇴 회원 (USER-403-001)"),
+            @ApiResponse(responseCode = "404", description = "회원 없음 (USER-404-001)"),
+            @ApiResponse(responseCode = "410", description = "삭제된 냉장고 (REFRIGERATOR-410-001)"),
             @ApiResponse(responseCode = "422", description = "사용자·용도·유효기간에 맞는 발급 내역이 없는 이미지 (IMAGE-422-001)"),
             @ApiResponse(responseCode = "429", description = "AI 요청 횟수 제한 (IMAGE-429-001)"),
             @ApiResponse(responseCode = "500", description = "서버 처리 오류 (GLOBAL-500-001)"),
@@ -58,7 +61,7 @@ public interface AnalysisApi {
             + "미인식 수량·중량의 0과 측정 방식·단위 조합을 콜백에서 받은 그대로 반환하며, 실제 등록 가능한 조합인지는 재고 등록에서 검증합니다. "
             + "reviewReasons는 field·code·messages 객체 배열이며 사유가 없으면 빈 배열입니다. messages는 하나 이상의 비어 있지 않은 문자열입니다. "
             + "expiresAt은 묶음 종료 결과 저장 전 null이며, 전체 종료를 확정해 저장한 시점부터 기본 7일입니다. 조회로 연장하지 않습니다. "
-            + "Redis에 보관한 결과를 반환하며 사용자 조회에서 AI API를 호출하지 않습니다. AI 접수 전에는 QUEUED, 접수 후 종료 결과가 없으면 PROCESSING입니다. "
+            + "백엔드에 보관한 결과를 반환합니다. Kafka 경로는 이미지별 완료·실패 이벤트를 받기 전 해당 이미지를 QUEUED로 표시합니다. "
             + "expiration은 확정 날짜만 반환하며 예상 소비기한 범위만 있으면 null입니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "이미지 인식 결과 조회 성공 (IMAGE-200-002)", content = @Content(

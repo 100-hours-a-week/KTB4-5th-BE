@@ -1,5 +1,7 @@
 package com.dameokja.backend.analysis.infrastructure.ai;
 
+import com.dameokja.backend.global.config.ai.AiClientConfig;
+import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.MeasureType;
 import com.dameokja.backend.ingredient.domain.StorageType;
@@ -9,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,10 +40,10 @@ class AiAnalysisClientTest {
 
     @BeforeEach
     void setUp() {
-        AiAnalysisProperties properties = new AiAnalysisProperties(URI.create(URL), "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
-        AiAnalysisConfig config = new AiAnalysisConfig();
-        httpClient = config.aiAnalysisHttpClient(properties);
-        RestClient.Builder builder = config.restClientBuilder(properties, httpClient);
+        AiClientProperties properties = new AiClientProperties(URI.create(URL), "test-key", Duration.ofSeconds(1), Duration.ofSeconds(2));
+        AiClientConfig config = new AiClientConfig();
+        httpClient = config.aiHttpClient(properties);
+        RestClient.Builder builder = config.restClientBuilder(properties, httpClient, properties.readTimeout());
         server = MockRestServiceServer.bindTo(builder).build();
         client = new AiAnalysisClient(builder.build());
     }
@@ -56,13 +59,14 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"requestId":"request-1","image":{"objectKey":"uploads/analysis/7/image.png","sha256":"%s"},
+                        {"requestId":"request-1","refrigeratorId":17,"image":{"objectKey":"uploads/analysis/7/image.png","sha256":"%s"},
                          "inputHint":"AUTO","locale":"ko-KR","timezone":"Asia/Seoul"}
-                        """.formatted(SHA256)))
+                        """.formatted(SHA256), true))
                 .andRespond(withStatus(HttpStatus.ACCEPTED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"analysisId":"analysis-1","status":"QUEUED","submittedAt":"2026-10-07T01:00:00Z","pollAfterMs":1000}
                         """));
-        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1", "uploads/analysis/7/image.png", SHA256));
+        AiImageAnalysisSubmitResponse aiImageAnalysisSubmitResponse = client.submit(new AiImageAnalysisSubmitRequest("request-1",
+                new AiImageAnalysisSubmitRequest.Image("uploads/analysis/7/image.png", SHA256), "AUTO", "ko-KR", "Asia/Seoul", 17L));
         assertThat(aiImageAnalysisSubmitResponse).extracting(AiImageAnalysisSubmitResponse::analysisId).isEqualTo("analysis-1");
         server.verify();
     }
@@ -99,9 +103,9 @@ class AiAnalysisClientTest {
                 .andExpect(header("X-Internal-API-Key", "test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"itemId":"item_001","action":"CORRECTED","consentForModelImprovement":true,
+                        {"refrigeratorId":17,"consentForModelImprovement":true,"items":[{"itemId":"item_001","action":"CORRECTED",
                          "confirmed":{"name":"우유","category":"DAIRY","storageType":"REFRIGERATED","measureType":"WEIGHT","quantity":null,
-                          "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}
+                          "weightValue":1000,"weightUnit":"ML","expirationDate":"2026-10-20","expirationSource":"USER_CONFIRMED"}}]}
                         """, true))
                 .andRespond(withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON).body("""
                         {"feedbackId":"feedback-1","analysisId":"analysis-3","status":"RECORDED"}
@@ -119,7 +123,7 @@ class AiAnalysisClientTest {
     }
 
     private AiAnalysisFeedbackRequest milkFeedback() {
-        return AiAnalysisFeedbackRequest.corrected("item_001", AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
-                StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new BigDecimal("1000"), WeightUnit.ML, LocalDate.of(2026, 10, 20)));
+        return new AiAnalysisFeedbackRequest(17L, true, List.of(AiAnalysisFeedbackRequest.Item.corrected("item_001", AiAnalysisFeedbackRequest.Confirmed.userConfirmed("우유", IngredientCategory.DAIRY,
+                StorageType.REFRIGERATED, MeasureType.WEIGHT, null, new BigDecimal("1000"), WeightUnit.ML, LocalDate.of(2026, 10, 20)))));
     }
 }

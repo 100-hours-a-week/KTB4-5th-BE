@@ -34,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -55,8 +56,13 @@ class AnalysisDispatchSenderTest {
         when(analysisJobStore.find("job-1")).thenReturn(Optional.of(mock(AnalysisJob.class)));
     }
 
-    @Test
-    void registersTheAiIdBeforeRecordingAcceptanceWithTheSameRequestId() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = 17L)
+    void registersTheAiIdBeforeRecordingAcceptanceWithTheSameRequestId(Long refrigeratorId) {
+        AnalysisJob job = mock(AnalysisJob.class);
+        when(job.refrigeratorId()).thenReturn(refrigeratorId);
+        when(analysisJobStore.find("job-1")).thenReturn(Optional.of(job));
         AnalysisDispatch analysisDispatch = leased(AnalysisDispatchStatus.DISPATCHING, 0);
         when(aiAnalysisClient.submit(any())).thenReturn(new AiImageAnalysisSubmitResponse("ai-1", "QUEUED", null, 1000));
         analysisDispatchSender.send(LEASED);
@@ -65,6 +71,9 @@ class AnalysisDispatchSenderTest {
         order.verify(aiAnalysisClient).submit(request.capture());
         order.verify(analysisJobStore).register("job-1", 7L, analysisDispatch.getRequestId(), "ai-1");
         order.verify(analysisDispatchUpdater).accept(LEASED, "ai-1", false);
+        assertThat(request.getValue().refrigeratorId()).isEqualTo(refrigeratorId);
+        String body = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(request.getValue());
+        assertThat(body.contains("refrigeratorId")).isEqualTo(refrigeratorId != null);
         assertThat(request.getValue().requestId()).isEqualTo(analysisDispatch.getRequestId());
         assertThat(request.getValue().image().sha256()).isEqualTo("ab".repeat(32));
     }

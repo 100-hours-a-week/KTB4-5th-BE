@@ -68,6 +68,22 @@ class AnalysisJobTest {
         assertThatThrownBy(() -> job.fail("unknown", failure(submittedAt), submittedAt.plusDays(7))).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void preservesTheRefrigeratorAcrossEveryJobStateChange() {
+        OffsetDateTime time = OffsetDateTime.parse("2026-10-15T10:00:00+09:00");
+        AnalysisJob job = new AnalysisJob("job", 7L, "AUTO", List.of(AnalysisImage.pending("image", "ab".repeat(32))), time, null, false, null, List.of(), 17L);
+        String requestId = job.analysisImages().getFirst().requestId();
+        AnalysisJob registered = job.register(requestId, "ai");
+        AnalysisJob finished = registered.complete("ai", failure(time), time.plusDays(7));
+        List<AnalysisJob> changed = List.of(registered, finished, job.fail(requestId, failure(time), time.plusDays(7)),
+                finished.selectNotificationChannel(AnalysisNotificationChannel.SSE), finished.fallBackToPush(),
+                finished.acknowledgeNotification(), finished.acknowledgeNotification().reopenNotification(),
+                finished.publishImageEvent(requestId), finished.publishImageEvent(requestId).withdrawImageEvent(requestId));
+        assertThat(changed).extracting(AnalysisJob::refrigeratorId).containsOnly(17L);
+        String legacy = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(job).replace(",\"refrigeratorId\":17", "");
+        assertThat(tools.jackson.databind.json.JsonMapper.builder().build().readValue(legacy, AnalysisJob.class).refrigeratorId()).isNull();
+    }
+
     private AnalysisCompletion failure(OffsetDateTime completedAt) {
         return new AnalysisCompletion(AnalysisStatus.FAILED, completedAt, null,
                 new AnalysisCompletionFailure("ANALYSIS_EXPIRED", "실패", true, null));

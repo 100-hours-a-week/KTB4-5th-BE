@@ -20,6 +20,9 @@ import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.StreamSupport;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,7 +68,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         } else {
             assertThat(service.create(owner.userId(), owner.refrigeratorId(), command).createdCount()).isEqualTo(1);
             assertThat(store.find(job.id())).isEmpty();
-            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks", String.class))
+            assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.items[0].confirmed.name')) FROM analysis_feedbacks", String.class))
                     .isEqualTo("확정우유");
             assertThat(jdbcTemplate.queryForObject("SELECT status FROM analysis_feedbacks", String.class)).isEqualTo("PENDING");
         }
@@ -79,6 +82,7 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         Fixture owner = ownerFixture("등록자");
         IngredientWriteResult result = register(owner, List.of(item("milk", "  우유  ", 2), item("egg", " 달걀 ", 3)));
         assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(1);
         assertThat(result.items()).extracting(write -> write.ingredient().getName()).containsExactly("우유", "달걀");
         assertFeedback("milk", "우유", 2);
         assertFeedback("egg", "달걀", 3);
@@ -107,12 +111,41 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
         Fixture owner = ownerFixture("등록자");
         IngredientWriteResult result = register(owner, List.of(item("milk-a", " 우유 ", 2), item("egg", " 달걀 ", 3), item("milk-b", "우유", 4)));
         assertThat(result.createdCount()).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM analysis_feedbacks", Integer.class)).isEqualTo(1);
         assertThat(result.mergedCount()).isEqualTo(1);
         assertThat(result.items().getFirst().ingredient().getId()).isEqualTo(result.items().getLast().ingredient().getId());
         assertFeedback("milk-a", "우유", 2);
         assertFeedback("egg", "달걀", 3);
         assertFeedback("milk-b", "우유", 4);
         assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients WHERE name='우유'", Integer.class)).isEqualTo(6);
+    }
+
+    @Test
+    void storesAllActionsBeforeRemovingTheOriginalResult() {
+        Fixture owner = ownerFixture("등록자");
+        List<AnalysisCompletionItem> originals = List.of(feedbackOriginal("same", 2), feedbackOriginal("changed", 1), feedbackOriginal("deleted", 1));
+        AnalysisCompletion completion = new AnalysisCompletion(AnalysisStatus.COMPLETED, clock.instant().atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                new AnalysisCompletionSuccess(AnalysisDocumentType.RECEIPT, originals), null);
+        AnalysisJob job = store.create(owner.userId(), "RECEIPT", List.of(new AnalysisImage("image", "hash", "request", "ai-actions", completion)));
+        service.create(owner.userId(), owner.refrigeratorId(), new AnalysisIngredientCommand(job.id(), List.of(new AnalysisIngredientCommand.Image("image",
+                List.of(item("same", "우유", 2), item("changed", "우유", 3), item(null, "우유", 4))))));
+        assertThat(store.find(job.id())).isEmpty();
+        JsonNode body = JsonMapper.builder().build().readTree(jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class));
+        List<JsonNode> feedbacks = StreamSupport.stream(body.path("items").spliterator(), false).toList();
+        assertThat(feedbacks).extracting(feedback -> feedback.path("action").asText()).containsExactly("CONFIRMED", "CORRECTED", "ADDED", "DELETED");
+        assertThat(feedbacks.getFirst().has("confirmed")).isFalse();
+        assertThat(feedbacks.get(1).path("confirmed").path("quantity").asInt()).isEqualTo(3);
+        assertThat(feedbacks.get(2).has("itemId")).isFalse();
+        assertThat(feedbacks.get(2).path("confirmed").path("quantity").asInt()).isEqualTo(4);
+        assertThat(feedbacks.getLast().has("confirmed")).isFalse();
+        assertThat(body.path("consentForModelImprovement").asBoolean()).isTrue();
+        assertThat(jdbcTemplate.queryForObject("SELECT quantity FROM ingredients", Integer.class)).isEqualTo(9);
+        verifyNoInteractions(ai);
+    }
+
+    private AnalysisCompletionItem feedbackOriginal(String id, int quantity) {
+        return new AnalysisCompletionItem(id, RecognitionStatus.RECOGNIZED, "우유", IngredientCategory.DAIRY, StorageType.REFRIGERATED,
+                MeasureType.COUNT, quantity, null, new AnalysisCompletionItem.Expiration(LocalDate.parse("2026-10-20"), AnalysisExpirationDateType.USE_BY, null), List.of());
     }
 
     private IngredientWriteResult register(Fixture owner, List<AnalysisIngredientCommand.Item> items) {
@@ -132,10 +165,13 @@ class AnalysisIngredientTransactionTest extends ServiceIntegrationTest {
 
     private void assertFeedback(String itemId, String storedName, int requestedQuantity) {
         assertThat(jdbcTemplate.queryForObject("SELECT name FROM ingredients WHERE name=?", String.class, storedName)).isEqualTo(storedName);
-        assertThat(jdbcTemplate.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(feedback_body, '$.confirmed.name')) FROM analysis_feedbacks WHERE item_id=?",
-                String.class, itemId)).isEqualTo(storedName);
-        assertThat(jdbcTemplate.queryForObject("SELECT JSON_EXTRACT(feedback_body, '$.confirmed.quantity') FROM analysis_feedbacks WHERE item_id=?",
-                Integer.class, itemId)).isEqualTo(requestedQuantity);
+        String body = jdbcTemplate.queryForObject("SELECT feedback_body FROM analysis_feedbacks", String.class);
+        JsonNode items = JsonMapper.builder().build().readTree(body).path("items");
+        List<JsonNode> matching = StreamSupport.stream(items.spliterator(), false)
+                .filter(item -> item.path("itemId").asText().equals(itemId)).toList();
+        assertThat(matching).hasSize(1);
+        assertThat(matching.getFirst().path("confirmed").path("name").asText()).isEqualTo(storedName);
+        assertThat(matching.getFirst().path("confirmed").path("quantity").asInt()).isEqualTo(requestedQuantity);
     }
 
     private AnalysisJob completedJob(Long userId) {
