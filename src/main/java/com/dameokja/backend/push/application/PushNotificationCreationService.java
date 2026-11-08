@@ -11,10 +11,10 @@ import java.time.LocalTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
-// 8시 인앱 알림 생성 결과를 읽어야 하므로, 알림·수신자 저장이 커밋된 뒤 호출한다.
 @Service
 @RequiredArgsConstructor
 public class PushNotificationCreationService {
@@ -25,18 +25,29 @@ public class PushNotificationCreationService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void createExpirationJobs(List<Long> notificationIds, LocalDate businessDate) {
+        LocalDateTime now = BusinessTime.now(clock);
+        List<PushInboxTarget> targets = pushNotificationRepository.findInboxPushTargetsByNotificationIds(notificationIds);
+        saveJobs(targets, now, businessDate.atTime(SEND_DEADLINE));
+    }
+
+    // 전체 조회 부하 실험에서 기존 단계의 측정 조건을 유지한다.
     @Transactional
     public int createExpirationJobs() {
         LocalDateTime now = BusinessTime.now(clock);
         LocalDate today = now.toLocalDate();
         List<PushInboxTarget> targets = pushNotificationRepository.findInboxPushTargets(
                 today.atStartOfDay(), today.plusDays(1).atStartOfDay());
-        LocalDateTime expiresAt = today.atTime(SEND_DEADLINE);
+        saveJobs(targets, now, today.atTime(SEND_DEADLINE));
+        return targets.size();
+    }
+
+    private void saveJobs(List<PushInboxTarget> targets, LocalDateTime now, LocalDateTime expiresAt) {
         for (PushInboxTarget target : targets) {
             String payload = objectMapper.writeValueAsString(PushPayload.from(target.notification()));
             pushNotificationRepository.save(PushNotification.inbox(
                     target.notification(), target.device().getUser(), target.device(), payload, now, expiresAt));
         }
-        return targets.size();
     }
 }
