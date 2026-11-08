@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure.ai;
+package com.dameokja.backend.global.config.ai;
 
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -9,8 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
-@ConfigurationProperties("ai.analysis")
-public record AiAnalysisProperties(@NotNull URI baseUrl, @NotBlank String apiKey,
+@ConfigurationProperties("ai")
+public record AiClientProperties(@NotNull URI baseUrl, @NotBlank String apiKey,
         @NotNull Duration connectTimeout, @NotNull Duration readTimeout) {
     @AssertTrue(message = "AI 주소는 호스트가 있는 HTTP(S) URL이어야 하며 인증정보·쿼리·fragment를 포함할 수 없습니다.")
     public boolean isValidBaseUrl() {
