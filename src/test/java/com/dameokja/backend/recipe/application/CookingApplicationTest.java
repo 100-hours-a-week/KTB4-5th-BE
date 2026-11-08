@@ -29,6 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -75,6 +76,7 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         assertThat(apply(request())).isPresent();
         assertThat(stockAmount()).isEqualByComparingTo(expectedRemaining);
         assertOutcome(1);
+        assertAppliedMessage(countStock ? "2" : "300", countStock ? "EA" : "G");
         assertThat(apply(request())).isPresent();
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ingredients", Integer.class)).isZero();
         assertOutcome(2);
@@ -112,6 +114,7 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         else { jdbcTemplate.update("DELETE FROM ingredients WHERE ingredient_id = ?", stockId); }
         assertThat(apply(request())).isPresent();
         assertOutcome(1);
+        assertThat(outboxPayload().path("consumedIngredients").size()).isZero();
         if (unresolved) { assertThat(stockAmount()).isEqualByComparingTo("2"); }
     }
 
@@ -173,6 +176,44 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         } finally { jdbcTemplate.execute("DROP TRIGGER reject_cooking_count"); }
     }
 
+    @Test
+    void outboxInsertFailureRestoresFullyConsumedStockAndCookingRecord() {
+        jdbcTemplate.update("UPDATE ingredients SET weight_value = 300 WHERE ingredient_id = ?", stockId);
+        CookingApplicationRequest confirmed = request();
+        jdbcTemplate.execute("""
+                CREATE TRIGGER reject_cooking_outbox BEFORE INSERT ON cooking_outbox FOR EACH ROW
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'cooking_outbox_failure'
+                """);
+        try {
+            assertThatThrownBy(() -> apply(confirmed)).hasStackTraceContaining("cooking_outbox_failure");
+            assertThat(stockAmount()).isEqualByComparingTo("300");
+            assertOutcome(0);
+        } finally {
+            jdbcTemplate.execute("DROP TRIGGER reject_cooking_outbox");
+        }
+        assertThat(apply(confirmed)).isPresent();
+        assertThat(apply(confirmed)).isEmpty();
+        assertOutcome(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ingredients WHERE ingredient_id = ?", Integer.class, stockId)).isZero();
+        assertAppliedMessage("300", "G");
+    }
+
+    private JsonNode outboxPayload() {
+        String body = jdbcTemplate.queryForObject("SELECT message_body FROM cooking_outbox", String.class);
+        return jsonMapper.readTree(body).path("payload");
+    }
+
+    private void assertAppliedMessage(String amount, String unit) {
+        var payload = outboxPayload();
+        var consumed = payload.path("consumedIngredients").get(0);
+        assertThat(payload.path("cookingRecordId").asLong()).isEqualTo(
+                jdbcTemplate.queryForObject("SELECT cooking_record_id FROM cooking_records", Long.class));
+        assertThat(payload.path("consumedIngredients").size()).isOne();
+        assertThat(consumed.path("ingredientId").asLong()).isEqualTo(stockId);
+        assertThat(consumed.path("amount").decimalValue()).isEqualByComparingTo(amount);
+        assertThat(consumed.path("unit").asString()).isEqualTo(unit);
+    }
+
     private CookingApplicationRequest request() {
         RecommendationDetailResult displayedDetail = recommendationDetailService.get(refrigeratorParticipant.userId(), refrigeratorParticipant.refrigeratorId(), RECIPE_ID);
         return new CookingApplicationRequest(selectedList.getId(), RECIPE_ID, recommendationDetailEtag.of(displayedDetail), UUID.randomUUID().toString());
@@ -201,6 +242,7 @@ class CookingApplicationTest extends ServiceIntegrationTest {
     private BigDecimal stockAmount() { return jdbcTemplate.queryForObject("SELECT COALESCE(weight_value, quantity) FROM ingredients WHERE ingredient_id = ?", BigDecimal.class, stockId); }
 
     private void assertOutcome(int count) {
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM cooking_outbox", Integer.class)).isEqualTo(count);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM cooking_records", Integer.class)).isEqualTo(count);
         assertThat(userRepository.findById(refrigeratorParticipant.userId()).orElseThrow().getCookingCount()).isEqualTo(count);
     }
