@@ -4,6 +4,7 @@ import com.dameokja.backend.notification.domain.AnalysisFinished;
 import com.dameokja.backend.notification.domain.AnalysisImageFinished;
 import com.dameokja.backend.notification.domain.NotificationChanged;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
+import com.dameokja.backend.recipe.domain.RecommendationGenerationFinished;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.Map;
@@ -94,7 +95,14 @@ public class NotificationSseConnections {
         removeEmptyGroup(imageFinished.userId());
     }
 
-    @Scheduled(fixedDelay = 25_000L)
+    public void notifyRecommendationFinished(RecommendationGenerationFinished finished) {
+        UserSseConnections group = connections.get(finished.userId());
+        if (group == null) { return; }
+        group.notifyRecommendationFinished(finished);
+        removeEmptyGroup(finished.userId());
+    }
+
+    @Scheduled(fixedDelay = 5_000L)
     public void heartbeat() {
         connections.forEach((userId, group) -> {
             group.heartbeat();

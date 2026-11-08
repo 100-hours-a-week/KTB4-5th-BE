@@ -1,0 +1,123 @@
+package com.dameokja.backend.recipe.infrastructure.ai;
+
+import com.dameokja.backend.ingredient.domain.Ingredient;
+import com.dameokja.backend.ingredient.domain.IngredientCategory;
+import com.dameokja.backend.ingredient.domain.IngredientDetails;
+import com.dameokja.backend.ingredient.domain.Measurement;
+import com.dameokja.backend.ingredient.domain.MeasureType;
+import com.dameokja.backend.ingredient.domain.RegistrationSource;
+import com.dameokja.backend.ingredient.domain.StorageType;
+import com.dameokja.backend.ingredient.domain.WeightUnit;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.domain.User;
+import java.io.InputStream;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Collections;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.springframework.test.util.ReflectionTestUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class AiRecipeRecommendationRequestTest {
+    private final JsonMapper mapper = JsonMapper.builder().build();
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0, -1})
+    void requiresAPositiveAuthenticatedUserId(Long userId) {
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", userId, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), 10));
+    }
+
+    @Test
+    void preservesUnknownLegacyUsersWithoutAcceptingThemForANewRequest() throws Exception {
+        tools.jackson.databind.node.ObjectNode legacyResponse = (tools.jackson.databind.node.ObjectNode)
+                mapper.readTree(getClass().getResourceAsStream("/recipe-ai/wiki-completed-response.json"));
+        legacyResponse.putNull("userId");
+        ((tools.jackson.databind.node.ObjectNode) legacyResponse.get("result")).putNull("userId");
+        AiRecipeRecommendationRequest newRequest = AiRecipeRecommendationRequest.create(legacyResponse.path("requestId").asText(), 101L,
+                legacyResponse.path("refrigeratorId").asLong(), AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), 10);
+        ((tools.jackson.databind.node.ObjectNode) legacyResponse.get("result")).put("inventoryFingerprint", newRequest.inventoryFingerprint());
+        AiRecipeJobResponse legacyJob = mapper.treeToValue(legacyResponse, AiRecipeJobResponse.class);
+        assertThat(legacyJob.userId()).isNull();
+        assertThat(legacyJob.result().userId()).isNull();
+        assertThatThrownBy(() -> legacyJob.validateFor(legacyJob.jobId(), newRequest)).isInstanceOf(org.springframework.web.client.RestClientException.class);
+    }
+
+    @Test
+    void matchesPythonFingerprintFixtures() throws Exception {
+        try (InputStream input = getClass().getResourceAsStream("/recipe-ai/fingerprint-fixtures.json")) {
+            for (JsonNode fixture : mapper.readTree(input)) {
+                List<AiRecipeInventoryItem> inventory = mapper.readerForListOf(AiRecipeInventoryItem.class).readValue(fixture.path("inventory"));
+                AiRecipeRecommendationRequest request = AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
+                        AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, inventory, List.of(), 10);
+                assertThat(request.inventoryFingerprint()).as(fixture.path("case").asText()).isEqualTo(fixture.path("fingerprint").asText());
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 11, 20})
+    void rejectsLimitsOutsideLatestContract(int limit) {
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), limit));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidOptions")
+    void rejectsOptionsOutsideTheAiContract(String field, Object value) {
+        tools.jackson.databind.node.ObjectNode payload = mapper.valueToTree(AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(), List.of(), 10));
+        payload.set(field, mapper.valueToTree(value));
+        assertThatThrownBy(() -> mapper.treeToValue(payload, AiRecipeRecommendationRequest.class)).hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static Stream<Arguments> invalidOptions() {
+        return Stream.of(Arguments.of("targetServings", 0), Arguments.of("targetServings", 13),
+                Arguments.of("preferenceTags", Collections.nCopies(13, "한식")), Arguments.of("preferenceTags", List.of("가".repeat(41))),
+                Arguments.of("preferenceTags", List.of(" ")), Arguments.of("strategies", List.of()),
+                Arguments.of("strategies", List.of("SIMPLE_COOKING", "SIMPLE_COOKING")),
+                Arguments.of("pantryIngredientNames", Collections.nCopies(31, "소금")),
+                Arguments.of("pantryIngredientNames", List.of("가".repeat(501))),
+                Arguments.of("recentRecipeIds", Collections.nCopies(101, "MANUAL:123")),
+                Arguments.of("excludedIngredientNames", Collections.nCopies(101, "우유")));
+    }
+
+    @Test
+    void mapsPersistedInventoryWithoutChangingItsNameOrMeasurement() {
+        Refrigerator refrigerator = org.mockito.Mockito.mock(Refrigerator.class);
+        org.mockito.Mockito.when(refrigerator.getId()).thenReturn(17L);
+        Ingredient ingredient = new Ingredient(refrigerator,
+                new IngredientDetails("국산 두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
+                        Measurement.of(MeasureType.COUNT, 2, null, WeightUnit.NONE), LocalDate.of(2026, 11, 1)),
+                RegistrationSource.DIRECT, org.mockito.Mockito.mock(User.class));
+        ReflectionTestUtils.setField(ingredient, "id", 101L);
+        AiRecipeRecommendationRequest request = AiRecipeRecommendationRequest.from("req-1", 101L, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(ingredient), List.of(), 10);
+        assertThat(request.inventory().getFirst()).extracting(AiRecipeInventoryItem::ingredientId, AiRecipeInventoryItem::name,
+                AiRecipeInventoryItem::quantity, AiRecipeInventoryItem::weightValue).containsExactly(101L, "국산 두부", 2, null);
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.from("req-1", 101L, 18L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(ingredient), List.of(), 10));
+    }
+
+    @Test
+    void rejectsOversizedOrDuplicateInventoryRatherThanSilentlyTruncatingIt() {
+        AiRecipeInventoryItem item = new AiRecipeInventoryItem(101L, "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
+                MeasureType.COUNT, 2, null, WeightUnit.NONE, LocalDate.of(2026, 11, 1));
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, java.util.Collections.nCopies(301, item), List.of(), 10));
+        assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(item, item), List.of(), 10));
+    }
+}

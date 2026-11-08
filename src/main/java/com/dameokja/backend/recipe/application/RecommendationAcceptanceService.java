@@ -1,0 +1,48 @@
+package com.dameokja.backend.recipe.application;
+
+import com.dameokja.backend.recipe.domain.RecommendationState;
+import com.dameokja.backend.recipe.domain.RecommendationList;
+import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;
+import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationRequest;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
+import com.dameokja.backend.refrigerator.domain.Refrigerator;
+import com.dameokja.backend.user.application.access.UserAccessService;
+import java.time.Clock;
+import java.time.LocalDate;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class RecommendationAcceptanceService {
+    private final RefrigeratorAccessService refrigeratorAccessService;
+    private final UserAccessService userAccessService;
+    private final RecommendationStateRepository recommendationStateRepository;
+    private final RecommendationOutboxService recommendationOutboxService;
+    private final RecommendationDailyQuotaService recommendationDailyQuotaService;
+    private final RecommendationReuseService recommendationReuseService;
+    private final RecommendationPreferenceService recommendationPreferenceService;
+    private final Clock clock;
+
+    @Transactional
+    public RecommendationSubmissionResult accept(Long userId, AiRecipeRecommendationRequest recommendationRequest) {
+        // 상태 행이 없는 최초 접수도 사용자 잠금 아래 직렬화한다.
+        Refrigerator refrigerator = refrigeratorAccessService.lockForWrite(userId, recommendationRequest.refrigeratorId());
+        RecommendationState recommendationState = recommendationStateRepository.findByParticipantForUpdate(userId, refrigerator.getId())
+                .orElseGet(() -> recommendationStateRepository.save(new RecommendationState(userAccessService.getActive(userId), refrigerator)));
+        LocalDate today = BusinessTime.today(clock);
+        recommendationState.validateRequestAllowed(today);
+        recommendationPreferenceService.remember(recommendationRequest);
+        RecommendationList matchingList = recommendationReuseService.find(recommendationRequest, today).orElse(null);
+        if (matchingList != null) {
+            recommendationState.reuseList(matchingList);
+            return new RecommendationSubmissionResult(null, null, matchingList.getRequestId(), refrigerator.getId(), null,
+                    recommendationDailyQuotaService.current(userId), matchingList.getId());
+        }
+        recommendationState.queueUserRequest(recommendationRequest.requestId(), today);
+        RecommendationDailyGeneration dailyGeneration = recommendationDailyQuotaService.reserve(userId, recommendationRequest.requestId());
+        return recommendationOutboxService.enqueue(recommendationRequest).withDailyGeneration(dailyGeneration);
+    }
+}
