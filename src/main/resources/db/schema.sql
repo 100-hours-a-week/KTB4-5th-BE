@@ -37,6 +37,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE refrigerators (
+    membership_sequence BIGINT NOT NULL DEFAULT 0,
     refrigerator_id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL COMMENT '생성 시 소유자 닉네임으로 초기화. 이후 독립 관리',
     capacity SMALLINT NOT NULL DEFAULT 1500 COMMENT '냉장고당 재고 행 등록 상한. 서비스에서 동시성 제어',
@@ -53,6 +54,19 @@ CREATE TABLE refrigerators (
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE refrigerator_members (
+    joined_sequence BIGINT NULL,
+    joined_type VARCHAR(20) NULL,
+    joined_occurred_at DATETIME(6) NULL,
+    joined_title VARCHAR(150) NULL,
+    joined_body VARCHAR(500) NULL,
+    joined_recipient_user_ids JSON NULL,
+    ended_sequence BIGINT NULL,
+    ended_type VARCHAR(20) NULL,
+    ended_occurred_at DATETIME(6) NULL,
+    ended_title VARCHAR(150) NULL,
+    ended_body VARCHAR(500) NULL,
+    ended_recipient_user_ids JSON NULL,
+
     refrigerator_member_id BIGINT NOT NULL AUTO_INCREMENT,
     refrigerator_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
@@ -63,7 +77,10 @@ CREATE TABLE refrigerator_members (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (refrigerator_member_id),
-    UNIQUE KEY uk_members_refrigerator_user (refrigerator_id, user_id),
+    live_marker TINYINT GENERATED ALWAYS AS (IF(ended_at IS NULL,1,NULL)) STORED,
+    UNIQUE KEY uk_members_live_refrigerator_user (refrigerator_id, user_id, live_marker),
+    KEY ix_members_joined_sequence (refrigerator_id, joined_sequence),
+    KEY ix_members_ended_sequence (refrigerator_id, ended_sequence),
     UNIQUE KEY uk_members_active_marker (active_marker),
     KEY ix_members_user (user_id),
     CONSTRAINT ck_members_active CHECK (is_active IN (0,1)),
@@ -72,6 +89,28 @@ CREATE TABLE refrigerator_members (
     CONSTRAINT fk_members_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id),
     CONSTRAINT fk_members_user FOREIGN KEY (user_id) REFERENCES users (user_id)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE membership_transmissions (
+    membership_transmission_id BIGINT NOT NULL AUTO_INCREMENT,
+    refrigerator_id BIGINT NOT NULL,
+    last_sequence BIGINT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (membership_transmission_id),
+    UNIQUE KEY uk_membership_transmissions_refrigerator (refrigerator_id),
+    CONSTRAINT fk_membership_transmissions_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
+
+CREATE TABLE membership_notification_progress (
+    membership_notification_progress_id BIGINT NOT NULL AUTO_INCREMENT,
+    refrigerator_id BIGINT NOT NULL,
+    completed_sequence BIGINT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (membership_notification_progress_id),
+    UNIQUE KEY uk_membership_notification_progress_refrigerator (refrigerator_id),
+    CONSTRAINT fk_membership_notification_progress_refrigerator FOREIGN KEY (refrigerator_id) REFERENCES refrigerators (refrigerator_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_as_cs;
 
 CREATE TABLE social_accounts (
     social_account_id BIGINT NOT NULL AUTO_INCREMENT,
