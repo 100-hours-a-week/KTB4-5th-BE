@@ -3,10 +3,12 @@ package com.dameokja.backend.recipe.application;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.IngredientConsumptionService;
+import com.dameokja.backend.ingredient.application.IngredientConsumptionService.ConsumedIngredient;
 import com.dameokja.backend.recipe.application.RecommendationDetailResult.RecipeIngredient;
 import com.dameokja.backend.recipe.application.RecommendationDetailResult.Stock;
 import com.dameokja.backend.recipe.domain.CookingRecord;
 import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;
+import com.dameokja.backend.recipe.infrastructure.CookingOutboxRepository;
 import com.dameokja.backend.recipe.infrastructure.CookingRecordRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.application.access.UserAccessService;
@@ -14,6 +16,7 @@ import com.dameokja.backend.user.domain.User;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +34,7 @@ public class CookingApplicationService {
     private final RecommendationDetailEtag recommendationDetailEtag;
     private final IngredientConsumptionService ingredientConsumptionService;
     private final CookingRecordRepository cookingRecordRepository;
+    private final CookingOutboxRepository cookingOutbox;
     private final Clock clock;
 
     @Transactional
@@ -45,9 +49,11 @@ public class CookingApplicationService {
         }
         RecommendationDetailResult detail = recommendationDetailService.getForCooking(userId, refrigeratorId, request.recommendationId(), request.recipeId());
         if (!recommendationDetailEtag.of(detail).equals(request.detailEtag())) { throw new CustomException(RecommendationExceptionCode.DETAIL_CHANGED); }
-        ingredientConsumptionService.consume(refrigeratorId, consumptionAmounts(detail));
+        List<ConsumedIngredient> consumed = ingredientConsumptionService.consume(refrigeratorId, consumptionAmounts(detail));
         user.recordCooking();
-        saveRecord(user, refrigeratorId, request, detail);
+        CookingRecord record = saveRecord(user, refrigeratorId, request, detail);
+        cookingOutbox.save(new CookingApplied(record.getId(), userId, refrigeratorId, record.getRecommendationId(),
+                record.getRecipeId(), record.getCookedAt(), consumed));
         return Optional.of(detail);
     }
 
@@ -63,7 +69,7 @@ public class CookingApplicationService {
         return amounts;
     }
 
-    private void saveRecord(User user, Long refrigeratorId, CookingApplicationRequest request, RecommendationDetailResult detail) {
+    private CookingRecord saveRecord(User user, Long refrigeratorId, CookingApplicationRequest request, RecommendationDetailResult detail) {
         CookingRecord record = CookingRecord.builder()
                 .user(user)
                 .refrigerator(refrigeratorAccessService.getReferenceById(refrigeratorId))
@@ -74,8 +80,11 @@ public class CookingApplicationService {
                 .detailEtag(request.detailEtag())
                 .cookedAt(BusinessTime.now(clock))
                 .build();
-        try { cookingRecordRepository.saveAndFlush(record); }
-        catch (DataIntegrityViolationException exception) { throw translateConflict(exception); }
+        try {
+            return cookingRecordRepository.saveAndFlush(record);
+        } catch (DataIntegrityViolationException exception) {
+            throw translateConflict(exception);
+        }
     }
 
     private RuntimeException translateConflict(DataIntegrityViolationException exception) {
