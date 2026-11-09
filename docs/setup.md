@@ -88,7 +88,7 @@ Kafka 행은 이벤트 전체를 별도 저장하고 HTTP 워커의 선점·회�
 Kafka 피드백 워커는 기존 `analysis.kafka.feedback-topic`에 사용자 ID를 key로 JSON 이벤트를 발행하고 브로커 ACK 후 DONE을 기록한다.
 발행 실패는 같은 이벤트로 재시도하고 읽을 수 없는 저장 본문은 INVALID_EVENT로 종료한다. DONE은 AI 저장 완료가 아닌 Kafka 발행 확인이다.
 HTTP·Kafka 피드백 스케줄러는 `ANALYSIS_FEEDBACK_ENABLED`(기본 true), `ANALYSIS_FEEDBACK_POLL_INTERVAL`(기본 10s)을 함께 사용한다.
-Kafka 피드백은 요청 outbox와 별도 스케줄러에서 실행한다. 활성화 전에 `${KAFKA_ENV}.dameokja.analysis.feedback.v1` 토픽을 준비한다.
+Kafka 피드백은 요청 outbox와 별도 스케줄러에서 실행한다. 활성화 전에 `${DEPLOY_ENV}.dameokja.analysis.feedback.v1` 토픽을 준비한다.
 `KAFKA_LISTENER_ENABLED`는 이 발행 경로를 제어하지 않는다. DB 분석 결과 등록은 재고·Kafka 피드백 이벤트 저장·DB 작업 및 자식 삭제를 한 트랜잭션으로 처리한다.
 기존 HTTP/Redis 작업은 HTTP 피드백 큐와 커밋 후 Redis 결과 삭제를 유지한다. 추가 DDL은 없다.
 
@@ -99,6 +99,32 @@ Kafka 피드백은 요청 outbox와 별도 스케줄러에서 실행한다. 활�
 ./gradlew test           # 테스트만
 ./gradlew bootRun        # 로컬 기동 (DB 환경변수 필요)
 ```
+
+## 공통 실행 환경
+
+BE 실행 환경은 `DEPLOY_ENV` 하나로 지정하며 `local`·`dev`·`stage`·`prod`를 사용한다. 기본값은 없다.
+기존 stage 배포의 Kafka 네임스페이스도 보존하도록 `stage`를 지원한다.
+YAML에서 각 설정이 `${DEPLOY_ENV}`를 직접 참조하며 Spring 프로필은 이 값의 대체 수단으로 사용하지 않는다.
+
+| 설정 | 파생값 |
+|---|---|
+| Sentry environment | `DEPLOY_ENV` 값 |
+| Kafka 토픽·그룹·트랜잭션 ID의 기본 접두사 | `<DEPLOY_ENV>.dameokja.` |
+| S3 업로드 prefix | `<S3_UPLOAD_BASE_PREFIX>/<DEPLOY_ENV>/` |
+| 추천 생성 횟수 | `local`·`dev`는 무제한, `stage`·`prod`는 사용자별 하루 10회 |
+
+배포 전 기존 환경설정을 다음 순서로 전환한다. 이 코드 변경만으로 서버의 환경변수가 갱신되지는 않는다.
+
+1. 기존 환경에 맞는 `DEPLOY_ENV`와 환경 부분을 제외한 `S3_UPLOAD_BASE_PREFIX`를 런타임에 주입한다.
+   예를 들어 가상의 기존 prefix가 `sample-images/dev/`이면 `DEPLOY_ENV=dev`, `S3_UPLOAD_BASE_PREFIX=sample-images`로 옮긴다.
+2. 파생된 S3 경로가 기존 경로와 같고, Kafka 접두사가 AI 설정과 같은지 확인한다. 기존 객체를 이동하거나 키를 다시 쓰지 않는다.
+3. BE의 `KAFKA_ENV`·`SENTRY_ENV`·`SENTRY_ENVIRONMENT`·`S3_UPLOAD_PREFIX`를 제거한다.
+   특히 `SENTRY_ENVIRONMENT`가 남아 있으면 Spring 설정 우선순위에 따라 YAML의 공통 환경값을 덮어쓰므로 반드시 제거한다.
+
+`S3_UPLOAD_BASE_PREFIX`는 앞·뒤 `/`가 없는 상대 경로이며 하위 경로는 허용한다.
+CI의 `APP_ENV` Secret은 설정 파일 전체를 담는 값이며 이 환경 구분 변수와 별개다.
+배포의 ConfigMap·Secret 또는 환경 파일에 주입해야 하며, 이미지 빌드 인자로 설정하지 않는다.
+AI의 Kafka 환경변수 이름은 이번 BE 통합에서 변경하지 않는다. 두 서비스의 환경값을 일치시켜야 한다.
 
 ## DB 접속 설정
 
@@ -179,7 +205,7 @@ AWS SDK for Java 2.x는 BOM으로 버전을 맞추고 S3 모듈을 사용한다.
 |---|---|
 | `S3_BUCKET` | 업로드 버킷 이름 |
 | `S3_REGION` | 버킷 리전 |
-| `S3_UPLOAD_PREFIX` | 공통 객체 키 prefix. `/`로 끝나는 상대 경로 |
+| `S3_UPLOAD_BASE_PREFIX` | 환경 부분을 제외한 공통 객체 키 루트. 앞·뒤 `/` 없는 상대 경로 |
 | `S3_PRESIGNED_URL_TTL` | URL 유효시간. Duration 형식, 1초 이상 7일 이하 [AWS3] |
 | `S3_MAX_UPLOAD_BYTES` | 최대 업로드 크기(바이트), 양수 |
 | `S3_ALLOWED_CONTENT_TYPES` | 쉼표로 구분한 허용 MIME 타입 |
@@ -448,13 +474,14 @@ SSE 발행 후 처리 확인이 실패하면 재시도에서 이벤트가 중복
 
 ## 개발 환경의 추천·인식 횟수
 
-추천 생성 횟수 제한은 환경변수 `KAFKA_ENV=dev` 또는 `local`에서 적용하지 않는다.
-Spring 프로필 활성화 여부와 무관하며, dev 배포에 이미 주입되는 `KAFKA_ENV`를 그대로 사용한다.
+추천 생성 횟수 제한은 공통 환경변수 `DEPLOY_ENV=dev` 또는 `local`에서 적용하지 않는다.
+Spring 프로필·기존 `KAFKA_ENV`와 무관하며, 같은 `DEPLOY_ENV`를 직접 읽는다.
 한도 조회·예약 시 Redis의 사용자별 한도를 읽거나 차감하지 않으며, 기존에 소진된 한도에도 영향을 받지 않는다.
 기존 숫자형 API 응답을 유지하기 위해 `dailyGeneration.limit`·`remaining`은 `2147483647`을 반환하고,
 `resetAt`은 기존처럼 다음 서울 자정을 반환한다.
-`KAFKA_ENV=prod`, 그 외 값, 빈 값 또는 미설정 시 기존 사용자별 하루 10회 제한을 적용한다.
-Kafka 토픽의 미설정 기본값 `local`은 횟수 제한 판단에 사용하지 않으므로, 로컬에서 무제한을 쓰려면 `KAFKA_ENV=local`을 명시한다.
+`DEPLOY_ENV=stage`·`prod`는 기존 사용자별 하루 10회 제한을 적용한다.
+추천 무제한은 정확히 `dev`·`local`인 경우에만 적용하며, 그 외 값에는 기존 10회 제한을 적용한다.
+공통 환경변수는 YAML 참조에 기본값이 없어 실행 시 반드시 주입해야 한다.
 인식 접수에는 현재 사용자별 횟수 제한이 없다. 요청 검증·접근 권한과 AI 큐의 동시 처리 용량은 기존 동작을 따른다.
 
 ## 테스트 DB

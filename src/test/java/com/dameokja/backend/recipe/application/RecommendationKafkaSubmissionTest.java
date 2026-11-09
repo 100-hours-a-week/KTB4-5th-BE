@@ -45,7 +45,7 @@ class RecommendationKafkaSubmissionTest extends ServiceIntegrationTest {
         assertThat(recommendationOutboxService.batch(0, 10)).isEmpty();
         RecommendationOutboxQueue.Lease outboxLease = recommendationOutboxQueue.leaseBatch(10, Duration.ofSeconds(60)).getFirst();
         assertThat(outboxLease.id()).isEqualTo(kafkaSubmission.sequence());
-        assertThat(outboxLease.topic()).isEqualTo("local.dameokja.recommendation.requested.v1");
+        assertThat(outboxLease.topic()).isEqualTo("prod.dameokja.recommendation.requested.v1");
         assertThat(outboxLease.key()).isEqualTo(refrigeratorOwner.userId().toString());
 
         JsonNode envelope = jsonMapper.readTree(outboxLease.body());

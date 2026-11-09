@@ -8,16 +8,17 @@ Kafka 의존성·공통 설정·토픽 이름과 공통 메시지 envelope를 �
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | 브로커 주소. 여러 주소는 쉼표로 구분 |
-| `KAFKA_ENV` | `local` | 토픽 환경 접두사. BE·AI에서 같은 값 사용 |
+| `DEPLOY_ENV` | 없음 (필수) | BE 공통 실행 환경 `local`·`dev`·`stage`·`prod`. AI의 `KAFKA_ENV`와 같은 값 사용 |
 | `KAFKA_LISTENER_ENABLED` | `false` | 기본 listener factory의 자동 시작 여부 |
 
+BE는 `KAFKA_ENV`를 읽지 않으며 [공통 실행 환경](../setup.md#공통-실행-환경)의 `DEPLOY_ENV`에서 네임스페이스를 파생한다.
 인프라 준비 후 실제 브로커 주소와 환경명을 주입한다. 연동 검증을 마친 기능의 listener를 활성화한다.
 `KAFKA_LISTENER_ENABLED`는 listener를 제어한다. 발행 스케줄러는 기능별 활성화 설정을 따른다.
 기존 `ANALYSIS_FEEDBACK_ENABLED`는 HTTP 피드백에도 쓰이므로 Kafka 준비를 이유로 끄지 않는다.
 
 ## 토픽 이름
 
-다음은 이름 정의이며 브로커에 토픽을 생성하지 않는다. `KAFKA_ENV=dev`이면 접두사는 `dev.dameokja.`다.
+다음은 이름 정의이며 브로커에 토픽을 생성하지 않는다. `DEPLOY_ENV=dev`이면 접두사는 `dev.dameokja.`다.
 
 | 애플리케이션 설정 | 접두사 뒤 이름 | 방향·용도 |
 |---|---|---|
