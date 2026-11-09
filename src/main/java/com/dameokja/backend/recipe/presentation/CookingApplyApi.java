@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 public interface CookingApplyApi {
     @Operation(summary = "추천 레시피 요리 적용", description = "accessToken·XSRF-TOKEN 쿠키와 X-XSRF-TOKEN 헤더가 필요합니다. "
             + "상세에서 확인한 내역과 현재 응답이 같을 때만 적용합니다. 변경 시 412이며 상세 재조회·재확인 후 새 키로 요청합니다. "
+            + "AI usedAmount와 현재 재고 중 작은 양을 사용하며, AI 사용량이 없으면 requiredAmount로 계산합니다. 인분을 추가로 곱하지 않습니다. "
             + "동일 요청의 성공 재시도는 현재 재고와 무관하게 204입니다. 사용량 계산 불가 재고는 차감하지 않습니다.")
     @RequestBody(required = true, content = @Content(schema = @Schema(implementation = CookingApplyRequest.class),
             examples = @ExampleObject(value = CookingApplyApiExamples.REQUEST)))
