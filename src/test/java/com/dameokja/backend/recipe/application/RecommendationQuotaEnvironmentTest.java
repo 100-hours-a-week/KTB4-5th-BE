@@ -19,6 +19,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
@@ -27,14 +28,16 @@ class RecommendationQuotaEnvironmentTest {
     private final RecommendationDailyQuotaStore store = mock(RecommendationDailyQuotaStore.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-09T01:00:00Z"), ZoneOffset.UTC);
     private final ApplicationContextRunner context = new ApplicationContextRunner()
+            .withInitializer(new ConfigDataApplicationContextInitializer())
+            .withPropertyValues("spring.config.location=classpath:application.yml")
             .withBean(RecommendationDailyQuotaStore.class, () -> store)
             .withBean(Clock.class, () -> clock)
             .withUserConfiguration(RecommendationDailyQuotaService.class);
 
     @ParameterizedTest
     @ValueSource(strings = {"dev", "local"})
-    void allowsMoreThanTenRequestsWithoutSpringProfiles(String runtimeEnvironment) {
-        environment(runtimeEnvironment).run(application -> {
+    void allowsMoreThanTenRequestsWithoutSpringProfiles(String deploymentEnvironment) {
+        environment(deploymentEnvironment).run(application -> {
             RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
             for (int attempt = 0; attempt < 20; attempt++) {
                 assertUnlimited(service.reserve(17L, "request-" + attempt));
@@ -45,11 +48,11 @@ class RecommendationQuotaEnvironmentTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "prod", "test", "DEV", "dev,local", "dev,prod", "local,prod"})
-    void preservesDailyLimitRegardlessOfDevelopmentProfile(String runtimeEnvironment) {
+    @ValueSource(strings = {"stage", "prod", "", "DEV", "invalid", "dev,prod", " dev "})
+    void preservesLimitRegardlessOfLegacyEnvironmentAndProfile(String deploymentEnvironment) {
         when(store.count(eq(17L), any())).thenReturn(10L);
         when(store.reserve(eq(17L), any(), eq("eleventh"), eq(10), any())).thenReturn(RecommendationDailyQuotaStore.LIMIT_REACHED);
-        environment(runtimeEnvironment).withPropertyValues("spring.profiles.active=dev").run(application -> {
+        environment(deploymentEnvironment).withPropertyValues("spring.profiles.active=dev", "KAFKA_ENV=dev").run(application -> {
             RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
             assertThat(service.current(17L).limit()).isEqualTo(10);
             assertThat(service.current(17L).remaining()).isZero();
@@ -59,26 +62,18 @@ class RecommendationQuotaEnvironmentTest {
     }
 
     @Test
-    void keepsLimitWhenRuntimeEnvironmentIsMissing() {
-        environment(null).withPropertyValues("spring.profiles.active=local").run(application -> {
-            RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
-            assertThat(service.current(17L).limit()).isEqualTo(10);
-        });
-    }
-
-    @Test
-    void usesRuntimeEnvironmentEvenWithProductionProfile() {
-        environment("dev").withPropertyValues("spring.profiles.active=prod").run(application -> {
+    void usesDeploymentEnvironmentEvenWithProductionProfile() {
+        environment("dev").withPropertyValues("spring.profiles.active=prod", "KAFKA_ENV=prod").run(application -> {
             assertUnlimited(application.getBean(RecommendationDailyQuotaService.class).current(17L));
             verifyNoInteractions(store);
         });
     }
 
-    private ApplicationContextRunner environment(String runtimeEnvironment) {
-        Map<String, Object> variables = runtimeEnvironment == null ? Map.of() : Map.of("KAFKA_ENV", runtimeEnvironment);
+    private ApplicationContextRunner environment(String deploymentEnvironment) {
         return context.withInitializer(application -> application.getEnvironment().getPropertySources().replace(
                 StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
-                new SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, variables)));
+                new SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+                        Map.of("DEPLOY_ENV", deploymentEnvironment))));
     }
 
     private void assertUnlimited(RecommendationDailyGeneration generation) {

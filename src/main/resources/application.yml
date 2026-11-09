@@ -121,8 +121,8 @@ notification:
     cron: ${NOTIFICATION_EXPIRATION_CRON:0 0 8 * * *}
   expiration-kafka:
     enabled: ${NOTIFICATION_EXPIRATION_KAFKA_ENABLED:false}
-    topic: ${KAFKA_ENV:local}.dameokja.inventory.expiration-check.requested.v1
-    group-id: ${KAFKA_ENV:local}.dameokja.be.expiration-check.v1
+    topic: ${DEPLOY_ENV}.dameokja.inventory.expiration-check.requested.v1
+    group-id: ${DEPLOY_ENV}.dameokja.be.expiration-check.v1
 
 push:
   auth-encryption:
@@ -158,7 +158,7 @@ image:
   storage:
     bucket: ${S3_BUCKET}
     region: ${S3_REGION}
-    prefix: ${S3_UPLOAD_PREFIX}
+    prefix: ${S3_UPLOAD_BASE_PREFIX}/${DEPLOY_ENV}/
     presigned-url-ttl: ${S3_PRESIGNED_URL_TTL}
     max-upload-bytes: ${S3_MAX_UPLOAD_BYTES}
     allowed-content-types: ${S3_ALLOWED_CONTENT_TYPES}
@@ -175,11 +175,11 @@ ai:
 analysis:
   kafka-submission-enabled: ${ANALYSIS_KAFKA_SUBMISSION_ENABLED:true}
   kafka:
-    request-topic: ${KAFKA_ENV:local}.dameokja.analysis.requested.v1
-    completion-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1
-    feedback-topic: ${KAFKA_ENV:local}.dameokja.analysis.feedback.v1
-    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.analysis.completed.v1.dlt
-    completion-group-id: ${ANALYSIS_KAFKA_COMPLETION_GROUP_ID:${KAFKA_ENV:local}.dameokja.be.analysis-result.v1}
+    request-topic: ${DEPLOY_ENV}.dameokja.analysis.requested.v1
+    completion-topic: ${DEPLOY_ENV}.dameokja.analysis.completed.v1
+    feedback-topic: ${DEPLOY_ENV}.dameokja.analysis.feedback.v1
+    completion-dlt-topic: ${DEPLOY_ENV}.dameokja.analysis.completed.v1.dlt
+    completion-group-id: ${ANALYSIS_KAFKA_COMPLETION_GROUP_ID:${DEPLOY_ENV}.dameokja.be.analysis-result.v1}
     completion-retry-delay: ${ANALYSIS_KAFKA_COMPLETION_RETRY_DELAY:5s}
   result-cleanup:
     enabled: ${ANALYSIS_RESULT_CLEANUP_ENABLED:true}
@@ -234,12 +234,12 @@ recommendation:
     batch-size: ${RECOMMENDATION_DAILY_REFRESH_BATCH_SIZE:20}
     lease-duration: ${RECOMMENDATION_DAILY_REFRESH_LEASE_DURATION:2m}
   kafka:
-    request-topic: ${KAFKA_ENV:local}.dameokja.recommendation.requested.v1
+    request-topic: ${DEPLOY_ENV}.dameokja.recommendation.requested.v1
     submission-enabled: ${RECOMMENDATION_KAFKA_SUBMISSION_ENABLED:true}
-    completion-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1
+    completion-topic: ${DEPLOY_ENV}.dameokja.recommendation.completed.v1
     completion-enabled: ${RECOMMENDATION_KAFKA_COMPLETION_ENABLED:true}
-    completion-group-id: ${KAFKA_ENV:local}.dameokja.be.recommendation-result.v1
-    completion-dlt-topic: ${KAFKA_ENV:local}.dameokja.recommendation.completed.v1.dlt
+    completion-group-id: ${DEPLOY_ENV}.dameokja.be.recommendation-result.v1
+    completion-dlt-topic: ${DEPLOY_ENV}.dameokja.recommendation.completed.v1.dlt
     completion-retry-delay: ${RECOMMENDATION_COMPLETION_RETRY_DELAY:5s}
   outbox:
     enabled: ${RECOMMENDATION_OUTBOX_ENABLED:true}
@@ -251,16 +251,16 @@ recommendation:
 cooking:
   kafka:
     publish-enabled: ${COOKING_KAFKA_PUBLISH_ENABLED:false}
-    applied-topic: ${KAFKA_ENV:local}.dameokja.cooking.applied.v1
+    applied-topic: ${DEPLOY_ENV}.dameokja.cooking.applied.v1
 
 membership:
   kafka:
     enabled: ${MEMBERSHIP_KAFKA_ENABLED:false}
     transport-enabled: ${MEMBERSHIP_KAFKA_TRANSPORT_ENABLED:false}
     scheduling-enabled: ${MEMBERSHIP_KAFKA_SCHEDULING_ENABLED:true}
-    topic: ${KAFKA_ENV:local}.dameokja.refrigerator.membership.v1
-    group-id: ${KAFKA_ENV:local}.dameokja.membership-notification.v1
-    transactional-id: ${KAFKA_ENV:local}.dameokja.membership-sender.v1
+    topic: ${DEPLOY_ENV}.dameokja.refrigerator.membership.v1
+    group-id: ${DEPLOY_ENV}.dameokja.membership-notification.v1
+    transactional-id: ${DEPLOY_ENV}.dameokja.membership-sender.v1
     poll-interval: ${MEMBERSHIP_KAFKA_POLL_INTERVAL:1s}
     batch-size: ${MEMBERSHIP_KAFKA_BATCH_SIZE:100}
 
@@ -278,6 +278,7 @@ management:
     health:
       show-details: never
 sentry:
+  environment: ${DEPLOY_ENV}
   dsn: ${SENTRY_DSN:}
   # Add data like request headers and IP for users,
   # see https://docs.sentry.io/platforms/java/guides/spring-boot/data-management/data-collected/ for more info

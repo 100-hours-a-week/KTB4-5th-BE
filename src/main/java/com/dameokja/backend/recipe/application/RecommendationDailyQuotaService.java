@@ -71,8 +71,8 @@ public class RecommendationDailyQuotaService {
     }
 
     private boolean isUnlimited() {
-        String runtimeEnvironment = environment.getProperty("KAFKA_ENV");
-        return "dev".equals(runtimeEnvironment) || "local".equals(runtimeEnvironment);
+        String deploymentEnvironment = environment.getProperty("DEPLOY_ENV");
+        return "dev".equals(deploymentEnvironment) || "local".equals(deploymentEnvironment);
     }
 
     private RecommendationDailyGeneration unlimited(LocalDate date) {
