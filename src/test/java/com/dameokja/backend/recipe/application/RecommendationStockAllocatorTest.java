@@ -16,6 +16,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -23,8 +24,22 @@ import tools.jackson.databind.node.ObjectNode;
 class RecommendationStockAllocatorTest {
     private final JsonMapper jsonMapper = JsonMapper.builder().findAndAddModules().build();
 
+    @ParameterizedTest
+    @CsvSource({"80,400,80", "500,120,120", "0,400,0"})
+    void usesAiAmountCappedByCurrentStockInsteadOfRequirement(String usedAmount, String ownedAmount, String expected) throws Exception {
+        ObjectNode snapshot = snapshot("300", "G", 101L);
+        ObjectNode usage = (ObjectNode) snapshot.path("inventoryUsage").get(0);
+        usage.put("usedAmount", new BigDecimal(usedAmount));
+        ((ObjectNode) usage.path("allocations").get(0)).put("usedAmount", new BigDecimal(usedAmount));
+        Recipe recipe = jsonMapper.treeToValue(snapshot, Recipe.class);
+
+        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", ownedAmount))).get(1).getFirst();
+
+        assertThat(allocation.usedAmount()).isEqualByComparingTo(expected);
+    }
+
     @Test
-    void recalculatesFromCurrentStockInResponseOrderInsteadOfOldUsageAmounts() throws Exception {
+    void fallsBackToRequirementsInResponseOrderWhenAiUsageIsMissing() throws Exception {
         Recipe recipe = recipe("300", "G", 101L, 102L);
         Map<Long, AiRecipeInventoryItem> inventory = Map.of(101L, weightStock(101L, "국산 두부", "120"),
                 102L, weightStock(102L, "큰 두부", "500"));
@@ -39,6 +54,90 @@ class RecommendationStockAllocatorTest {
                 Map.of(101L, weightStock(101L, "국산 두부", "50"), 102L, weightStock(102L, "큰 두부", "100"))).get(1);
         assertThat(reduced.get(0).usedAmount()).isEqualByComparingTo("50");
         assertThat(reduced.get(1).usedAmount()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void preservesPerStockAiAmountsWithoutMovingShortageToAnotherStock() throws Exception {
+        ObjectNode snapshot = snapshot("300", "G", 101L, 102L);
+        setUsage((ObjectNode) snapshot.path("inventoryUsage").get(0), "80");
+        setUsage((ObjectNode) snapshot.path("inventoryUsage").get(1), "220");
+        Recipe recipe = jsonMapper.treeToValue(snapshot, Recipe.class);
+
+        List<StockAllocation> allocations = RecommendationStockAllocator.allocate(recipe,
+                Map.of(101L, weightStock(101L, "두부", "50"), 102L, weightStock(102L, "두부", "500"))).get(1);
+
+        assertThat(allocations.get(0).usedAmount()).isEqualByComparingTo("50");
+        assertThat(allocations.get(1).usedAmount()).isEqualByComparingTo("220");
+    }
+
+    @Test
+    void capsSharedStockByCurrentQuantityAndTotalAiUsage() throws Exception {
+        ObjectNode snapshot = snapshot("500", "G", 101L);
+        ((ArrayNode) snapshot.path("ingredients")).add(((ObjectNode) snapshot.path("ingredients").get(0)).deepCopy().put("ingredientNo", 2));
+        ObjectNode usage = (ObjectNode) snapshot.path("inventoryUsage").get(0);
+        setUsage(usage, "120");
+        usage.put("usedAmount", 180);
+        ((ArrayNode) usage.path("allocations")).addObject().put("ingredientNo", 2).put("usedAmount", 120);
+        Recipe recipe = jsonMapper.treeToValue(snapshot, Recipe.class);
+
+        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(recipe, Map.of(101L, weightStock(101L, "두부", "300")));
+
+        assertThat(allocations.get(1).getFirst().usedAmount()).isEqualByComparingTo("120");
+        assertThat(allocations.get(2).getFirst().usedAmount()).isEqualByComparingTo("60");
+    }
+
+    @Test
+    void capsRequirementFallbackByRemainingAiTotalForSharedStock() throws Exception {
+        ObjectNode snapshot = snapshot("150", "G", 101L);
+        ((ArrayNode) snapshot.path("ingredients")).add(((ObjectNode) snapshot.path("ingredients").get(0)).deepCopy().put("ingredientNo", 2));
+        ((ArrayNode) snapshot.path("ingredientRequirements")).add(((ObjectNode) snapshot.path("ingredientRequirements").get(0)).deepCopy().put("ingredientNo", 2));
+        ObjectNode usage = (ObjectNode) snapshot.path("inventoryUsage").get(0);
+        setUsage(usage, "200");
+        ((ArrayNode) usage.path("allocations")).addObject().put("ingredientNo", 2);
+
+        Map<Integer, List<StockAllocation>> allocations = RecommendationStockAllocator.allocate(jsonMapper.treeToValue(snapshot, Recipe.class),
+                Map.of(101L, weightStock(101L, "두부", "400")));
+
+        assertThat(allocations.get(1).getFirst().usedAmount()).isEqualByComparingTo("200");
+        assertThat(allocations.get(2).getFirst().usedAmount()).isEqualByComparingTo("0");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EA", "G", "ML"})
+    void usesRoundedAiUsageWithoutKnownRequirementOrPerIngredientAmount(String unit) throws Exception {
+        ObjectNode snapshot = snapshot(null, unit, 101L);
+        ((ObjectNode) snapshot.path("inventoryUsage").get(0)).put("usedAmount", new BigDecimal("2.6")).put("unit", unit);
+        Recipe recipe = jsonMapper.treeToValue(snapshot, Recipe.class);
+        AiRecipeInventoryItem stock = countStock(101L, 5);
+        if (!"EA".equals(unit)) {
+            stock = new AiRecipeInventoryItem(101L, "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
+                    MeasureType.WEIGHT, null, new BigDecimal("5"), WeightUnit.valueOf(unit), LocalDate.of(2026, 11, 3));
+        }
+
+        StockAllocation allocation = RecommendationStockAllocator.allocate(recipe, Map.of(101L, stock)).get(1).getFirst();
+
+        assertThat(allocation.usedAmount()).isEqualByComparingTo("3");
+        assertThat(allocation.allocationStatus()).isEqualTo("CALCULATED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "80"})
+    void leavesInvalidAiAmountsOrIncompatibleUnitsUnresolved(String amount) throws Exception {
+        ObjectNode snapshot = snapshot("300", "G", 101L);
+        ObjectNode usage = (ObjectNode) snapshot.path("inventoryUsage").get(0);
+        setUsage(usage, amount);
+        if ("80".equals(amount)) { usage.put("unit", "ML"); }
+
+        StockAllocation allocation = RecommendationStockAllocator.allocate(jsonMapper.treeToValue(snapshot, Recipe.class),
+                Map.of(101L, weightStock(101L, "두부", "400"))).get(1).getFirst();
+
+        assertThat(allocation.usedAmount()).isNull();
+        assertThat(allocation.allocationStatus()).isEqualTo("UNRESOLVED");
+    }
+
+    private void setUsage(ObjectNode usage, String amount) {
+        usage.put("usedAmount", new BigDecimal(amount));
+        ((ObjectNode) usage.path("allocations").get(0)).put("usedAmount", new BigDecimal(amount));
     }
 
     @Test
@@ -114,6 +213,8 @@ class RecommendationStockAllocatorTest {
         if (requiredAmount == null) { requirement.putNull("requiredAmount"); }
         else { requirement.put("requiredAmount", new BigDecimal(requiredAmount)); }
         ObjectNode usageTemplate = ((ObjectNode) recipe.path("inventoryUsage").get(0)).deepCopy();
+        usageTemplate.putNull("usedAmount");
+        ((ObjectNode) usageTemplate.path("allocations").get(0)).putNull("usedAmount");
         ArrayNode usages = recipe.putArray("inventoryUsage");
         for (Long ingredientId : ingredientIds) { usages.add(usageTemplate.deepCopy().put("ingredientId", ingredientId)); }
         return recipe;
