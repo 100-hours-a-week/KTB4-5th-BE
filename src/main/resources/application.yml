@@ -119,6 +119,10 @@ refrigerator:
 notification:
   expiration-batch:
     cron: ${NOTIFICATION_EXPIRATION_CRON:0 0 8 * * *}
+  expiration-kafka:
+    enabled: ${NOTIFICATION_EXPIRATION_KAFKA_ENABLED:false}
+    topic: ${KAFKA_ENV:local}.dameokja.inventory.expiration-check.requested.v1
+    group-id: ${KAFKA_ENV:local}.dameokja.be.expiration-check.v1
 
 push:
   auth-encryption:
