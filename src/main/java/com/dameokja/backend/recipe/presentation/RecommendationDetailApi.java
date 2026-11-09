@@ -14,7 +14,9 @@ import org.springframework.http.ResponseEntity;
 public interface RecommendationDetailApi {
     @Operation(summary = "레시피 상세 조회", description = "본인의 현재 선택 결과에서 레시피를 조회합니다. 재료 ID는 이 레시피의 재료 번호 문자열입니다. "
             + "목록 부족분으로 보충된 확인 후보도 같은 최대 10개 목록에서 조회합니다. "
-            + "stocks는 현재 재고와 재배분한 예상 사용량이며 계산 불가는 usedAmount=null, UNRESOLVED입니다. 조회로 재고를 차감하지 않습니다. ETag는 응답 내용이 같으면 유지됩니다.")
+            + "stocks는 AI usedAmount를 현재 재고 이내로 제한한 예상 사용량입니다. AI 사용량이 없으면 requiredAmount로 계산하며 인분을 추가로 곱하지 않습니다. "
+            + "표시용 requiredAmount가 없으면 원본 amountValue × targetServings를 반환하며, 둘 중 하나라도 없으면 null입니다. "
+            + "계산 불가는 usedAmount=null, UNRESOLVED입니다. 조회로 재고를 차감하지 않습니다. ETag는 응답 내용이 같으면 유지됩니다.")
     @ApiResponse(responseCode = "200", description = "레시피 상세 조회 성공 (RECOMMEND-200-002)", content = @Content(examples = @ExampleObject(value = RecommendationDetailApiExamples.DETAIL)))
     @ApiResponse(responseCode = "304", description = "If-None-Match가 현재 ETag와 일치하면 응답 본문 없음")
     @ApiResponse(responseCode = "400", description = "잘못된 경로·원천 조합 식별자 (GLOBAL-400-001)")

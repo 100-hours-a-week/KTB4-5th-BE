@@ -25,6 +25,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -123,7 +125,8 @@ class RecommendationDetailWebTest extends ServiceIntegrationTest {
         recipe.put("targetServings", 4);
         ((ObjectNode) recipe.path("ingredientRequirements").get(0)).put("requiredAmount", 600);
         ObjectNode originalIngredient = ((ObjectNode) recipe.path("ingredients").get(0)).deepCopy();
-        ObjectNode unknownIngredient = originalIngredient.deepCopy().put("ingredientNo", 7).put("name", "참기름").put("amountText", "1큰술").putNull("unit");
+        ObjectNode unknownIngredient = originalIngredient.deepCopy().put("ingredientNo", 7).put("name", "참기름").put("amountText", "1큰술")
+                .putNull("amountValue").putNull("unit");
         recipe.putArray("ingredients").add(unknownIngredient).add(originalIngredient);
         ArrayNode steps = (ArrayNode) recipe.path("steps");
         ((ObjectNode) steps.get(0)).put("stepNo", 10);
@@ -134,6 +137,23 @@ class RecommendationDetailWebTest extends ServiceIntegrationTest {
                 .andExpect(jsonPath("$.data.ingredients[0].requiredAmount").value(nullValue())).andExpect(jsonPath("$.data.ingredients[0].unit").value(nullValue()))
                 .andExpect(jsonPath("$.data.ingredients[1].recipeIngredientId").value("1")).andExpect(jsonPath("$.data.ingredients[1].requiredAmount").value(600))
                 .andExpect(jsonPath("$.data.steps[0].stepNo").value(10)).andExpect(jsonPath("$.data.steps[1].stepNo").value(2));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void displaysScaledOriginalAmountAndPreservesAiUsage(boolean missingRequirement) throws Exception {
+        RecommendationList selected = prepareSelection();
+        ObjectNode snapshot = (ObjectNode) jsonMapper.readTree(selected.getResultJson());
+        ObjectNode recipe = (ObjectNode) snapshot.path("recommendations").get(0);
+        recipe.put("targetServings", 3);
+        ((ObjectNode) recipe.path("ingredients").get(0)).put("amountValue", new BigDecimal("125.5"));
+        ((ObjectNode) recipe.path("ingredientRequirements").get(0)).putNull("requiredAmount");
+        if (missingRequirement) { recipe.putArray("ingredientRequirements"); }
+        jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", snapshot.toString(), selected.getId());
+
+        mockMvc.perform(request(RECIPE_ID)).andExpect(status().isOk()).andExpect(jsonPath("$.data.ingredients[0].requiredAmount").value(376.5))
+                .andExpect(jsonPath("$.data.ingredients[0].stocks[0].usedAmount").value(300));
+        assertThat(jdbcTemplate.queryForObject("SELECT weight_value FROM ingredients WHERE ingredient_id = ?", BigDecimal.class, stockId)).isEqualByComparingTo("400");
     }
 
     @Test

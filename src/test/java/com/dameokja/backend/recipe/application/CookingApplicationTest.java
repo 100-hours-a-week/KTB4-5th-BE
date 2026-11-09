@@ -93,6 +93,27 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         assertOutcome(1);
     }
 
+    @ParameterizedTest
+    @CsvSource({"80,400,320,80", "500,120,0,120", ",400,100,300"})
+    void consumesAiUsageOrFallsBackWithoutScalingServings(BigDecimal usedAmount, BigDecimal ownedAmount, BigDecimal remaining, String consumed) {
+        ObjectNode snapshot = (ObjectNode) jsonMapper.readTree(selectedList.getResultJson());
+        ObjectNode recipe = (ObjectNode) snapshot.path("recommendations").get(0);
+        recipe.put("targetServings", 4);
+        ObjectNode usage = (ObjectNode) recipe.path("inventoryUsage").get(0);
+        usage.put("usedAmount", usedAmount);
+        ((ObjectNode) usage.path("allocations").get(0)).put("usedAmount", usedAmount);
+        jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", snapshot.toString(), selectedList.getId());
+        jdbcTemplate.update("UPDATE ingredients SET weight_value = ? WHERE ingredient_id = ?", ownedAmount, stockId);
+
+        RecommendationDetailResult applied = apply(request()).orElseThrow();
+
+        assertThat(applied.ingredients().getFirst().stocks().getFirst().usedAmount()).isEqualByComparingTo(consumed);
+        assertThat(jdbcTemplate.queryForObject("SELECT COALESCE(SUM(weight_value), 0) FROM ingredients WHERE ingredient_id = ?", BigDecimal.class, stockId))
+                .isEqualByComparingTo(remaining);
+        assertAppliedMessage(consumed, "G");
+        assertOutcome(1);
+    }
+
     @Test
     void successfulRetryPrecedesCurrentEtagAndSnapshotChecksAndRejectsChangedRequests() {
         CookingApplicationRequest originalRequest = request();
@@ -252,6 +273,9 @@ class CookingApplicationTest extends ServiceIntegrationTest {
         ObjectNode snapshot = (ObjectNode) jsonMapper.readTree(selectedList.getResultJson());
         ((ObjectNode) snapshot.path("recommendations").get(0).path("ingredientRequirements").get(0))
                 .put("requiredAmount", 2).put("unit", "EA").put("amountText", "2개");
+        ObjectNode usage = (ObjectNode) snapshot.path("recommendations").get(0).path("inventoryUsage").get(0);
+        usage.put("unit", "EA").put("usedAmount", 2);
+        ((ObjectNode) usage.path("allocations").get(0)).put("usedAmount", 2);
         jdbcTemplate.update("UPDATE recommendation_lists SET result_json = ? WHERE recommendation_list_id = ?", snapshot.toString(), selectedList.getId());
     }
 
