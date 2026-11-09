@@ -1,5 +1,6 @@
 package com.dameokja.backend.notification.application;
 
+import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import java.time.Clock;
 import java.time.Instant;
@@ -67,7 +68,7 @@ class NotificationSchedulerTest {
         when(refrigeratorService.findNotificationTargetRefrigeratorIds()).thenReturn(List.of(1L, 2L));
         Clock clock = Clock.fixed(Instant.parse("2026-09-24T23:00:00Z"), ZoneOffset.UTC);
         NotificationScheduler scheduler = new NotificationScheduler(
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false, mock(ExpirationCheckRepository.class), false);
 
         scheduler.runExpirationNotificationBatch();
 
@@ -82,7 +83,7 @@ class NotificationSchedulerTest {
         assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
         Clock clock = Clock.fixed(Instant.parse("2026-09-24T18:00:00Z"), ZoneOffset.UTC);
         NotificationScheduler scheduler = new NotificationScheduler(
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, false, mock(ExpirationCheckRepository.class), false);
 
         scheduler.runNotificationCleanup();
 
@@ -106,6 +107,6 @@ class NotificationSchedulerTest {
     private NotificationScheduler scheduler(String utcInstant) {
         Clock clock = Clock.fixed(Instant.parse(utcInstant), ZoneOffset.UTC);
         return new NotificationScheduler(
-                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, true);
+                refrigeratorService, expirationNotificationService, notificationRecipientService, notificationService, clock, true, mock(ExpirationCheckRepository.class), false);
     }
 }

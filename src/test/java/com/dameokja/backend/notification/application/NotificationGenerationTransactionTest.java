@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.domain.NotificationType;
+import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.user.domain.User;
 import java.util.List;
@@ -43,7 +44,7 @@ class NotificationGenerationTransactionTest extends NotificationGenerationTestSu
         ingredient(970003L, 970003L, "알림함 전용", -1, 970003L);
         failPushInsertFor(USER);
         NotificationScheduler scheduler = new NotificationScheduler(
-                refrigeratorService, generationService, recipientService, mock(NotificationService.class), clock, true);
+                refrigeratorService, generationService, recipientService, mock(NotificationService.class), clock, true, mock(ExpirationCheckRepository.class), false);
 
         try {
             scheduler.runExpirationNotificationBatch();
