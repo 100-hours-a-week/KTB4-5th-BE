@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +71,8 @@ public class RecommendationDailyQuotaService {
     }
 
     private boolean isUnlimited() {
-        return environment.acceptsProfiles(Profiles.of("(dev | local) & !prod"));
+        String runtimeEnvironment = environment.getProperty("KAFKA_ENV");
+        return "dev".equals(runtimeEnvironment) || "local".equals(runtimeEnvironment);
     }
 
     private RecommendationDailyGeneration unlimited(LocalDate date) {

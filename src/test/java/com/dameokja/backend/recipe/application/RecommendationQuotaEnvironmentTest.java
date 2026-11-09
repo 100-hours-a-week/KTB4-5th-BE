@@ -15,9 +15,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.env.SystemEnvironmentPropertySource;
 
 class RecommendationQuotaEnvironmentTest {
     private final RecommendationDailyQuotaStore store = mock(RecommendationDailyQuotaStore.class);
@@ -28,9 +32,9 @@ class RecommendationQuotaEnvironmentTest {
             .withUserConfiguration(RecommendationDailyQuotaService.class);
 
     @ParameterizedTest
-    @ValueSource(strings = {"dev", "local", "dev,local"})
-    void allowsMoreThanTenRequestsWithoutConsumingQuota(String profiles) {
-        context.withPropertyValues("spring.profiles.active=" + profiles).run(application -> {
+    @ValueSource(strings = {"dev", "local"})
+    void allowsMoreThanTenRequestsWithoutSpringProfiles(String runtimeEnvironment) {
+        environment(runtimeEnvironment).run(application -> {
             RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
             for (int attempt = 0; attempt < 20; attempt++) {
                 assertUnlimited(service.reserve(17L, "request-" + attempt));
@@ -41,17 +45,40 @@ class RecommendationQuotaEnvironmentTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "prod", "test", "dev,prod", "local,prod"})
-    void preservesDailyLimitOutsideDevelopment(String profiles) {
+    @ValueSource(strings = {"", "prod", "test", "DEV", "dev,local", "dev,prod", "local,prod"})
+    void preservesDailyLimitRegardlessOfDevelopmentProfile(String runtimeEnvironment) {
         when(store.count(eq(17L), any())).thenReturn(10L);
         when(store.reserve(eq(17L), any(), eq("eleventh"), eq(10), any())).thenReturn(RecommendationDailyQuotaStore.LIMIT_REACHED);
-        context.withPropertyValues("spring.profiles.active=" + profiles).run(application -> {
+        environment(runtimeEnvironment).withPropertyValues("spring.profiles.active=dev").run(application -> {
             RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
             assertThat(service.current(17L).limit()).isEqualTo(10);
             assertThat(service.current(17L).remaining()).isZero();
             assertThatThrownBy(() -> service.reserve(17L, "eleventh")).isInstanceOfSatisfying(CustomException.class,
                     exception -> assertThat(exception.getExceptionCode()).isEqualTo(RecommendationExceptionCode.DAILY_LIMIT_REACHED));
         });
+    }
+
+    @Test
+    void keepsLimitWhenRuntimeEnvironmentIsMissing() {
+        environment(null).withPropertyValues("spring.profiles.active=local").run(application -> {
+            RecommendationDailyQuotaService service = application.getBean(RecommendationDailyQuotaService.class);
+            assertThat(service.current(17L).limit()).isEqualTo(10);
+        });
+    }
+
+    @Test
+    void usesRuntimeEnvironmentEvenWithProductionProfile() {
+        environment("dev").withPropertyValues("spring.profiles.active=prod").run(application -> {
+            assertUnlimited(application.getBean(RecommendationDailyQuotaService.class).current(17L));
+            verifyNoInteractions(store);
+        });
+    }
+
+    private ApplicationContextRunner environment(String runtimeEnvironment) {
+        Map<String, Object> variables = runtimeEnvironment == null ? Map.of() : Map.of("KAFKA_ENV", runtimeEnvironment);
+        return context.withInitializer(application -> application.getEnvironment().getPropertySources().replace(
+                StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
+                new SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, variables)));
     }
 
     private void assertUnlimited(RecommendationDailyGeneration generation) {
