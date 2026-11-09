@@ -33,7 +33,11 @@ public class ExpirationNotificationService {
 
     @Transactional
     public void generate(Long refrigeratorId, boolean pushEnabled) {
-        LocalDate businessDate = BusinessTime.today(clock);
+        generate(refrigeratorId, BusinessTime.today(clock), pushEnabled);
+    }
+
+    @Transactional
+    public void generate(Long refrigeratorId, LocalDate businessDate, boolean pushEnabled) {
         List<RefrigeratorMember> members = refrigeratorService.findNotificationRecipients(refrigeratorId);
         if (members.isEmpty()) {
             return;
