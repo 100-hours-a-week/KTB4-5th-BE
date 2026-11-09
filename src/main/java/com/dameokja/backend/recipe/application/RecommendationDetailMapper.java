@@ -8,6 +8,7 @@ import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeInventoryItem;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationResponse.Ingredient;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationResponse.IngredientRequirement;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeRecommendationResponse.Recipe;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -36,19 +37,25 @@ final class RecommendationDetailMapper {
     }
 
     private static RecipeIngredient ingredient(Recipe recipe, Ingredient ingredient, List<StockAllocation> allocations) {
+        IngredientRequirement requirement = RecommendationStockAllocator.requirement(recipe, ingredient.ingredientNo());
         RecipeIngredient.RecipeIngredientBuilder ingredientBuilder = RecipeIngredient.builder()
                 .name(ingredient.name())
                 .amountText(ingredient.amountText())
+                .requiredAmount(requiredAmount(recipe, ingredient, requirement))
                 .unit(RecommendationStockAllocator.normalizedUnit(ingredient.unit()))
                 .stocks(allocations.stream().map(Stock::from).toList());
         if (ingredient.ingredientNo() != null) { ingredientBuilder.recipeIngredientId(ingredient.ingredientNo().toString()); }
-        IngredientRequirement requirement = RecommendationStockAllocator.requirement(recipe, ingredient.ingredientNo());
         if (requirement != null) {
-            ingredientBuilder.requiredAmount(requirement.requiredAmount());
             ingredientBuilder.unit(RecommendationStockAllocator.normalizedUnit(requirement.unit()));
             if (requirement.amountText() != null) { ingredientBuilder.amountText(requirement.amountText()); }
         }
         return ingredientBuilder.build();
+    }
+
+    private static BigDecimal requiredAmount(Recipe recipe, Ingredient ingredient, IngredientRequirement requirement) {
+        if (requirement != null && requirement.requiredAmount() != null) { return requirement.requiredAmount(); }
+        if (ingredient.amountValue() == null || recipe.targetServings() == null) { return null; }
+        return ingredient.amountValue().multiply(BigDecimal.valueOf(recipe.targetServings()));
     }
 
     private static List<Step> steps(Recipe recipe) {
