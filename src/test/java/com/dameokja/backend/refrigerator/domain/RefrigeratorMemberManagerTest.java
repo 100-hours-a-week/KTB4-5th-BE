@@ -44,7 +44,7 @@ class RefrigeratorMemberManagerTest {
     }
 
     @Test
-    void rejoinReusesExistingRelationshipAndRestoresLiveSelectedState() {
+    void rejoinCreatesNewRelationshipAndPreservesPreviousHistory() {
         Refrigerator refrigerator = refrigerator(1L);
         RefrigeratorMember previous = new RefrigeratorMember(user, refrigerator);
         previous.end(LocalDateTime.of(2026, 10, 13, 12, 0));
@@ -56,10 +56,12 @@ class RefrigeratorMemberManagerTest {
         assertThat(personalMembership.isSelected()).isTrue();
         refrigeratorMemberManager.deactivateForJoin(1L);
         RefrigeratorMember joining = refrigeratorMemberManager.joinSharedRefrigerator(1L);
-        assertThat(joining).isSameAs(previous);
+        assertThat(joining).isNotSameAs(previous);
+        assertThat(previous.getEndedAt()).isEqualTo(LocalDateTime.of(2026, 10, 13, 12, 0));
+        assertThat(previous.isLive()).isFalse();
         assertThat(joining.isSelected()).isTrue();
         assertThat(joining.isOwner()).isFalse();
-        assertThat(refrigeratorMemberManager.findLiveMembership(1L)).contains(previous);
+        assertThat(refrigeratorMemberManager.findLiveMembership(1L)).contains(joining);
     }
 
     @Test

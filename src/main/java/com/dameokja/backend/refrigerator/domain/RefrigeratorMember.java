@@ -150,7 +150,9 @@ public class RefrigeratorMember extends BaseEntity {
     }
 
     public void joinSharedRefrigerator() {
-        endedAt = null;
+        if (!isLive()) {
+            throw new CustomException(INTERNAL_SERVER_ERROR);
+        }
         role = RefrigeratorMemberRole.MEMBER;
         isActive = true;
     }

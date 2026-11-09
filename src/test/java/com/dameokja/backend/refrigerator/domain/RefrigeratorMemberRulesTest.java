@@ -66,7 +66,7 @@ class RefrigeratorMemberRulesTest {
     }
 
     @Test
-    void endsOwnerForAccountWithdrawalButPreventsReactivationUntilRejoin() {
+    void endedRelationshipCannotBeRevivedAndLosesNoHistory() {
         RefrigeratorMember ownerMembership = RefrigeratorMember.owner(
                 new User("Owner", "default.png"), new Refrigerator("shared", "2026-10"));
         LocalDateTime endedAt = LocalDateTime.of(2026, 10, 14, 12, 0);
@@ -76,10 +76,9 @@ class RefrigeratorMemberRulesTest {
         assertThat(ownerMembership.isOwner()).isTrue();
         assertError(INTERNAL_SERVER_ERROR, ownerMembership::activate);
 
-        ownerMembership.joinSharedRefrigerator();
-        assertThat(ownerMembership.isSelected()).isTrue();
-        assertThat(ownerMembership.isOwner()).isFalse();
-        assertThat(ownerMembership.getEndedAt()).isNull();
+        assertError(INTERNAL_SERVER_ERROR, ownerMembership::joinSharedRefrigerator);
+        assertThat(ownerMembership.isSelected()).isFalse();
+        assertThat(ownerMembership.getEndedAt()).isEqualTo(endedAt);
     }
 
     @Test
