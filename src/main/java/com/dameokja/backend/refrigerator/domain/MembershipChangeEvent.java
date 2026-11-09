@@ -1,8 +1,10 @@
 package com.dameokja.backend.refrigerator.domain;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public record MembershipChangeEvent(
         Long refrigeratorId, Long membershipId, Long subjectUserId, Long sequence,
@@ -27,4 +29,12 @@ public record MembershipChangeEvent(
                 snapshot.getBody(), snapshot.getRecipientUserIds());
     }
 
+    /**
+     * 업무 기록으로 같은 사건을 복원해도 변하지 않는 공통 UUID를 만든다.
+     * @return 냉장고와 사건 순번에 대응하는 메시지 ID
+     */
+    public String messageId() {
+        String identity = "fridgely:membership:v1:" + refrigeratorId + ":" + sequence;
+        return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8)).toString();
+    }
 }

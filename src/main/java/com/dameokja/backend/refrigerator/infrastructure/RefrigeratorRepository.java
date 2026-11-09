@@ -6,12 +6,17 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RefrigeratorRepository extends JpaRepository<Refrigerator, Long> {
+    @Query("select r.id from Refrigerator r where r.id > :afterId and r.membershipSequence > "
+            + "coalesce((select max(t.lastSequence) from MembershipTransmission t where t.refrigerator = r), 0) order by r.id")
+    List<Long> findPendingMembershipTransmissions(@Param("afterId") long afterId, Pageable pageable);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Refrigerator e where e.id = :id")
     Optional<Refrigerator> findByIdForUpdate(@Param("id") Long id);
