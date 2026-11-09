@@ -15,13 +15,18 @@ INSERT INTO analysis_dispatch_gates (gate_id)
 VALUES (1)
 ON DUPLICATE KEY UPDATE gate_id = 1;
 
-SET @ktb_owner_id = (
-    SELECT user_id
-    FROM refrigerator_members
-    WHERE refrigerator_id = @ktb_fridge_id
-      AND role = 'OWNER' AND ended_at IS NULL
-    ORDER BY refrigerator_member_id
-    LIMIT 1
+SELECT COUNT(*), MIN(m.user_id),
+       COALESCE(SUM(m.is_active = 1 AND u.status = 'ACTIVE' AND u.deleted_at IS NULL), 0)
+INTO @ktb_owner_count, @ktb_owner_id, @ktb_active_owner_count
+FROM refrigerator_members m
+LEFT JOIN users u ON u.user_id = m.user_id
+WHERE m.refrigerator_id = @ktb_fridge_id AND m.role = 'OWNER' AND m.ended_at IS NULL;
+
+SELECT MAX(refrigerator_id), MAX(invite_code_id)
+INTO @ktb_code_fridge_id, @ktb_code_id
+FROM invite_codes WHERE code = @ktb_invite_code;
+SET @ktb_latest_code_id = (
+    SELECT MAX(invite_code_id) FROM invite_codes WHERE refrigerator_id = @ktb_fridge_id
 );
 
 -- 기존 사용자의 소유권·선택 상태·초대코드를 임의로 바꾸지 않는다.
@@ -31,32 +36,11 @@ SET @ktb_seed_error = CASE
         WHERE refrigerator_id = @ktb_fridge_id
           AND (name <> '카테부' OR deleted_at IS NOT NULL)
     ) THEN '274번이 다른 이름의 냉장고이거나 삭제 상태입니다.'
-    WHEN (
-        SELECT COUNT(*) FROM refrigerator_members
-        WHERE refrigerator_id = @ktb_fridge_id
-          AND role = 'OWNER' AND ended_at IS NULL
-    ) > 1 THEN '기존 소유자가 여러 명입니다.'
-    WHEN @ktb_owner_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM refrigerator_members m
-        JOIN users u ON u.user_id = m.user_id
-        WHERE m.refrigerator_id = @ktb_fridge_id
-          AND m.user_id = @ktb_owner_id
-          AND m.role = 'OWNER' AND m.is_active = 1 AND m.ended_at IS NULL
-          AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
-    ) THEN '기존 소유자가 활성 상태로 카테부 냉장고를 선택하고 있지 않습니다.'
-    WHEN EXISTS (
-        SELECT 1 FROM invite_codes
-        WHERE code = @ktb_invite_code AND refrigerator_id <> @ktb_fridge_id
-    ) THEN '562R2A 코드가 다른 냉장고에 연결되어 있습니다.'
-    WHEN EXISTS (
-        SELECT 1 FROM invite_codes i
-        WHERE i.code = @ktb_invite_code
-          AND i.refrigerator_id = @ktb_fridge_id
-          AND i.invite_code_id < (
-              SELECT MAX(latest.invite_code_id) FROM invite_codes latest
-              WHERE latest.refrigerator_id = @ktb_fridge_id
-          )
-    ) THEN '562R2A가 해당 냉장고의 최신 코드가 아닙니다.'
+    WHEN @ktb_owner_count > 1 THEN '기존 소유자가 여러 명입니다.'
+    WHEN @ktb_owner_count = 1 AND @ktb_active_owner_count <> 1
+        THEN '기존 소유자가 활성 상태로 카테부 냉장고를 선택하고 있지 않습니다.'
+    WHEN @ktb_code_fridge_id <> @ktb_fridge_id THEN '562R2A 코드가 다른 냉장고에 연결되어 있습니다.'
+    WHEN @ktb_code_id < @ktb_latest_code_id THEN '562R2A가 해당 냉장고의 최신 코드가 아닙니다.'
     WHEN @ktb_owner_id IS NULL AND EXISTS (
         SELECT 1 FROM users WHERE nickname = @ktb_temp_nickname
     ) THEN '임시 방장 닉네임이 이미 사용 중입니다. 기존 계정을 확인하세요.'
