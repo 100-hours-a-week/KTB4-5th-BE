@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +26,13 @@ public class RecommendationDailyQuotaService {
     private static final int DAILY_LIMIT = 10;
     private final RecommendationDailyQuotaStore recommendationDailyQuotaStore;
     private final Clock clock;
+    private final Environment environment;
 
     public RecommendationDailyGeneration current(Long userId) {
         LocalDate date = BusinessTime.today(clock);
+        if (isUnlimited()) {
+            return unlimited(date);
+        }
         return snapshot(recommendationDailyQuotaStore.count(userId, date), date);
     }
 
@@ -34,6 +40,9 @@ public class RecommendationDailyQuotaService {
     public RecommendationDailyGeneration reserve(Long userId, String requestId) {
         LocalDateTime now = BusinessTime.now(clock);
         LocalDate date = now.toLocalDate();
+        if (isUnlimited()) {
+            return unlimited(date);
+        }
         Duration ttl = Duration.between(now, date.plusDays(1).atStartOfDay());
         long used = recommendationDailyQuotaStore.reserve(userId, date, requestId, DAILY_LIMIT, ttl);
         if (used == RecommendationDailyQuotaStore.LIMIT_REACHED) {
@@ -60,6 +69,16 @@ public class RecommendationDailyQuotaService {
                 }
             }
         });
+    }
+
+    private boolean isUnlimited() {
+        return environment.acceptsProfiles(Profiles.of("(dev | local) & !prod"));
+    }
+
+    private RecommendationDailyGeneration unlimited(LocalDate date) {
+        // 기존 숫자형 응답 계약을 유지하되 한도 예약과 차감은 하지 않는다.
+        return new RecommendationDailyGeneration(Integer.MAX_VALUE, Integer.MAX_VALUE,
+                date.plusDays(1).atStartOfDay(BusinessTime.ZONE).toOffsetDateTime());
     }
 
     private RecommendationDailyGeneration snapshot(long used, LocalDate date) {

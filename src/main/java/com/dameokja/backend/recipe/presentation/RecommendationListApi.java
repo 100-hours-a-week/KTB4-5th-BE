@@ -15,7 +15,8 @@ public interface RecommendationListApi {
     @Operation(summary = "추천 목록 조회", description = "로그인 참여자의 현재 선택 목록을 반환합니다. 새 결과는 명시적 전환 전까지 표시하지 않습니다. "
             + "새 완료 결과 미전환 시 STALE, 최신 선택 시 READY입니다. 조회로 생성·전환·한도 차감은 발생하지 않습니다. "
             + "AI 추천이 부족하면 확인 후보를 뒤에 보충하고 원천·레시피 ID 중복을 제외해 최대 10개 중 limit개를 반환합니다. "
-            + "recipeId는 SOURCE:sourceRecipeId이며 조리시간을 알 수 없으면 null입니다.")
+            + "recipeId는 SOURCE:sourceRecipeId이며 조리시간을 알 수 없으면 null입니다. "
+            + "dev/local 프로필에서는 dailyGeneration.limit·remaining이 차감 없이 2147483647이며 resetAt은 다음 서울 자정입니다. prod 병용 시 기존 한도를 적용합니다.")
     @ApiResponse(responseCode = "200", description = "추천 레시피 조회 성공 (RECOMMEND-200-001)",
             content = @Content(examples = @ExampleObject(value = RecommendationListApiExamples.EMPTY)))
     @ApiResponse(responseCode = "400", description = "잘못된 경로·limit(1~10) (GLOBAL-400-001)")
