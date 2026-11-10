@@ -1,5 +1,6 @@
 package com.dameokja.backend.push.infrastructure;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
@@ -7,6 +8,7 @@ import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,6 +18,7 @@ import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
 import org.apache.hc.core5.util.Timeout;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,7 @@ class WebPushSenderTest {
     private static final Duration TTL = Duration.ofHours(4);
 
     private final CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private WebPushSender sender;
 
     @BeforeAll
@@ -54,7 +58,12 @@ class WebPushSenderTest {
 
     @BeforeEach
     void setUp() throws GeneralSecurityException {
-        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient);
+        sender = new WebPushSender(new WebPushRequestFactory(PUBLIC_KEY, PRIVATE_KEY), httpClient, registry);
+    }
+
+    @AfterEach
+    void closeRegistry() {
+        registry.close();
     }
 
     @ParameterizedTest
@@ -63,6 +72,9 @@ class WebPushSenderTest {
         givenStatus(statusCode);
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(expected);
+        assertThat(registry.get("push.send.attempts").tag("result", expected.name().toLowerCase(Locale.ROOT)).counter().count()).isEqualTo(1);
+        sender.send(TARGET, "{}", TTL);
+        assertThat(registry.get("push.send.attempts").tag("result", expected.name().toLowerCase(Locale.ROOT)).counter().count()).isEqualTo(2);
     }
 
     @Test
@@ -106,6 +118,7 @@ class WebPushSenderTest {
         doThrow(new IOException("connection reset")).when(httpClient).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
 
         assertThat(sender.send(TARGET, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
+        assertThat(registry.get("push.send.attempts").tag("result", "failed").counter().count()).isEqualTo(1);
     }
 
     @Test
@@ -131,6 +144,7 @@ class WebPushSenderTest {
         WebPushTarget malformed = new WebPushTarget(TARGET.endpoint(), "not-a-p256-key", AUTH_SECRET);
 
         assertThat(sender.send(malformed, "{}", TTL)).isEqualTo(WebPushResult.FAILED);
+        assertThat(registry.get("push.send.attempts").tag("result", "failed").counter().count()).isEqualTo(1);
         verify(httpClient, never()).execute(any(HttpPost.class), any(HttpClientResponseHandler.class));
     }
 

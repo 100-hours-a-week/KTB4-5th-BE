@@ -1,6 +1,7 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.push.infrastructure.LocalPushServer.StalledResponse;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -11,6 +12,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.util.Timeout;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -22,6 +24,12 @@ import static org.mockito.Mockito.when;
 class WebPushTransportTest {
     private static final Duration TEST_WAIT = Duration.ofSeconds(15);
     private static final Duration IO_FALLBACK = Duration.ofSeconds(20);
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+
+    @AfterEach
+    void closeRegistry() {
+        registry.close();
+    }
 
     @ParameterizedTest(name = "{0}")
     @EnumSource(StalledResponse.class)
@@ -35,13 +43,14 @@ class WebPushTransportTest {
             // URL 정책은 기존 테스트에서 검증한다. 이 테스트에서는 로컬 서버로 통신 결과만 관찰한다.
             WebPushRequestFactory factory = mock(WebPushRequestFactory.class);
             when(factory.create(any(), any(), any(), any())).thenReturn(request);
-            WebPushSender sender = new WebPushSender(factory, client);
+            WebPushSender sender = new WebPushSender(factory, client, registry);
 
             Future<WebPushResult> result = calls.submit(() -> sender.send(
                     new WebPushTarget("test", "test", "test"), "{}", Duration.ofMinutes(1)));
             assertThat(server.awaitStalledRequestReceived()).isTrue();
             // 테스트가 무한히 기다리지 않기 위한 상한이며, 전체 작업의 엄격한 반환 기한은 아니다.
             assertThat(result.get(TEST_WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(WebPushResult.FAILED);
+            assertThat(registry.get("push.send.attempts").tag("result", "failed").counter().count()).isEqualTo(1);
 
             assertThat(request.isCancelled()).isTrue();
             assertThat(server.awaitStalledConnectionClosed()).isTrue();

@@ -10,6 +10,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserDeviceRepository extends JpaRepository<UserDevice, Long> {
+    interface ActiveSubscriptionCounts {
+        long getDevices();
+        long getUsers();
+    }
+
+    @Query("""
+            select count(device) as devices, count(distinct device.user.id) as users
+            from UserDevice device
+            where device.status = ACTIVE and device.user.status = ACTIVE
+            """)
+    ActiveSubscriptionCounts countActiveSubscriptions();
+
     Optional<UserDevice> findByEndpoint(String endpoint);
 
     @Query("""
