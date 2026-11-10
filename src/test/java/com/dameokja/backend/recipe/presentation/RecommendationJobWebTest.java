@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +32,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @AutoConfigureMockMvc
+@TestPropertySource(properties = "recommendation.reuse.enabled=true")
 class RecommendationJobWebTest extends ServiceIntegrationTest {
     private static final String PATH = "/api/v1/refrigerators/{refrigeratorId}/recommendation-jobs";
     @Autowired MockMvc mockMvc;

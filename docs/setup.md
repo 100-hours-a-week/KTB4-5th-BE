@@ -271,8 +271,9 @@ Lua로 한도 확인·예약을 원자 처리하고 서울 자정까지 TTL을 �
 접수 트랜잭션이 롤백되면 해당 요청 ID만 반환한다. 반환 중 Redis 장애가 나면 로그를 남기며, 남은 예약은 TTL로 만료된다. outbox 재전송은 추가 차감하지 않는다.
 `POST /api/v1/refrigerators/{refrigeratorId}/recommendation-jobs`는 선택 입력을 받아 202와 작업 ID·`dailyGeneration`을 반환한다.
 AI 요청의 필수 `userId`는 로그인 사용자에서 가져와 outbox에 보관한다. 작업 조회·콜백의 최상위 및 완료 결과 사용자 ID를 원본 요청과 대조하며, 과거 결과의 `userId=null`은 추측하지 않는다.
-같은 사용자·냉장고에서 서울 접수 날짜가 오늘이고 재고 지문·기본값 적용 옵션이 같은 완료 이력 중 가장 최근 결과를 재사용한다. 전날 접수 결과는 오늘 완료돼도 재사용하지 않는다.
-재사용은 새 작업·한도 차감 없이 200을 반환하고 최신 목록에 연결하며 현재 선택은 유지한다. 당일 요청의 생성 중·미전환 결과 차단을 먼저 적용한다. 재사용만으로 완료 SSE를 발행하지 않는다.
+`RECOMMENDATION_REUSE_ENABLED` 기본값은 `false`다. 수동 요청과 자동 배치 모두 같은 재고·취향·옵션의 완료 이력(빈 결과 포함)을 재사용하지 않고 새 requestId와 outbox 작업으로 접수해 AI 서버에 요청한다. 수동 요청의 한도 차감과 생성 중·미전환 결과 차단은 유지한다.
+`true`로 재활성화하면 같은 사용자·냉장고·서울 접수 날짜·재고 지문·기본값 적용 옵션이 같은 최신 완료 이력을 재사용한다. 재사용은 새 작업·한도 차감 없이 200을 반환하고 최신 목록에 연결하며 현재 선택은 유지한다. 전날 접수 결과는 재사용하지 않으며 재사용만으로 완료 SSE를 발행하지 않는다.
+이 설정은 BE 완료 이력 재사용을 제어한다. AI 서버 내부의 추천 내용 캐시는 별도 정책이다.
 정상 접수한 마지막 사용자 옵션은 재사용을 포함해 DB 커밋 후 Redis `recipe:preferences:<userId>`에 TTL 없이 저장하며 냉장고 간 공통이다. `{}` 요청은 계속 기본값을 뜻한다.
 마지막 옵션이 없거나 Redis 조회가 실패하면 기본값을 사용하며 outbox에서 복원하지 않는다. 취향 저장 실패는 접수 성공을 바꾸지 않고, 롤백된 요청은 취향을 갱신하지 않는다.
 기존 DB에는 `db/migrations/20261106-recommendation-daily-reuse.sql`을 수동 적용한다. 이전 완료 목록은 입력 키가 없어 재사용에서 제외하고 조회·선택은 유지한다.
@@ -295,7 +296,7 @@ recipeId는 SOURCE:sourceRecipeId 조합을 사용한다. 재료 수는 반환�
 
 일일 추천 갱신의 저장·선점 기반은 `recommendation_daily_jobs`를 사용하며 기존 DB에는 `db/migrations/20261106-recommendation-daily-jobs.sql`을 수동 적용한다.
 업무 날짜·사용자·냉장고별 작업과 요청 ID를 한 번 등록하고, DB 잠금·선점 기한으로 중복 처리와 중단 후 회수를 제어한다. 재등록은 진행·종료 상태를 초기화하지 않는다.
-선점 작업의 취향·재고를 조회한 뒤 사용자→냉장고→추천 상태→일일 작업 잠금 아래 자격·기한·요청 ID를 재검증한다. 재사용이면 REUSED, 새 접수면 ACCEPTED와 SCHEDULED 추천 상태·outbox를 같은 트랜잭션에 저장한다.
+선점 작업의 취향·재고를 조회한 뒤 사용자→냉장고→추천 상태→일일 작업 잠금 아래 자격·기한·요청 ID를 재검증한다. 기본 설정에서는 ACCEPTED와 SCHEDULED 추천 상태·outbox를 같은 트랜잭션에 저장한다. REUSED 처리는 `RECOMMENDATION_REUSE_ENABLED=true`일 때만 사용한다.
 당일 생성 중·날짜 변경·참여 종료는 건너뛰며, 미전환 최신 목록은 자동 갱신을 차단하지 않는다. 자동 접수는 사용자 한도·마지막 취향·현재 선택을 바꾸지 않는다. 접수 실패는 전체 롤백 후 같은 요청 ID로 재시도한다.
 서울 시간 매일 7시에 활성 사용자의 현재 유효 냉장고만 등록한다. 공유 참여 중인 개인 냉장고는 제외한다. 7시 이후 재시작하면 당일 대상을 다시 등록하고 미접수·선점 만료 작업을 이어간다.
 `RECOMMENDATION_DAILY_REFRESH_ENABLED`(기본 true), `RECOMMENDATION_DAILY_REFRESH_POLL_INTERVAL`(10s), `RECOMMENDATION_DAILY_REFRESH_BATCH_SIZE`(20), `RECOMMENDATION_DAILY_REFRESH_LEASE_DURATION`(2m)으로 제어한다. 전용 단일 스케줄러를 사용하며 테스트 기본값은 비활성화다.

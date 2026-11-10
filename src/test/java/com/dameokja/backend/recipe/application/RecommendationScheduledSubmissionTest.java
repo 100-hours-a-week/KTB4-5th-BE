@@ -21,9 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+@TestPropertySource(properties = "recommendation.reuse.enabled=true")
 class RecommendationScheduledSubmissionTest extends ServiceIntegrationTest {
     @Autowired private RecommendationScheduledSubmissionService scheduled;
     @Autowired private RecommendationScheduledAcceptanceService acceptance;
