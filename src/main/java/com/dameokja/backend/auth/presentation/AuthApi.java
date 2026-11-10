@@ -66,6 +66,7 @@ public interface AuthApi {
     @Operation(
             summary = "인증정보 갱신",
             description = "리프레시 토큰 쿠키로 액세스·리프레시 토큰을 재발급(회전)합니다. "
+                    + "토큰 누락·무효 또는 회원 탈퇴·삭제로 갱신이 거절되면 인증 쿠키를 삭제합니다. 서버 장애 시에는 유지합니다. "
                     + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
@@ -101,7 +102,8 @@ public interface AuthApi {
 
     @Operation(
             summary = "로그아웃",
-            description = "리프레시 토큰을 폐기하고 인증 쿠키를 제거합니다. 로그인 상태(액세스 토큰)가 필요하며, "
+            description = "액세스 토큰의 누락·만료·유효성과 무관하게 리프레시 세션을 폐기하고 인증 쿠키를 제거합니다. "
+                    + "리프레시 토큰이 없거나 무효·만료되어도 쿠키를 정리하고 성공을 반환합니다. "
                     + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
@@ -112,11 +114,6 @@ public interface AuthApi {
                             mediaType = "application/json",
                             examples = @ExampleObject(value = LOGOUT_RESPONSE)
                     )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "로그인이 필요함 (GLOBAL-401-001), 인증 토큰이 만료·유효하지 않음 "
-                            + "(ACCESS_TOKEN_EXPIRED, ACCESS_TOKEN_INVALID)"
             ),
             @ApiResponse(
                     responseCode = "403",
