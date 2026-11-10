@@ -43,6 +43,7 @@ public class AuthCookies {
     }
 
     public void clear(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.addHeader(HttpHeaders.SET_COOKIE,
                 cookie("accessToken", "", ACCESS_PATH, Duration.ZERO));
         response.addHeader(HttpHeaders.SET_COOKIE,
