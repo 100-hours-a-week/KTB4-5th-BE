@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -20,8 +21,10 @@ public class RecommendationReuseService {
     private final RecommendationListRepository listRepository;
     private final RecommendationOutboxRepository outboxRepository;
     private final JsonMapper mapper;
+    @Value("${recommendation.reuse.enabled:false}") private boolean enabled;
 
     public Optional<RecommendationList> find(AiRecipeRecommendationRequest request, LocalDate today) {
+        if (!enabled) { return Optional.empty(); }
         return listRepository.findFirstByUserIdAndRefrigeratorIdAndRequestDateAndInputKeyOrderByIdDesc(
                 request.userId(), request.refrigeratorId(), today, inputKey(request));
     }

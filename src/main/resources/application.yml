@@ -228,6 +228,8 @@ analysis:
     check-batch-size: ${ANALYSIS_DISPATCH_CHECK_BATCH_SIZE:20}
 
 recommendation:
+  reuse:
+    enabled: ${RECOMMENDATION_REUSE_ENABLED:false}
   daily-refresh:
     enabled: ${RECOMMENDATION_DAILY_REFRESH_ENABLED:true}
     poll-interval: ${RECOMMENDATION_DAILY_REFRESH_POLL_INTERVAL:10s}
