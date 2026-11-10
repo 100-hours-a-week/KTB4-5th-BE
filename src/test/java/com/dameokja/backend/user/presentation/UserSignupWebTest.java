@@ -32,7 +32,7 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
         when(userSignupService.signup("user1", "password1", "별명")).thenReturn(new SignupResult(
                 new TokenPair("access-token", "refresh-token", 7L), List.of(1L)));
         Cookie before = csrf();
-        MockHttpServletResponse response = mockMvc.perform(post("/api/v1/users").cookie(before)
+        MockHttpServletResponse response = mockMvc.perform(post("/api/v1/users").cookie(before, new Cookie("registrationToken", "previous-registration"))
                         .header("X-XSRF-TOKEN", before.getValue())
                         .contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isCreated())
@@ -45,6 +45,8 @@ class UserSignupWebTest extends UserSecurityWebTestSupport {
         assertThat(response.getCookie("accessToken").getMaxAge()).isEqualTo(900);
         assertThat(response.getCookie("refreshToken").getValue()).isEqualTo("refresh-token");
         assertThat(response.getCookie("refreshToken").getMaxAge()).isEqualTo(172800);
+        assertThat(response.getCookie("registrationToken").getMaxAge()).isZero();
+        assertThat(response.getCookie("registrationToken").getPath()).isEqualTo("/");
         assertThat(response.getCookie("XSRF-TOKEN").getValue()).isNotEqualTo(before.getValue());
     }
 
