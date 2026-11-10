@@ -1,9 +1,11 @@
 package com.dameokja.backend.push.infrastructure;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +24,17 @@ public class WebPushSender {
 
     private final WebPushRequestFactory webPushRequestFactory;
     private final CloseableHttpClient webPushHttpClient;
+    private final MeterRegistry meterRegistry;
+
+    public WebPushResult send(WebPushTarget target, String payloadJson, Duration ttl) {
+        WebPushResult result = sendAttempt(target, payloadJson, ttl);
+        meterRegistry.counter("push.send.attempts", "result", result.name().toLowerCase(Locale.ROOT)).increment();
+        return result;
+    }
 
     // ttl은 기기가 꺼져 있을 때 푸시 서비스가 메시지를 보관하는 기간이다. (RFC 8030)
     // 라이브러리 기본값(28일)을 쓰면 발송 기한이 지난 알림이 뒤늦게 도착하므로 호출하는 쪽이 정한다.
-    public WebPushResult send(WebPushTarget target, String payloadJson, Duration ttl) {
+    private WebPushResult sendAttempt(WebPushTarget target, String payloadJson, Duration ttl) {
         if (Thread.currentThread().isInterrupted()) {
             return WebPushResult.FAILED;
         }
