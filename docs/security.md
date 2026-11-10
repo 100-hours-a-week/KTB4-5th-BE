@@ -243,6 +243,24 @@ jose4j는 서버 VAPID 키로 ES256 JWS를 생성한다. 페이로드 암호화�
 사용자 인증 JWT는 별도 JJWT(`JwtProvider`)를 사용한다. 따라서 현재 확인한 코드에서는 이 CVE의 취약 처리 경로로 이어지는 외부 입력을 찾지 못했다.
 이 결과는 해당 CVE의 사용 경로 검토이며 서비스 전체의 취약점 부재를 의미하지 않는다.
 
+## Swagger·OpenAPI 공개 설정
+
+`API_DOCS_ENABLED`로 Swagger UI와 OpenAPI 명세를 함께 켜고 끈다. 기본값은 `false`다.
+개발·로컬에서 문서가 필요하면 `API_DOCS_ENABLED=true`, 운영에서는 `false`로 설정한다.
+환경 이름이나 Spring 프로필에 따라 자동 전환하지 않으며 `KAFKA_ENV`와도 독립적이다.
+
+비활성화하면 Springdoc의 화면·명세 엔드포인트를 등록하지 않는다.
+`/swagger-ui.html`, `/swagger-ui/index.html`, `/v3/api-docs`, `/v3/api-docs.yaml`,
+`/v3/api-docs/swagger-config` 직접 요청도 404로 응답한다.
+활성화한 환경에서는 기존처럼 로그인 없이 문서를 볼 수 있다.
+
+변경 배포 전에 개발 환경의 `API_DOCS_ENABLED=true` 주입을 준비하고 운영은 `false`로 유지한다.
+기존 `SPRINGDOC_API_DOCS_ENABLED`·`SPRINGDOC_SWAGGER_UI_ENABLED` 등 개별 설정이 있으면
+이 값보다 우선할 수 있으므로 함께 확인한다. 환경변수를 바꾼 뒤에는 애플리케이션을 재시작한다.
+
+Prometheus와 health의 BE 접근 정책은 이번 변경에서 유지한다.
+메트릭은 외부 라우팅에 연결하지 않고 내부 수집기에서 접근하도록 인프라에서 제한한다.
+
 ## 근거
 
 확인일 2026-09-20. 구현 시 Spring Security 7.1.1 로컬 소스도 확인했다.
@@ -262,3 +280,5 @@ jose4j는 서버 VAPID 키로 ES256 JWS를 생성한다. 페이로드 암호화�
 | [jose4j CVE-2023-31582 공지](https://github.com/advisories/GHSA-7g24-qg88-p43q) (확인 2026-10-23) | 낮은 PBES2 반복 횟수 문제, 영향 버전 `< 0.9.3`, 최초 수정 버전 `0.9.3` |
 | [Maven Central jose4j 메타데이터](https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/maven-metadata.xml) (확인 2026-10-23) | 유지보수 배포 버전 `0.9.7` 확인 |
 | [web-push 5.1.2 소스 JAR](https://repo.maven.apache.org/maven2/nl/martijndwars/web-push/5.1.2/web-push-5.1.2-sources.jar) (확인 2026-10-23) | `AbstractPushService.prepareRequest`의 ES256 JWS 생성과 `HttpEce` 암호화 경로 확인 |
+| [Springdoc 기능 설정](https://springdoc.org/features.html) (확인 2026-11-10) | `springdoc.api-docs.enabled`와 `springdoc.swagger-ui.enabled`를 통한 명세·UI 비활성화 |
+| 팀: 운영 문서 공개 설정 요청 (2026-11-10) | 운영 Swagger·OpenAPI를 환경변수로 끄고 내부 Prometheus 수집은 유지한다. |

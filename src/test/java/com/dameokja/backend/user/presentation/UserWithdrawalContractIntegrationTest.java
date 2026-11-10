@@ -16,8 +16,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.TestPropertySource;
 
 @AutoConfigureMockMvc
+@TestPropertySource(properties = "API_DOCS_ENABLED=true")
 class UserWithdrawalContractIntegrationTest extends ServiceIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired JwtProvider jwt;
