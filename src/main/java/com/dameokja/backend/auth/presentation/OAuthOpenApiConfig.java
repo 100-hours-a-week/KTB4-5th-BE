@@ -20,6 +20,8 @@ public class OAuthOpenApiConfig {
                     .responses(new ApiResponses().addApiResponse("302", new ApiResponse().description("카카오 인가 페이지로 이동")));
             Operation callback = new Operation().addTagsItem("인증").summary("카카오 로그인 콜백")
                     .description("카카오가 호출한다. 기존 회원은 /, 신규 회원은 /signup으로 이동한다. "
+                            + "성공 시 CSRF 토큰을 회전한다. 기존 회원은 인증 쿠키를 발급하고 registrationToken을 삭제한다. "
+                            + "신규 회원은 기존 인증 쿠키를 삭제하고 registrationToken을 발급한다. "
                             + "실패는 /login?error=OAUTH_LOGIN_FAILED, 검증된 동의 취소는 OAUTH_CANCELLED로 이동한다.")
                     .responses(new ApiResponses().addApiResponse("302", new ApiResponse().description("프론트 이동; JWT 또는 registrationToken 쿠키 발급"))
                             .addApiResponse("500", new ApiResponse().description("GLOBAL-500-001: 로그인 후처리 내부 오류")));

@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AuthLifecycleWebTest extends SecurityWebTestSupport {
     private MockHttpServletResponse login(Cookie csrf) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/sessions").cookie(csrf)
+        return mockMvc.perform(post("/api/v1/auth/sessions").cookie(csrf, new Cookie("registrationToken", "previous-registration"))
                         .header("X-XSRF-TOKEN", csrf.getValue())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"loginId\":\"user1\",\"password\":\"password1\"}"))
@@ -45,6 +45,10 @@ class AuthLifecycleWebTest extends SecurityWebTestSupport {
         assertThat(refresh.isHttpOnly()).isTrue();
         assertThat(refresh.getDomain()).isNull();
         assertThat(access.getAttribute("SameSite")).isEqualTo("Lax");
+        Cookie registration = response.getCookie("registrationToken");
+        assertThat(registration.getMaxAge()).isZero();
+        assertThat(registration.getPath()).isEqualTo("/");
+        assertThat(registration.isHttpOnly()).isTrue();
         Cookie after = response.getCookie("XSRF-TOKEN");
         assertThat(after.getValue()).isNotEqualTo(before.getValue());
         assertThat(after.isHttpOnly()).isFalse();

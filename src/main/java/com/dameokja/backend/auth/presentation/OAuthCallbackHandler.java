@@ -72,13 +72,15 @@ public class OAuthCallbackHandler implements AuthenticationSuccessHandler, Authe
 
     private void completeLogin(HttpServletRequest request, HttpServletResponse response, OAuthPrincipal principal) throws IOException {
         LoginResult result = login.login(principal.identity());
+        csrf.rotate(request, response);
         if (result.tokens() == null) {
+            cookies.clear(response);
             cookies.writeRegistration(response, result.registrationToken());
             redirect(response, "/signup");
             return;
         }
-        csrf.rotate(request, response);
         cookies.write(response, result.tokens());
+        cookies.clearRegistration(response);
         redirect(response, "/");
     }
 
