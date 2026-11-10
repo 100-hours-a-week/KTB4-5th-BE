@@ -40,6 +40,7 @@ public class AuthController implements AuthApi {
                 .map(String::valueOf).toList();
         csrfTokenRotator.rotate(request, response);
         authCookies.write(response, tokenPair);
+        authCookies.clearRegistration(response);
         return SuccessResponse.of(AuthSuccessCode.LOGIN, new LoginData(activeRefrigeratorIds));
     }
 

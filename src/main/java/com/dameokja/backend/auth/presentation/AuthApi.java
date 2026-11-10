@@ -27,6 +27,7 @@ public interface AuthApi {
     @Operation(
             summary = "로그인",
             description = "로그인 아이디와 비밀번호로 인증하고 액세스·리프레시 토큰을 쿠키로 발급합니다. "
+                    + "로그인 성공 시 가입 대기용 registrationToken 쿠키를 삭제합니다. "
                     + "유효한 CSRF 토큰이 없다면 GET /api/v1/auth/csrf로 먼저 발급받아야 합니다."
     )
     @ApiResponses({
