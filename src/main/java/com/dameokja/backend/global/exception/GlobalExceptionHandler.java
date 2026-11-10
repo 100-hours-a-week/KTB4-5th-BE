@@ -3,24 +3,22 @@ package com.dameokja.backend.global.exception;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.NoHandlerFoundException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException exception) {
@@ -29,15 +27,16 @@ public class GlobalExceptionHandler {
         return toResponse(exception.getExceptionCode(), exception.getFieldErrors());
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException exception) {
+    @Override
+    protected @Nullable ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
         List<FieldError> fieldErrors = exception.getBindingResult().getFieldErrors().stream()
                 .map(bindingFieldError -> FieldError.of("BODY", "/" + bindingFieldError.getField(),
                         "FORMAT", bindingFieldError.getDefaultMessage()))
                 .toList();
-        log.warn("[Validation] fieldErrors={}", fieldErrors);
-        return toResponse(GlobalExceptionCode.BAD_REQUEST, fieldErrors);
+        return handleExceptionInternal(exception, ErrorResponse.of(GlobalExceptionCode.BAD_REQUEST, fieldErrors),
+                headers, status, request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -52,44 +51,38 @@ public class GlobalExceptionHandler {
         return toResponse(GlobalExceptionCode.BAD_REQUEST, fieldErrors);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleMessageNotReadable(
-            HttpMessageNotReadableException exception) {
-        log.warn("[MessageNotReadable] {}", exception.getMessage());
-        return toResponse(GlobalExceptionCode.BAD_REQUEST, List.of());
+    @Override
+    protected @Nullable ResponseEntity<Object> handleExceptionInternal(Exception exception, @Nullable Object body,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (status.is5xxServerError()) {
+            log.error("[MvcException] status={}", status.value(), exception);
+        } else {
+            log.warn("[MvcException] status={}, type={}", status.value(), exception.getClass().getSimpleName());
+        }
+        return super.handleExceptionInternal(exception, body, headers, status, request);
     }
 
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoHandlerFound(NoHandlerFoundException exception) {
-        log.warn("[NoHandlerFound] {}", exception.getMessage());
-        return toResponse(GlobalExceptionCode.NOT_FOUND, List.of());
+    @Override
+    protected ResponseEntity<Object> createResponseEntity(@Nullable Object body, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        Object errorResponse = body instanceof ErrorResponse ? body : mvcErrorResponse(status);
+        return ResponseEntity.status(status).headers(headers).contentType(MediaType.APPLICATION_JSON).body(errorResponse);
     }
 
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
-            MethodArgumentTypeMismatchException exception) {
-        log.warn("[MethodArgumentTypeMismatch] name={}", exception.getName());
-        return toResponse(GlobalExceptionCode.BAD_REQUEST, List.of());
-    }
-
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException exception) {
-        log.warn("[NoResourceFound] method={}", exception.getHttpMethod());
-        return toResponse(GlobalExceptionCode.NOT_FOUND, List.of());
-    }
-
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
-            HttpRequestMethodNotSupportedException exception) {
-        log.warn("[MethodNotSupported] method={}", exception.getMethod());
-        return toResponse(GlobalExceptionCode.METHOD_NOT_ALLOWED, List.of(), exception.getHeaders());
-    }
-
-    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(
-            HttpMediaTypeNotSupportedException exception) {
-        log.warn("[MediaTypeNotSupported] contentType={}", exception.getContentType());
-        return toResponse(GlobalExceptionCode.UNSUPPORTED_MEDIA_TYPE, List.of(), exception.getHeaders());
+    private ErrorResponse mvcErrorResponse(HttpStatusCode status) {
+        return switch (HttpStatus.resolve(status.value())) {
+            case BAD_REQUEST -> ErrorResponse.of(GlobalExceptionCode.BAD_REQUEST);
+            case NOT_FOUND -> ErrorResponse.of(GlobalExceptionCode.NOT_FOUND);
+            case METHOD_NOT_ALLOWED -> ErrorResponse.of(GlobalExceptionCode.METHOD_NOT_ALLOWED);
+            case NOT_ACCEPTABLE -> ErrorResponse.of(GlobalExceptionCode.NOT_ACCEPTABLE);
+            case CONTENT_TOO_LARGE -> ErrorResponse.of(GlobalExceptionCode.CONTENT_TOO_LARGE);
+            case UNSUPPORTED_MEDIA_TYPE -> ErrorResponse.of(GlobalExceptionCode.UNSUPPORTED_MEDIA_TYPE);
+            case INTERNAL_SERVER_ERROR -> ErrorResponse.of(GlobalExceptionCode.INTERNAL_SERVER_ERROR);
+            case SERVICE_UNAVAILABLE -> ErrorResponse.of(GlobalExceptionCode.SERVICE_UNAVAILABLE);
+            // 도메인 전용 오류 코드와 겹치지 않게 기본 응답은 일련번호 000을 사용한다.
+            case null, default -> new ErrorResponse("GLOBAL-%d-000".formatted(status.value()),
+                    "요청을 처리하지 못했습니다.", null, null);
+        };
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -105,18 +98,9 @@ public class GlobalExceptionHandler {
         return toResponse(GlobalExceptionCode.INTERNAL_SERVER_ERROR, List.of());
     }
 
-    private ResponseEntity<ErrorResponse> toResponse(ExceptionCode exceptionCode,
-            List<FieldError> fieldErrors) {
-        return toResponse(exceptionCode, fieldErrors, HttpHeaders.EMPTY);
-    }
-
-    private ResponseEntity<ErrorResponse> toResponse(ExceptionCode exceptionCode,
-            List<FieldError> fieldErrors, HttpHeaders headers) {
-        HttpStatus httpStatus = exceptionCode.getStatus();
-        ErrorResponse errorResponse = ErrorResponse.of(exceptionCode, fieldErrors);
-        return ResponseEntity.status(httpStatus)
-                .headers(headers)
+    private ResponseEntity<ErrorResponse> toResponse(ExceptionCode exceptionCode, List<FieldError> fieldErrors) {
+        return ResponseEntity.status(exceptionCode.getStatus())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(errorResponse);
+                .body(ErrorResponse.of(exceptionCode, fieldErrors));
     }
 }
