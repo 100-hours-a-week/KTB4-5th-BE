@@ -26,6 +26,10 @@ final class UserSseConnections {
         connections.remove(connection);
     }
 
+    public int size() {
+        return connections.size();
+    }
+
     public boolean isEmpty() {
         return connections.isEmpty();
     }
