@@ -7,8 +7,11 @@ import com.dameokja.backend.global.security.SecurityExceptionCode;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -106,21 +109,28 @@ class AuthLifecycleWebTest extends SecurityWebTestSupport {
                 .andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void logoutRequiresValidAccessEvenWithRefreshAndCsrf() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "expired", "invalid"})
+    void logoutRevokesRefreshWithoutAValidAccessToken(String accessState) throws Exception {
         MockHttpServletResponse login = login(csrf());
         Cookie csrf = login.getCookie("XSRF-TOKEN");
         Cookie refresh = login.getCookie("refreshToken");
-        mockMvc.perform(delete("/api/v1/auth/sessions").cookie(csrf, refresh)
-                        .header("X-XSRF-TOKEN", csrf.getValue()))
+        if ("expired".equals(accessState)) { clock.advance(Duration.ofMinutes(16)); }
+        MockHttpServletRequestBuilder request = delete("/api/v1/auth/sessions").cookie(csrf, refresh)
+                .header("X-XSRF-TOKEN", csrf.getValue());
+        if (!"missing".equals(accessState)) {
+            request.cookie("invalid".equals(accessState) ? new Cookie("accessToken", "invalid") : login.getCookie("accessToken"));
+        }
+        MockHttpServletResponse response = mockMvc.perform(request)
+                .andExpect(status().isOk()).andReturn().getResponse();
+        assertThat(response.getCookie("accessToken").getMaxAge()).isZero();
+        assertThat(response.getCookie("refreshToken").getMaxAge()).isZero();
+        Cookie rotated = response.getCookie("XSRF-TOKEN");
+        assertThat(rotated.getValue()).isNotEqualTo(csrf.getValue());
+        mockMvc.perform(post("/api/v1/auth/token-renewals").cookie(rotated, refresh)
+                        .header("X-XSRF-TOKEN", rotated.getValue()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("GLOBAL-401-001"));
-        clock.advance(Duration.ofMinutes(15));
-        mockMvc.perform(delete("/api/v1/auth/sessions")
-                        .cookie(csrf, refresh, login.getCookie("accessToken"))
-                        .header("X-XSRF-TOKEN", csrf.getValue()))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("ACCESS_TOKEN_EXPIRED"));
+                .andExpect(jsonPath("$.code").value("AUTH-401-002"));
     }
 
     @Test
