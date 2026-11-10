@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -84,7 +85,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity,
             CookieCsrfTokenRepository csrfTokenRepository,
             CorsConfigurationSource corsConfigurationSource,
-            JwtAuthenticationFilter jwtAuthenticationFilter, OAuthSecurityConfig oauthSecurityConfig)
+            JwtAuthenticationFilter jwtAuthenticationFilter, OAuthSecurityConfig oauthSecurityConfig,
+            @Value("${KAFKA_ENV:local}") String runtimeEnvironment)
             throws Exception {
         httpSecurity
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -99,6 +101,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         // SSE 종료 시 async redispatch는 최초 요청의 인증을 이미 통과했다.
                         .requestMatchers(SSE_ASYNC).permitAll()
+                        .requestMatchers(AuthenticationRoutes.DOCUMENTATION)
+                        .access((authentication, context) -> new AuthorizationDecision(!"prod".equals(runtimeEnvironment)))
                         .requestMatchers(AuthenticationRoutes.PUBLIC).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/prometheus").permitAll()
