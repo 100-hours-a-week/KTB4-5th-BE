@@ -5,7 +5,6 @@ import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.infrastructure.UserRepository;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,35 +23,6 @@ class UserDeviceRepositoryTest extends MySqlJpaTest {
     private UserDevice device(User user, String endpoint) {
         return new UserDevice(user, endpoint, "p256dh-key",
                 "encrypted".getBytes(), "v1", "vapid-v1");
-    }
-
-    @Test
-    void countsActiveSubscriptionsAndDistinctActiveOwners() {
-        User first = user("첫회원");
-        User second = user("두번째");
-        User withdrawn = user("탈퇴회원");
-        withdrawn.withdraw("탈퇴", LocalDateTime.of(2026, 11, 10, 0, 0));
-        userDeviceRepository.save(device(first, "https://push.example.com/active-1"));
-        UserDevice another = userDeviceRepository.save(device(first, "https://push.example.com/active-2"));
-        userDeviceRepository.save(device(second, "https://push.example.com/active-3"));
-        userDeviceRepository.save(device(withdrawn, "https://push.example.com/withdrawn"));
-        userDeviceRepository.save(device(second, "https://push.example.com/disabled")).disable();
-        userDeviceRepository.save(device(second, "https://push.example.com/invalid")).invalidate();
-        entityManager.flush();
-
-        UserDeviceRepository.ActiveSubscriptionCounts counts = userDeviceRepository.countActiveSubscriptions();
-        assertThat(counts.getDevices()).isEqualTo(3);
-        assertThat(counts.getUsers()).isEqualTo(2);
-        another.disable();
-        entityManager.flush();
-        assertThat(userDeviceRepository.countActiveSubscriptions().getDevices()).isEqualTo(2);
-    }
-
-    @Test
-    void emptySubscriptionsHaveZeroCounts() {
-        UserDeviceRepository.ActiveSubscriptionCounts counts = userDeviceRepository.countActiveSubscriptions();
-        assertThat(counts.getDevices()).isZero();
-        assertThat(counts.getUsers()).isZero();
     }
 
     @Test

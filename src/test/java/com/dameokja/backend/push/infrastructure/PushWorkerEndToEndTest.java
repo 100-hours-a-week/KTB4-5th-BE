@@ -59,7 +59,6 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     @Autowired TestClock clock;
     @Autowired PushAuthEncryptor encryptor;
     @Autowired MeterRegistry meterRegistry;
-    @Autowired PushSubscriptionMetrics subscriptionMetrics;
     @MockitoBean WebPushRequestFactory requestFactory;
     private PushWorkerHttpFixture http;
 
@@ -186,9 +185,6 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     void sendsAnalysisJobWithoutRefrigeratorThroughTheSameWorker() {
         devices(1);
         jdbc.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES (?,'ANALYSIS',1)", OWNER);
-        subscriptionMetrics.refresh();
-        assertThat(meterRegistry.get("push.subscriptions.active").gauge().value()).isEqualTo(1);
-        assertThat(meterRegistry.get("push.subscribers.active").gauge().value()).isEqualTo(1);
         double before = meterRegistry.counter("push.send.attempts", "result", "success").count();
         insertAnalysisJob();
         awaitStatus("ACCEPTED", 1);
