@@ -87,7 +87,7 @@ public interface UserApi {
     @Operation(
             summary = "로컬 회원가입",
             description = "아이디·비밀번호·닉네임으로 회원가입하고, 개인 냉장고 생성과 자동 로그인까지 한 번에 처리합니다. "
-                    + "닉네임을 비우면 아이디로 대체합니다."
+                    + "닉네임을 비우면 아이디로 대체합니다. 가입 성공 시 가입 대기용 registrationToken 쿠키를 삭제합니다."
     )
     @ApiResponses({
             @ApiResponse(

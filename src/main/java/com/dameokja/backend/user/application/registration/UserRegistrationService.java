@@ -59,13 +59,7 @@ public class UserRegistrationService {
     }
 
     public RegistrationResult registerSocial(OAuthIdentity identity, String nickname, boolean notificationSetting, String profileImageKey) {
-        nicknamePolicy.validate(nickname);
-        if (userRepository.existsByNickname(nickname)) {
-            throw new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
-        }
-        if (socialAccountRepository.findByProviderAndProviderUserId(identity.provider(), identity.providerUserId()).isPresent()) {
-            throw new CustomException(UserExceptionCode.SOCIAL_ACCOUNT_DUPLICATE);
-        }
+        validateSocialRegistration(identity, nickname);
         try {
             User user = userRepository.save(userRegistrationFactory.createSocial(nickname, profileImageKey));
             socialAccountRepository.save(new SocialAccount(
@@ -76,6 +70,17 @@ public class UserRegistrationService {
             return new RegistrationResult(user.getId(), refrigeratorId);
         } catch (DataIntegrityViolationException exception) {
             throw UserConstraintExceptionTranslator.translate(exception);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void validateSocialRegistration(OAuthIdentity identity, String nickname) {
+        nicknamePolicy.validate(nickname);
+        if (userRepository.existsByNickname(nickname)) {
+            throw new CustomException(UserExceptionCode.NICKNAME_DUPLICATE);
+        }
+        if (socialAccountRepository.findByProviderAndProviderUserId(identity.provider(), identity.providerUserId()).isPresent()) {
+            throw new CustomException(UserExceptionCode.SOCIAL_ACCOUNT_DUPLICATE);
         }
     }
 

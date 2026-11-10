@@ -243,6 +243,23 @@ jose4j는 서버 VAPID 키로 ES256 JWS를 생성한다. 페이로드 암호화�
 사용자 인증 JWT는 별도 JJWT(`JwtProvider`)를 사용한다. 따라서 현재 확인한 코드에서는 이 CVE의 취약 처리 경로로 이어지는 외부 입력을 찾지 못했다.
 이 결과는 해당 CVE의 사용 경로 검토이며 서비스 전체의 취약점 부재를 의미하지 않는다.
 
+## Swagger·OpenAPI 공개 설정
+
+배포 환경변수 `KAFKA_ENV`가 `prod`이면 Swagger UI와 OpenAPI 경로 접근을 모두 거절한다.
+`dev`·`stage`·`local` 등 그 외 환경에서는 기존처럼 로그인 없이 문서를 볼 수 있다.
+미설정 값은 Kafka 토픽 설정과 동일하게 `local`로 처리한다. 별도 문서 활성화 변수는 사용하지 않는다.
+
+보안 설정이 공개 경로 허용보다 먼저 문서 경로의 환경 조건을 검사한다.
+`/swagger-ui.html`, `/swagger-ui/index.html`, `/v3/api-docs`, `/v3/api-docs.yaml`,
+`/v3/api-docs/swagger-config`를 직접 요청해도 운영에서는 접근할 수 없다.
+GET뿐 아니라 HEAD 등 다른 HTTP 메서드에도 같은 환경 제한을 적용한다.
+
+실제 배포에서 사용 중인 `KAFKA_ENV=prod`를 유지하면 자동으로 제한된다.
+환경변수 값을 바꾼 뒤에는 애플리케이션을 재시작한다.
+
+Prometheus와 health의 BE 접근 정책은 이번 변경에서 유지한다.
+메트릭은 외부 라우팅에 연결하지 않고 내부 수집기에서 접근하도록 인프라에서 제한한다.
+
 ## 근거
 
 확인일 2026-09-20. 구현 시 Spring Security 7.1.1 로컬 소스도 확인했다.
@@ -262,3 +279,4 @@ jose4j는 서버 VAPID 키로 ES256 JWS를 생성한다. 페이로드 암호화�
 | [jose4j CVE-2023-31582 공지](https://github.com/advisories/GHSA-7g24-qg88-p43q) (확인 2026-10-23) | 낮은 PBES2 반복 횟수 문제, 영향 버전 `< 0.9.3`, 최초 수정 버전 `0.9.3` |
 | [Maven Central jose4j 메타데이터](https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/maven-metadata.xml) (확인 2026-10-23) | 유지보수 배포 버전 `0.9.7` 확인 |
 | [web-push 5.1.2 소스 JAR](https://repo.maven.apache.org/maven2/nl/martijndwars/web-push/5.1.2/web-push-5.1.2-sources.jar) (확인 2026-10-23) | `AbstractPushService.prepareRequest`의 ES256 JWS 생성과 `HttpEce` 암호화 경로 확인 |
+| 팀: 운영 문서 공개 설정 요청 (2026-11-10) | 별도 활성화 변수 없이 기존 배포 환경값이 `prod`일 때 문서 경로를 제한하고 내부 Prometheus 수집은 유지한다. |

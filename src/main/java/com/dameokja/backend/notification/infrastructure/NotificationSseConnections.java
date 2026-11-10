@@ -116,6 +116,10 @@ public class NotificationSseConnections {
         connections.clear();
     }
 
+    int activeConnectionCount() {
+        return connections.values().stream().mapToInt(UserSseConnections::size).sum();
+    }
+
     private void register(Long userId, NotificationSseConnection connection) {
         connections.compute(userId, (id, existing) -> {
             UserSseConnections group = existing == null ? new UserSseConnections() : existing;

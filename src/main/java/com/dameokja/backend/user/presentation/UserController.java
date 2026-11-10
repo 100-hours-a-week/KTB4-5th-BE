@@ -90,6 +90,7 @@ public class UserController implements UserApi {
                 result.activeRefrigeratorIds().stream().map(String::valueOf).toList();
         csrfTokenRotator.rotate(httpRequest, httpResponse);
         authCookies.write(httpResponse, result.tokenPair());
+        authCookies.clearRegistration(httpResponse);
         SuccessResponse<SignupResponse> body =
                 SuccessResponse.of(UserSuccessCode.SIGNUP, new SignupResponse(activeRefrigeratorIds));
         return ResponseEntity.status(HttpStatus.CREATED).body(body);

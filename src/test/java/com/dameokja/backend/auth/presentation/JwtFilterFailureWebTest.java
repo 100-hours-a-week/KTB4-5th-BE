@@ -2,6 +2,8 @@ package com.dameokja.backend.auth.presentation;
 
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import com.dameokja.backend.auth.application.TokenPair;
+import com.dameokja.backend.auth.domain.AuthExceptionCode;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.security.SecurityErrorHandler;
 import com.dameokja.backend.global.security.JwtProvider;
@@ -16,6 +18,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
@@ -65,19 +70,27 @@ class JwtFilterFailureWebTest extends SecurityWebTestSupport {
     }
 
     @Test
-    void logoutAuthenticationFailureUsesCommonServerErrorWithoutClearingCookies() throws Exception {
+    void logoutBypassesAccessValidationFailureAndRevokesRefreshSession() throws Exception {
         Cookie csrf = csrf();
+        TokenPair tokens = authService.login("user1", "password1");
         doThrow(new IllegalStateException("secret validation detail"))
                 .when(tokenValidator).parseAccessTokenPayload(anyString());
         MockHttpServletResponse response = mockMvc.perform(delete("/api/v1/auth/sessions")
-                        .cookie(csrf, access()).header("X-XSRF-TOKEN", csrf.getValue()))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.code").value("GLOBAL-500-001"))
-                .andExpect(jsonPath("$.message").value("서버에서 요청을 처리하지 못했습니다."))
+                        .cookie(csrf, new Cookie("accessToken", tokens.accessToken()),
+                                new Cookie("refreshToken", tokens.refreshToken()))
+                        .header("X-XSRF-TOKEN", csrf.getValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("AUTH-200-002"))
                 .andReturn().getResponse();
         assertThat(response.getContentAsString()).doesNotContain("secret", "validation");
-        assertThat(response.getCookie("accessToken")).isNull();
-        assertThat(response.getCookie("refreshToken")).isNull();
+        assertThat(response.getCookie("accessToken").getMaxAge()).isZero();
+        assertThat(response.getCookie("refreshToken").getMaxAge()).isZero();
+        assertThat(response.getCookie("XSRF-TOKEN").getValue()).isNotEqualTo(csrf.getValue());
+        verify(tokenValidator, never()).parseAccessTokenPayload(anyString());
+        assertThatThrownBy(() -> authService.refresh(tokens.refreshToken()))
+                .isInstanceOf(CustomException.class)
+                .extracting(error -> ((CustomException) error).getExceptionCode())
+                .isEqualTo(AuthExceptionCode.REFRESH_INVALID);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
