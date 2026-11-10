@@ -11,6 +11,7 @@ import com.dameokja.backend.push.application.WorkerSlots;
 import com.dameokja.backend.support.MySqlDatabaseTest;
 import com.dameokja.backend.support.RedisTestSupport;
 import com.dameokja.backend.support.ServiceIntegrationTest.TestClock;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -57,6 +58,7 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     @Autowired PushSendService sender;
     @Autowired TestClock clock;
     @Autowired PushAuthEncryptor encryptor;
+    @Autowired MeterRegistry meterRegistry;
     @MockitoBean WebPushRequestFactory requestFactory;
     private PushWorkerHttpFixture http;
 
@@ -183,9 +185,11 @@ class PushWorkerEndToEndTest extends MySqlDatabaseTest {
     void sendsAnalysisJobWithoutRefrigeratorThroughTheSameWorker() {
         devices(1);
         jdbc.update("INSERT INTO notification_preferences(user_id,type,is_enabled) VALUES (?,'ANALYSIS',1)", OWNER);
+        double before = meterRegistry.counter("push.send.attempts", "result", "success").count();
         insertAnalysisJob();
         awaitStatus("ACCEPTED", 1);
         assertThat(http.requestCount()).isEqualTo(1);
+        assertThat(meterRegistry.get("push.send.attempts").tag("result", "success").counter().count()).isEqualTo(before + 1);
     }
 
     @Test
