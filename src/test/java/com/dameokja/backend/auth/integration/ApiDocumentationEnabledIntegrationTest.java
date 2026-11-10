@@ -16,12 +16,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "API_DOCS_ENABLED=true")
+@TestPropertySource(properties = {"KAFKA_ENV=dev", "spring.kafka.listener.auto-startup=false"})
 class ApiDocumentationEnabledIntegrationTest extends ServiceIntegrationTest {
     @Autowired MockMvc mvc;
 
     @Test
-    void explicitlyEnabledDocumentationIsPublicEvenWithStaleAccessCookie() throws Exception {
+    void developmentDocumentationIsPublicEvenWithStaleAccessCookie() throws Exception {
         Cookie stale = new Cookie("accessToken", "stale");
         mvc.perform(get("/swagger-ui.html").cookie(stale)).andExpect(status().isFound())
                 .andExpect(redirectedUrl("/swagger-ui/index.html"));
