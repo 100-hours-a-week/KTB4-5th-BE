@@ -41,8 +41,8 @@ public class RefrigeratorAccessService {
         return refrigeratorRepository.getReferenceById(refrigeratorId);
     }
 
+    // 요청 경로의 활성 사용자 확인은 JwtAuthenticationFilter가 매 요청 맡는다. 요청 밖에서 쓰면 lockForWrite처럼 사용자를 따로 확인한다.
     public Refrigerator findCurrentForRead(Long userId) {
-        userAccessService.validateActive(userId);
         RefrigeratorMember membership = refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(userId)
                 .orElseThrow(() -> new CustomException(ACCESS_DENIED));
         Refrigerator refrigerator = membership.getRefrigerator();
@@ -53,8 +53,8 @@ public class RefrigeratorAccessService {
         return refrigerator;
     }
 
+    // 활성 사용자 확인은 findCurrentForRead와 같이 JwtAuthenticationFilter에 맡긴다.
     public Refrigerator validateReadAccess(Long userId, Long refrigeratorId) {
-        userAccessService.validateActive(userId);
         RefrigeratorMember refrigeratorMember = refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(userId)
                 .filter(membership -> membership.belongsToRefrigerator(refrigeratorId))
                 .orElseThrow(() -> accessFailure(refrigeratorId));
