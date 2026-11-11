@@ -9,8 +9,6 @@ import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberReposi
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import com.dameokja.backend.user.domain.User;
-import com.dameokja.backend.user.domain.UserStatus;
-import com.dameokja.backend.user.domain.UserExceptionCode;
 import com.dameokja.backend.user.infrastructure.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -99,24 +97,26 @@ class RefrigeratorAccessServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"missingUser", "withdrawn", "missingRefrigerator", "deleted"})
-    void rejectsUnavailableUserOrRefrigerator(String unavailableState) {
-        if (unavailableState.equals("missingUser")) {
-            assertDenied(UserExceptionCode.USER_NOT_FOUND);
-            return;
-        }
-        User user = activeUser();
-        if (unavailableState.equals("withdrawn")) {
-            ReflectionTestUtils.setField(user, "status", UserStatus.WITHDRAWN);
-            assertDenied(UserExceptionCode.USER_NOT_ACTIVE);
-            return;
-        }
+    @ValueSource(strings = {"missingRefrigerator", "deleted"})
+    void rejectsUnavailableRefrigerator(String unavailableState) {
         if (unavailableState.equals("missingRefrigerator")) {
             assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_NOT_FOUND);
             return;
         }
         availableRefrigerator().delete(LocalDateTime.of(2026, 9, 17, 12, 0));
         assertDenied(RefrigeratorExceptionCode.REFRIGERATOR_DELETED);
+    }
+
+    @Test
+    void readAccessLeavesTheActiveUserCheckToTheAuthenticationFilter() {
+        RefrigeratorMember refrigeratorMember = RefrigeratorMember.owner(activeUser(), refrigeratorWithoutStub());
+        refrigeratorMember.activate();
+        when(refrigeratorMemberRepository.findByUserIdAndIsActiveTrue(1L)).thenReturn(Optional.of(refrigeratorMember));
+
+        refrigeratorAccessService.validateReadAccess(1L, 10L);
+        refrigeratorAccessService.findCurrentForRead(1L);
+
+        verifyNoInteractions(userRepository);
     }
 
     @ParameterizedTest
@@ -144,9 +144,7 @@ class RefrigeratorAccessServiceTest {
     }
 
     private User activeUser() {
-        User user = new User("User1", "default.png");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        return user;
+        return new User("User1", "default.png");
     }
 
     private Refrigerator availableRefrigerator() {
