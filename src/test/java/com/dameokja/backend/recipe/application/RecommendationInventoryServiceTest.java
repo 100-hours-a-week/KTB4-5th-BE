@@ -72,11 +72,11 @@ class RecommendationInventoryServiceTest {
     }
 
     @Test
-    void acceptsTheFullThreeHundredItemsAndRejectsOverflowWithoutTruncation() {
-        List<Ingredient> inventory = LongStream.rangeClosed(1, 301).mapToObj(id -> item(id, 1)).toList();
-        when(ingredients.getAll(1L, 17L)).thenReturn(inventory.subList(0, 300), inventory);
+    void acceptsTheFullRefrigeratorCapacityAndRejectsOverflowWithoutTruncation() {
+        List<Ingredient> inventory = LongStream.rangeClosed(1, 1501).mapToObj(id -> item(id, 1)).toList();
+        when(ingredients.getAll(1L, 17L)).thenReturn(inventory.subList(0, 1500), inventory);
 
-        assertThat(service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)).inventory()).hasSize(300);
+        assertThat(service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)).inventory()).hasSize(1500);
         assertThatIllegalArgumentException().isThrownBy(() -> service.prepare(1L, 17L, options(Mode.INCLUDE_EXPIRED)));
     }
 

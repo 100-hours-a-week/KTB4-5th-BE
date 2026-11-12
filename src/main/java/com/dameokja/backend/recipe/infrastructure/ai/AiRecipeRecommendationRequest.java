@@ -10,7 +10,8 @@ import java.util.Objects;
 public record AiRecipeRecommendationRequest(String requestId, Long userId, Long refrigeratorId, String inventoryFingerprint, Mode recommendationMode,
         List<AiRecipeInventoryItem> inventory, List<String> excludedIngredientNames, Integer limit, List<String> preferenceTags,
         Integer targetServings, List<Strategy> strategies, List<String> pantryIngredientNames, List<String> recentRecipeIds) {
-    private static final int MAX_INVENTORY = 300;
+    // 냉장고 용량(Refrigerator.DEFAULT_CAPACITY)과 같게 둔다. 300이면 301개부터 접수가 500으로 실패했다.
+    private static final int MAX_INVENTORY = 1500;
     private static final int MAX_EXCLUDED_NAMES = 100;
     private static final int MAX_RECENT_RECIPES = 100;
     private static final int MAX_LIMIT = 10;

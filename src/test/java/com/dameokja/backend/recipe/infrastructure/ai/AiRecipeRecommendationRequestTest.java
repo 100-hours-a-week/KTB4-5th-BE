@@ -116,7 +116,7 @@ class AiRecipeRecommendationRequestTest {
         AiRecipeInventoryItem item = new AiRecipeInventoryItem(101L, "두부", IngredientCategory.TOFU_BEAN, StorageType.REFRIGERATED,
                 MeasureType.COUNT, 2, null, WeightUnit.NONE, LocalDate.of(2026, 11, 1));
         assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
-                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, java.util.Collections.nCopies(301, item), List.of(), 10));
+                AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, java.util.Collections.nCopies(1501, item), List.of(), 10));
         assertThatIllegalArgumentException().isThrownBy(() -> AiRecipeRecommendationRequest.create("req-1", 101L, 17L,
                 AiRecipeRecommendationRequest.Mode.EXCLUDE_EXPIRED, List.of(item, item), List.of(), 10));
     }
