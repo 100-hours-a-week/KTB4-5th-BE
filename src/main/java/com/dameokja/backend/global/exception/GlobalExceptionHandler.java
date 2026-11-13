@@ -3,6 +3,7 @@ package com.dameokja.backend.global.exception;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,10 +18,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.util.DisconnectedClientHelper;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final DisconnectedClientHelper DISCONNECTED_CLIENTS =
+            new DisconnectedClientHelper(GlobalExceptionHandler.class.getName());
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException exception) {
@@ -100,7 +104,10 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnexpectedException(Exception exception) {
+    public @Nullable ResponseEntity<ErrorResponse> handleUnexpectedException(Exception exception) {
+        if (DISCONNECTED_CLIENTS.checkAndLogClientDisconnectedException(exception)) {
+            return null;
+        }
         log.error("[UnexpectedException]", exception);
         return toResponse(GlobalExceptionCode.INTERNAL_SERVER_ERROR, List.of());
     }
