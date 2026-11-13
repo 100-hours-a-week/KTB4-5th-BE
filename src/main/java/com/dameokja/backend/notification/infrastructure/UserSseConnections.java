@@ -103,6 +103,6 @@ final class UserSseConnections {
 
     private void removeFailedConnection(NotificationSseConnection connection, Exception exception) {
         remove(connection);
-        connection.completeWithError(exception);
+        connection.handleSendFailure(exception);
     }
 }
