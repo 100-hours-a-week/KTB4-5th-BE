@@ -15,10 +15,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.util.DisconnectedClientHelper;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    private static final DisconnectedClientHelper DISCONNECTED_CLIENTS =
+            new DisconnectedClientHelper(GlobalExceptionHandler.class.getName());
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException exception) {
@@ -93,7 +96,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnexpectedException(Exception exception) {
+    public @Nullable ResponseEntity<ErrorResponse> handleUnexpectedException(Exception exception) {
+        if (DISCONNECTED_CLIENTS.checkAndLogClientDisconnectedException(exception)) {
+            return null;
+        }
         log.error("[UnexpectedException]", exception);
         return toResponse(GlobalExceptionCode.INTERNAL_SERVER_ERROR, List.of());
     }

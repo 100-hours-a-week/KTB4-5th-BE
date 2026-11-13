@@ -48,7 +48,7 @@ public class NotificationSseConnections {
             connection.sendConnected();
         } catch (IOException | RuntimeException exception) {
             remove(userId, connection);
-            connection.completeWithError(exception);
+            connection.handleSendFailure(exception);
         }
         return emitter;
     }

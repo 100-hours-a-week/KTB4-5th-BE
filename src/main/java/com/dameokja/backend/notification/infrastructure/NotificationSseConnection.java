@@ -134,10 +134,12 @@ final class NotificationSseConnection {
         emitter.complete();
     }
 
-    /** 호출자가 등록 목록에서 제거한 실패 연결을 오류로 완료 처리한다. */
-    public void completeWithError(Throwable error) {
+    /** 전송 실패를 정리하고, I/O 오류의 비동기 종료는 Servlet 컨테이너에 맡긴다. */
+    public void handleSendFailure(Throwable error) {
         closePresence();
-        emitter.completeWithError(error);
+        if (!(error instanceof IOException)) {
+            emitter.completeWithError(error);
+        }
     }
 
     private synchronized void closePresence() {

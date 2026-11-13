@@ -57,7 +57,7 @@ class NotificationSseConnectionsTest {
         connections.notifyRecommendationFinished(new RecommendationGenerationFinished(1L, 17L, GenerationTrigger.USER, GenerationStatus.FAILED));
         connections.notifyRecommendationFinished(new RecommendationGenerationFinished(1L, 17L, GenerationTrigger.USER, GenerationStatus.COMPLETED));
         assertThat(recommendationEvents(first)).hasSize(1);
-        verify(first).completeWithError(any(IOException.class));
+        verify(first, never()).completeWithError(any());
         assertThat(recommendationEvents(second)).hasSize(2);
     }
 
@@ -95,7 +95,7 @@ class NotificationSseConnectionsTest {
         connections.heartbeat();
 
         verify(first, times(2)).send(any(SseEmitter.SseEventBuilder.class));
-        verify(first).completeWithError(any(IOException.class));
+        verify(first, never()).completeWithError(any());
         verify(second, times(2)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
@@ -143,7 +143,7 @@ class NotificationSseConnectionsTest {
         connections.heartbeat();
 
         verify(first, times(2)).send(any(SseEmitter.SseEventBuilder.class));
-        verify(first).completeWithError(any(IOException.class));
+        verify(first, never()).completeWithError(any());
         verify(second, times(3)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
@@ -219,7 +219,7 @@ class NotificationSseConnectionsTest {
         connections.heartbeat();
 
         verify(first, times(2)).send(any(SseEmitter.SseEventBuilder.class));
-        verify(first).completeWithError(any(IOException.class));
+        verify(first, never()).completeWithError(any());
         verify(second, times(3)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
@@ -243,7 +243,7 @@ class NotificationSseConnectionsTest {
         connections.connect(1L, 17L);
         connections.heartbeat();
         verify(first).send(any(SseEmitter.SseEventBuilder.class));
-        verify(first).completeWithError(any(IOException.class));
+        verify(first, never()).completeWithError(any());
     }
 
     @Test
