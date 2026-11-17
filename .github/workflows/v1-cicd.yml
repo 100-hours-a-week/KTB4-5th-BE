@@ -29,10 +29,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: 보안 패치 JDK 다운로드 및 체크섬 확인
+        run: bash scripts/download-security-jdk.sh "$RUNNER_TEMP/corretto.tar.gz"
       - uses: actions/setup-java@v5
         with:
-          distribution: temurin
-          java-version: '25'
+          distribution: jdkfile
+          jdkFile: ${{ runner.temp }}/corretto.tar.gz
+          java-version: '25.0.5.1+2'
           cache: gradle
       - name: 테스트 및 JAR 빌드
         run: bash ./gradlew --no-daemon test bootJar
@@ -54,6 +57,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          pull: true
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
