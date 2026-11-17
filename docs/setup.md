@@ -29,7 +29,7 @@
 CI와 운영 컨테이너는 수정이 포함된 Amazon Corretto `25.0.5.1.2`(OpenJDK `25.0.5.1+2`)를 사용한다. [JDK1]
 공식 Temurin 수정 빌드와 Corretto 컨테이너 태그의 공개 지연을 피하기 위해, 공식 아카이브를 직접 받아 설치한다.
 `scripts/download-security-jdk.sh`가 AMD64·ARM64별 공식 SHA-256을 검증하며 CI와 Docker 빌드가 같은 스크립트를 사용한다.
-업데이트 시 스크립트의 버전·두 체크섬과 워크플로의 `java-version`을 함께 바꾼다. `build.gradle`의 toolchain은 `25`를 유지한다.
+업데이트 시 스크립트의 버전·두 체크섬과 워크플로의 빌드 검증 문자열을 함께 바꾼다. `build.gradle`의 toolchain은 `25`를 유지한다.
 로컬 JDK와 IntelliJ의 Project SDK·Gradle JVM도 같은 수정 빌드로 교체한다.
 배포 후 실행 컨테이너 안에서 `java -version`의 `25.0.5.1` 및 Corretto 빌드를 확인한다. 기존 이미지 재시작만으로는 패치되지 않는다.
 
