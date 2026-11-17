@@ -29,11 +29,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: 보안 패치 JDK 다운로드 및 체크섬 확인
+        run: bash scripts/download-security-jdk.sh "$RUNNER_TEMP/corretto.tar.gz"
       - uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: jdkfile
+          jdk-file: ${{ runner.temp }}/corretto.tar.gz
           java-version: '25'
           cache: gradle
+      - name: 보안 패치 JDK 버전 확인
+        run: java -XshowSettings:properties -version 2>&1 | grep -F 'java.vendor.version = Corretto-25.0.5.1.2'
       - name: 테스트 및 JAR 빌드
         run: bash ./gradlew --no-daemon test bootJar
       - name: 이미지 이름
@@ -54,6 +59,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          pull: true
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
