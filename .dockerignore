@@ -2,3 +2,5 @@
 !build/
 !build/libs/
 !build/libs/backend-0.0.1-SNAPSHOT.jar
+!scripts/
+!scripts/download-security-jdk.sh

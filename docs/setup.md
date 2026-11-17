@@ -8,7 +8,7 @@
 
 | 항목 | 확정값 | 근거 파일 |
 |---|---|---|
-| JDK | Eclipse Temurin 25 (Gradle toolchain 25) — LTS [O1] | `build.gradle` |
+| JDK | Amazon Corretto 25.0.5.1.2 (Gradle toolchain 25) — LTS [O1][JDK1] | `scripts/download-security-jdk.sh`, `.github/workflows/v1-cicd.yml` |
 | IDE | IntelliJ IDEA | - |
 | Spring Boot | 4.1.1 — Java 25·Gradle 9 지원 [B1] | `build.gradle` |
 | 빌드 | Gradle Wrapper 9.7.1, Groovy DSL, 단일 모듈 `backend` | `gradle/wrapper/gradle-wrapper.properties`, `settings.gradle` |
@@ -23,6 +23,15 @@
 | 시간 저장 기준 | 서울(Asia/Seoul) 기준 `LocalDateTime`·`LocalDate`를 변환 없이 `DATETIME`·`DATE`에 저장 「팀」 (상세: [DB 시간대](#db-시간대)) | `application.yml`, `global/util/BusinessTime.java` |
 
 합의한 버전은 "최신 LTS"를 이유로 임의 변경하지 않는다. 「팀」 버전 변경은 빌드·의존성 PR로 따로 합의해야 팀원 환경이 어긋나지 않는다.
+
+## Java 보안 패치 (CVE-2026-114938)
+
+CI와 운영 컨테이너는 수정이 포함된 Amazon Corretto `25.0.5.1.2`(OpenJDK `25.0.5.1+2`)를 사용한다. [JDK1]
+공식 Temurin 수정 빌드와 Corretto 컨테이너 태그의 공개 지연을 피하기 위해, 공식 아카이브를 직접 받아 설치한다.
+`scripts/download-security-jdk.sh`가 AMD64·ARM64별 공식 SHA-256을 검증하며 CI와 Docker 빌드가 같은 스크립트를 사용한다.
+업데이트 시 스크립트의 버전·두 체크섬과 워크플로의 `java-version`을 함께 바꾼다. `build.gradle`의 toolchain은 `25`를 유지한다.
+로컬 JDK와 IntelliJ의 Project SDK·Gradle JVM도 같은 수정 빌드로 교체한다.
+배포 후 실행 컨테이너 안에서 `java -version`의 `25.0.5.1` 및 Corretto 빌드를 확인한다. 기존 이미지 재시작만으로는 패치되지 않는다.
 
 ## 분석 작업 DB 상태 저장
 
@@ -509,3 +518,4 @@ Kafka 토픽의 미설정 기본값 `local`은 횟수 제한 판단에 사용하
 | R2 | [Spring Boot — Common Application Properties](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) (확인 2026-10-08) | Redis 연결·인증·타임아웃·TLS·Repository 및 health check 설정 |
 | K1 | [카카오 REST API](https://developers.kakao.com/docs/ko/kakaologin/rest-api), [앱 설정](https://developers.kakao.com/docs/ko/kakaologin/prerequisite) | 코드 교환·시크릿·콜백·이메일 동의 설정 (확인 2026-10-10) |
 | SENTRY1 | [Sentry Java SDK 8.58.0 소스](https://repo.maven.apache.org/maven2/io/sentry/sentry/8.58.0/sentry-8.58.0-sources.jar) (확인 2026-10-24) | `Sentry.preInitConfigurations`는 빈 DSN이면 SDK를 비활성화한다. |
+| JDK1 | [Amazon Corretto 25.0.5.1.2 변경 내역](https://github.com/corretto/corretto-25/blob/25.0.5.1.2/CHANGELOG.md), [공식 아카이브와 체크섬](https://github.com/corretto/corretto-25/releases/tag/25.0.5.1.2) (확인 2026-11-18) | CVE-2026-114938 수정 버전과 AMD64·ARM64 바이너리 검증 |
