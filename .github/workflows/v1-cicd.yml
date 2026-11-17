@@ -39,8 +39,6 @@ jobs:
           cache: gradle
       - name: 보안 패치 JDK 버전 확인
         run: java -XshowSettings:properties -version 2>&1 | grep -F 'java.vendor.version = Corretto-25.0.5.1.2'
-      - name: 보안 패치 JDK 버전 확인
-        run: java -XshowSettings:properties -version 2>&1 | grep -F 'java.vendor.version = Corretto-25.0.5.1.2'
       - name: 테스트 및 JAR 빌드
         run: bash ./gradlew --no-daemon test bootJar
       - name: 이미지 이름
