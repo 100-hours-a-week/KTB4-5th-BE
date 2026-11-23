@@ -11,7 +11,7 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisPendingNotificationS
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.notification.application.stream.AnalysisFinishedEventService;
 import com.dameokja.backend.notification.application.stream.NotificationStreamService;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
+import com.dameokja.backend.push.application.creation.PushAnalysisCreationService;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;

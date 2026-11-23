@@ -4,7 +4,7 @@ import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.domain.ExpirationCheck;
 import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;
-import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.push.application.creation.PushNotificationCreationService;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

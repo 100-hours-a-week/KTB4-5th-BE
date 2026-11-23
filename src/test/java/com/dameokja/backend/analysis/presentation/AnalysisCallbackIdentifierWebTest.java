@@ -11,7 +11,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
 import com.dameokja.backend.support.RedisTestSupport;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
+import com.dameokja.backend.push.application.creation.PushAnalysisCreationService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;

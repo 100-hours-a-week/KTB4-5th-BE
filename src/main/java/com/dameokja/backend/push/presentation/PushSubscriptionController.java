@@ -2,8 +2,8 @@ package com.dameokja.backend.push.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.push.application.PushSubscriptionResult;
-import com.dameokja.backend.push.application.PushSubscriptionService;
+import com.dameokja.backend.push.application.subscription.PushSubscriptionResult;
+import com.dameokja.backend.push.application.subscription.PushSubscriptionService;
 import com.dameokja.backend.push.presentation.request.PushSubscriptionRequest;
 import com.dameokja.backend.push.presentation.response.PushSubscriptionResponse;
 import com.dameokja.backend.push.presentation.response.PushSuccessCode;

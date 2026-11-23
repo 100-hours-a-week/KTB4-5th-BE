@@ -6,7 +6,7 @@ import com.dameokja.backend.ingredient.domain.Ingredient;
 import com.dameokja.backend.notification.application.inbox.NotificationRecipientService;
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.infrastructure.NotificationRepository;
-import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.push.application.creation.PushNotificationCreationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;

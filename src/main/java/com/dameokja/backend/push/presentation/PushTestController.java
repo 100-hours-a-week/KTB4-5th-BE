@@ -1,8 +1,8 @@
 package com.dameokja.backend.push.presentation;
 
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.push.application.PushSendResult;
-import com.dameokja.backend.push.application.PushSendService;
+import com.dameokja.backend.push.application.dispatch.PushSendResult;
+import com.dameokja.backend.push.application.dispatch.PushSendService;
 import io.swagger.v3.oas.annotations.Hidden;
 import java.time.Duration;
 import java.util.Map;

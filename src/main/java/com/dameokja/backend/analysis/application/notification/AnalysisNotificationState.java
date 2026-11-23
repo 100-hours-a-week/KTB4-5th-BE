@@ -5,7 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.infrastructure.AnalysisDatabasePendingNotificationStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisDatabasePendingNotificationStore.Lease;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
+import com.dameokja.backend.push.application.creation.PushAnalysisCreationService;
 import com.dameokja.backend.user.application.access.UserAccessService;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

@@ -2,7 +2,7 @@ package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
-import com.dameokja.backend.push.application.PushAnalysisCreationService;
+import com.dameokja.backend.push.application.creation.PushAnalysisCreationService;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;
 import java.time.Duration;

@@ -1,7 +1,7 @@
 package com.dameokja.backend.user.application.withdrawal;
 
 import com.dameokja.backend.user.domain.User;
-import com.dameokja.backend.push.application.PushSubscriptionService;
+import com.dameokja.backend.push.application.subscription.PushSubscriptionService;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.user.domain.UserExceptionCode;
