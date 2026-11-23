@@ -1,6 +1,6 @@
 package com.dameokja.backend.recipe.infrastructure.kafka;
 
-import com.dameokja.backend.recipe.application.RecommendationOutboxQueue.Lease;
+import com.dameokja.backend.recipe.application.outbox.RecommendationOutboxQueue.Lease;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;

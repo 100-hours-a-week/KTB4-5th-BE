@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionResult;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionService;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;

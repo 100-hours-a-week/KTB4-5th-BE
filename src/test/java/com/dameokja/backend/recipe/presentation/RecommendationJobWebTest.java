@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.recipe.application.RecommendationReuseService;
+import com.dameokja.backend.recipe.application.job.RecommendationReuseService;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationDailyQuotaStore;

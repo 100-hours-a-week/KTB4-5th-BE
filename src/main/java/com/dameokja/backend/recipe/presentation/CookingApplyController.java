@@ -2,8 +2,8 @@ package com.dameokja.backend.recipe.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.recipe.application.CookingApplicationService;
-import com.dameokja.backend.recipe.application.RecommendationDetailResult;
+import com.dameokja.backend.recipe.application.cooking.CookingApplicationService;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult;
 import com.dameokja.backend.recipe.presentation.request.CookingApplyRequest;
 import com.dameokja.backend.recipe.presentation.response.CookingApplyResponse;
 import jakarta.validation.Valid;

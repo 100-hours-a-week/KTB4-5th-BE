@@ -12,7 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.recipe.application.RecommendationDailyJobQueue.Lease;
+import com.dameokja.backend.recipe.application.completion.RecommendationCompletionService;
+import com.dameokja.backend.recipe.application.job.RecommendationDailyJobQueue;
+import com.dameokja.backend.recipe.application.job.RecommendationDailyJobQueue.Lease;
+import com.dameokja.backend.recipe.application.job.RecommendationDailyQuotaService;
+import com.dameokja.backend.recipe.application.job.RecommendationExecutionService;
+import com.dameokja.backend.recipe.application.job.RecommendationScheduledSubmissionService;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionResult;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionService;
+import com.dameokja.backend.recipe.application.outbox.RecommendationOutboxService;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationDailyQuotaStore;

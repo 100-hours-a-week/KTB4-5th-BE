@@ -1,6 +1,6 @@
 package com.dameokja.backend.recipe.presentation.request;
 
-import com.dameokja.backend.recipe.application.RecommendationOptions;
+import com.dameokja.backend.recipe.application.job.RecommendationOptions;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.FieldError;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;

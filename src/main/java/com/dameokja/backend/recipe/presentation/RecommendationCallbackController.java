@@ -1,6 +1,6 @@
 package com.dameokja.backend.recipe.presentation;
 
-import com.dameokja.backend.recipe.application.RecommendationCallbackService;
+import com.dameokja.backend.recipe.application.completion.RecommendationCallbackService;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeJobResponse;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
