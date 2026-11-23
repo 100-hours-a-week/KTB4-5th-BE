@@ -11,7 +11,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisCompletedPayload;
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.exception.CustomException;

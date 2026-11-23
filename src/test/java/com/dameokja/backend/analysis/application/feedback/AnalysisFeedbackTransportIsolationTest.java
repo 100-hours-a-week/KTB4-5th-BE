@@ -3,7 +3,7 @@ package com.dameokja.backend.analysis.application.feedback;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
-import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisFeedbackRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;

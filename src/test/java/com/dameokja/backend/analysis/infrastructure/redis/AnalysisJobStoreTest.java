@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure;
+package com.dameokja.backend.analysis.infrastructure.redis;
 
 import static com.dameokja.backend.support.RedisTestSupport.redisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,6 +12,7 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
+import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.RedisTestSupport;

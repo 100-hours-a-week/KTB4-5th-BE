@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure;
+package com.dameokja.backend.analysis.infrastructure.redis;
 
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisImage;

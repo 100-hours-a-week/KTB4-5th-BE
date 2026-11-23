@@ -9,7 +9,7 @@ import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisResponse;
-import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisDispatchRepository;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Duration;

@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
-import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisFeedbackRepository;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisFeedbackSubmittedPayload;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisKafkaConfig;

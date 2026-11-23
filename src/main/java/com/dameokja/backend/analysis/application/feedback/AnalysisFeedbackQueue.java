@@ -2,7 +2,7 @@ package com.dameokja.backend.analysis.application.feedback;
 
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
-import com.dameokja.backend.analysis.infrastructure.AnalysisFeedbackRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisFeedbackRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;

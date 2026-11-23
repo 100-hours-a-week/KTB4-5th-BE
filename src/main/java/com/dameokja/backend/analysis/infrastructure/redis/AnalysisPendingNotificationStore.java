@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure;
+package com.dameokja.backend.analysis.infrastructure.redis;
 
 import java.time.Duration;
 import java.time.Instant;

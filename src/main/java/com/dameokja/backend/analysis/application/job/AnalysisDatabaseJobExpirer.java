@@ -5,7 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisFailureCode;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStateRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisJobStateRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.Duration;

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dameokja.backend.analysis.domain.AnalysisJobRequest;
 import com.dameokja.backend.analysis.domain.AnalysisJobState;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisJobRequestRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisJobStateRepository;
 import com.dameokja.backend.support.MySqlJpaTest;
 import com.dameokja.backend.user.domain.User;
 import java.nio.charset.StandardCharsets;

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.analysis.domain.AnalysisFeedback;
 import com.dameokja.backend.analysis.domain.AnalysisFeedbackStatus;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisFeedbackRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.support.MySqlJpaTest;
 import java.time.Clock;

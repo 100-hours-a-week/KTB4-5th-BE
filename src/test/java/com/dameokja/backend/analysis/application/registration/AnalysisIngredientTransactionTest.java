@@ -9,7 +9,7 @@ import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
 import com.dameokja.backend.analysis.application.registration.AnalysisIngredientCommand;
 import com.dameokja.backend.analysis.application.registration.AnalysisIngredientService;
 import com.dameokja.backend.analysis.domain.*;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.domain.*;

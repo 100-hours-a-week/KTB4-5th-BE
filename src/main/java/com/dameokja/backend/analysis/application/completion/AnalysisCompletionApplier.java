@@ -5,8 +5,8 @@ import com.dameokja.backend.analysis.application.notification.AnalysisCompletion
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisCallbackParking;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import java.util.List;
 import java.util.Optional;

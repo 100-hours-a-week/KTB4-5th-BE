@@ -4,7 +4,7 @@ import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisFeedbackRequest;
 import com.dameokja.backend.analysis.domain.*;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.*;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.ingredient.application.create.*;
 import com.dameokja.backend.ingredient.domain.RegistrationSource;

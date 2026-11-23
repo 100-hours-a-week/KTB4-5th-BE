@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure;
+package com.dameokja.backend.analysis.infrastructure.persistence;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

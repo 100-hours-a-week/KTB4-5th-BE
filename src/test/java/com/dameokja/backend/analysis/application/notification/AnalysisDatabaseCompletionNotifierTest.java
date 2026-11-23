@@ -21,7 +21,7 @@ import com.dameokja.backend.analysis.domain.AnalysisImage;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
 import com.dameokja.backend.analysis.domain.AnalysisNotificationChannel;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AnalysisDatabasePendingNotificationStore;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisDatabasePendingNotificationStore;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisCompletedPayload;
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.notification.application.stream.AnalysisFinishedEventService;

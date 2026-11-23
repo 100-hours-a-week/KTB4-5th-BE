@@ -1,4 +1,4 @@
-package com.dameokja.backend.analysis.infrastructure;
+package com.dameokja.backend.analysis.infrastructure.persistence;
 
 import com.dameokja.backend.analysis.domain.AnalysisJobRequest;
 import java.util.List;
