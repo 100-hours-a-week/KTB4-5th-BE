@@ -14,7 +14,7 @@ import com.dameokja.backend.ingredient.domain.RegistrationSource;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.sql.SQLException;

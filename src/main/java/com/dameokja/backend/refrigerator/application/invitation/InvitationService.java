@@ -1,4 +1,4 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.invitation;
 
 import static com.dameokja.backend.global.exception.GlobalExceptionCode.INTERNAL_SERVER_ERROR;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
@@ -7,6 +7,7 @@ import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.InviteCode;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;

@@ -6,8 +6,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.application.membership.MembershipHistoryService;
 import com.dameokja.backend.refrigerator.application.membership.MembershipKafkaProperties;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeEvent;

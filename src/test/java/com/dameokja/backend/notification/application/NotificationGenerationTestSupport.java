@@ -5,7 +5,7 @@ import com.dameokja.backend.notification.application.expiration.ExpirationNotifi
 import com.dameokja.backend.notification.application.expiration.ExpirationNotificationService;
 import com.dameokja.backend.notification.application.inbox.NotificationRecipientService;
 import com.dameokja.backend.push.application.creation.PushNotificationCreationService;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.user.application.access.UserAccessService;

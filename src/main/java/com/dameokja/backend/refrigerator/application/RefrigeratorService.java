@@ -2,6 +2,8 @@ package com.dameokja.backend.refrigerator.application;
 
 import static com.dameokja.backend.refrigerator.application.RefrigeratorPolicy.MEMBER_LIMIT;
 
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.membership.MemberListView;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;

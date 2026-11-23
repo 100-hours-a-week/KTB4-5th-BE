@@ -1,4 +1,4 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.expiration;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;

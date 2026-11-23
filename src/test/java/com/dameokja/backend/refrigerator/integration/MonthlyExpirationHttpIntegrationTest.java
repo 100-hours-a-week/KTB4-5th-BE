@@ -9,7 +9,7 @@ import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.ingredient.application.update.IngredientEtag;
 import com.dameokja.backend.ingredient.domain.*;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.ServiceIntegrationTest;

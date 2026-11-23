@@ -2,8 +2,8 @@ package com.dameokja.backend.refrigerator.integration;
 
 import static org.assertj.core.api.Assertions.*;
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.InvitationView;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationView;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
 import com.dameokja.backend.refrigerator.infrastructure.InviteCodeRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;

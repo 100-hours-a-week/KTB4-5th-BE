@@ -17,7 +17,7 @@ import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.WeightUnit;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.time.Clock;
 import java.time.LocalDate;

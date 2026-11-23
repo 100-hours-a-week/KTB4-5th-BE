@@ -1,6 +1,6 @@
 package com.dameokja.backend.refrigerator.presentation.response;
 
-import com.dameokja.backend.refrigerator.application.MemberListView;
+import com.dameokja.backend.refrigerator.application.membership.MemberListView;
 import java.util.List;
 
 public record MemberListResponse(String currentUserId, String refrigeratorName, int memberNum, int memberMax, List<MemberResponse> members) {

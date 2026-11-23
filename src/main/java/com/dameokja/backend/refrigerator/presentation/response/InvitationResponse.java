@@ -1,6 +1,6 @@
 package com.dameokja.backend.refrigerator.presentation.response;
 
-import com.dameokja.backend.refrigerator.application.InvitationView;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationView;
 
 public record InvitationResponse(String code) {
     public static InvitationResponse from(InvitationView result) {

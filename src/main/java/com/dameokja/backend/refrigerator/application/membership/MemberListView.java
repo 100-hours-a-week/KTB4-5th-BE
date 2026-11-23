@@ -1,4 +1,4 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.membership;
 
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import java.util.List;

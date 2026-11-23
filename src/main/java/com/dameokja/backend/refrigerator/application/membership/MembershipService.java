@@ -1,4 +1,4 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.membership;
 
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.ACCESS_DENIED;
 import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode.MEMBER_NOT_FOUND;
@@ -8,6 +8,8 @@ import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.notification.application.membership.MembershipNotificationService;
+import com.dameokja.backend.refrigerator.application.RefrigeratorPolicy;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;

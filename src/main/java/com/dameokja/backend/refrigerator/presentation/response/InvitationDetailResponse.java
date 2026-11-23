@@ -1,6 +1,6 @@
 package com.dameokja.backend.refrigerator.presentation.response;
 
-import com.dameokja.backend.refrigerator.application.InvitationView;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationView;
 import java.time.OffsetDateTime;
 
 public record InvitationDetailResponse(String code, OffsetDateTime expiresAt) {

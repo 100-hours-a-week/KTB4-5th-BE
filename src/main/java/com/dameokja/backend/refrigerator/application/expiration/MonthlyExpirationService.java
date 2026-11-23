@@ -1,7 +1,8 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.expiration;
 
 import com.dameokja.backend.global.util.BusinessTime;
 import com.dameokja.backend.ingredient.application.IngredientExpirationService;
+import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorRepository;
 import java.time.Clock;

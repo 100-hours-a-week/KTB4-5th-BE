@@ -2,8 +2,8 @@ package com.dameokja.backend.recipe.application.job;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

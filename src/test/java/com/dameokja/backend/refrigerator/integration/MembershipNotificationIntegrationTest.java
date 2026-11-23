@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.notification.application.membership.MembershipNotificationService;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.application.withdrawal.UserWithdrawalService;
 import java.util.List;

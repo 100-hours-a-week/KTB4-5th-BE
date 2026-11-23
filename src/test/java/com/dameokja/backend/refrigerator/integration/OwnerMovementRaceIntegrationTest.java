@@ -7,8 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;

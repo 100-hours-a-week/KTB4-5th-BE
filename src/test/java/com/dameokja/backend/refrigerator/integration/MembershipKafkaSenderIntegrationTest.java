@@ -7,8 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.application.membership.MembershipHistoryService;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeEvent;
 import com.dameokja.backend.refrigerator.infrastructure.kafka.MembershipKafkaSender;

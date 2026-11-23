@@ -10,6 +10,8 @@ import com.dameokja.backend.ingredient.application.list.IngredientListService;
 import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.notification.application.preference.NotificationPreferenceView;
 import com.dameokja.backend.notification.domain.NotificationPreferenceType;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.membership.MemberListView;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
 import com.dameokja.backend.user.application.profile.UserProfile;
 import com.dameokja.backend.user.application.profile.UserProfileService;

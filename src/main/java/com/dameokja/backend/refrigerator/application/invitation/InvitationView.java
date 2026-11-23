@@ -1,4 +1,4 @@
-package com.dameokja.backend.refrigerator.application;
+package com.dameokja.backend.refrigerator.application.invitation;
 
 import com.dameokja.backend.refrigerator.domain.InviteCode;
 import com.dameokja.backend.global.util.BusinessTime;
