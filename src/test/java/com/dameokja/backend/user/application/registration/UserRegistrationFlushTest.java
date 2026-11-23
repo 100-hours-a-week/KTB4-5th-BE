@@ -2,7 +2,7 @@ package com.dameokja.backend.user.application.registration;
 
 import com.dameokja.backend.user.application.nickname.NicknamePolicy;
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.User;
 import com.dameokja.backend.user.domain.UserExceptionCode;

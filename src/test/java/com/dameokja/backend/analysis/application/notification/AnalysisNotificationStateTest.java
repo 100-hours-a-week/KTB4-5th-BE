@@ -18,7 +18,7 @@ import com.dameokja.backend.analysis.infrastructure.AnalysisJobStateRepository;
 import com.dameokja.backend.analysis.infrastructure.kafka.AnalysisCompletedPayload;
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;

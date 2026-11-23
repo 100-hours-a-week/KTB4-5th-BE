@@ -3,7 +3,7 @@ package com.dameokja.backend.refrigerator.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dameokja.backend.notification.application.MembershipNotificationService;
+import com.dameokja.backend.notification.application.membership.MembershipNotificationService;
 import com.dameokja.backend.refrigerator.application.InvitationService;
 import com.dameokja.backend.refrigerator.application.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;

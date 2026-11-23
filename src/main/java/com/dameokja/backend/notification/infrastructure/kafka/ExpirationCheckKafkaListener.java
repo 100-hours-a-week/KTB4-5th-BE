@@ -1,7 +1,7 @@
 package com.dameokja.backend.notification.infrastructure.kafka;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.notification.application.ExpirationCheckProcessor;
+import com.dameokja.backend.notification.application.expiration.ExpirationCheckProcessor;
 import com.dameokja.backend.notification.domain.ExpirationCheck;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

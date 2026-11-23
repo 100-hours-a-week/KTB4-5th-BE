@@ -1,7 +1,7 @@
 package com.dameokja.backend.push.application;
 
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.domain.PushNotificationKind;
 import com.dameokja.backend.push.domain.UserDevice;

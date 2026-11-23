@@ -1,6 +1,6 @@
 package com.dameokja.backend.notification.presentation.response;
 
-import com.dameokja.backend.notification.application.NotificationPreferenceView;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceView;
 import java.util.List;
 
 public record NotificationPreferencesResponse(List<NotificationPreferenceResponse> notificationPreferences) {

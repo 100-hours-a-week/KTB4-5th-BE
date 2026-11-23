@@ -2,7 +2,7 @@ package com.dameokja.backend.notification.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.notification.presentation.request.NotificationPreferencesRequest;
 import com.dameokja.backend.notification.presentation.response.NotificationPreferencesResponse;
 import jakarta.validation.Valid;

@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 
+import com.dameokja.backend.notification.application.expiration.ExpirationCheckProcessor;
+import com.dameokja.backend.notification.application.expiration.NotificationScheduler;
 import com.dameokja.backend.global.common.EventEnvelope;
+import com.dameokja.backend.notification.application.inbox.NotificationService;
 import com.dameokja.backend.notification.domain.ExpirationCheck;
 import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;
 import com.dameokja.backend.notification.infrastructure.kafka.ExpirationCheckKafkaConfiguration;

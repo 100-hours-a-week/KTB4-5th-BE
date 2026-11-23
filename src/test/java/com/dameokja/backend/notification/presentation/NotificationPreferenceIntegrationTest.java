@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.support.MySqlDatabaseTest;
 import com.dameokja.backend.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;

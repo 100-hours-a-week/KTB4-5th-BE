@@ -1,7 +1,7 @@
 package com.dameokja.backend.notification.presentation;
 
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.notification.application.NotificationStreamService;
+import com.dameokja.backend.notification.application.stream.NotificationStreamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;

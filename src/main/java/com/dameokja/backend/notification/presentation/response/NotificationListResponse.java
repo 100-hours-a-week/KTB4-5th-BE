@@ -1,6 +1,6 @@
 package com.dameokja.backend.notification.presentation.response;
 
-import com.dameokja.backend.notification.application.NotificationListResult;
+import com.dameokja.backend.notification.application.inbox.NotificationListResult;
 import java.util.List;
 
 public record NotificationListResponse(long expiredIngredientsNum,

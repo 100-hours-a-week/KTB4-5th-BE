@@ -3,6 +3,7 @@ package com.dameokja.backend.notification.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dameokja.backend.notification.application.expiration.ExpirationCheckProcessor;
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.notification.domain.ExpirationCheck;
 import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;

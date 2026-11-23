@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
+import com.dameokja.backend.notification.infrastructure.sse.NotificationSseConnections;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;

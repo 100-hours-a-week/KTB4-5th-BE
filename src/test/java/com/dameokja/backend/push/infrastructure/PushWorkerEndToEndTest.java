@@ -1,7 +1,7 @@
 package com.dameokja.backend.push.infrastructure;
 
 import com.dameokja.backend.global.security.PushAuthEncryptor;
-import com.dameokja.backend.notification.application.NotificationScheduler;
+import com.dameokja.backend.notification.application.expiration.NotificationScheduler;
 import com.dameokja.backend.push.application.LeasedJob;
 import com.dameokja.backend.push.application.PushDispatchWorker;
 import com.dameokja.backend.push.application.PushNotificationUpdater;

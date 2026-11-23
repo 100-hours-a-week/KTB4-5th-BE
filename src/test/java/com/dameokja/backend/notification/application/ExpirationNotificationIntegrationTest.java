@@ -1,5 +1,6 @@
 package com.dameokja.backend.notification.application;
 
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;

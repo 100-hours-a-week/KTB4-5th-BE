@@ -7,7 +7,7 @@ import static com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.notification.application.MembershipNotificationService;
+import com.dameokja.backend.notification.application.membership.MembershipNotificationService;
 import com.dameokja.backend.refrigerator.domain.MemberKicked;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;

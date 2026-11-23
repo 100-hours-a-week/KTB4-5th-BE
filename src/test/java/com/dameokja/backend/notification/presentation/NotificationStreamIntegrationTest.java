@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dameokja.backend.BackendApplication;
 import com.dameokja.backend.global.security.JwtProvider;
-import com.dameokja.backend.notification.application.AnalysisFinishedEventService;
-import com.dameokja.backend.notification.application.NotificationService;
-import com.dameokja.backend.notification.infrastructure.NotificationSseConnections;
+import com.dameokja.backend.notification.application.stream.AnalysisFinishedEventService;
+import com.dameokja.backend.notification.application.inbox.NotificationService;
+import com.dameokja.backend.notification.infrastructure.sse.NotificationSseConnections;
 import com.dameokja.backend.support.MySqlDatabaseTest;
 import com.dameokja.backend.user.domain.UserRole;
 import com.zaxxer.hikari.HikariDataSource;
