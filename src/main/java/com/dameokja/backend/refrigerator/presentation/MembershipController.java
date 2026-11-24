@@ -7,9 +7,9 @@ import static com.dameokja.backend.refrigerator.presentation.response.Refrigerat
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.refrigerator.application.MemberListView;
+import com.dameokja.backend.refrigerator.application.membership.MemberListView;
 import com.dameokja.backend.refrigerator.application.RefrigeratorService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.presentation.request.JoinRefrigeratorRequest;
 import com.dameokja.backend.refrigerator.presentation.response.JoinRefrigeratorResponse;
 import com.dameokja.backend.refrigerator.presentation.response.LeaveRefrigeratorResponse;

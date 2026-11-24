@@ -1,8 +1,8 @@
 package com.dameokja.backend.push.experiment;
 
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.notification.application.ExpirationNotificationService;
-import com.dameokja.backend.push.application.PushNotificationCreationService;
+import com.dameokja.backend.notification.application.expiration.ExpirationNotificationService;
+import com.dameokja.backend.push.application.creation.PushNotificationCreationService;
 import com.dameokja.backend.push.domain.PushNotification;
 import com.dameokja.backend.push.infrastructure.PushInboxTarget;
 import com.dameokja.backend.push.infrastructure.PushNotificationRepository;

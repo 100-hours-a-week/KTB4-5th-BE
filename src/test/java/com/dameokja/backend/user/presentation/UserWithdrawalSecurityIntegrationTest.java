@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dameokja.backend.push.domain.UserDevice;
-import com.dameokja.backend.push.application.PushSubscriptionService;
+import com.dameokja.backend.push.application.subscription.PushSubscriptionService;
 import com.dameokja.backend.push.domain.UserDeviceStatus;
 import com.dameokja.backend.push.infrastructure.UserDeviceRepository;
 import com.dameokja.backend.support.ServiceIntegrationTest;

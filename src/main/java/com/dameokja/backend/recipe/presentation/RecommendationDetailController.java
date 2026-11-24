@@ -2,9 +2,9 @@ package com.dameokja.backend.recipe.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.recipe.application.RecommendationDetailEtag;
-import com.dameokja.backend.recipe.application.RecommendationDetailResult;
-import com.dameokja.backend.recipe.application.RecommendationDetailService;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailEtag;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;

@@ -1,0 +1,48 @@
+package com.dameokja.backend.push.infrastructure.webpush;
+
+import com.dameokja.backend.push.domain.PushEndpointPolicy;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.time.Duration;
+import nl.martijndwars.webpush.AbstractPushService;
+import nl.martijndwars.webpush.Encoding;
+import nl.martijndwars.webpush.HttpRequest;
+import nl.martijndwars.webpush.Notification;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+import org.apache.hc.core5.util.Timeout;
+import org.jose4j.lang.JoseException;
+
+// 라이브러리의 전송(PushService.sendAsync)은 전송마다 HTTP 클라이언트와 I/O 스레드를 새로 만든다.
+// 그래서 암호화와 VAPID 서명을 붙인 요청 생성(prepareRequest)만 쓰고, 전송은 공유 HttpClient로 한다.
+// 라이브러리 Notification은 알림 Entity와 이름이 같으므로 이 클래스 밖으로 노출하지 않는다.
+public class WebPushRequestFactory extends AbstractPushService<WebPushRequestFactory> {
+
+    public WebPushRequestFactory(String publicKey, String privateKey) throws GeneralSecurityException {
+        super(publicKey, privateKey);
+    }
+
+    HttpPost create(WebPushTarget target, String payloadJson, Duration ttl, Duration timeout)
+            throws GeneralSecurityException, IOException, JoseException {
+        // 등록 전에 저장된 구독도 발송 시 같은 목적지 정책으로 차단한다.
+        if (!PushEndpointPolicy.isAllowed(target.endpoint())) {
+            throw new IllegalArgumentException("허용되지 않은 푸시 구독 주소입니다.");
+        }
+        // 라이브러리 기본값(aesgcm)은 초안 규격이므로 표준(RFC 8291)인 aes128gcm을 명시한다.
+        HttpRequest prepared = prepareRequest(toNotification(target, payloadJson, ttl), Encoding.AES128GCM);
+        HttpPost request = new HttpPost(prepared.getUrl());
+        request.setConfig(RequestConfig.custom().setConnectionRequestTimeout(Timeout.of(timeout))
+                .setResponseTimeout(Timeout.of(timeout)).setRedirectsEnabled(false).build());
+        request.setEntity(new ByteArrayEntity(prepared.getBody(), null));
+        prepared.getHeaders().forEach(request::setHeader);
+        return request;
+    }
+
+    private Notification toNotification(WebPushTarget target, String payloadJson, Duration ttl)
+            throws GeneralSecurityException {
+        return new Notification(target.endpoint(), target.p256dhKey(), target.authSecret(),
+                payloadJson.getBytes(StandardCharsets.UTF_8), Math.toIntExact(ttl.toSeconds()));
+    }
+}

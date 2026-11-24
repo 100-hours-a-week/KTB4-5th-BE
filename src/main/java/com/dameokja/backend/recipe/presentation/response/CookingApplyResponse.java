@@ -1,8 +1,8 @@
 package com.dameokja.backend.recipe.presentation.response;
 
-import com.dameokja.backend.recipe.application.RecommendationDetailResult;
-import com.dameokja.backend.recipe.application.RecommendationDetailResult.RecipeIngredient;
-import com.dameokja.backend.recipe.application.RecommendationDetailResult.Stock;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult.RecipeIngredient;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult.Stock;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;

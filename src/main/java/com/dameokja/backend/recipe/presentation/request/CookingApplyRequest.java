@@ -2,7 +2,7 @@ package com.dameokja.backend.recipe.presentation.request;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
-import com.dameokja.backend.recipe.application.CookingApplicationRequest;
+import com.dameokja.backend.recipe.application.cooking.CookingApplicationRequest;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

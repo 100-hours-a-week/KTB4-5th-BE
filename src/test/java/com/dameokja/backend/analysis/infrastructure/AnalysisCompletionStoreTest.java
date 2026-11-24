@@ -5,6 +5,7 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletionItem;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisDocumentType;
 import com.dameokja.backend.analysis.domain.AnalysisExpirationDateType;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.ingredient.domain.IngredientCategory;
 import com.dameokja.backend.ingredient.domain.StorageType;
 import com.dameokja.backend.ingredient.domain.MeasureType;

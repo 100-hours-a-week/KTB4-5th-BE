@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.dameokja.backend.ingredient.application.IngredientConsumptionService.ConsumedIngredient;
-import com.dameokja.backend.recipe.application.CookingApplied;
+import com.dameokja.backend.recipe.application.cooking.CookingApplied;
 import com.dameokja.backend.recipe.infrastructure.kafka.CookingOutboxPublisher;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.math.BigDecimal;

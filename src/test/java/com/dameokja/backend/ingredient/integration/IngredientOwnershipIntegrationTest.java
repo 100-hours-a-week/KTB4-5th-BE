@@ -10,8 +10,8 @@ import com.dameokja.backend.ingredient.application.update.IngredientUpdateFields
 import com.dameokja.backend.ingredient.application.update.IngredientUpdateService;
 import com.dameokja.backend.ingredient.domain.*;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.time.LocalDate;
 import java.util.List;

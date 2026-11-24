@@ -1,8 +1,8 @@
 package com.dameokja.backend.analysis.application.outbox;
 
 import com.dameokja.backend.analysis.domain.AnalysisOutbox;
-import com.dameokja.backend.analysis.infrastructure.AnalysisOutboxProperties;
-import com.dameokja.backend.analysis.infrastructure.AnalysisOutboxRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisOutboxProperties;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisOutboxRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;

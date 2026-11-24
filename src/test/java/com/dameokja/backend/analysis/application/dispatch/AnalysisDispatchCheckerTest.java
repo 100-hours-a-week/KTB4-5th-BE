@@ -32,7 +32,7 @@ import com.dameokja.backend.analysis.domain.AnalysisDispatchStatus;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisResponse;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisResult;
-import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisDispatchRepository;
 import com.dameokja.backend.global.exception.CustomException;
 import java.time.Duration;
 import java.time.OffsetDateTime;

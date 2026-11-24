@@ -1,7 +1,7 @@
 package com.dameokja.backend.recipe.infrastructure;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.recipe.application.CookingApplied;
+import com.dameokja.backend.recipe.application.cooking.CookingApplied;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;

@@ -1,6 +1,6 @@
 package com.dameokja.backend.analysis.infrastructure.kafka;
 
-import com.dameokja.backend.analysis.infrastructure.AnalysisOutboxProperties;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisOutboxProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

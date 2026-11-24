@@ -5,8 +5,8 @@ import static com.dameokja.backend.refrigerator.presentation.response.Refrigerat
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.InvitationView;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationView;
 import com.dameokja.backend.refrigerator.presentation.response.InvitationResponse;
 import com.dameokja.backend.refrigerator.presentation.response.InvitationDetailResponse;
 import lombok.RequiredArgsConstructor;

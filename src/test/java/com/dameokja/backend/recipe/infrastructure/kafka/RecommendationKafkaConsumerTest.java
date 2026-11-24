@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.recipe.application.RecommendationOutboxService;
-import com.dameokja.backend.recipe.application.RecommendationSubmissionResult;
-import com.dameokja.backend.recipe.application.RecommendationSubmissionService;
+import com.dameokja.backend.recipe.application.outbox.RecommendationOutboxService;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionResult;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionService;
 import com.dameokja.backend.recipe.domain.RecommendationState.GenerationStatus;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;

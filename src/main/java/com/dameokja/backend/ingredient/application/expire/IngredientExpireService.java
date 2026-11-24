@@ -11,7 +11,7 @@ import com.dameokja.backend.ingredient.domain.Measurement;
 import com.dameokja.backend.ingredient.exception.IngredientExceptionCode;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import java.math.BigDecimal;
 import java.time.Clock;

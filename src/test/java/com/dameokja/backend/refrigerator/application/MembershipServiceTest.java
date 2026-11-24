@@ -12,8 +12,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.notification.application.MembershipNotificationService;
+import com.dameokja.backend.notification.application.membership.MembershipNotificationService;
 import com.dameokja.backend.global.exception.ExceptionCode;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;

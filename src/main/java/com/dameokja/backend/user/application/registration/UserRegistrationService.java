@@ -5,7 +5,7 @@ import com.dameokja.backend.user.application.support.UserConstraintExceptionTran
 import com.dameokja.backend.auth.domain.OAuthIdentity;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.util.BusinessTime;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.application.RefrigeratorLifecycleService;
 import com.dameokja.backend.user.domain.SocialAccount;
 import com.dameokja.backend.user.domain.User;

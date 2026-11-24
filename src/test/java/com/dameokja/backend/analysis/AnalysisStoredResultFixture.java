@@ -4,7 +4,7 @@ import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionFailure;
 import com.dameokja.backend.analysis.domain.AnalysisCompletionSuccess;
 import com.dameokja.backend.analysis.domain.AnalysisStatus;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.AnalysisJobStores;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Instant;

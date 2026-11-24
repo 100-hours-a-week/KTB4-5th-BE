@@ -29,7 +29,7 @@ abstract class UserWithdrawalUnitTest {
     @Mock
     protected com.dameokja.backend.user.infrastructure.SocialAccountRepository socialAccountRepository;
     @Mock
-    protected com.dameokja.backend.push.application.PushSubscriptionService pushSubscriptionService;
+    protected com.dameokja.backend.push.application.subscription.PushSubscriptionService pushSubscriptionService;
     protected UserWithdrawalService userWithdrawalService;
 
     @BeforeEach

@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.notification.application.MembershipNotificationProcessor;
+import com.dameokja.backend.notification.application.membership.MembershipNotificationProcessor;
 import com.dameokja.backend.notification.infrastructure.kafka.MembershipKafkaListener;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.application.membership.MembershipHistoryService;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeEvent;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeType;

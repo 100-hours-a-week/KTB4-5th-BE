@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import com.dameokja.backend.notification.application.expiration.NotificationScheduler;
+import com.dameokja.backend.notification.application.inbox.NotificationService;
 import com.dameokja.backend.notification.domain.Notification;
 import com.dameokja.backend.notification.domain.NotificationType;
 import com.dameokja.backend.notification.infrastructure.ExpirationCheckRepository;

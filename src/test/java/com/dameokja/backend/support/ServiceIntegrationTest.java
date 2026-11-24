@@ -3,7 +3,7 @@ package com.dameokja.backend.support;
 import com.dameokja.backend.auth.infrastructure.RefreshSessionStore;
 import com.dameokja.backend.global.security.JwtProvider;
 import com.dameokja.backend.notification.infrastructure.NotificationPreferenceRepository;
-import com.dameokja.backend.refrigerator.application.InvitationService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;
 import com.dameokja.backend.refrigerator.infrastructure.RefrigeratorMemberRepository;

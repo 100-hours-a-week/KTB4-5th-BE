@@ -10,6 +10,11 @@ import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.ingredient.application.list.IngredientListService;
+import com.dameokja.backend.recipe.application.job.RecommendationDailyQuotaService;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailService;
+import com.dameokja.backend.recipe.application.query.RecommendationListResult;
+import com.dameokja.backend.recipe.application.query.RecommendationListService;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;

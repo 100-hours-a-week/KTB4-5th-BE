@@ -2,8 +2,8 @@ package com.dameokja.backend.notification.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.notification.application.NotificationService;
-import com.dameokja.backend.notification.application.UnreadNotificationCountService;
+import com.dameokja.backend.notification.application.inbox.NotificationService;
+import com.dameokja.backend.notification.application.inbox.UnreadNotificationCountService;
 import com.dameokja.backend.notification.presentation.request.NotificationListRequest;
 import com.dameokja.backend.notification.presentation.response.NotificationListResponse;
 import com.dameokja.backend.notification.presentation.response.NotificationPollingResponse;

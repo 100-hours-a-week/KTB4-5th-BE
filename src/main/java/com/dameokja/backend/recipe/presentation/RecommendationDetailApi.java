@@ -1,7 +1,7 @@
 package com.dameokja.backend.recipe.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.recipe.application.RecommendationDetailResult;
+import com.dameokja.backend.recipe.application.query.RecommendationDetailResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

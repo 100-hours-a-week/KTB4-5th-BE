@@ -14,7 +14,7 @@ import com.dameokja.backend.image.application.ProfileImageService;
 import com.dameokja.backend.ingredient.application.expire.IngredientExpireService;
 import com.dameokja.backend.ingredient.domain.*;
 import com.dameokja.backend.ingredient.infrastructure.IngredientRepository;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import com.dameokja.backend.user.domain.SocialAccount;

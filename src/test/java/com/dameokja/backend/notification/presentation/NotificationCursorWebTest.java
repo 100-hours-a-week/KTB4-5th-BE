@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dameokja.backend.global.exception.GlobalExceptionHandler;
 import com.dameokja.backend.global.security.AuthPrincipal;
 import com.dameokja.backend.ingredient.application.ExpiredIngredientCountService;
-import com.dameokja.backend.notification.application.NotificationService;
-import com.dameokja.backend.notification.application.UnreadNotificationCountService;
+import com.dameokja.backend.notification.application.inbox.NotificationService;
+import com.dameokja.backend.notification.application.inbox.UnreadNotificationCountService;
 import com.dameokja.backend.notification.infrastructure.NotificationRecipientRepository;
 import com.dameokja.backend.notification.infrastructure.NotificationRepository;
 import com.dameokja.backend.refrigerator.application.RefrigeratorAccessService;

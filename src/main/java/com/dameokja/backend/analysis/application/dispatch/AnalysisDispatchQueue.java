@@ -2,7 +2,7 @@ package com.dameokja.backend.analysis.application.dispatch;
 
 import com.dameokja.backend.analysis.domain.AnalysisDispatch;
 import com.dameokja.backend.analysis.domain.AnalysisImage;
-import com.dameokja.backend.analysis.infrastructure.AnalysisDispatchRepository;
+import com.dameokja.backend.analysis.infrastructure.persistence.AnalysisDispatchRepository;
 import com.dameokja.backend.global.util.BusinessTime;
 import java.time.Clock;
 import java.time.LocalDateTime;

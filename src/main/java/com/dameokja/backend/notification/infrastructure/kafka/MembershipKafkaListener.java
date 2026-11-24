@@ -1,7 +1,7 @@
 package com.dameokja.backend.notification.infrastructure.kafka;
 
 import com.dameokja.backend.global.common.EventEnvelope;
-import com.dameokja.backend.notification.application.MembershipNotificationProcessor;
+import com.dameokja.backend.notification.application.membership.MembershipNotificationProcessor;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeEvent;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

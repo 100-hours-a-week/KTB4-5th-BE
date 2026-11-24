@@ -2,7 +2,7 @@ package com.dameokja.backend.refrigerator.presentation;
 
 import com.dameokja.backend.global.response.SuccessResponse;
 import com.dameokja.backend.global.security.CurrentUserId;
-import com.dameokja.backend.refrigerator.application.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
 import com.dameokja.backend.refrigerator.presentation.response.MonthlyExpirationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;

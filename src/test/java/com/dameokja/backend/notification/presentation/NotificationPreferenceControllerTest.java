@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.response.SuccessResponse;
-import com.dameokja.backend.notification.application.NotificationPreferenceService;
-import com.dameokja.backend.notification.application.NotificationPreferenceView;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceService;
+import com.dameokja.backend.notification.application.preference.NotificationPreferenceView;
 import com.dameokja.backend.notification.domain.NotificationPreferenceType;
 import com.dameokja.backend.notification.presentation.response.NotificationPreferenceResponse;
 import com.dameokja.backend.notification.presentation.response.NotificationPreferencesResponse;

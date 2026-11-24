@@ -8,7 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.dameokja.backend.analysis.application.feedback.AnalysisFeedbackQueue;
 import com.dameokja.backend.analysis.domain.*;
-import com.dameokja.backend.analysis.infrastructure.*;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import com.dameokja.backend.ingredient.application.create.*;

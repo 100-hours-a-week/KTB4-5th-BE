@@ -1,7 +1,7 @@
 package com.dameokja.backend.analysis.application.job;
 
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;

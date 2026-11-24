@@ -1,7 +1,7 @@
 package com.dameokja.backend.recipe.infrastructure.ai;
 
 import com.dameokja.backend.global.config.ai.AiClientConfig;
-import com.dameokja.backend.recipe.application.RecommendationOptions;
+import com.dameokja.backend.recipe.application.job.RecommendationOptions;
 import com.dameokja.backend.global.config.ai.AiClientProperties;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.sun.net.httpserver.HttpExchange;

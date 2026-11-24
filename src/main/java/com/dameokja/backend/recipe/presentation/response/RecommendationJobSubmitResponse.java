@@ -1,7 +1,7 @@
 package com.dameokja.backend.recipe.presentation.response;
 
-import com.dameokja.backend.recipe.application.RecommendationDailyGeneration;
-import com.dameokja.backend.recipe.application.RecommendationSubmissionResult;
+import com.dameokja.backend.recipe.application.job.RecommendationDailyGeneration;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionResult;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

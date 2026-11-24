@@ -2,7 +2,7 @@ package com.dameokja.backend.recipe.infrastructure.kafka;
 
 import com.dameokja.backend.global.common.EventEnvelope;
 import com.dameokja.backend.global.exception.CustomException;
-import com.dameokja.backend.recipe.application.RecommendationKafkaCompletionService;
+import com.dameokja.backend.recipe.application.completion.RecommendationKafkaCompletionService;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

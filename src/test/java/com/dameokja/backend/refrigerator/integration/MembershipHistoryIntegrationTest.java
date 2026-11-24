@@ -2,8 +2,8 @@ package com.dameokja.backend.refrigerator.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.refrigerator.application.membership.MembershipHistoryService;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeEvent;
 import com.dameokja.backend.refrigerator.domain.MembershipChangeType;

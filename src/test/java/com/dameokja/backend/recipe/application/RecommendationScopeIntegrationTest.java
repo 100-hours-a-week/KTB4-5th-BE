@@ -5,14 +5,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionResult;
+import com.dameokja.backend.recipe.application.job.RecommendationSubmissionService;
 import com.dameokja.backend.recipe.domain.RecommendationList;
 import com.dameokja.backend.recipe.domain.RecommendationState;
 import com.dameokja.backend.recipe.exception.RecommendationExceptionCode;
 import com.dameokja.backend.recipe.infrastructure.RecommendationListRepository;
 import com.dameokja.backend.recipe.infrastructure.RecommendationStateRepository;
 import com.dameokja.backend.recipe.infrastructure.ai.AiRecipeClient;
-import com.dameokja.backend.refrigerator.application.InvitationService;
-import com.dameokja.backend.refrigerator.application.MembershipService;
+import com.dameokja.backend.refrigerator.application.invitation.InvitationService;
+import com.dameokja.backend.refrigerator.application.membership.MembershipService;
 import com.dameokja.backend.support.ServiceIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.params.ParameterizedTest;

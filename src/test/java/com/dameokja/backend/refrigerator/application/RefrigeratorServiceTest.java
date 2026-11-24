@@ -6,6 +6,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.dameokja.backend.global.exception.CustomException;
+import com.dameokja.backend.refrigerator.application.expiration.MonthlyExpirationService;
+import com.dameokja.backend.refrigerator.application.membership.MemberListView;
 import com.dameokja.backend.refrigerator.domain.Refrigerator;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorExceptionCode;
 import com.dameokja.backend.refrigerator.domain.RefrigeratorMember;

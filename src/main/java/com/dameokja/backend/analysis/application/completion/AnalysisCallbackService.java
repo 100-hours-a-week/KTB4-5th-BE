@@ -4,8 +4,8 @@ import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker
 import com.dameokja.backend.analysis.domain.AiAnalysisIdentifiers;
 import com.dameokja.backend.analysis.domain.AnalysisCompletion;
 import com.dameokja.backend.analysis.exception.AnalysisExceptionCode;
-import com.dameokja.backend.analysis.infrastructure.AnalysisCallbackParking;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisCallbackParking;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.global.exception.CustomException;
 import com.dameokja.backend.global.exception.GlobalExceptionCode;
 import lombok.RequiredArgsConstructor;

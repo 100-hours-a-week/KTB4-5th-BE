@@ -4,7 +4,7 @@ import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchLeaseS
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchSender;
 import com.dameokja.backend.analysis.application.dispatch.AnalysisDispatchWorker;
 import com.dameokja.backend.analysis.domain.AnalysisJob;
-import com.dameokja.backend.analysis.infrastructure.AnalysisJobStore;
+import com.dameokja.backend.analysis.infrastructure.redis.AnalysisJobStore;
 import com.dameokja.backend.analysis.infrastructure.ai.AiAnalysisClient;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitRequest;
 import com.dameokja.backend.analysis.infrastructure.ai.AiImageAnalysisSubmitResponse;
